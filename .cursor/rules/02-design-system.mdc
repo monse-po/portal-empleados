@@ -1,0 +1,89 @@
+---
+description: Sistema visual HMV — tokens, layout y componentes compartidos
+alwaysApply: true
+---
+
+# Sistema visual
+
+## Tokens (globals.css + tailwind.config.ts)
+
+- Colores: `navy` `#014783`, `gold` `#EBAB01`, `bg` `#f5f7fa`, `border` `#e5e9f0`, `text`, `muted`, `green`, `orange`
+- Radio: `radius-sm` 6px, `radius` 8px, `radius-lg` 10px
+- Tipografía: Inter, base **13px** (`text-base`)
+
+## Layout
+
+- Contenido estándar: `content-standard` → max **1100px** (calendario, vistas compactas)
+- Tablas/listas/formularios: `view-wide` → max **1320px** (siempre, con poca o mucha data)
+- Las clases viven en `globals.css`; el ancho lo define el contenedor, no la cantidad de filas
+- Page header: título `text-xl font-bold text-[#111]` + subtítulo `text-[13px] text-[#4b5563]`
+- CTA principal arriba a la derecha del header
+- **Breadcrumb / volver** (subpáginas y detalle): siempre `PageBreadcrumb` — chip azul `#eef3f9` + borde, **13px semibold**, flecha `sm`, texto navy; segmento opcional ` / …` en `#4b5563`; **sin** botón cuadrado icon-only aparte
+- Subvistas y formularios: `PortalSubpageHeader`; detalle de registro: `RecordDetailHeader` / `AnticipoDetailHeader` (mismo breadcrumb)
+
+## Componentes compartidos (`src/components/ui/`)
+
+| Componente | Uso |
+|------------|-----|
+| `Button` | `primary` / `success` / `danger` / `secondary` / `tertiary`, `rounded-[7px]`, `text-xs font-semibold` |
+| `PageBreadcrumb` | Volver + segmento — subpáginas y detalle |
+| `PortalSubpageHeader` | Breadcrumb + H1 + trailing (formularios, vista día) |
+
+## Botones — jerarquía de acción
+
+| Variante | Peso | Uso |
+|----------|------|-----|
+| `primary` | Alto — navy sólido | CTA de página/lista («Agregar registro», «Solicitar anticipo») |
+| `success` | Alto — verde sólido | Confirmar, enviar, aprobar |
+| `secondary` | Medio — azul suave `#eef3f9` | Acción alternativa positiva: «Agregar al día» |
+| `tertiary` | Medio-bajo — outline gris | Cancelar, volver, anular; neutro sin tinte azul |
+| `danger` | Alerta — rojo suave | Rechazar, confirmar cancelación |
+
+Utilidades fuera de `Button`: `btn-link` (Copiar día anterior), `TableAproIconButton` (inline tabla).
+
+- Footer modales/formularios: `tertiary` (cancelar) · `secondary` (acción intermedia) · `success` (confirmar)
+| `Card` + `CardHeader` + `CardBody` | Secciones; header `#fafbfc`, título navy |
+| `Pill` + helpers | Estados: `EstadoAnticipoPill`, `EstadoTiempoPill` — no texto plano ni colores ad hoc |
+| `TipoAnticipoPill` | Tipo anticipo Gasto/Viaje — tablas, detalle y selector de formulario |
+| `TipoHoraPill` | Tipo de hora — tablas, detalle y formulario de registro |
+| `Modal` | Portal `z-[1100]`, Escape + overlay, footer opcional |
+| `Toast` | `green` / `danger` / `navy` / `warn`, 3500ms |
+| `Field` | Label 12px semibold, asterisco rojo si requerido |
+| `Icon` | Lucide, tamaños `xs`–`xl` |
+| `TableFilterBar` | Controles de filtro por columna (`TableFilterSection` va fuera del Card de tabla) |
+| `BulkSelectionBar` | Barra selección en lote — tab pendientes (`Button success` / `danger`) |
+| `TableSelectionCheckbox` | Checkbox estándar en columnas de tabla |
+| `TableAproIconButton` | Aprobar / rechazar / anular inline en fila (30×30) |
+
+## Pills (estado, tipo, etc.)
+
+- **Siempre** vía `Pill`, `Estado*Pill`, `TipoAnticipoPill` o `TipoHoraPill` — nunca spans ad hoc en tablas
+- **Sin border** en ninguna pill; solo `background` + `color` según semántica
+- Geometría fija (`pillBase`): `rounded-full px-2.5 py-[3px] text-[11px] font-semibold`
+- Estados → `estado*PillVariant`; tipos anticipo → `gasto` / `viaje`; tipos hora → colores de `getTipoHoraMeta`
+- Inactivo (selector): variante `inactivo` (`bg-[#f3f4f6] text-muted`), mismo estilo para todos los tipos
+
+## Tabs
+
+- Contenedor `border-b-2 border-[#e5e9f0]`
+- Activo: `border-b-navy font-bold text-navy`
+- Badge conteo: `rounded-full bg-[#eef3f9] text-[10px] font-semibold text-navy`
+
+## Tablas
+
+- `DataTable`: `table-fixed`, `text-[12px]`, `TABLE_PAGE_SIZE = 50`
+- TH: 10px uppercase muted; hover fila `#fafbfc`; filas clicables → detalle
+- Filtros: barra Notion (`+ Filtro`, chips removibles) externa al Card; ver `10-tables-filters.mdc`
+
+## Formularios
+
+- Secciones en Cards; grid `md:grid-cols-3`
+- Tipo anticipo: `TipoAnticipoPill` con `active` + `onClick` (sin border; Gasto morado / Viaje rosa solo en fondo)
+- Tipo hora: `TipoHoraPill` en selector y tablas
+- Estados siempre con `EstadoAnticipoPill` o `EstadoTiempoPill` — nunca texto suelto
+- Campos solo lectura: fondo `#f3f4f6`, `cursor-not-allowed`
+- Footer: hint izquierda (icon info + texto muted 11.5px) + acciones derecha (`tertiary` · `secondary` · `success`)
+
+## Nav badges (pendientes)
+
+- Fondo `#dbeafe`, texto `#1d4ed8`; mostrar `9+` si supera 9

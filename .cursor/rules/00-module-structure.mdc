@@ -1,0 +1,60 @@
+---
+description: Estructura de módulos y convenciones de carpetas en hoja-tiempo
+alwaysApply: true
+---
+
+# Estructura de módulos
+
+Cada módulo nuevo sigue este layout en `src/app/{ruta}/`:
+
+```
+page.tsx              # export delgado; RoleRouteGuard si es ruta gerente
+{Modulo}View.tsx      # state machine: "lista" | "detalle" | "form"
+{Modulo}Context.tsx   # estado, tab, mutaciones, selectores
+{Modulo}Lista.tsx     # header + tabs + Card
+{Modulo}Tabla.tsx     # Perfil A: DataTable + paginación | Perfil B: solo DataTable
+{Modulo}FilterBar.tsx # Perfil A aprobaciones: barra filtros externa (FilterChainRow)
+{Modulo}ColFiltros.tsx  # legacy — migrar a FilterBar (ver 11-aprobacion-list-ui.mdc)
+{Modulo}Detalle.tsx
+{Modulo}Modals.tsx
+{Modulo}Formulario.tsx  # solo módulos empleado con alta/edición
+```
+
+Datos y filtros en `src/lib/{modulo}-mock.ts` y `src/lib/{modulo}-filtros.ts`.
+
+## Providers
+
+- **Global** (`AppProviders`): módulos con badges en nav o sync cross-módulo (aprobación tiempo/anticipos, Mi Tiempo).
+- **Local** (en `{Modulo}View`): módulos autocontenidos del empleado (ej. `AnticiposProvider`).
+
+## Roles y rutas
+
+| Rol | Home | Solo gerente |
+|-----|------|--------------|
+| `gerente` | `/aprobacion-tiempo` | `/aprobacion-tiempo`, `/aprobacion-anticipos` |
+| `empleado` | `/hoja-tiempo` | — |
+
+Rutas gerente: `<RoleRouteGuard allow="gerente">` en `page.tsx`. Rol en `sessionStorage` (`hmv-usuario-rol`).
+
+## Vista y navegación
+
+- `{Modulo}View` posee `vista` + `detalleNo`; Lista/Detalle/Form son hermanos.
+- Modales de confirmación en View o Detalle; toast tras mutación; `volverLista()` al cerrar.
+- Listas/tablas/formularios usan `className="view-wide"` (1320px). Vistas compactas usan `content-standard` (1100px).
+
+## Tablas
+
+Dos perfiles — ver regla `10-tables-filters.mdc`:
+
+- **Perfil A (listado/aprobación):** `FilterBar` + `FilterChainRow` encima de tabla, paginación, `*-filtros.ts` rule-based. Con selección masiva: `12-table-selection-bulk.mdc`.
+- **Perfil B (display/excepción):** `DataTable` sin filtros ni paginación. Mi Día, historial agrupado.
+
+## Git — ramas por módulo
+
+- **`main`:** app integrada; debe correr siempre con `npm run dev`.
+- **`cursor/modulo-tiempo`:** `/hoja-tiempo` + `/aprobacion-tiempo` + Prisma/server actions tiempo.
+- **`cursor/modulo-anticipos`:** `/mis-anticipos` + `/aprobacion-anticipos` + libs anticipos.
+- **`cursor/shell-shared`:** layout, `src/components/ui/*`, tokens, `AppProviders`.
+- Módulos nuevos: `cursor/modulo-{nombre}` desde `main`; merge al integrar par empleado+gerente.
+
+Detalle: `docs/MODULES.md`.

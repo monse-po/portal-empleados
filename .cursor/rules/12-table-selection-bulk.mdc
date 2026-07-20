@@ -1,0 +1,81 @@
+---
+description: Tablas con checkbox, selección en lote y acciones de aprobación (estándar reutilizable)
+globs: src/app/**/*Tabla.tsx,src/app/**/*Lista.tsx,src/app/**/*Context.tsx,src/components/ui/BulkSelectionBar.tsx,src/components/ui/TableSelectionCheckbox.tsx,src/components/ui/TableAproIconButton.tsx,src/lib/use-table-selection.ts
+alwaysApply: false
+---
+
+# Tablas con selección y aprobación masiva
+
+**Referencia canónica:** `AprobacionTabla` + `AprobacionLista` + `useTableSelection`.
+
+Aplicar el mismo patrón en cualquier módulo gerente con tab **Pendientes** + acciones aprobar/rechazar.
+
+## Cuándo usar
+
+- **Tab Pendientes:** columna checkbox + columna acciones + `BulkSelectionBar`
+- **Tab Resueltas:** sin checkbox; spacer 28px al inicio; acción **Anular** solo si aplica (tiempo)
+
+## Layout en `{Modulo}Lista`
+
+```
+Header → KPIs → [barra contexto] → BulkSelectionBar (si seleccion.size > 0)
+→ TableFilterSection → Card (tabs + tabla + paginación)
+```
+
+- `BulkSelectionBar` **fuera** del Card, `className="mb-3.5"`
+- Visible solo en tab pendientes y `seleccion.size > 0`
+- Entre barra de contexto (proyecto, etc.) y filtros
+
+## Estado (`{Modulo}Context`)
+
+```tsx
+const { seleccion, toggleSeleccion, toggleSeleccionLote, clearSeleccion } =
+  useTableSelection();
+```
+
+- `clearSeleccion()` al cambiar tab, proyecto o tras mutación aprobar/rechazar/anular
+- Exponer `seleccion`, `toggleSeleccion`, `toggleSeleccionLote`, `clearSeleccion` en el context
+
+## Tabla — columnas (`DataTable.tsx`)
+
+| Token | Ancho | Uso |
+|-------|-------|-----|
+| `CHECKBOX_COL_WIDTH` | 36px | Primera col pendientes |
+| `ACTION_COL_WIDTH` | 72px | Acciones pendientes (2 botones) |
+| `RES_TAB_SPACER_COL` | 28px | Alineación resueltas |
+| `RES_TAB_ACTION_COL` | 56px | Anular resueltas |
+
+Clases: `dataThCheck`/`dataTdCheck`, `dataThAction`/`dataTdAction`, `TableCheckboxWrap`, `TableActionWrap`.
+
+`colWidths` pendientes: `[CHECKBOX_COL_WIDTH, …%, ACTION_COL_WIDTH]`.
+
+## Checkbox
+
+Usar `TableSelectionCheckbox` — nunca `<input>` suelto.
+
+- Fila: `checked={seleccion.has(id)}`, `onChange={() => toggleSeleccion(id)}`
+- Header: `getSelectionState(seleccion, idsFiltrados)` → `allSelected`, `someSelected`; `indeterminate={someSelected && !allSelected}`
+- Select-all opera sobre **todos los ids filtrados** (`registros.map(r => r.no)`), no solo la página
+
+## Celdas interactivas vs fila clicable
+
+```tsx
+<td className={dataTdCheck} onClick={(e) => e.stopPropagation()}>
+<td className={dataTdAction} onClick={(e) => e.stopPropagation()}>
+```
+
+Fila: `cursor-pointer hover:bg-[#fafbfc]` + `onClick` → detalle.
+
+## Acciones inline (fila)
+
+`TableAproIconButton` — 30×30, `variant="ok"|"no"|"undo"`, dentro de `TableActionWrap`.
+
+## Acciones en lote (barra)
+
+`BulkSelectionBar` — fondo `#eef3f9`, borde `border-navy`, badge contador navy.
+
+Botones: `Button variant="success"` (Aprobar) + `Button variant="danger"` (Rechazar) con iconos `check`/`x`.
+
+## Mutaciones
+
+Lista pasa `[...seleccion]` a handlers del View; View abre modal si rechazo requiere comentario; Context limpia selección tras mutación.

@@ -1,0 +1,47 @@
+---
+description: Tablas de listado/aprobación (barra filtros externa) vs tablas display (excepciones)
+globs: src/app/**/*Tabla.tsx,src/app/**/*FilterBar.tsx,src/lib/**/*-filtros.ts,src/app/**/MiTiempoDia.tsx,src/app/**/MiTiempoLista.tsx,src/components/ui/TableFilterBar.tsx
+alwaysApply: false
+---
+
+# Tablas — dos perfiles
+
+## Perfil A: Listado / aprobación (barra filtros externa)
+
+**Referencia:** `AprobacionFilterBar` + `aprobacion-filtros.ts` + regla `11-aprobacion-list-ui.mdc`.
+
+**Estructura:**
+- `TableFilterSection` fuera del `Card` / `DataTable`
+- Cadena `FilterChainRow`: `[Columna] [operador] [control] [×]` + botón **+ Filtros**
+- Tabla recibe registros ya filtrados; `<th>` plano (sin filtros en header)
+
+**Aprobación hoja de tiempo:**
+- **Tipo hora** — multiselect, ambas tabs
+- **Estado** — multiselect, solo tab Resueltas
+- **Limpiar todo** cuando hay filtros activos
+- Barra deshabilitada sin proyecto; filtros se limpian al cambiar proyecto
+- Estado se limpia al volver a Pendientes
+
+**Aprobación anticipos:** mismo patrón (`AprobacionAnticiposFilterBar` + `aprobacion-anticipos-filtros.ts`). Sin selector de proyecto global; filtros siempre habilitados en ambas tabs.
+
+**Sin shadow** en barra ni popovers de filtro.
+
+**Contador:** `mostrando X de Y` cuando hay filtros activos.
+
+**Aprobación masiva:** ver regla `12-table-selection-bulk.mdc` — checkbox, `BulkSelectionBar`, `useTableSelection`.
+
+**Dos tabs:** Pendientes y Resueltas.
+
+## Columnas numéricas
+
+Valores de pocos dígitos (horas, cantidades) van **centrados** en header y celda:
+
+- Header: `dataThWithAlign("text-center")` o `dataThCenter` (no combinar `dataTh` + `text-center` — `text-left` gana en Tailwind)
+- Celda: `dataTdNumeric` / `dataTdResNumeric` (sin `text-left` en la misma celda)
+- Incluye `tabular-nums` para alinear dígitos
+
+---
+
+## Perfil B: Display / contexto acotado (excepción — sin filtros)
+
+`MiTiempoDia`, `MiTiempoLista` — sin barra de filtros ni paginación salvo migración a Perfil A.

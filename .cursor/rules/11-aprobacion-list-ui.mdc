@@ -1,0 +1,112 @@
+---
+description: Layout, filtros y componentes visuales de listas de aprobación (tiempo y anticipos)
+globs: src/app/aprobacion-*/**/*,src/lib/aprobacion-*-filtros.ts,src/components/ui/FilterChainRow.tsx,src/components/ui/TableFilterBar.tsx,src/components/ui/DateRangePicker.tsx,src/components/ui/DropdownAffordance.tsx
+alwaysApply: false
+---
+
+# Listas de aprobación — UI y componentes
+
+**Referencia canónica:** `AprobacionLista` + `AprobacionFilterBar` + `aprobacion-filtros.ts`.
+
+Aplicar el mismo patrón en `aprobacion-anticipos` (`AprobacionAnticiposLista`, `AprobacionAnticiposFilterBar`, `aprobacion-anticipos-filtros.ts`).
+
+## Layout (`view-wide`)
+
+```
+Header (h1 + subtítulo)
+→ KPIs (grid 2×2 / 4 cols)
+→ Barra contexto (proyecto, etc.)     [tiempo: obligatorio proyecto]
+→ BulkSelectionBar (si hay selección)  [ver 12-table-selection-bulk.mdc]
+→ TableFilterSection (barra filtros externa)
+→ Card (tabs + tabla + paginación)
+```
+
+- Bulk actions vía `BulkSelectionBar` fuera del Card (`Button success` / `Button danger`)
+- Filtros **nunca** en `<th>`; headers planos (`dataTh`).
+- Tab Resueltas: columna Estado disponible en filtros; al volver a Pendientes quitar filtro `estado`.
+
+## Barra de filtros (FilterChainRow)
+
+Flujo:
+1. **+ Filtros** → menú simple de columnas (icono + label, sin buscador ni flechas `›`).
+2. Al elegir columna → menú se cierra; aparece cadena horizontal:
+
+   `[Columna] [operador] [control + chips] [×]`
+
+3. Operadores por tipo:
+   - multiselect → `es`
+   - texto → `contiene`
+   - fecha → `entre`
+   - numérico (horas/monto) → `=`, `≥`, `≤`, `entre`
+
+4. Multiselect: chips visibles en la cadena; botón sigue diciendo **elegir…**
+5. Reglas en **AND**; valores multiselect en **OR**
+6. **Limpiar todo** cuando hay filtros activos
+
+Componentes:
+- `FilterChainRow` — `src/components/ui/FilterChainRow.tsx`
+- `TableFilterSection`, `FilterBarMultiDropdown`, `FilterBarTrigger`, `FilterBarTextInput` — `TableFilterBar.tsx`
+- `DateRangePicker` compacto (252px) en `Dropdown` con `fitContent`
+- `SelectControl` / `DropdownChevron` — `DropdownAffordance.tsx`
+
+Colores cadena de filtro:
+- Activo: borde `#c7d9ed`
+- Segmento columna: fondo `#f4f7fb`
+- +Filtros: borde dashed `#c7d9ed`, hover `#f4f7fb`
+- Separadores internos: `#e5e9f0`
+
+## Datepicker filtro
+
+- Clase CSS: `rdp-hmv-filter` en `globals.css`
+- `compact`, `resetOnSelect`, `onRangeComplete` cierra popover
+- `showOutsideDays={false}`, `defaultMonth` al abrir
+- Dropdown: `fitContent`, `w-[252px]`, sin scroll
+
+## KPIs
+
+- Normal: `border-border bg-white`, valor `text-navy text-[28px]`
+- Alerta (pendientes): `border-[#fcd34d] bg-[#fffbeb]`, valor `text-[#b45309]`
+- Label: `text-[11px] font-semibold uppercase tracking-wide text-muted`
+
+## Tabs
+
+- Borde inferior Card: `border-b-2 border-[#e5e9f0]`
+- Activo: `border-b-navy font-bold text-navy`
+- Badge conteo: `bg-[#eef3f9] text-navy text-[10px]`
+
+## Tabla
+
+- Hover fila: `hover:bg-[#fafbfc]`
+- **Celdas:** `dataTd` / `dataTdNumeric` en ambas tabs (misma altura y `align-middle`); línea secundaria apilada `text-[11px] text-[#9ca3af]`
+- Paginación: `TABLE_PAGE_SIZE` (50)
+- Acciones inline fila: `TableAproIconButton` 30×30px (ver `12-table-selection-bulk.mdc`)
+- Sin shadow en barra ni popovers de filtro
+- **Columnas numéricas** (horas, etc.): header `text-center`, celda `dataTdNumeric` / `dataTdResNumeric`
+
+### Tabs resueltas — anchos de columna
+
+Definir en `DataTable.tsx` usando `table-fixed`. Los `%` se calculan sobre el ancho total; columnas fijas en `px` consumen espacio adicional.
+
+| Presupuesto | Columnas fijas | Suma % máxima |
+|-------------|----------------|---------------|
+| `RES_TAB_PCT_BUDGET.SPACER_ONLY` (97) | `RES_TAB_SPACER_COL` (28px) | Anticipos resueltas → `APRO_ANT_COLS_RES` |
+| `RES_TAB_PCT_BUDGET.WITH_ACTION` (93) | spacer + `RES_TAB_ACTION_COL` (56px) | Tiempo resueltas → `APRO_RES_COLS` |
+
+**Tiempo resueltas:** mismas proporciones que pendientes (`APRO_RES_COLS` = fechas/empleado/subproy/actividad iguales; motivo 26% como comentario en pendientes). Render igual que pendientes (`renderSubproy`, `dataTdClamp` en motivo).
+
+**Anticipos resueltas:** proporciones alineadas a `APRO_ANT_COLS_PEND`; columnas compactas en 2 líneas apiladas.
+
+## Contador resultados
+
+Cuando hay filtros activos: **mostrando X de Y** (`text-[12px] text-muted`, números `text-navy`).
+
+## Motor de filtros (`*-filtros.ts`)
+
+- Modelo rule-based: `AproFilterRule[]` / `AproAntFilterRule[]`
+- Helpers: `apply*Filters`, `hayFiltrosActivos`, `isRuleComplete`, `upsertFilterRule`, `removeFilterByColumn`, `getFilterForColumn`, `getDistinctValues`, `getFilterColumns(tab)`
+
+## Hoja de tiempo — extras
+
+- Barra filtros **deshabilitada** sin proyecto (`opacity-45 pointer-events-none`)
+- Filtros se limpian al cambiar proyecto
+- Barra proyecto: `SelectControl` + `AprobacionProyMeta`

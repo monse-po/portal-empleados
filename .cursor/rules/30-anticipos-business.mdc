@@ -1,0 +1,60 @@
+---
+description: Reglas de negocio del módulo Anticipos (empleado y gerente)
+globs: src/app/**/mis-anticipos/**,src/app/**/aprobacion-anticipos/**,src/lib/*anticipos*
+alwaysApply: false
+---
+
+# Anticipos — reglas de negocio
+
+## Estados y tabs (empleado: Mis Anticipos)
+
+| Tab UI | Key interno | Estados | `disponible` |
+|--------|-------------|---------|--------------|
+| En proceso | `pendientes` | Lanzado, Aprobado | `false` |
+| Historial | `disponibles` | Pagado, Rechazado, Cancelado | `true` |
+
+- No hay borrador: enviar crea estado **Lanzado** directamente.
+- Códigos: **AG####** (Gasto), **AV####** (Viaje).
+
+## R-01 — Solicitud para otro empleado
+
+- Solicitante = usuario logueado; pago va a cuenta del beneficiario.
+- Al enviar: toast confirma registro; la solicitud aparece en la lista del solicitante con el **nombre del beneficiario**.
+- El beneficiario la ve con su nombre en columna **Beneficiario** y, si aplica, «Solicitado por …» debajo.
+- Visibilidad: registro visible si el usuario es solicitante **o** beneficiario (mismas tabs En proceso / Historial).
+- Columna **Beneficiario** en tabla: nombre de quien recibe el pago; sublínea solo si otro empleado la registró.
+- Filtro multiselect **Beneficiario** en barra externa.
+- Cancelación: solo si el usuario es quien registró (`puedeCancelarEmpleado`).
+
+## Cancelación (empleado)
+
+- Solo estado **Lanzado** y si el usuario es el solicitante (`puedeCancelarEmpleado`).
+- Resultado: Historial como **Cancelado**, `pago: "—"`, timeline "Cancelado por el empleado".
+
+## Viaje
+
+- Fecha ida ≥ **2 días hábiles** desde hoy (`agregarDiasHabiles`, `fechaMinSalida`).
+- Regreso > ida; destino obligatorio.
+- `tipoViaje`: nacional si país CO, internacional si no.
+
+## Validación al enviar
+
+- Monto > 0; motivo ≥ 5 caracteres.
+- Compañía, proyecto y empleado requeridos según flujo (propio vs otro).
+
+## Aprobación (gerente)
+
+Tabs: **Pendientes** / **Resueltas** (`estadoApro: ""` vs resuelto). En Resueltas: pills Aprobado/Rechazado + motivo.
+
+- ColFiltros **solo en Pendientes**; tabs resueltos muestran columnas de resolución.
+- **Aprobación masiva** en tab Pendientes: checkbox por fila + select-all en header + barra de acciones al seleccionar; modales de confirmación para lote (igual que aprobación hoja de tiempo).
+- Tabs de aprobación gerente: **2 secciones** — **Pendientes** (checkbox + acciones) y **Resueltas** (aprobadas + rechazadas juntas). Referencia: `aprobacion-tiempo`.
+- Aprobar: IFS procesa el pago; acción irreversible.
+- Rechazar: **definitivo** — empleado debe crear nueva solicitud; motivo obligatorio.
+- KPI alerta: borde/ fondo amber (`#fffbeb` / `#fcd34d`).
+
+## Datos mock
+
+- Fecha fija: `HOY_MOCK` en `mi-tiempo-mock.ts`; fechas display DMY, ISO solo para inputs/filtros.
+- Divisas por compañía (`DIVISAS_POR_COMPANIA`).
+- Catálogos (compañías, empleados, destinos) son mock; en producción vienen de IFS.

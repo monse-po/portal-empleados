@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum RegistroEstadoDb {
+  REGISTRADO
+  EN_REVISION
+  APROBADO
+  RECHAZADO
+}
+
+model Empleado {
+  id        String           @id
+  nombre    String
+  registros RegistroTiempo[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model Proyecto {
+  id        String           @id
+  nombre    String
+  cliente   String
+  registros RegistroTiempo[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model RegistroTiempo {
+  id                String           @id @default(cuid())
+  legacyId          String?          @unique
+  codigo            String           @unique
+  empleadoId        String
+  proyectoId        String
+  subproyecto       String?
+  actividad         String
+  tipoHora          String
+  horas             Float
+  fecha             DateTime
+  comentario        String           @default("")
+  comentarioRechazo String           @default("")
+  aprobador         String?
+  estado            RegistroEstadoDb @default(REGISTRADO)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  empleado Empleado @relation(fields: [empleadoId], references: [id])
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id])
+
+  @@index([empleadoId, fecha])
+  @@index([estado])
+}
