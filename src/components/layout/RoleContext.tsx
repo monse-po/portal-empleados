@@ -4,9 +4,11 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from "react";
+import { getHomePathForRole } from "@/src/lib/modules";
 
 export type UsuarioRol = "gerente" | "empleado";
 
@@ -17,6 +19,7 @@ type RoleContextValue = {
   setRol: (rol: UsuarioRol) => void;
   isGerente: boolean;
   homePath: string;
+  roleReady: boolean;
 };
 
 const RoleContext = createContext<RoleContextValue | null>(null);
@@ -28,7 +31,13 @@ function readStoredRol(): UsuarioRol {
 }
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [rol, setRolState] = useState<UsuarioRol>(readStoredRol);
+  const [rol, setRolState] = useState<UsuarioRol>("gerente");
+  const [roleReady, setRoleReady] = useState(false);
+
+  useEffect(() => {
+    setRolState(readStoredRol());
+    setRoleReady(true);
+  }, []);
 
   const setRol = useCallback((next: UsuarioRol) => {
     setRolState(next);
@@ -41,7 +50,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     rol,
     setRol,
     isGerente: rol === "gerente",
-    homePath: rol === "gerente" ? "/aprobacion-tiempo" : "/hoja-tiempo",
+    homePath: getHomePathForRole(rol),
+    roleReady,
   };
 
   return (

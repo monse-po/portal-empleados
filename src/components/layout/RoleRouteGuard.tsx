@@ -11,13 +11,15 @@ type RoleRouteGuardProps = {
 
 export function RoleRouteGuard({ allow, children }: RoleRouteGuardProps) {
   const router = useRouter();
-  const { rol, homePath } = useRole();
+  const { rol, homePath, roleReady } = useRole();
 
   useEffect(() => {
+    if (!roleReady) return;
     if (allow === "any" || rol === allow) return;
     router.replace(homePath);
-  }, [allow, homePath, rol, router]);
+  }, [allow, homePath, roleReady, rol, router]);
 
+  if (!roleReady) return null;
   if (allow !== "any" && rol !== allow) return null;
 
   return children;

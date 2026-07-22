@@ -6,6 +6,7 @@ import { Dropdown } from "@/src/components/ui/Dropdown";
 import { Field } from "@/src/components/ui/Field";
 import { DropdownChevron, SelectControl } from "@/src/components/ui/DropdownAffordance";
 import { Icon } from "@/src/components/ui/Icon";
+import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
 import {
   inputClassWithError,
   MonthDateInput,
@@ -244,61 +245,53 @@ function RegistroHorasForm({
       </button>
 
       <Field label="Proyecto" required error={errors.proy}>
-        <SelectControl
+        <SearchableSelect
           value={form.proy}
-          onChange={(e) => handleProyChange(e.target.value)}
-          className={inputClassWithError(!!errors.proy)}
-        >
-          <option value="">Seleccionar...</option>
-          {PROYECTOS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.id} – {p.nombre}
-            </option>
-          ))}
-        </SelectControl>
+          onChange={handleProyChange}
+          options={PROYECTOS.map((p) => ({
+            value: p.id,
+            label: `${p.id} – ${p.nombre}`,
+            hint: p.sub,
+          }))}
+          placeholder="Seleccionar..."
+          searchPlaceholder="Buscar proyecto..."
+          error={!!errors.proy}
+        />
       </Field>
 
       <Field label="Subproyecto" required error={errors.sub}>
-        <SelectControl
+        <SearchableSelect
           value={form.sub}
-          disabled={!form.proy}
-          onChange={(e) => handleSubChange(e.target.value)}
-          className={inputClassWithError(!!errors.sub)}
-        >
-          <option value="">
-            {form.proy
+          onChange={handleSubChange}
+          options={subs.map((s) => ({ value: s, label: s }))}
+          placeholder={
+            form.proy
               ? "Seleccionar subproyecto..."
-              : "Selecciona un proyecto primero"}
-          </option>
-          {subs.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </SelectControl>
+              : "Selecciona un proyecto primero"
+          }
+          searchPlaceholder="Buscar subproyecto..."
+          disabled={!form.proy}
+          error={!!errors.sub}
+        />
       </Field>
 
       <Field label="Actividad" required error={errors.act}>
-        <SelectControl
+        <SearchableSelect
           value={form.act}
-          disabled={!form.sub}
-          onChange={(e) => {
-            patch({ act: e.target.value });
+          onChange={(act) => {
+            patch({ act });
             clearError("act");
           }}
-          className={inputClassWithError(!!errors.act)}
-        >
-          <option value="">
-            {form.sub
+          options={acts.map((a) => ({ value: a, label: a }))}
+          placeholder={
+            form.sub
               ? "Seleccionar actividad..."
-              : "Selecciona un subproyecto primero"}
-          </option>
-          {acts.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </SelectControl>
+              : "Selecciona un subproyecto primero"
+          }
+          searchPlaceholder="Buscar actividad..."
+          disabled={!form.sub}
+          error={!!errors.act}
+        />
       </Field>
 
       <div className="flex flex-wrap gap-3.5">
@@ -412,11 +405,13 @@ function RegistroHorasForm({
       <div className="space-y-2 rounded-lg border border-[#e5e9f0] bg-[#f8fafc] px-3 py-2.5 text-[11.5px] leading-relaxed text-muted">
         <p>
           <span className="font-semibold text-[#374151]">Agregar al día:</span>{" "}
-          guarda sin enviar. Puedes seguir editando.
+          guarda como borrador. Puedes editarlo o eliminarlo cuando quieras.
         </p>
         <p>
           <span className="font-semibold text-[#15803d]">Enviar a Aprobación:</span>{" "}
-          envía el día al gerente. Después ya no se edita.
+          envía al gerente los registros en borrador de ese día. Puedes seguir
+          agregando registros nuevos; los ya enviados quedan bloqueados hasta
+          que el aprobador responda.
         </p>
       </div>
 
@@ -452,30 +447,39 @@ export function RegistrarHorasModal() {
       comentarioRechazo: wasRejected ? "" : registro.comentarioRechazo,
     };
 
-    if (mode === "enviar") {
-      const enviados = await upsertRegistroYEnviarDia(reg);
-      closeRegistrarModal();
-      if (!enviados.length) {
-        toast("No hay borradores para enviar", "warn");
+    try {
+      if (mode === "enviar") {
+        const enviados = await upsertRegistroYEnviarDia(reg);
+        closeRegistrarModal();
+        if (!enviados.length) {
+          toast("No hay borradores para enviar", "warn");
+          return;
+        }
+        toast(
+          enviados.length > 1
+            ? `${enviados.length} registros enviados a aprobación`
+            : "Día cerrado y enviado a aprobación",
+          "green",
+        );
         return;
       }
-      toast(
-        enviados.length > 1
-          ? `${enviados.length} registros enviados a aprobación`
-          : "Día cerrado y enviado a aprobación",
-        "green",
-      );
-      return;
-    }
 
-    await upsertRegistro(reg);
-    closeRegistrarModal();
-    toast(
-      modal?.editId
-        ? "Registro actualizado en el día"
-        : "Agregado al día — aún no se envió a aprobación",
-      "navy",
-    );
+      await upsertRegistro(reg);
+      closeRegistrarModal();
+      toast(
+        modal?.editId
+          ? "Registro actualizado en el día"
+          : "Agregado al día — aún no se envió a aprobación",
+        "navy",
+      );
+    } catch {
+      toast(
+        mode === "enviar"
+          ? "No se pudo enviar a aprobación. Intenta de nuevo."
+          : "No se pudo guardar el registro. Intenta de nuevo.",
+        "danger",
+      );
+    }
   };
 
   return (

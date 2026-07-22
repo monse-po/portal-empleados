@@ -39,6 +39,7 @@ type AprobacionFilterBarProps = {
   onChange: Dispatch<SetStateAction<AproFilterRule[]>>;
   tab: "pend" | "res";
   disabled?: boolean;
+  embedded?: boolean;
 };
 
 function valueOptionIcon(column: AproFilterColumn, val: string): IconName {
@@ -196,6 +197,18 @@ function ColumnBarControl({
         placeholder="elegir…"
         embedded
         defaultOpen={autoOpen}
+        searchable={
+          column === "subproy" ||
+          column === "actividad" ||
+          column === "empleado"
+        }
+        searchPlaceholder={
+          column === "subproy"
+            ? "Buscar subproyecto…"
+            : column === "actividad"
+              ? "Buscar actividad…"
+              : "Buscar empleado…"
+        }
       />
     );
   }
@@ -319,12 +332,15 @@ function ColumnBarControl({
   );
 }
 
+const QUICK_FILTER_COLUMNS: AproFilterColumn[] = ["empleado", "fecha", "subproy"];
+
 export function AprobacionFilterBar({
   registros,
   filters,
   onChange,
   tab,
   disabled = false,
+  embedded = false,
 }: AprobacionFilterBarProps) {
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [barColumns, setBarColumns] = useState<AproFilterColumn[]>([]);
@@ -356,82 +372,105 @@ export function AprobacionFilterBar({
   };
 
   return (
-    <TableFilterSection>
-      <div
-        className={`flex flex-wrap items-center gap-2 ${disabled ? "pointer-events-none opacity-45" : ""}`}
-      >
-        <span className="shrink-0 text-[13px] font-medium text-[#374151]">
-          Filtrar por:
-        </span>
+    <TableFilterSection embedded={embedded}>
+      <div className={`space-y-2.5 ${disabled ? "pointer-events-none opacity-45" : ""}`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+            <Icon name="filter" size="xs" />
+            Filtros
+          </span>
 
-        {barColumns.map((col) => {
-          const def = getFilterColumnDef(col);
-          const active =
-            !!getFilterForColumn(filters, col) && usedColumns.has(col);
-          return (
-            <FilterChainRow
-              key={col}
-              label={def.label}
-              icon={def.icon}
-              operator={filterOperatorLabel(col)}
-              active={active || !!getFilterForColumn(filters, col)}
-              onRemove={() => removeBarColumn(col)}
-            >
-              <ColumnBarControl
-                column={col}
-                registros={registros}
-                filters={filters}
-                onChange={onChange}
-                autoOpen={autoOpenColumn === col}
-              />
-            </FilterChainRow>
-          );
-        })}
+          {barColumns.map((col) => {
+            const def = getFilterColumnDef(col);
+            const active =
+              !!getFilterForColumn(filters, col) && usedColumns.has(col);
+            return (
+              <FilterChainRow
+                key={col}
+                label={def.label}
+                icon={def.icon}
+                operator={filterOperatorLabel(col)}
+                active={active || !!getFilterForColumn(filters, col)}
+                onRemove={() => removeBarColumn(col)}
+              >
+                <ColumnBarControl
+                  column={col}
+                  registros={registros}
+                  filters={filters}
+                  onChange={onChange}
+                  autoOpen={autoOpenColumn === col}
+                />
+              </FilterChainRow>
+            );
+          })}
 
-        <Dropdown
-          open={columnMenuOpen}
-          onOpenChange={setColumnMenuOpen}
-          portal
-          menuClassName="shadow-[0_4px_16px_rgba(0,0,0,0.10)] min-w-[220px] border-[#E5E7EB] py-1"
-          trigger={
+          {!disabled && barColumns.length === 0 ? (
+            <>
+              {QUICK_FILTER_COLUMNS.filter((col) =>
+                columns.some((c) => c.id === col),
+              ).map((col) => {
+                const def = getFilterColumnDef(col);
+                return (
+                  <button
+                    key={col}
+                    type="button"
+                    onClick={() => pickColumn(col)}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-[6px] border border-[#e5e9f0] bg-white px-2.5 py-1 text-[12px] font-medium text-[#374151] hover:border-navy hover:bg-[#f4f7fb]"
+                  >
+                    <Icon name={def.icon} size="xs" className="text-navy" />
+                    {def.label}
+                  </button>
+                );
+              })}
+              <span className="text-[12px] text-muted">o</span>
+            </>
+          ) : null}
+
+          <Dropdown
+            open={columnMenuOpen}
+            onOpenChange={setColumnMenuOpen}
+            portal
+            menuClassName="shadow-[0_4px_16px_rgba(0,0,0,0.10)] min-w-[220px] border-[#E5E7EB] py-1"
+            trigger={
+              <button
+                type="button"
+                onClick={() => setColumnMenuOpen((o) => !o)}
+                className="inline-flex cursor-pointer items-center gap-1 rounded-[6px] border border-dashed border-[#c7d9ed] bg-white px-2.5 py-1 text-[12px] font-semibold text-navy hover:border-navy hover:bg-[#f4f7fb]"
+              >
+                <Icon name="plus" size="xs" />
+                {barColumns.length === 0 ? "Más filtros" : "Agregar filtro"}
+              </button>
+            }
+          >
+            <div className="py-0">
+              {columns.map((col) => (
+                <button
+                  key={col.id}
+                  type="button"
+                  onClick={() => pickColumn(col.id)}
+                  className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-2.5 text-left text-[14px] font-normal text-[#1F2937] hover:bg-[#F3F4F6]"
+                >
+                  <Icon
+                    name={col.icon}
+                    size="sm"
+                    className="h-4 w-4 shrink-0 text-navy"
+                  />
+                  <span className="min-w-0 truncate">{col.label}</span>
+                </button>
+              ))}
+            </div>
+          </Dropdown>
+
+          {hayFiltrosActivos(filters) && (
             <button
               type="button"
-              onClick={() => setColumnMenuOpen((o) => !o)}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-[6px] border border-dashed border-[#c7d9ed] bg-white px-2.5 py-1 text-[12px] font-semibold text-navy hover:border-navy hover:bg-[#f4f7fb]"
+              onClick={clearAll}
+              className="cursor-pointer border-none bg-transparent px-1 text-[12px] font-semibold text-muted hover:text-navy"
             >
-              <Icon name="plus" size="xs" />
-              Filtros
+              Limpiar todo
             </button>
-          }
-        >
-          <div className="py-0">
-            {columns.map((col) => (
-              <button
-                key={col.id}
-                type="button"
-                onClick={() => pickColumn(col.id)}
-                className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-2.5 text-left text-[14px] font-normal text-[#1F2937] hover:bg-[#F3F4F6]"
-              >
-                <Icon
-                  name={col.icon}
-                  size="sm"
-                  className="h-4 w-4 shrink-0 text-navy"
-                />
-                <span className="min-w-0 truncate">{col.label}</span>
-              </button>
-            ))}
-          </div>
-        </Dropdown>
-
-        {hayFiltrosActivos(filters) && (
-          <button
-            type="button"
-            onClick={clearAll}
-            className="cursor-pointer border-none bg-transparent px-1 text-[12px] font-semibold text-muted hover:text-navy"
-          >
-            Limpiar todo
-          </button>
-        )}
+          )}
+        </div>
       </div>
     </TableFilterSection>
   );

@@ -79,3 +79,10 @@ Botones: `Button variant="success"` (Aprobar) + `Button variant="danger"` (Recha
 ## Mutaciones
 
 Lista pasa `[...seleccion]` a handlers del View; View abre modal si rechazo requiere comentario; Context limpia selección tras mutación.
+
+## Comentario en acciones masivas
+
+Si la acción masiva pide comentario/motivo (p. ej. rechazo), **un solo texto aplica a toda la selección**. El modal debe decirlo de forma clara, justo antes del campo:
+
+- Copy estándar: `BULK_COMENTARIO_APLICA_TODOS` en `src/lib/bulk-action-copy.ts`
+- Ubicación: después del resumen de selección, antes del textarea

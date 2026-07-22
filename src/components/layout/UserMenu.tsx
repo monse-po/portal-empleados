@@ -6,6 +6,7 @@ import { Icon } from "@/src/components/ui/Icon";
 import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
 import { useToast } from "@/src/components/ui/Toast";
 import { useRole, type UsuarioRol } from "@/src/components/layout/RoleContext";
+import { getHomePathForRole } from "@/src/lib/modules";
 
 export function UserMenu() {
   const { rol, setRol, homePath } = useRole();
@@ -39,8 +40,7 @@ export function UserMenu() {
     }
     setRol(next);
     setOpen(false);
-    const destino = next === "gerente" ? "/aprobacion-tiempo" : "/hoja-tiempo";
-    router.push(destino);
+    router.push(getHomePathForRole(next));
     toast(
       next === "gerente"
         ? "Vista de gerente activada"

@@ -368,7 +368,7 @@ export function getProyConMasPendientes(
 
 function isMesReferencia(fechaDmy: string): boolean {
   const [, m, y] = fechaDmy.split("/").map(Number);
-  const ref = new Date(HOY_MOCK + "T12:00:00");
+  const ref = HOY_MOCK;
   return y === ref.getFullYear() && m === ref.getMonth() + 1;
 }
 

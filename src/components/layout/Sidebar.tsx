@@ -3,10 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAprobacionAnticiposOptional } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposContext";
+import { useAprobacionLegalizacionesOptional } from "@/src/app/aprobacion-legalizaciones/AprobacionLegalizacionesContext";
 import { useAprobacionOptional } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 import { useRole } from "@/src/components/layout/RoleContext";
 import { useShell } from "@/src/components/layout/ShellContext";
+import {
+  getVisibleModules,
+  isPathVisible,
+  type ModuleRoute,
+} from "@/src/lib/modules";
 
 type NavItemProps = {
   label: string;
@@ -66,14 +72,58 @@ function NavSectionLabel({
   );
 }
 
+function usePendingCount(path: string): number | undefined {
+  const aprobacion = useAprobacionOptional();
+  const aprobacionAnticipos = useAprobacionAnticiposOptional();
+  const aprobacionLegalizaciones = useAprobacionLegalizacionesOptional();
+
+  let count = 0;
+  if (path === "/aprobacion-tiempo") count = aprobacion?.pendientesCount ?? 0;
+  else if (path === "/aprobacion-anticipos") {
+    count = aprobacionAnticipos?.pendientesCount ?? 0;
+  } else if (path === "/aprobacion-legalizaciones") {
+    count = aprobacionLegalizaciones?.pendientesCount ?? 0;
+  } else return undefined;
+
+  return count > 0 ? count : undefined;
+}
+
+function NavRouteItem({
+  route,
+  collapsed,
+  pathname,
+}: {
+  route: ModuleRoute;
+  collapsed: boolean;
+  pathname: string;
+}) {
+  const count = usePendingCount(route.path);
+  if (!isPathVisible(route.path)) return null;
+
+  return (
+    <NavItem
+      label={route.navLabel}
+      href={route.path}
+      icon={route.icon}
+      count={count}
+      collapsed={collapsed}
+      active={pathname.startsWith(route.path)}
+    />
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const { collapsed } = useShell();
   const { isGerente } = useRole();
-  const aprobacion = useAprobacionOptional();
-  const aprobacionAnticipos = useAprobacionAnticiposOptional();
-  const pendientesCount = aprobacion?.pendientesCount ?? 0;
-  const pendientesAntCount = aprobacionAnticipos?.pendientesCount ?? 0;
+  const modules = getVisibleModules();
+
+  const gerenteRoutes = modules.flatMap((m) =>
+    m.routes.filter((r) => r.rol === "gerente"),
+  );
+  const empleadoRoutes = modules.flatMap((m) =>
+    m.routes.filter((r) => r.rol === "empleado"),
+  );
 
   return (
     <aside
@@ -81,47 +131,36 @@ export function Sidebar() {
         collapsed ? "w-[52px] px-1.5" : "w-[220px] px-2.5"
       }`}
     >
-      {isGerente && (
+      {isGerente && gerenteRoutes.length > 0 && (
         <>
           <NavSectionLabel collapsed={collapsed}>
             Aprobaciones pendientes
           </NavSectionLabel>
-          <NavItem
-            label="Hoja de Tiempo"
-            href="/aprobacion-tiempo"
-            icon="checkSquare"
-            count={pendientesCount > 0 ? pendientesCount : undefined}
-            collapsed={collapsed}
-            active={pathname.startsWith("/aprobacion-tiempo")}
-          />
-          <NavItem
-            label="Anticipos"
-            href="/aprobacion-anticipos"
-            icon="wallet"
-            count={pendientesAntCount > 0 ? pendientesAntCount : undefined}
-            collapsed={collapsed}
-            active={pathname.startsWith("/aprobacion-anticipos")}
-          />
-
+          {gerenteRoutes.map((route) => (
+            <NavRouteItem
+              key={route.path}
+              route={route}
+              collapsed={collapsed}
+              pathname={pathname}
+            />
+          ))}
           {!collapsed && <div className="my-2.5 h-px bg-[#f0f0f0]" />}
         </>
       )}
 
-      <NavSectionLabel collapsed={collapsed}>Mis solicitudes</NavSectionLabel>
-      <NavItem
-        label="Mi Tiempo"
-        href="/hoja-tiempo"
-        icon="clock"
-        collapsed={collapsed}
-        active={pathname.startsWith("/hoja-tiempo")}
-      />
-      <NavItem
-        label="Mis Anticipos"
-        href="/mis-anticipos"
-        icon="wallet"
-        collapsed={collapsed}
-        active={pathname.startsWith("/mis-anticipos")}
-      />
+      {empleadoRoutes.length > 0 && (
+        <>
+          <NavSectionLabel collapsed={collapsed}>Mis solicitudes</NavSectionLabel>
+          {empleadoRoutes.map((route) => (
+            <NavRouteItem
+              key={route.path}
+              route={route}
+              collapsed={collapsed}
+              pathname={pathname}
+            />
+          ))}
+        </>
+      )}
     </aside>
   );
 }

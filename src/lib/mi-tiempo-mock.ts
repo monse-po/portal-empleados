@@ -309,8 +309,19 @@ const MESES = [
   "Diciembre",
 ];
 
-export const CALENDARIO_MES = new Date(2026, 2, 1);
-export const HOY_MOCK = new Date(2026, 2, 18);
+/** Fecha «hoy» para toda la app demo. Usa el reloj del sistema (no viene de BD). */
+function fechaReferenciaHoy(): Date {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  return d;
+}
+
+export const HOY_MOCK = fechaReferenciaHoy();
+export const CALENDARIO_MES = new Date(
+  HOY_MOCK.getFullYear(),
+  HOY_MOCK.getMonth(),
+  1,
+);
 
 export function cloneInitialRegistros(): Record<string, RegistroMock[]> {
   return JSON.parse(JSON.stringify(REGISTROS_MOCK)) as Record<

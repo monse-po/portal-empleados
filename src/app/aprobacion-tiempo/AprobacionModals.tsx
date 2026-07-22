@@ -5,6 +5,7 @@ import { Button } from "@/src/components/ui/Button";
 import { Field } from "@/src/components/ui/Field";
 import { Modal } from "@/src/components/ui/Modal";
 import { useToast } from "@/src/components/ui/Toast";
+import { BULK_COMENTARIO_APLICA_TODOS } from "@/src/lib/bulk-action-copy";
 
 type RechazarModalProps = {
   open: boolean;
@@ -57,13 +58,16 @@ export function RechazarModal({
         </>
       }
     >
-      <p className="mb-4 text-[13px] text-[#374151]">
+      <p className="mb-3 text-[13px] text-[#374151]">
         El empleado recibirá una notificación con el motivo del rechazo.
       </p>
       <div className="mb-4 rounded-lg border border-border bg-[#f8fafc] px-4 py-3 text-[12.5px]">
         <span className="text-muted">Selección: </span>
         <span className="font-semibold text-navy">{resumen}</span>
       </div>
+      <p className="mb-4 text-[13px] font-semibold text-[#374151]">
+        {BULK_COMENTARIO_APLICA_TODOS}
+      </p>
       <Field label="Motivo del rechazo" required error={error}>
         <textarea
           value={motivo}

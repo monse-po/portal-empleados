@@ -26,6 +26,29 @@ flowchart TB
   BS -->|merge PR| main_branch
 ```
 
+## Modo enfoque (ver un módulo aislado vs la app completa)
+
+Las **ramas de Git no ocultan vistas** — la app siempre sirve todas las rutas que existan en el código. Para trabajar/ver **un solo módulo aislado**, usa el **Modo enfoque** (variable `FOCUS`), independiente de Git:
+
+```bash
+npm run dev            # app COMPLETA (todos los módulos)
+npm run dev:tiempo     # SOLO módulo Tiempo (FOCUS=tiempo)
+npm run dev:anticipos  # SOLO módulo Anticipos (FOCUS=anticipos)
+```
+
+Con `FOCUS` activo:
+- El **Sidebar** y las **tabs móviles** solo muestran ese módulo.
+- Entrar a una ruta de otro módulo **redirige** al home visible (`FocusGuard`).
+- Sin `FOCUS`, todo se comporta como siempre (app integrada).
+
+Fuente de verdad: **`src/lib/modules.ts`** (registro de módulos + rutas por rol). Al crear un módulo nuevo, agrégalo ahí y el enfoque/nav funcionan solos.
+
+| Pieza | Rol |
+|-------|-----|
+| `src/lib/modules.ts` | Registro central: módulos, rutas empleado/gerente, `getFocusModule`, `isPathVisible` |
+| `next.config.ts` | Mapea `FOCUS` → `NEXT_PUBLIC_FOCUS` (disponible en cliente) |
+| `FocusGuard.tsx` | Redirige rutas ocultas al home del módulo enfocado |
+
 ## Regla de oro
 
 | Rama | Qué es |
@@ -46,6 +69,7 @@ Cada **dominio** = ruta empleado + ruta gerente + datos + (opcional) BD.
 |----|----------|----------|---------|------------|--------|
 | **tiempo** | `cursor/modulo-tiempo` | `/hoja-tiempo` | `/aprobacion-tiempo` | `prisma` + `src/server/mi-tiempo-actions.ts` | BD SQLite activa |
 | **anticipos** | `cursor/modulo-anticipos` | `/mis-anticipos` | `/aprobacion-anticipos` | `src/lib/*anticipos*` (mock → BD después) | Mock |
+| **legalizaciones** | (en `main`) | `/legalizaciones` | `/aprobacion-legalizaciones` | `src/lib/legalizaciones-mock.ts` (mock en memoria) | Mock |
 | **modulo-3** | `cursor/modulo-{nombre}` | `/…` | `/aprobacion-…` | `src/lib/{nombre}-mock.ts` | Por definir |
 | **modulo-4** | `cursor/modulo-{nombre}` | … | … | … | Por definir |
 | **modulo-5** | `cursor/modulo-{nombre}` | … | … | … | Por definir |
@@ -156,6 +180,7 @@ git checkout main && git merge cursor/shell-shared
 | Pantalla, CSS, componente | Archivos en `src/` (Git) |
 | Registro de horas (Mi Tiempo) | `prisma/dev.db` (local, no se commitea) |
 | Anticipos (hoy) | Mock en memoria / archivos `.ts` |
+| Legalizaciones (hoy) | Mock en memoria (`LegalizacionesContext`) |
 
 ---
 
@@ -173,7 +198,7 @@ npm run db:migrate && npm run db:seed   # solo módulo tiempo
 ## Remoto (GitHub) — cuando lo conectéis
 
 ```bash
-git remote add origin https://github.com/ORG/hoja-tiempo.git
+git remote add origin https://github.com/ORG/portal-empleados.git
 git push -u origin main
 git push -u origin cursor/modulo-tiempo
 git push -u origin cursor/modulo-anticipos

@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# neon local project link (no secretos de conexión)
+.neon
+
 # vercel
 .vercel
 

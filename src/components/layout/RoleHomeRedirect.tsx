@@ -6,11 +6,12 @@ import { useRole } from "@/src/components/layout/RoleContext";
 
 export function RoleHomeRedirect() {
   const router = useRouter();
-  const { homePath } = useRole();
+  const { homePath, roleReady } = useRole();
 
   useEffect(() => {
+    if (!roleReady) return;
     router.replace(homePath);
-  }, [homePath, router]);
+  }, [homePath, roleReady, router]);
 
   return null;
 }

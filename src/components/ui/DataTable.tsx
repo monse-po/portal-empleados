@@ -156,6 +156,19 @@ export const APRO_ANT_COLS_RES = [
   "30%",  // Motivo decisión
 ] as const;
 
+/** Legalizaciones resueltas — sin proyecto; concepto + motivo decisión */
+export const APRO_LEG_COLS_RES = [
+  RES_TAB_SPACER_COL,
+  "9%",   // Código
+  "8%",   // Solicitado
+  "12%",  // Empleado
+  "9%",   // Tipo pill
+  "16%",  // Concepto
+  "10%",  // Monto + divisa
+  "8%",   // Estado pill + fecha
+  "28%",  // Motivo decisión
+] as const;
+
 /** Tiempo resueltas — mismas proporciones que pendientes (comentario→motivo 26%, +estado 8%) */
 export const APRO_RES_COLS = [
   RES_TAB_SPACER_COL,

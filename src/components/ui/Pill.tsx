@@ -112,3 +112,32 @@ export function EstadoTiempoPill({
     </Pill>
   );
 }
+
+export const estadoLegalizacionPillVariant: Record<string, PillVariant> = {
+  Borrador: "borrador",
+  "En revisión": "revision",
+  Aprobado: "aprobado",
+  Rechazado: "rechazado",
+};
+
+export function estadoLegalizacionPillProps(estado: string) {
+  return {
+    variant: estadoLegalizacionPillVariant[estado] ?? ("registrado" as PillVariant),
+    label: estado,
+  };
+}
+
+export function EstadoLegalizacionPill({
+  estado,
+  className = "",
+}: {
+  estado: string;
+  className?: string;
+}) {
+  const { variant, label } = estadoLegalizacionPillProps(estado);
+  return (
+    <Pill variant={variant} className={className}>
+      {label}
+    </Pill>
+  );
+}

@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import {
   AprobacionAnticiposProvider,
 } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposContext";
+import {
+  AprobacionLegalizacionesProvider,
+} from "@/src/app/aprobacion-legalizaciones/AprobacionLegalizacionesContext";
 import {
   AprobacionProvider,
   useAprobacion,
@@ -52,15 +55,19 @@ function RegistroSyncEffect({
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const syncRef = useRef<SyncRegistroHandler | undefined>(undefined);
+  const onSyncRegistro = useCallback<SyncRegistroHandler>(
+    (registroId, accion, comentario) => {
+      syncRef.current?.(registroId, accion, comentario);
+    },
+    [],
+  );
 
   return (
-    <AprobacionProvider
-      onSyncRegistro={(registroId, accion, comentario) =>
-        syncRef.current?.(registroId, accion, comentario)
-      }
-    >
+    <AprobacionProvider onSyncRegistro={onSyncRegistro}>
       <AprobacionAnticiposProvider>
-        <MiTiempoBridge syncRef={syncRef}>{children}</MiTiempoBridge>
+        <AprobacionLegalizacionesProvider>
+          <MiTiempoBridge syncRef={syncRef}>{children}</MiTiempoBridge>
+        </AprobacionLegalizacionesProvider>
       </AprobacionAnticiposProvider>
     </AprobacionProvider>
   );

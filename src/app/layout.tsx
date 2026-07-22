@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Hoja de Tiempo",
-  description: "Portal empresarial de hoja de tiempo",
+  title: "Portal de Empleados",
+  description: "Portal empresarial HMV — hoja de tiempo, anticipos y más",
 };
 
 export default function RootLayout({

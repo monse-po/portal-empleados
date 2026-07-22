@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
-
 :root {
   --navy: #014783;
   --navy-mid: #01376a;

@@ -221,8 +221,9 @@ export function MiTiempoDia({
       {!esHistorial && hayBorradores && (
         <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-border bg-white px-5 py-3">
           <span className="text-xs text-muted">
-            Al enviar, los registros del día pasan a revisión y no podrás
-            editarlos.
+            Solo se envían los registros en borrador. Puedes seguir agregando
+            otros al día; los enviados quedan bloqueados hasta la respuesta del
+            aprobador.
           </span>
           <div className="flex items-center gap-2.5">
             <Button variant="tertiary" onClick={onVolver}>
@@ -238,12 +239,16 @@ export function MiTiempoDia({
                   : undefined
               }
               onClick={async () => {
-                const enviados = await enviarDia(fecha);
-                if (!enviados.length) {
-                  toast("No hay borradores para enviar", "warn");
-                  return;
+                try {
+                  const enviados = await enviarDia(fecha);
+                  if (!enviados.length) {
+                    toast("No hay borradores para enviar", "warn");
+                    return;
+                  }
+                  toast("Registros enviados a aprobación", "green");
+                } catch {
+                  toast("No se pudo enviar a aprobación. Intenta de nuevo.", "danger");
                 }
-                toast("Registros enviados a aprobación", "green");
               }}
             >
               Enviar a Aprobación

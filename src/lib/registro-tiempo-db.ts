@@ -76,6 +76,15 @@ export function groupRegistrosByFecha(
 }
 
 export async function nextRegistroCodigo(): Promise<string> {
-  const count = await prisma.registroTiempo.count();
-  return `HTREG${String(count + 1).padStart(6, "0")}`;
+  const rows = await prisma.registroTiempo.findMany({
+    select: { codigo: true },
+  });
+
+  let max = 0;
+  for (const row of rows) {
+    const match = row.codigo.match(/^HTREG(\d+)$/i);
+    if (match) max = Math.max(max, Number.parseInt(match[1], 10));
+  }
+
+  return `HTREG${String(max + 1).padStart(6, "0")}`;
 }

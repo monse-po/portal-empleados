@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Icon } from "@/src/components/ui/Icon";
 import { Modal } from "@/src/components/ui/Modal";
+import { BULK_COMENTARIO_APLICA_TODOS } from "@/src/lib/bulk-action-copy";
 
 type AprobarAnticipoModalProps = {
   open: boolean;
@@ -167,14 +168,17 @@ export function RechazarAnticiposLoteModal({
         </>
       }
     >
-      <p className="mb-4 text-[13px] text-[#374151]">
+      <p className="mb-3 text-[13px] text-[#374151]">
         El rechazo es definitivo; de requerir el anticipo, el empleado deberá
         generar una nueva solicitud.
       </p>
-      <div className="mb-4 rounded-lg border border-border bg-[#f8fafc] px-4 py-3 text-[12.5px]">
+      <div className="mb-3 rounded-lg border border-border bg-[#f8fafc] px-4 py-3 text-[12.5px]">
         <span className="text-muted">Selección: </span>
         <span className="font-semibold text-navy">{resumen}</span>
       </div>
+      <p className="mb-4 text-[13px] font-semibold text-[#374151]">
+        {BULK_COMENTARIO_APLICA_TODOS}
+      </p>
       <label className="mb-1.5 block text-[12px] font-semibold text-[#374151]">
         Motivo del rechazo <span className="text-red">*</span>
       </label>

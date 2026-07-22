@@ -1,0 +1,32 @@
+---
+description: Reglas de negocio del módulo Tiempo (registro de horas)
+globs: src/app/hoja-tiempo/**,src/lib/mi-tiempo-mock.ts,src/server/mi-tiempo-actions.ts
+alwaysApply: false
+---
+
+# Módulo Tiempo — reglas de negocio
+
+## Fechas registrables
+
+- El empleado puede registrar horas en **cualquier día del mes** (pasado, hoy o futuro).
+- **No** en **festivos** (`FESTIVOS_2026`) — esos días quedan bloqueados en el calendario.
+
+Implementación:
+
+- `getMesActualBounds()` → `min`/`max` = primer y último día del mes (`MonthDateInput`, `clampFechaMes`).
+- `buildCalendarioGrid()` → `bloqueado = esFestivo` (solo festivos).
+
+## Tope de horas
+
+- Máximo **8.5h normales por día** (`getHorasNormales` + tope en `validateForm` y en el botón "Enviar a Aprobación").
+
+## Estados y envío a aprobación
+
+- **Borrador** (`Registrado`): editable y eliminable.
+- **Enviar a Aprobación:** solo los registros en borrador del día pasan a `En revisión` y quedan bloqueados.
+- Tras enviar, **sí se pueden agregar** registros nuevos al mismo día (nuevos borradores).
+- Los enviados no se editan hasta respuesta del aprobador (`Aprobado` / `Rechazado`; rechazado vuelve a editable).
+
+## Códigos HTREG
+
+- `nextRegistroCodigo()` toma el **máximo numérico** existente + 1 (no `count + 1`, para evitar colisiones con el seed).

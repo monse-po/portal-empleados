@@ -1,11 +1,20 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Dropdown } from "@/src/components/ui/Dropdown";
 import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 
-export function TableFilterSection({ children }: { children: ReactNode }) {
+export function TableFilterSection({
+  children,
+  embedded = false,
+}: {
+  children: ReactNode;
+  embedded?: boolean;
+}) {
+  if (embedded) {
+    return <div className="px-[18px] py-3">{children}</div>;
+  }
   return (
     <section className="sticky top-0 z-20 mb-3.5 rounded-xl border border-border bg-white px-[18px] py-3">
       {children}
@@ -115,6 +124,8 @@ export function FilterBarMultiDropdown({
   compactTrigger = false,
   embedded = false,
   defaultOpen = false,
+  searchable,
+  searchPlaceholder = "Buscar...",
 }: {
   options: FilterDropdownOption[];
   selected: string[];
@@ -126,10 +137,26 @@ export function FilterBarMultiDropdown({
   embedded?: boolean;
   /** Abrir el dropdown al montar (p. ej. al elegir columna) */
   defaultOpen?: boolean;
+  /** Catálogos grandes — muestra buscador en el panel */
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [q, setQ] = useState("");
   const selectedSet = new Set(selected);
   const active = selected.length > 0;
+  const showSearch = searchable ?? options.length >= 6;
+
+  const filteredOptions = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!showSearch || !query) return options;
+    return options.filter((opt) => {
+      const haystack = [opt.value, opt.label, opt.title ?? ""]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [options, q, showSearch]);
 
   const triggerLabel = (() => {
     if (!compactTrigger && active) return placeholder;
@@ -159,9 +186,12 @@ export function FilterBarMultiDropdown({
         })}
       <Dropdown
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setQ("");
+        }}
         portal
-        menuClassName="shadow-none min-w-[220px]"
+        menuClassName="shadow-none min-w-[220px] overflow-hidden"
         trigger={
           <button
             type="button"
@@ -184,29 +214,48 @@ export function FilterBarMultiDropdown({
           </button>
         }
       >
-        {options.map((opt) => {
-          const on = selectedSet.has(opt.value);
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onToggle(opt.value)}
-              className="flex w-full cursor-pointer items-center gap-2 rounded-[7px] px-2 py-1.5 text-left text-[12.5px] text-[#374151] hover:bg-[#f4f7fb]"
-            >
-              <Icon
-                name="checkSquare"
-                size="sm"
-                className={on ? "text-navy" : "text-[#c2c8d0]"}
-              />
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] bg-[#eef3f9] text-navy">
-                <Icon name={opt.icon} size="xs" />
-              </span>
-              <span className="min-w-0 truncate" title={opt.title ?? opt.label}>
-                {opt.label}
-              </span>
-            </button>
-          );
-        })}
+        {showSearch ? (
+          <div className="flex items-center gap-2 border-b border-[#f3f4f6] px-2.5 py-2">
+            <Icon name="search" size="xs" className="text-[#9ca3af]" />
+            <input
+              type="text"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="min-w-0 flex-1 border-0 text-[12px] outline-none"
+              autoFocus
+            />
+          </div>
+        ) : null}
+        <div className="max-h-[220px] overflow-y-auto py-1">
+          {filteredOptions.length === 0 ? (
+            <div className="px-3 py-2 text-[12px] text-muted">Sin resultados</div>
+          ) : (
+            filteredOptions.map((opt) => {
+              const on = selectedSet.has(opt.value);
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onToggle(opt.value)}
+                  className="flex w-full cursor-pointer items-center gap-2 rounded-[7px] px-2 py-1.5 text-left text-[12.5px] text-[#374151] hover:bg-[#f4f7fb]"
+                >
+                  <Icon
+                    name="checkSquare"
+                    size="sm"
+                    className={on ? "text-navy" : "text-[#c2c8d0]"}
+                  />
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] bg-[#eef3f9] text-navy">
+                    <Icon name={opt.icon} size="xs" />
+                  </span>
+                  <span className="min-w-0 truncate" title={opt.title ?? opt.label}>
+                    {opt.label}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
       </Dropdown>
     </div>
   );

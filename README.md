@@ -1,6 +1,6 @@
-# Hoja de Tiempo — HMV
+# Portal de Empleados — HMV
 
-Portal de hoja de tiempo y anticipos (Next.js 16 + Prisma + SQLite).
+Portal empresarial de empleados: hoja de tiempo, anticipos y módulos futuros (Next.js 16 + Prisma + SQLite).
 
 ## Requisitos
 

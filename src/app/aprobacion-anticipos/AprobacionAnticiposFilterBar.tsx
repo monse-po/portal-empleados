@@ -173,6 +173,10 @@ function ColumnBarControl({
         placeholder="elegir…"
         embedded
         defaultOpen={autoOpen}
+        searchable={column === "empleado" || column === "proyecto"}
+        searchPlaceholder={
+          column === "proyecto" ? "Buscar proyecto…" : "Buscar empleado…"
+        }
       />
     );
   }

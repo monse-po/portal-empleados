@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Card } from "@/src/components/ui/Card";
 import { BulkSelectionBar } from "@/src/components/ui/BulkSelectionBar";
 import { Icon } from "@/src/components/ui/Icon";
-import { SelectControl } from "@/src/components/ui/DropdownAffordance";
+import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
 import { AprobacionFilterBar } from "@/src/app/aprobacion-tiempo/AprobacionFilterBar";
 import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import {
@@ -140,30 +140,36 @@ export function AprobacionLista({
         />
       </div>
 
-      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-white px-[18px] py-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-          <Icon name="folderOpen" size="sm" className="text-navy" />
-          <span className="text-[12px] font-semibold text-muted">Proyecto:</span>
-          <SelectControl
-            value={proySel}
-            onChange={(e) => handleProyChange(e.target.value)}
-            wrapperClassName="min-w-[220px]"
-            className="h-9 cursor-pointer rounded-lg border border-[#c7d2e0] bg-white px-3 text-[13px] focus:border-navy focus:outline-none"
-          >
-            <option value="">Selecciona un proyecto…</option>
-            {proyectos.map((p) => (
-              <option key={p.cod} value={p.cod}>
-                {p.cod} · {p.nombre}
-              </option>
-            ))}
-          </SelectControl>
-          {proySel && (
+      <div className="mb-3.5 rounded-xl border border-border bg-white px-[18px] py-3">
+        <p className="mb-2.5 text-[12px] leading-snug text-[#6b7280]">
+          Selecciona el proyecto que quieres revisar; abajo verás las horas de
+          tu equipo.
+        </p>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Icon name="folderOpen" size="sm" className="shrink-0 text-navy" />
+            <span className="shrink-0 text-[12px] font-semibold text-muted">
+              Proyecto
+            </span>
+            <SearchableSelect
+              value={proySel}
+              onChange={handleProyChange}
+              options={proyectos.map((p) => ({
+                value: p.cod,
+                label: `${p.cod} · ${p.nombre}`,
+              }))}
+              placeholder="Selecciona un proyecto…"
+              searchPlaceholder="Buscar proyecto…"
+              wrapperClassName="min-w-[220px]"
+            />
+          </div>
+          {proySel ? (
             <AprobacionProyMeta
               shown={filtrados.length}
               total={registrosActuales.length}
               hasFilters={hayFiltrosActivos(filters)}
             />
-          )}
+          ) : null}
         </div>
       </div>
 

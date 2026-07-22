@@ -1,6 +1,13 @@
+import dotenv from "dotenv";
 import path from "node:path";
+import { Pool as PgPool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/src/generated/prisma/client";
+
+// Neon env pull escribe en .env; debe ganar sobre .env.local (SQLite local).
+dotenv.config({ path: ".env.local" });
+dotenv.config({ path: ".env", override: true });
 
 function resolveDatabaseUrl(): string {
   const url = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
@@ -14,8 +21,20 @@ function resolveDatabaseUrl(): string {
   return url;
 }
 
+function isPostgresUrl(url: string): boolean {
+  return url.startsWith("postgres://") || url.startsWith("postgresql://");
+}
+
 function createPrismaClient() {
-  const adapter = new PrismaBetterSqlite3({ url: resolveDatabaseUrl() });
+  const url = resolveDatabaseUrl();
+
+  if (isPostgresUrl(url)) {
+    const pool = new PgPool({ connectionString: url });
+    const adapter = new PrismaPg(pool);
+    return new PrismaClient({ adapter });
+  }
+
+  const adapter = new PrismaBetterSqlite3({ url });
   return new PrismaClient({ adapter });
 }
 
