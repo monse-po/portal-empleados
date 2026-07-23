@@ -8,7 +8,7 @@
     "dev:anticipos": "FOCUS=anticipos next dev",
     "dev:legalizaciones": "FOCUS=legalizaciones next dev",
     "build": "prisma generate && next build",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "prisma generate && (prisma migrate deploy || (sleep 3 && prisma migrate deploy)) && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",

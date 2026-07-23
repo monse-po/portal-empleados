@@ -6,6 +6,19 @@ import { defineConfig } from "prisma/config";
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env", override: true });
 
+/** Migraciones requieren conexión directa (Neon pooler → P1002 advisory lock). */
+function migrationDatabaseUrl(): string | undefined {
+  const explicit =
+    process.env["DATABASE_URL_UNPOOLED"] ?? process.env["DIRECT_URL"];
+  if (explicit) return explicit;
+
+  const pooled = process.env["DATABASE_URL"];
+  if (!pooled) return undefined;
+  if (!pooled.includes("-pooler.")) return pooled;
+
+  return pooled.replace("-pooler.", ".");
+}
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -13,6 +26,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: migrationDatabaseUrl(),
   },
 });
