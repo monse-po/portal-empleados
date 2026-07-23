@@ -301,9 +301,7 @@ function generateBulk(): Record<string, HojaAprobacion> {
 }
 
 export function cloneInitialHojas(): Record<string, HojaAprobacion> {
-  return JSON.parse(
-    JSON.stringify({ ...SEED, ...generateBulk() }),
-  ) as Record<string, HojaAprobacion>;
+  return {};
 }
 
 export function proyKey(proy: string): string {

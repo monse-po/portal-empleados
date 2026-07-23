@@ -18,12 +18,17 @@ async function main() {
     process.exit(1);
   }
 
-  const before = await prisma.registroTiempo.count();
+  const beforeReg = await prisma.registroTiempo.count();
+  const beforeNotif = await prisma.notificacion.count();
+
+  await prisma.notificacion.deleteMany();
   await prisma.registroTiempo.deleteMany();
   await prisma.proyecto.deleteMany();
   await prisma.empleado.deleteMany();
 
-  console.log(`Neon limpio: ${before} registros eliminados.`);
+  console.log(
+    `Neon limpio: ${beforeReg} registros y ${beforeNotif} notificaciones eliminados.`,
+  );
   console.log("Mi Tiempo quedará vacío hasta conectar IFS o crear datos reales.");
   await prisma.$disconnect();
 }
