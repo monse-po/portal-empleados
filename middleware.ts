@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isIfsDevTokenBypass } from "@/src/lib/ifs/config";
 import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
 
-const PUBLIC_PREFIXES = ["/login", "/api/auth"];
+const PUBLIC_PREFIXES = ["/login", "/api/auth", "/dev", "/api/dev"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some(
@@ -11,7 +12,10 @@ function isPublicPath(pathname: string): boolean {
 }
 
 export function middleware(request: NextRequest) {
-  if (process.env.IFS_AUTH_ENABLED !== "true") {
+  if (
+    process.env.IFS_AUTH_ENABLED !== "true" ||
+    isIfsDevTokenBypass()
+  ) {
     return NextResponse.next();
   }
 

@@ -30,3 +30,7 @@ Implementación:
 ## Códigos HTREG
 
 - `nextRegistroCodigo()` toma el **máximo numérico** existente + 1 (no `count + 1`, para evitar colisiones con el seed).
+
+## UI — formularios y filtros
+
+Ver **`02-design-system.mdc`**: `MonthDateInput` (día en calendario), `SearchableSelect` (proy/sub/act), `DateRangePicker` en filtros de aprobación.

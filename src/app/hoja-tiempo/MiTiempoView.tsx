@@ -7,6 +7,7 @@ import { MiTiempoLista } from "@/src/app/hoja-tiempo/MiTiempoLista";
 import { MiTiempoLoading } from "@/src/app/hoja-tiempo/MiTiempoLoading";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import { RegistrarHorasModal } from "@/src/app/hoja-tiempo/RegistrarHorasModal";
+import { useAsyncAction } from "@/src/lib/use-async-action";
 
 type Vista = "lista" | "dia";
 
@@ -27,6 +28,7 @@ function MiTiempoNavigationEffects({
 
 export function MiTiempoView() {
   const { registrosLoaded, registrosError, reloadRegistros } = useMiTiempo();
+  const { loading: retrying, run: retryLoad } = useAsyncAction(reloadRegistros);
   const [vista, setVista] = useState<Vista>("lista");
   const [tab, setTab] = useState<"cal" | "hist">("cal");
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(
@@ -70,7 +72,12 @@ export function MiTiempoView() {
             npm run db:seed
           </code>
         </p>
-        <Button variant="primary" onClick={() => void reloadRegistros()}>
+        <Button
+          variant="primary"
+          onClick={() => void retryLoad()}
+          loading={retrying}
+          loadingLabel="Cargando…"
+        >
           Reintentar
         </Button>
       </div>
@@ -80,6 +87,7 @@ export function MiTiempoView() {
   return (
     <>
       <MiTiempoNavigationEffects onRegistroGuardado={handleRegistroGuardado} />
+
       {vista === "dia" && fechaSeleccionada ? (
         <MiTiempoDia
           fecha={fechaSeleccionada}

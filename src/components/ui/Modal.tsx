@@ -12,6 +12,8 @@ type ModalProps = {
   children: React.ReactNode;
   footer?: React.ReactNode;
   widthClass?: string;
+  /** Bloquea cierre mientras una acción async está en curso */
+  busy?: boolean;
 };
 
 export function Modal({
@@ -22,6 +24,7 @@ export function Modal({
   children,
   footer,
   widthClass = "max-w-[520px]",
+  busy = false,
 }: ModalProps) {
   const titleId = useId();
 
@@ -32,7 +35,7 @@ export function Modal({
     document.body.style.overflow = "hidden";
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !busy) onClose();
     };
     document.addEventListener("keydown", onKeyDown);
 
@@ -40,7 +43,7 @@ export function Modal({
       document.body.style.overflow = prevOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, onClose]);
+  }, [open, onClose, busy]);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -48,6 +51,7 @@ export function Modal({
     <div
       className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/45 p-4"
       onMouseDown={(event) => {
+        if (busy) return;
         if (event.target === event.currentTarget) onClose();
       }}
     >
@@ -68,7 +72,8 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer rounded px-1.5 py-0.5 text-lg leading-none text-[#9ca3af] hover:text-muted"
+            disabled={busy}
+            className="cursor-pointer rounded px-1.5 py-0.5 text-lg leading-none text-[#9ca3af] hover:text-muted disabled:cursor-not-allowed disabled:opacity-50"
             title="Cerrar"
             aria-label="Cerrar"
           >

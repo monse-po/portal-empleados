@@ -4,7 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -65,13 +67,16 @@ export function AprobacionProvider({
     clearSeleccion,
   } = useTableSelection();
 
-  const setProySel = useCallback(
-    (cod: string) => {
-      setProySelState(cod);
-      clearSeleccion();
-    },
-    [clearSeleccion],
-  );
+  const setProySel = useCallback((cod: string) => {
+    setProySelState((prev) => (prev === cod ? prev : cod));
+  }, []);
+
+  const prevProySelRef = useRef(proySel);
+  useEffect(() => {
+    if (prevProySelRef.current === proySel) return;
+    prevProySelRef.current = proySel;
+    clearSeleccion();
+  }, [proySel, clearSeleccion]);
 
   const ingresarHojas = useCallback((nuevas: HojaAprobacion[]) => {
     setHojas((prev) => {
@@ -96,10 +101,17 @@ export function AprobacionProvider({
       estado: HojaAprobacion["estadoApro"],
       comentario: string,
     ) => {
+      const toSync: Array<{
+        id: string;
+        accion: SyncRegistroAccion;
+        comentario: string;
+      }> = [];
+
       setHojas((prev) => {
         const next = { ...prev };
         nos.forEach((no) => {
           if (!next[no]) return;
+          const registroId = next[no].registroId;
           next[no] = {
             ...next[no],
             estadoApro: estado,
@@ -107,15 +119,18 @@ export function AprobacionProvider({
             fechaApro: estado ? hoyDMY() : "",
             aprobador: estado ? "Carlos Rivas Mora" : "",
           };
-          const registroId = next[no].registroId;
           if (!registroId) return;
           if (estado === "Aprobado") {
-            syncRegistro(registroId, "aprobado", comentario);
+            toSync.push({ id: registroId, accion: "aprobado", comentario });
           } else if (estado === "Rechazado") {
-            syncRegistro(registroId, "rechazado", comentario);
+            toSync.push({ id: registroId, accion: "rechazado", comentario });
           }
         });
         return next;
+      });
+
+      toSync.forEach(({ id, accion, comentario: syncComentario }) => {
+        syncRegistro(id, accion, syncComentario);
       });
     },
     [syncRegistro],
@@ -139,6 +154,12 @@ export function AprobacionProvider({
 
   const anular = useCallback(
     (nos: string[]) => {
+      const toSync: Array<{
+        id: string;
+        accion: SyncRegistroAccion;
+        comentario: string;
+      }> = [];
+
       setHojas((prev) => {
         const next = { ...prev };
         nos.forEach((no) => {
@@ -151,9 +172,15 @@ export function AprobacionProvider({
             fechaApro: "",
             aprobador: "",
           };
-          if (registroId) syncRegistro(registroId, "anulado");
+          if (registroId) {
+            toSync.push({ id: registroId, accion: "anulado", comentario: "" });
+          }
         });
         return next;
+      });
+
+      toSync.forEach(({ id, accion, comentario }) => {
+        syncRegistro(id, accion, comentario);
       });
       clearSeleccion();
     },

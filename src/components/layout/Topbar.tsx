@@ -6,6 +6,7 @@ import { HMV_LOGO_SRC } from "@/src/lib/hmv-logo";
 import { useRole } from "@/src/components/layout/RoleContext";
 import { useShell } from "@/src/components/layout/ShellContext";
 import { UserMenu } from "@/src/components/layout/UserMenu";
+import { NotificationBell } from "@/src/components/notifications/NotificationBell";
 
 export function Topbar() {
   const { collapsed, toggleSidebar } = useShell();
@@ -41,6 +42,8 @@ export function Topbar() {
         </span>
 
         <div className="hidden h-7 w-px bg-border md:block" />
+
+        <NotificationBell />
 
         <UserMenu />
       </div>

@@ -31,8 +31,10 @@ Datos y filtros en `src/lib/{modulo}-mock.ts` y `src/lib/{modulo}-filtros.ts`.
 
 | Rol | Home | Solo gerente |
 |-----|------|--------------|
-| `gerente` | `/aprobacion-tiempo` | `/aprobacion-tiempo`, `/aprobacion-anticipos` |
+| `gerente` | `/aprobacion-tiempo` | `/aprobacion-tiempo`, `/aprobacion-anticipos`, `/aprobacion-legalizaciones` |
 | `empleado` | `/hoja-tiempo` | — |
+
+Rutas empleado adicionales: `/mis-anticipos`, `/legalizaciones`.
 
 Rutas gerente: `<RoleRouteGuard allow="gerente">` en `page.tsx`. Rol en `sessionStorage` (`hmv-usuario-rol`).
 
@@ -41,6 +43,12 @@ Rutas gerente: `<RoleRouteGuard allow="gerente">` en `page.tsx`. Rol en `session
 - `{Modulo}View` posee `vista` + `detalleNo`; Lista/Detalle/Form son hermanos.
 - Modales de confirmación en View o Detalle; toast tras mutación; `volverLista()` al cerrar.
 - Listas/tablas/formularios usan `className="view-wide"` (1320px). Vistas compactas usan `content-standard` (1100px).
+
+## Controles de formulario y filtros
+
+**Canónico:** `02-design-system.mdc` — fechas (`DateInput`, `MonthDateInput`, `DateRangePicker`), selectores (`LovPicker`, `SearchableSelect`, `SelectControl`, `FilterBarMultiDropdown`), loading en `Button`/`Modal`.
+
+Aplicar en **todos** los módulos (tiempo, anticipos, legalizaciones y futuros). No duplicar reglas en reglas de negocio; solo enlazar.
 
 ## Tablas
 

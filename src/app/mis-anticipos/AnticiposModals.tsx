@@ -1,13 +1,14 @@
 "use client";
 
-import { Button } from "@/src/components/ui/Button";
+import { useState } from "react";
 import { Modal } from "@/src/components/ui/Modal";
+import { ModalConfirmFooter } from "@/src/components/ui/ModalConfirmFooter";
 
 type CancelarAnticipoModalProps = {
   open: boolean;
   codigo: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 };
 
 export function CancelarAnticipoModal({
@@ -16,20 +17,24 @@ export function CancelarAnticipoModal({
   onClose,
   onConfirm,
 }: CancelarAnticipoModalProps) {
+  const [busy, setBusy] = useState(false);
+
   return (
     <Modal
       open={open}
       onClose={onClose}
+      busy={busy}
       title="Cancelar solicitud"
       footer={
-        <>
-          <Button variant="tertiary" onClick={onClose}>
-            Volver
-          </Button>
-          <Button variant="danger" onClick={onConfirm}>
-            Confirmar cancelación
-          </Button>
-        </>
+        <ModalConfirmFooter
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          cancelLabel="Volver"
+          confirmLabel="Confirmar cancelación"
+          confirmVariant="danger"
+          loadingLabel="Cancelando…"
+          onBusyChange={setBusy}
+        />
       }
     >
       <p className="text-[13px] text-[#374151]">
@@ -44,7 +49,7 @@ type EnviarAnticipoModalProps = {
   open: boolean;
   resumenHtml: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 };
 
 export function EnviarAnticipoModal({
@@ -53,20 +58,24 @@ export function EnviarAnticipoModal({
   onClose,
   onConfirm,
 }: EnviarAnticipoModalProps) {
+  const [busy, setBusy] = useState(false);
+
   return (
     <Modal
       open={open}
       onClose={onClose}
+      busy={busy}
       title="Confirmar envío"
       footer={
-        <>
-          <Button variant="tertiary" onClick={onClose}>
-            Volver
-          </Button>
-          <Button variant="success" onClick={onConfirm}>
-            Enviar a Aprobación
-          </Button>
-        </>
+        <ModalConfirmFooter
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          cancelLabel="Volver"
+          confirmLabel="Enviar a Aprobación"
+          confirmVariant="success"
+          loadingLabel="Enviando…"
+          onBusyChange={setBusy}
+        />
       }
     >
       <div

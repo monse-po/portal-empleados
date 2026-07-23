@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Spinner } from "@/src/components/ui/Spinner";
 
 const variants = {
   primary:
@@ -21,21 +22,38 @@ type ButtonVariant = keyof typeof variants;
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   children: ReactNode;
+  loading?: boolean;
+  loadingLabel?: ReactNode;
 };
 
 export function Button({
   variant = "primary",
+  type = "button",
   className = "",
   children,
+  loading = false,
+  loadingLabel,
+  disabled,
   ...props
 }: ButtonProps) {
+  const isDisabled = disabled || loading;
+
   return (
     <button
-      type="button"
-      className={`inline-flex items-center gap-1.5 rounded-[7px] px-4 py-[9px] text-xs font-semibold whitespace-nowrap transition-all duration-150 font-sans cursor-pointer ${variants[variant]} ${className}`}
+      type={type}
+      className={`inline-flex items-center gap-1.5 rounded-[7px] px-4 py-[9px] text-xs font-semibold whitespace-nowrap transition-all duration-150 font-sans cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${className}`}
+      disabled={isDisabled}
+      aria-busy={loading || undefined}
       {...props}
     >
-      {children}
+      {loading ? (
+        <>
+          <Spinner size="xs" />
+          {loadingLabel ?? children}
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }

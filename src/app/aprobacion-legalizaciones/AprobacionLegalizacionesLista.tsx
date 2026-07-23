@@ -60,14 +60,18 @@ function KpiCard({
 
 type AprobacionLegalizacionesListaProps = {
   onOpenDetalle: (no: string) => void;
-  onAprobar: (nos: string[]) => void;
-  onRechazar: (nos: string[]) => void;
+  onAprobar: (nos: string[]) => void | Promise<void>;
+  onRechazar: (nos: string[]) => void | Promise<void>;
+  loadingAprobar?: boolean;
+  loadingRechazar?: boolean;
 };
 
 export function AprobacionLegalizacionesLista({
   onOpenDetalle,
   onAprobar,
   onRechazar,
+  loadingAprobar = false,
+  loadingRechazar = false,
 }: AprobacionLegalizacionesListaProps) {
   const {
     kpis,
@@ -137,6 +141,8 @@ export function AprobacionLegalizacionesLista({
           count={seleccion.size}
           onAprobar={() => onAprobar([...seleccion])}
           onRechazar={() => onRechazar([...seleccion])}
+          loadingAprobar={loadingAprobar}
+          loadingRechazar={loadingRechazar}
         />
       )}
 
@@ -191,6 +197,8 @@ export function AprobacionLegalizacionesLista({
           onOpenDetalle={onOpenDetalle}
           onAprobar={onAprobar}
           onRechazar={onRechazar}
+          loadingAprobar={loadingAprobar}
+          loadingRechazar={loadingRechazar}
         />
       </Card>
     </div>

@@ -14,6 +14,10 @@ enum RegistroEstadoDb {
   RECHAZADO
 }
 
+enum NotificacionModuloDb {
+  TIEMPO
+}
+
 model Empleado {
   id        String           @id
   nombre    String
@@ -54,4 +58,24 @@ model RegistroTiempo {
 
   @@index([empleadoId, fecha])
   @@index([estado])
+}
+
+model Notificacion {
+  id               String               @id @default(cuid())
+  modulo           NotificacionModuloDb @default(TIEMPO)
+  tipo             String
+  titulo           String
+  mensaje          String
+  leida            Boolean              @default(false)
+  destinatarioRol  String               @default("gerente")
+  empleadoId       String?
+  empleadoNombre   String?
+  proyectoId       String?
+  proyectoCod      String?
+  fechaIso         String?
+  registrosCount   Int                  @default(1)
+  href             String?
+  createdAt        DateTime             @default(now())
+
+  @@index([destinatarioRol, leida, createdAt])
 }

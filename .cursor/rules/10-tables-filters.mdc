@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## Perfil A: Listado / aprobación (barra filtros externa)
 
-**Referencia:** `AprobacionFilterBar` + `aprobacion-filtros.ts` + regla `11-aprobacion-list-ui.mdc`.
+**Referencia:** `AprobacionFilterBar` + `aprobacion-filtros.ts` + regla `11-aprobacion-list-ui.mdc`. Controles fecha/select: **`02-design-system.mdc`**.
 
 **Estructura:**
 - `TableFilterSection` fuera del `Card` / `DataTable`
@@ -24,9 +24,15 @@ alwaysApply: false
 
 **Aprobación anticipos:** mismo patrón (`AprobacionAnticiposFilterBar` + `aprobacion-anticipos-filtros.ts`). Sin selector de proyecto global; filtros siempre habilitados en ambas tabs.
 
+**Legalizaciones (empleado):** `LegalizacionesFilterBar` + `legalizaciones-filtros.ts`. Formulario: `SearchableSelect` + `SelectControl` + `DateInput` — ver `02-design-system.mdc`.
+
+**Aprobación legalizaciones:** mismo patrón (`AprobacionLegalizacionesFilterBar` + `aprobacion-legalizaciones-filtros.ts`). Sin proyecto global; filtros siempre habilitados.
+
 **Sin shadow** en barra ni popovers de filtro.
 
 **Contador:** `mostrando X de Y` cuando hay filtros activos.
+
+**Chips con pills (tipo / estado):** toda barra `*FilterBar` usa `buildFilterMultiOptions(module, column, values, …)` en multiselect. Regla canónica y mapeo módulo→pill en **`02-design-system.mdc`** (`FilterValuePill`, `FilterPillModule`). No usar `FilterOptionChip` navy para valores que ya tienen pill en tabla.
 
 **Aprobación masiva:** ver regla `12-table-selection-bulk.mdc` — checkbox, `BulkSelectionBar`, `useTableSelection`.
 

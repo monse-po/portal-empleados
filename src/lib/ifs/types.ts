@@ -79,3 +79,25 @@ export type ValidActReportCodeParams = {
   AccountDate: string;
   ActivitySeq: number;
 };
+
+/** Fila de GetValidEmpPrjAct (proyecto / subproyecto / actividad). */
+export type ValidEmpPrjActRow = {
+  CompanyId?: string;
+  ShortName?: string;
+  ProjectId?: string;
+  Name?: string;
+  SubProjectId?: string;
+  SubProjectDesc?: string;
+  ActivityNo?: string;
+  Description?: string;
+  ReportCode?: string;
+  ActivitySeq?: number;
+};
+
+/** Fila de GetValidActReportCode (tipo de hora / report cost code). */
+export type LovReportCostCodeRow = {
+  ReportCostCode?: string;
+  ReportCostName?: string;
+  ReportCostType?: "Time" | "Cost" | "Material" | string;
+  ReportCode?: string;
+};

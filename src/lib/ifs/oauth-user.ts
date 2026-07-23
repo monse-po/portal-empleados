@@ -49,9 +49,20 @@ export function buildAuthorizationUrl(input: {
     state: input.state,
     code_challenge: input.codeChallenge,
     code_challenge_method: "S256",
+    prompt: "login",
   });
 
   return `${authorizationEndpoint()}?${params.toString()}`;
+}
+
+export function buildIfsLogoutUrl(postLogoutRedirect: string): string {
+  const { systemUrl, realm } = getOAuthRealmConfig();
+  const { oauthClientId } = getIfsConfig();
+  const params = new URLSearchParams({
+    client_id: oauthClientId,
+    post_logout_redirect_uri: postLogoutRedirect,
+  });
+  return `${systemUrl}/auth/realms/${realm}/protocol/openid-connect/logout?${params.toString()}`;
 }
 
 export async function exchangeAuthorizationCode(input: {

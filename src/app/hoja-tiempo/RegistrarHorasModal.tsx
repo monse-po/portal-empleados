@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Dropdown } from "@/src/components/ui/Dropdown";
 import { Field } from "@/src/components/ui/Field";
@@ -16,6 +16,14 @@ import { useToast } from "@/src/components/ui/Toast";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import { useMiTiempo, type GuardarRegistroMode } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import {
+  findActividadMeta,
+  resolveActividadId,
+  resolveSubproyectoId,
+  tipoCatFromOptions,
+  type TiempoCatalog,
+  type TiempoTipoHoraOption,
+} from "@/src/lib/ifs/tiempo-catalog";
+import {
   clampFechaMes,
   findRegistroById,
   formatFechaLegible,
@@ -29,6 +37,10 @@ import {
   TIPO_HORA,
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
+import {
+  fetchTiempoCatalogAction,
+  fetchTiposHoraAction,
+} from "@/src/server/mi-tiempo-catalog-actions";
 
 const FORM_ID = "registro-horas-form";
 
@@ -49,23 +61,32 @@ type RegistroHorasFormProps = {
   editId?: string;
   defaultFecha?: string;
   registros: Record<string, RegistroMock[]>;
-  onSave: (registro: RegistroMock, mode: GuardarRegistroMode) => void;
+  ifsConnected: boolean;
+  onSave: (registro: RegistroMock, mode: GuardarRegistroMode) => void | Promise<void>;
+  saving?: boolean;
 };
 
 function buildInitialForm(
   editId: string | undefined,
   defaultFecha: string | undefined,
   registros: Record<string, RegistroMock[]>,
+  catalog: TiempoCatalog | null,
 ): FormState {
   const bounds = getMesActualBounds();
 
   if (editId) {
     const reg = findRegistroById(registros, editId);
     if (reg) {
+      const sub = catalog
+        ? resolveSubproyectoId(catalog, reg.proy, reg.subproy, reg.act)
+        : inferSubproyecto(reg.proy, reg.act, reg.subproy);
+      const act = catalog
+        ? resolveActividadId(catalog, reg.proy, sub, reg.act)
+        : reg.act;
       return {
         proy: reg.proy,
-        sub: inferSubproyecto(reg.proy, reg.act, reg.subproy),
-        act: reg.act,
+        sub,
+        act,
         fecha: clampFechaMes(reg.fecha, bounds),
         tipo: reg.tipo,
         horas: String(reg.horas),
@@ -88,6 +109,8 @@ function buildInitialForm(
 function validateForm(
   form: FormState,
   registros: Record<string, RegistroMock[]>,
+  tipos: TiempoTipoHoraOption[],
+  useIfsCatalog: boolean,
   editId?: string,
 ): Partial<Record<FieldKey, string>> {
   const errors: Partial<Record<FieldKey, string>> = {};
@@ -101,10 +124,11 @@ function validateForm(
   const horasNum = parseFloat(form.horas);
   if (!form.horas || horasNum <= 0 || Number.isNaN(horasNum)) {
     errors.horas = "Requerido";
-  } else if (
-    form.tipo &&
-    TIPO_HORA[form.tipo]?.cat === "normal"
-  ) {
+  } else if (form.tipo) {
+    const esNormal = useIfsCatalog
+      ? tipoCatFromOptions(form.tipo, tipos) === "normal"
+      : (TIPO_HORA[form.tipo]?.cat ?? "normal") === "normal";
+    if (esNormal) {
     const horasExistentes = getHorasNormales(
       registros,
       form.fecha,
@@ -112,6 +136,7 @@ function validateForm(
     );
     if (horasExistentes + horasNum > 8.5) {
       errors.horas = `Tope de 8.5h normales por día (ya tienes ${horasExistentes}h)`;
+    }
     }
   }
 
@@ -123,28 +148,118 @@ function RegistroHorasForm({
   editId,
   defaultFecha,
   registros,
+  ifsConnected,
   onSave,
+  saving = false,
 }: RegistroHorasFormProps) {
   const bounds = getMesActualBounds();
-  const [form, setForm] = useState(() =>
-    buildInitialForm(editId, defaultFecha, registros),
+  const [catalog, setCatalog] = useState<TiempoCatalog | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [tipos, setTipos] = useState<TiempoTipoHoraOption[]>([]);
+  const [tiposLoading, setTiposLoading] = useState(false);
+  const [form, setForm] = useState<FormState>(() =>
+    buildInitialForm(editId, defaultFecha, registros, null),
   );
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [tipoOpen, setTipoOpen] = useState(false);
   const { toast } = useToast();
+  const useIfsCatalog = ifsConnected;
 
-  const subs =
+  useEffect(() => {
+    if (!useIfsCatalog || !form.fecha) return;
+
+    let cancelled = false;
+    setCatalogLoading(true);
+    setCatalogError(null);
+
+    void fetchTiempoCatalogAction(form.fecha).then((result) => {
+      if (cancelled) return;
+      setCatalogLoading(false);
+      if (result.error || !result.catalog) {
+        setCatalog(null);
+        setCatalogError(result.error ?? "Catálogo vacío");
+        return;
+      }
+      setCatalog(result.catalog);
+      if (editId) {
+        setForm(buildInitialForm(editId, defaultFecha, registros, result.catalog));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [useIfsCatalog, form.fecha, editId, defaultFecha, registros]);
+
+  const mockSubs =
     form.proy && JER_TIEMPO[form.proy]
       ? Object.keys(JER_TIEMPO[form.proy].subs)
       : [];
-  const acts =
+  const mockActs =
     form.proy && form.sub && JER_TIEMPO[form.proy]?.subs[form.sub]
       ? JER_TIEMPO[form.proy].subs[form.sub]
       : [];
+  const proyEntry = form.proy ? catalog?.porProyecto[form.proy] : undefined;
+  const subs = useIfsCatalog ? (proyEntry?.subs ?? []) : mockSubs.map((s) => ({ id: s, label: s }));
+  const actividades = useIfsCatalog
+    ? (proyEntry?.subs.find((s) => s.id === form.sub)?.actividades ?? [])
+    : mockActs.map((a) => ({ id: a, label: a, activitySeq: 0, activityNo: a }));
+  const actMeta = useIfsCatalog
+    ? findActividadMeta(catalog, form.proy, form.sub, form.act)
+    : null;
   const aprobador =
     form.proy && JER_TIEMPO[form.proy]
       ? JER_TIEMPO[form.proy].aprobador
       : "Según el proyecto";
+
+  useEffect(() => {
+    if (!useIfsCatalog || !form.proy || !form.sub || !form.act || !form.fecha) {
+      setTipos([]);
+      return;
+    }
+
+    const entry = catalog?.porProyecto[form.proy];
+    const activity = findActividadMeta(catalog, form.proy, form.sub, form.act);
+    if (!entry || !activity?.activitySeq) {
+      setTipos([]);
+      return;
+    }
+
+    let cancelled = false;
+    setTiposLoading(true);
+
+    void fetchTiposHoraAction({
+      companyId: entry.companyId,
+      projectId: entry.projectId,
+      subProjectId: form.sub,
+      accountDate: form.fecha,
+      activitySeq: activity.activitySeq,
+    }).then((result) => {
+      if (cancelled) return;
+      setTiposLoading(false);
+      setTipos(result.tipos);
+      if (result.error) {
+        toast(result.error, "warn");
+      }
+      if (form.tipo && !result.tipos.some((t) => t.code === form.tipo)) {
+        setForm((prev) => ({ ...prev, tipo: "" }));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    useIfsCatalog,
+    catalog,
+    form.proy,
+    form.sub,
+    form.act,
+    form.fecha,
+    form.tipo,
+    toast,
+  ]);
 
   const patch = (next: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...next }));
@@ -160,24 +275,25 @@ function RegistroHorasForm({
   };
 
   const handleProyChange = (proy: string) => {
-    patch({ proy, sub: "", act: "" });
+    patch({ proy, sub: "", act: "", tipo: "" });
     clearError("proy");
   };
 
   const handleSubChange = (sub: string) => {
-    patch({ sub, act: "" });
+    patch({ sub, act: "", tipo: "" });
     clearError("sub");
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (saving) return;
     const submitter = (event.nativeEvent as SubmitEvent).submitter as
       | HTMLButtonElement
       | null;
     const mode: GuardarRegistroMode =
       submitter?.dataset.saveMode === "enviar" ? "enviar" : "guardar";
 
-    const nextErrors = validateForm(form, registros, editId);
+    const nextErrors = validateForm(form, registros, tipos, useIfsCatalog, editId);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       if (nextErrors.horas?.includes("8.5h")) {
@@ -187,20 +303,20 @@ function RegistroHorasForm({
     }
 
     const horasNum = parseFloat(form.horas);
-    const apr = JER_TIEMPO[form.proy]?.aprobador || "";
+    const actLabel = useIfsCatalog ? (actMeta?.label ?? form.act) : form.act;
 
-    onSave(
+    await onSave(
       {
         id: editId ?? `r${Date.now()}`,
         proy: form.proy,
         subproy: form.sub,
-        act: form.act,
+        act: actLabel,
         tipo: form.tipo,
         horas: horasNum,
         fecha: form.fecha,
         comentario: form.comentario,
         estado: "Registrado",
-        aprobador: apr,
+        aprobador,
         comentarioRechazo: "",
       },
       mode,
@@ -219,12 +335,17 @@ function RegistroHorasForm({
     }
 
     const ultimo = registros[anterior][registros[anterior].length - 1];
-    const sub = inferSubproyecto(ultimo.proy, ultimo.act, ultimo.subproy);
+    const sub = useIfsCatalog
+      ? resolveSubproyectoId(catalog, ultimo.proy, ultimo.subproy, ultimo.act)
+      : inferSubproyecto(ultimo.proy, ultimo.act, ultimo.subproy);
+    const act = useIfsCatalog
+      ? resolveActividadId(catalog, ultimo.proy, sub, ultimo.act)
+      : ultimo.act;
 
     patch({
       proy: ultimo.proy,
       sub,
-      act: ultimo.act,
+      act,
       tipo: ultimo.tipo,
       horas: String(ultimo.horas),
       comentario: ultimo.comentario || "",
@@ -235,6 +356,15 @@ function RegistroHorasForm({
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+      {useIfsCatalog && catalogLoading && (
+        <p className="text-xs text-muted">Cargando catálogo IFS…</p>
+      )}
+      {useIfsCatalog && catalogError && (
+        <p className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-sm text-[#b91c1c]">
+          {catalogError}
+        </p>
+      )}
+
       <button
         type="button"
         onClick={handleCopiarDiaAnterior}
@@ -248,13 +378,25 @@ function RegistroHorasForm({
         <SearchableSelect
           value={form.proy}
           onChange={handleProyChange}
-          options={PROYECTOS.map((p) => ({
-            value: p.id,
-            label: `${p.id} – ${p.nombre}`,
-            hint: p.sub,
-          }))}
-          placeholder="Seleccionar..."
+          options={
+            useIfsCatalog
+              ? (catalog?.proyectos ?? []).map((p) => ({
+                  value: p.id,
+                  label: `${p.id} – ${p.nombre}`,
+                }))
+              : PROYECTOS.map((p) => ({
+                  value: p.id,
+                  label: `${p.id} – ${p.nombre}`,
+                  hint: p.sub,
+                }))
+          }
+          placeholder={
+            useIfsCatalog && catalogLoading
+              ? "Cargando proyectos…"
+              : "Seleccionar..."
+          }
           searchPlaceholder="Buscar proyecto..."
+          disabled={useIfsCatalog && (catalogLoading || !catalog?.proyectos.length)}
           error={!!errors.proy}
         />
       </Field>
@@ -263,14 +405,17 @@ function RegistroHorasForm({
         <SearchableSelect
           value={form.sub}
           onChange={handleSubChange}
-          options={subs.map((s) => ({ value: s, label: s }))}
+          options={subs.map((s) => ({
+            value: s.id,
+            label: s.label,
+          }))}
           placeholder={
             form.proy
               ? "Seleccionar subproyecto..."
               : "Selecciona un proyecto primero"
           }
           searchPlaceholder="Buscar subproyecto..."
-          disabled={!form.proy}
+          disabled={!form.proy || (useIfsCatalog && catalogLoading)}
           error={!!errors.sub}
         />
       </Field>
@@ -279,17 +424,20 @@ function RegistroHorasForm({
         <SearchableSelect
           value={form.act}
           onChange={(act) => {
-            patch({ act });
+            patch({ act, tipo: "" });
             clearError("act");
           }}
-          options={acts.map((a) => ({ value: a, label: a }))}
+          options={actividades.map((a) => ({
+            value: a.id,
+            label: a.label,
+          }))}
           placeholder={
             form.sub
               ? "Seleccionar actividad..."
               : "Selecciona un subproyecto primero"
           }
           searchPlaceholder="Buscar actividad..."
-          disabled={!form.sub}
+          disabled={!form.sub || (useIfsCatalog && catalogLoading)}
           error={!!errors.act}
         />
       </Field>
@@ -302,7 +450,11 @@ function RegistroHorasForm({
               bounds={bounds}
               invalid={!!errors.fecha}
               onChange={(fecha) => {
-                patch({ fecha });
+                patch(
+                  useIfsCatalog
+                    ? { fecha, proy: "", sub: "", act: "", tipo: "" }
+                    : { fecha },
+                );
                 clearError("fecha");
               }}
             />
@@ -318,11 +470,12 @@ function RegistroHorasForm({
               trigger={
                 <button
                   type="button"
+                  disabled={useIfsCatalog ? !form.act || tiposLoading : false}
                   onClick={(event) => {
                     event.stopPropagation();
                     setTipoOpen((open) => !open);
                   }}
-                  className={`flex min-h-[38px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-[13px] transition-colors hover:border-[#9fb3cc] focus:border-navy focus:outline-none ${
+                  className={`flex min-h-[38px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-[13px] transition-colors hover:border-[#9fb3cc] focus:border-navy focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
                     errors.tipo
                       ? "border-red bg-[#fff5f5]"
                       : "border-[#c7d2e0] bg-white"
@@ -331,24 +484,38 @@ function RegistroHorasForm({
                   {form.tipo ? (
                     <TipoHoraPill tipo={form.tipo} />
                   ) : (
-                    <span className="text-muted">Seleccionar...</span>
+                    <span className="text-muted">
+                      {useIfsCatalog && tiposLoading
+                        ? "Cargando…"
+                        : useIfsCatalog && !form.act
+                          ? "Elige actividad primero"
+                          : "Seleccionar..."}
+                    </span>
                   )}
                   <DropdownChevron />
                 </button>
               }
             >
-              {Object.keys(TIPO_HORA).map((tipo) => (
+              {(useIfsCatalog
+                ? tipos
+                : Object.keys(TIPO_HORA).map((code) => ({
+                    code,
+                    label: TIPO_HORA[code].n,
+                    cat: TIPO_HORA[code].cat,
+                  }))
+              ).map((tipo) => (
                 <button
-                  key={tipo}
+                  key={tipo.code}
                   type="button"
                   onClick={() => {
-                    patch({ tipo });
+                    patch({ tipo: tipo.code });
                     setTipoOpen(false);
                     clearError("tipo");
                   }}
                   className="flex w-full cursor-pointer items-center gap-2 rounded-[7px] px-2 py-1.5 hover:bg-[#f4f7fb]"
                 >
-                  <TipoHoraPill tipo={tipo} />
+                  <TipoHoraPill tipo={tipo.code} />
+                  <span className="text-xs text-muted">{tipo.label}</span>
                 </button>
               ))}
             </Dropdown>
@@ -409,9 +576,7 @@ function RegistroHorasForm({
         </p>
         <p>
           <span className="font-semibold text-[#15803d]">Enviar a Aprobación:</span>{" "}
-          envía al gerente los registros en borrador de ese día. Puedes seguir
-          agregando registros nuevos; los ya enviados quedan bloqueados hasta
-          que el aprobador responda.
+          envía al gerente los registros en borrador de ese día.
         </p>
       </div>
 
@@ -428,16 +593,21 @@ export function RegistrarHorasModal() {
     modal,
     closeRegistrarModal,
     registros,
+    ifsConnected,
     upsertRegistro,
     upsertRegistroYEnviarDia,
   } = useMiTiempo();
   const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [saveMode, setSaveMode] = useState<GuardarRegistroMode | null>(null);
 
   const formKey = modal
     ? `${modal.editId ?? "new"}:${modal.fecha ?? "hoy"}`
     : "closed";
 
   const handleSave = async (registro: RegistroMock, mode: GuardarRegistroMode) => {
+    setSaving(true);
+    setSaveMode(mode);
     const wasRejected =
       modal?.editId &&
       findRegistroById(registros, modal.editId)?.estado === "Rechazado";
@@ -479,20 +649,34 @@ export function RegistrarHorasModal() {
           : "No se pudo guardar el registro. Intenta de nuevo.",
         "danger",
       );
+    } finally {
+      setSaving(false);
+      setSaveMode(null);
     }
+  };
+
+  const handleClose = () => {
+    if (saving) return;
+    closeRegistrarModal();
   };
 
   return (
     <Modal
       open={!!modal}
-      onClose={closeRegistrarModal}
+      onClose={handleClose}
+      busy={saving}
       title={modal?.editId ? "Editar registro" : "Registrar horas"}
       icon="clock"
       widthClass="max-w-[580px]"
       footer={
         modal ? (
           <>
-            <Button type="button" variant="tertiary" onClick={closeRegistrarModal}>
+            <Button
+              type="button"
+              variant="tertiary"
+              onClick={handleClose}
+              disabled={saving}
+            >
               Cancelar
             </Button>
             <div className="flex items-center gap-2">
@@ -501,6 +685,9 @@ export function RegistrarHorasModal() {
                 form={FORM_ID}
                 variant="secondary"
                 data-save-mode="guardar"
+                disabled={saving}
+                loading={saving && saveMode === "guardar"}
+                loadingLabel="Guardando…"
               >
                 Agregar al día
               </Button>
@@ -509,6 +696,9 @@ export function RegistrarHorasModal() {
                 form={FORM_ID}
                 variant="success"
                 data-save-mode="enviar"
+                disabled={saving}
+                loading={saving && saveMode === "enviar"}
+                loadingLabel="Enviando…"
               >
                 <Icon name="send" size="xs" />
                 Enviar a Aprobación
@@ -525,7 +715,9 @@ export function RegistrarHorasModal() {
           editId={modal.editId}
           defaultFecha={modal.fecha}
           registros={registros}
+          ifsConnected={ifsConnected}
           onSave={handleSave}
+          saving={saving}
         />
       )}
     </Modal>

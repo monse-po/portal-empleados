@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
+import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
 import { Icon } from "@/src/components/ui/Icon";
 import { Modal } from "@/src/components/ui/Modal";
 import { SelectControl } from "@/src/components/ui/DropdownAffordance";
 import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
+import { useAsyncAction } from "@/src/lib/use-async-action";
 import { formatMonto, parseMontoInput, PROYECTOS_ANT } from "@/src/lib/mis-anticipos-mock";
 import {
   getCostCategories,
@@ -26,7 +28,7 @@ type LineaGastoModalProps = {
   hideProyectoColumn?: boolean;
   lockedCurrency?: string;
   onClose: () => void;
-  onSave: (linea: LineaGastoDraft) => void;
+  onSave: (linea: LineaGastoDraft) => void | Promise<void>;
 };
 
 function validateDraft(
@@ -139,22 +141,32 @@ export function LineaGastoModal({
       setErrors(nextErrors);
       return;
     }
-    onSave(toSave);
+    return onSave(toSave);
   };
+
+  const { loading: guardando, run: runGuardar } = useAsyncAction(async () => {
+    await handleSave();
+  });
 
   return (
     <Modal
       open={open}
       onClose={onClose}
+      busy={guardando}
       title={mode === "create" ? "Agregar comprobante" : "Editar comprobante"}
       icon="folderOpen"
       widthClass="max-w-[680px]"
       footer={
         <div className="ml-auto flex gap-2">
-          <Button variant="tertiary" onClick={onClose}>
+          <Button variant="tertiary" onClick={onClose} disabled={guardando}>
             Cancelar
           </Button>
-          <Button variant="success" onClick={handleSave}>
+          <Button
+            variant="success"
+            onClick={() => void runGuardar()}
+            loading={guardando}
+            loadingLabel="Guardando…"
+          >
             Guardar comprobante
           </Button>
         </div>
@@ -177,11 +189,11 @@ export function LineaGastoModal({
         </Field>
 
         <Field label="Fecha factura" required error={errors.invoiceDate}>
-          <input
-            type="date"
+          <DateInput
             value={draft.invoiceDate}
             onChange={(e) => patch({ invoiceDate: e.target.value })}
-            className="ant-field-input cursor-pointer"
+            invalid={!!errors.invoiceDate}
+            className="ant-field-input"
           />
         </Field>
 

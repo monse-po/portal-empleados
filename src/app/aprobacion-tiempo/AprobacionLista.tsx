@@ -7,16 +7,17 @@ import { Icon } from "@/src/components/ui/Icon";
 import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
 import { AprobacionFilterBar } from "@/src/app/aprobacion-tiempo/AprobacionFilterBar";
 import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
-import {
-  AprobacionProyMeta,
-  AprobacionTabla,
-} from "@/src/app/aprobacion-tiempo/AprobacionTabla";
+import { AprobacionTabla } from "@/src/app/aprobacion-tiempo/AprobacionTabla";
 import {
   applyAproFilters,
   hayFiltrosActivos,
   removeFilterByColumn,
   type AproFilterRule,
 } from "@/src/lib/aprobacion-filtros";
+import {
+  getPendientesStatsPorProy,
+  getResueltasStatsPorProy,
+} from "@/src/lib/aprobacion-tiempo-mock";
 
 function KpiCard({
   label,
@@ -72,6 +73,7 @@ export function AprobacionLista({
   onAprobar,
 }: AprobacionListaProps) {
   const {
+    hojas,
     kpis,
     proyectos,
     proySel,
@@ -85,6 +87,18 @@ export function AprobacionLista({
   } = useAprobacion();
 
   const [filters, setFilters] = useState<AproFilterRule[]>([]);
+
+  const pendientesPorProy = useMemo(
+    () => getPendientesStatsPorProy(hojas),
+    [hojas],
+  );
+  const resueltasPorProy = useMemo(
+    () => getResueltasStatsPorProy(hojas),
+    [hojas],
+  );
+
+  const proyPendientes = proySel ? pendientesPorProy[proySel] : null;
+  const proyResueltas = proySel ? resueltasPorProy[proySel] : null;
 
   const filtrados = useMemo(
     () => applyAproFilters(registrosActuales, filters),
@@ -134,16 +148,15 @@ export function AprobacionLista({
           sub="Este mes"
         />
         <KpiCard
-          label="Horas pendientes"
+          label="Horas por aprobar"
           value={`${kpis.horasPendientes}h`}
-          sub="Por aprobar"
+          sub="En registros pendientes"
         />
       </div>
 
       <div className="mb-3.5 rounded-xl border border-border bg-white px-[18px] py-3">
         <p className="mb-2.5 text-[12px] leading-snug text-[#6b7280]">
-          Selecciona el proyecto que quieres revisar; abajo verás las horas de
-          tu equipo.
+          Selecciona el proyecto que quieres revisar.
         </p>
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -154,22 +167,46 @@ export function AprobacionLista({
             <SearchableSelect
               value={proySel}
               onChange={handleProyChange}
-              options={proyectos.map((p) => ({
-                value: p.cod,
-                label: `${p.cod} · ${p.nombre}`,
-              }))}
+              options={proyectos.map((p) => {
+                const pend = pendientesPorProy[p.cod]?.count ?? 0;
+                return {
+                  value: p.cod,
+                  label: `${p.cod} · ${p.nombre}`,
+                  hint: pend > 0 ? `${pend} pend.` : undefined,
+                };
+              })}
               placeholder="Selecciona un proyecto…"
               searchPlaceholder="Buscar proyecto…"
               wrapperClassName="min-w-[220px]"
             />
           </div>
-          {proySel ? (
-            <AprobacionProyMeta
-              shown={filtrados.length}
-              total={registrosActuales.length}
-              hasFilters={hayFiltrosActivos(filters)}
-            />
-          ) : null}
+
+          {proySel && tab === "pend" && (
+            <span className="text-[13px] text-[#475569]">
+              <span className="font-bold text-navy">{proyPendientes?.count ?? 0}</span>
+              {" pendiente"}
+              {(proyPendientes?.count ?? 0) === 1 ? "" : "s"}
+              <span className="mx-1.5 text-[#cbd5e1]">·</span>
+              <span className="font-bold text-navy">{proyPendientes?.horas ?? 0}h</span>
+              {" por aprobar"}
+            </span>
+          )}
+
+          {proySel && tab === "res" && (
+            <span className="text-[13px] text-[#475569]">
+              <span className="font-bold text-[#16a34a]">
+                {proyResueltas?.aprobadas ?? 0}
+              </span>
+              {" aprobada"}
+              {(proyResueltas?.aprobadas ?? 0) === 1 ? "" : "s"}
+              <span className="mx-1.5 text-[#cbd5e1]">·</span>
+              <span className="font-bold text-[#dc2626]">
+                {proyResueltas?.rechazadas ?? 0}
+              </span>
+              {" rechazada"}
+              {(proyResueltas?.rechazadas ?? 0) === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
       </div>
 

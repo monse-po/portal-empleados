@@ -1,13 +1,14 @@
 "use client";
 
-import { Button } from "@/src/components/ui/Button";
+import { useState } from "react";
 import { Modal } from "@/src/components/ui/Modal";
+import { ModalConfirmFooter } from "@/src/components/ui/ModalConfirmFooter";
 
 type EnviarLegalizacionModalProps = {
   open: boolean;
   resumenHtml: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 };
 
 export function EnviarLegalizacionModal({
@@ -16,20 +17,24 @@ export function EnviarLegalizacionModal({
   onClose,
   onConfirm,
 }: EnviarLegalizacionModalProps) {
+  const [busy, setBusy] = useState(false);
+
   return (
     <Modal
       open={open}
       onClose={onClose}
+      busy={busy}
       title="Confirmar envío"
       footer={
-        <>
-          <Button variant="tertiary" onClick={onClose}>
-            Volver
-          </Button>
-          <Button variant="success" onClick={onConfirm}>
-            Enviar a Aprobación
-          </Button>
-        </>
+        <ModalConfirmFooter
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          cancelLabel="Volver"
+          confirmLabel="Enviar a Aprobación"
+          confirmVariant="success"
+          loadingLabel="Enviando…"
+          onBusyChange={setBusy}
+        />
       }
     >
       <div

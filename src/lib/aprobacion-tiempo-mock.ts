@@ -1,4 +1,4 @@
-import { dmyToSortKey } from "@/src/lib/tiempo-bridge";
+import { dmyToSortKey, formatProyectoAprobacionPorCod, nombreProyectoPorCodAprobacion } from "@/src/lib/tiempo-bridge";
 import { HOY_MOCK } from "@/src/lib/mi-tiempo-mock";
 
 export type EstadoAprobacion = "" | "Aprobado" | "Rechazado" | "Anulado";
@@ -56,7 +56,7 @@ const SEED: Record<string, HojaAprobacion> = {
     no: "HT20260089",
     fecha: "25/04/2026",
     compania: "HMVINGCO",
-    proy: "PRY2025001 · Proyecto Alfa",
+    proy: formatProyectoAprobacionPorCod("PRY2025001"),
     subproy: "SUB-201 · Ingeniería de detalle",
     tipo: "DN",
     solicitante: "Ana Martínez",
@@ -72,7 +72,7 @@ const SEED: Record<string, HojaAprobacion> = {
     no: "HT20260088",
     fecha: "25/04/2026",
     compania: "HMVINGCO",
-    proy: "PRY2025001 · Proyecto Alfa",
+    proy: formatProyectoAprobacionPorCod("PRY2025001"),
     subproy: "SUB-201 · Ingeniería de detalle",
     tipo: "HED",
     solicitante: "Ana Martínez",
@@ -88,7 +88,7 @@ const SEED: Record<string, HojaAprobacion> = {
     no: "HT20260087",
     fecha: "24/04/2026",
     compania: "HMVINGCO",
-    proy: "PRY2025002 · Proyecto Beta",
+    proy: formatProyectoAprobacionPorCod("PRY2025002"),
     subproy: "SUB-310 · Diseño hidrosanitario",
     tipo: "DN",
     solicitante: "Luis Herrera",
@@ -104,7 +104,7 @@ const SEED: Record<string, HojaAprobacion> = {
     no: "HT20260086",
     fecha: "24/04/2026",
     compania: "HMVINGCO",
-    proy: "PRY2025001 · Proyecto Alfa",
+    proy: formatProyectoAprobacionPorCod("PRY2025001"),
     subproy: "SUB-202 · Coordinación",
     tipo: "DN",
     solicitante: "Sandra López",
@@ -120,7 +120,7 @@ const SEED: Record<string, HojaAprobacion> = {
     no: "HT20260085",
     fecha: "23/04/2026",
     compania: "HMVINGCO",
-    proy: "PRY2024003 · Proyecto Gamma",
+    proy: formatProyectoAprobacionPorCod("PRY2024003"),
     subproy: "SUB-105 · Supervisión de obra",
     tipo: "DN",
     solicitante: "Jorge Peña",
@@ -136,7 +136,7 @@ const SEED: Record<string, HojaAprobacion> = {
     no: "HT20260081",
     fecha: "15/04/2026",
     compania: "HMVINGCO",
-    proy: "PRY2025001 · Proyecto Alfa",
+    proy: formatProyectoAprobacionPorCod("PRY2025001"),
     subproy: "SUB-203 · Topografía",
     tipo: "DN",
     solicitante: "María Camila Torres",
@@ -154,7 +154,7 @@ const SEED: Record<string, HojaAprobacion> = {
     no: "HT20260079",
     fecha: "13/04/2026",
     compania: "HMVINGCO",
-    proy: "PRY2025002 · Proyecto Beta",
+    proy: formatProyectoAprobacionPorCod("PRY2025002"),
     subproy: "SUB-311 · Documentación",
     tipo: "DN",
     solicitante: "Ana Martínez",
@@ -172,7 +172,7 @@ const SEED: Record<string, HojaAprobacion> = {
     no: "HT20260075",
     fecha: "09/04/2026",
     compania: "HMVINGCO",
-    proy: "PRY2024003 · Proyecto Gamma",
+    proy: formatProyectoAprobacionPorCod("PRY2024003"),
     subproy: "SUB-105 · Supervisión de obra",
     tipo: "HED",
     solicitante: "Luis Herrera",
@@ -190,7 +190,7 @@ const SEED: Record<string, HojaAprobacion> = {
     no: "HT20260077",
     fecha: "11/04/2026",
     compania: "HMVINGCO",
-    proy: "PRY2025002 · Proyecto Beta",
+    proy: formatProyectoAprobacionPorCod("PRY2025002"),
     subproy: "SUB-310 · Diseño hidrosanitario",
     tipo: "HED",
     solicitante: "María Camila Torres",
@@ -209,7 +209,7 @@ const SEED: Record<string, HojaAprobacion> = {
     no: "HT20260072",
     fecha: "07/04/2026",
     compania: "HMVINGCO",
-    proy: "PRY2024003 · Proyecto Gamma",
+    proy: formatProyectoAprobacionPorCod("PRY2024003"),
     subproy: "SUB-106 · Planos",
     tipo: "HA",
     solicitante: "Luis Herrera",
@@ -228,9 +228,9 @@ const SEED: Record<string, HojaAprobacion> = {
 
 function generateBulk(): Record<string, HojaAprobacion> {
   const proys = [
-    "PRY2025001 · Proyecto Alfa",
-    "PRY2025002 · Proyecto Beta",
-    "PRY2024003 · Proyecto Gamma",
+    formatProyectoAprobacionPorCod("PRY2025001"),
+    formatProyectoAprobacionPorCod("PRY2025002"),
+    formatProyectoAprobacionPorCod("PRY2024003"),
   ];
   const emps: [string, string][] = [
     ["Ana Martínez", "52.012.345"],
@@ -338,7 +338,11 @@ export function getProyectosList(
   const map: Record<string, string> = {};
   Object.values(hojas).forEach((s) => {
     const k = proyKey(s.proy);
-    if (k && !(k in map)) map[k] = proyNombre(s.proy);
+    if (k && !(k in map)) {
+      map[k] =
+        nombreProyectoPorCodAprobacion(k) ??
+        (proyNombre(s.proy) || k);
+    }
   });
   return Object.keys(map)
     .sort()
@@ -364,6 +368,47 @@ export function getProyConMasPendientes(
     }
   });
   return best;
+}
+
+export type ProyPendientesStats = { count: number; horas: number };
+
+export type ProyResueltasStats = { aprobadas: number; rechazadas: number };
+
+function roundHoras(x: number): number {
+  return Math.round(x * 10) / 10;
+}
+
+export function getPendientesStatsPorProy(
+  hojas: Record<string, HojaAprobacion>,
+): Record<string, ProyPendientesStats> {
+  const stats: Record<string, ProyPendientesStats> = {};
+  for (const s of Object.values(hojas)) {
+    if (s.estadoApro) continue;
+    const k = proyKey(s.proy);
+    if (!k) continue;
+    if (!stats[k]) stats[k] = { count: 0, horas: 0 };
+    stats[k].count += 1;
+    stats[k].horas += horasNum(s.horas);
+  }
+  for (const k of Object.keys(stats)) {
+    stats[k].horas = roundHoras(stats[k].horas);
+  }
+  return stats;
+}
+
+export function getResueltasStatsPorProy(
+  hojas: Record<string, HojaAprobacion>,
+): Record<string, ProyResueltasStats> {
+  const stats: Record<string, ProyResueltasStats> = {};
+  for (const s of Object.values(hojas)) {
+    if (!s.estadoApro) continue;
+    const k = proyKey(s.proy);
+    if (!k) continue;
+    if (!stats[k]) stats[k] = { aprobadas: 0, rechazadas: 0 };
+    if (s.estadoApro === "Aprobado") stats[k].aprobadas += 1;
+    else if (s.estadoApro === "Rechazado") stats[k].rechazadas += 1;
+  }
+  return stats;
 }
 
 function isMesReferencia(fechaDmy: string): boolean {

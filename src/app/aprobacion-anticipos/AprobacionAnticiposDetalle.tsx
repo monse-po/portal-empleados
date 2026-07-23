@@ -15,6 +15,7 @@ import {
 import { GerenteAccionBar } from "@/src/components/ui/GerenteAccionBar";
 import { TipoAnticipoPill } from "@/src/components/ui/TipoAnticipoPill";
 import { useToast } from "@/src/components/ui/Toast";
+import { useAsyncAction } from "@/src/lib/use-async-action";
 import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-mock";
 import {
   formatMonto,
@@ -67,6 +68,9 @@ export function AprobacionAnticiposDetalle({
     onRechazar(trimmed);
   };
 
+  const { loading: rechazando, run: runRechazar } =
+    useAsyncAction(handleRechazar);
+
   return (
     <div className="content-standard">
       <AnticipoDetailHeader
@@ -88,8 +92,9 @@ export function AprobacionAnticiposDetalle({
                 if (error) setError("");
               }}
               error={error}
-              onRechazar={handleRechazar}
+              onRechazar={() => void runRechazar()}
               onAprobar={() => onAprobar(comentario.trim() || undefined)}
+              loadingRechazar={rechazando}
               aprobarLabel="Aprobar solicitud"
               hint="Al aprobar, IFS procesará el pago. Esta acción no se puede deshacer."
               placeholder="Ej: Aprobado conforme / Rechazado — excede presupuesto"

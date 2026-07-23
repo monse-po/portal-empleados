@@ -7,6 +7,7 @@ import { SelectControl } from "@/src/components/ui/DropdownAffordance";
 import { FilterChainRow } from "@/src/components/ui/FilterChainRow";
 import { Icon } from "@/src/components/ui/Icon";
 import {
+  buildFilterMultiOptions,
   FilterBarMultiDropdown,
   FilterBarTextInput,
   FilterBarTrigger,
@@ -52,10 +53,8 @@ function multiOptions(
   column: "empleado" | "tipo" | "subproy" | "actividad" | "estado",
   registros: HojaAprobacion[],
 ): FilterDropdownOption[] {
-  return getDistinctValues(registros, column).map((val) => ({
-    value: val,
-    label:
-      column === "tipo" && TIPO_HORA[val]?.s ? TIPO_HORA[val].s : val,
+  return buildFilterMultiOptions("tiempo", column, getDistinctValues(registros, column), (val) => ({
+    label: column === "tipo" && TIPO_HORA[val]?.s ? TIPO_HORA[val].s : val,
     title: column === "tipo" ? TIPO_HORA[val]?.n : val,
     icon: valueOptionIcon(column, val),
   }));
@@ -334,6 +333,21 @@ function ColumnBarControl({
 
 const QUICK_FILTER_COLUMNS: AproFilterColumn[] = ["empleado", "fecha", "subproy"];
 
+function getScrollContainer(): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector("main.overflow-y-auto");
+}
+
+function preserveScroll(action: () => void) {
+  const scrollEl = getScrollContainer();
+  const scrollTop = scrollEl?.scrollTop ?? window.scrollY;
+  action();
+  requestAnimationFrame(() => {
+    if (scrollEl) scrollEl.scrollTop = scrollTop;
+    else window.scrollTo({ top: scrollTop, behavior: "auto" });
+  });
+}
+
 export function AprobacionFilterBar({
   registros,
   filters,
@@ -354,9 +368,11 @@ export function AprobacionFilterBar({
   );
 
   const pickColumn = (col: AproFilterColumn) => {
-    setColumnMenuOpen(false);
-    setBarColumns((prev) => (prev.includes(col) ? prev : [...prev, col]));
-    setAutoOpenColumn(col);
+    preserveScroll(() => {
+      setColumnMenuOpen(false);
+      setBarColumns((prev) => (prev.includes(col) ? prev : [...prev, col]));
+      setAutoOpenColumn(col);
+    });
   };
 
   const removeBarColumn = (col: AproFilterColumn) => {
@@ -372,7 +388,7 @@ export function AprobacionFilterBar({
   };
 
   return (
-    <TableFilterSection embedded={embedded}>
+    <TableFilterSection embedded={embedded} sticky={false}>
       <div className={`space-y-2.5 ${disabled ? "pointer-events-none opacity-45" : ""}`}>
         <div className="flex flex-wrap items-center gap-2">
           <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">

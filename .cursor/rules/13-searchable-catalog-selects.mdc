@@ -1,59 +1,18 @@
 ---
-description: Catálogos grandes (proyecto, subproyecto, actividad) deben usar picker con buscador
+description: Selectores con buscador — ver 02-design-system.mdc (sección unificada)
 globs: src/**/*.tsx
 alwaysApply: false
 ---
 
-# Selectores de catálogo con buscador
+# Selectores de catálogo
 
-## Regla
+**Reglas canónicas:** `02-design-system.mdc` → secciones **«Campos de fecha»** y **«Selectores, dropdowns y catálogos»**.
 
-Para catálogos **relativamente grandes** (proyecto, subproyecto, actividad, empresa, empleado, etc.) **no usar** `<SelectControl>` / `<select>` nativo.
+Este archivo existe solo como ancla para búsquedas; no duplicar reglas aquí.
 
-Usar siempre un picker con **campo de búsqueda**:
-
-| Caso | Componente |
-|------|------------|
-| Entidad con `id`, `nombre`, `sub` (`LovItem`) | `LovPicker` |
-| Lista de strings o `{ value, label, hint? }` | `SearchableSelect` |
-| Filtros multi-select en barras de aprobación | `FilterBarMultiDropdown` con `searchable` |
-
-## Implementación
-
-```tsx
-import { SearchableSelect, optionsFromStrings } from "@/src/components/ui/SearchableSelect";
-
-<SearchableSelect
-  value={value.subproyecto}
-  onChange={handleSubproyectoChange}
-  options={optionsFromStrings(subproyectos)}
-  placeholder="Seleccionar subproyecto…"
-  searchPlaceholder="Buscar subproyecto…"
-  disabled={sinProyecto}
-  className="ant-field-input"
-/>
-```
-
-Proyectos con código + nombre:
-
-```tsx
-options={PROYECTOS.map((p) => ({
-  value: p.id,
-  label: `${p.id} – ${p.nombre}`,
-  hint: p.sub,
-}))}
-```
-
-Filtros de aprobación (subproyecto, actividad, empleado, proyecto):
-
-```tsx
-<FilterBarMultiDropdown
-  searchable={column === "subproy" || column === "actividad" || column === "empleado"}
-  searchPlaceholder="Buscar subproyecto…"
-  /* ... */
-/>
-```
-
-## Excepciones
-
-`<SelectControl>` solo para catálogos **muy cortos y fijos** (≤5 opciones): divisa, tipo pill, estado, etc.
+Resumen rápido:
+- Catálogo grande → `SearchableSelect` o `LovPicker` (nunca `<select>` suelto)
+- Filtro multi → `FilterBarMultiDropdown` + `searchable`
+- Columnas **tipo** / **estado** → `buildFilterMultiOptions(module, …)` (pills = tablas; ver `02-design-system.mdc`)
+- ≤5 opciones fijas → `SelectControl`
+- Fechas → `DateInput` / `DateRangePicker` / `MonthDateInput`

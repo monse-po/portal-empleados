@@ -3,7 +3,12 @@
 import { useMemo } from "react";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { es } from "date-fns/locale";
-import "react-day-picker/style.css";
+import {
+  DATE_PICKER_ROOT_CLASS,
+  DatePickerClearFooter,
+  DatePickerShell,
+} from "@/src/components/ui/DatePickerShell";
+import { dateToIso, isoToDate } from "@/src/lib/date-picker-utils";
 
 type DateRangePickerProps = {
   from?: string;
@@ -13,35 +18,6 @@ type DateRangePickerProps = {
   onRangeComplete?: () => void;
   compact?: boolean;
 };
-
-function isoToDate(iso?: string): Date | undefined {
-  if (!iso) return undefined;
-  const [y, m, d] = iso.split("-").map(Number);
-  if ([y, m, d].some(Number.isNaN)) return undefined;
-  return new Date(y, m - 1, d);
-}
-
-function dateToIso(d?: Date): string | undefined {
-  if (!d) return undefined;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function ClearFooter({ onClear }: { onClear: () => void }) {
-  return (
-    <div className="flex justify-end border-t border-border px-3 py-1.5">
-      <button
-        type="button"
-        onClick={onClear}
-        className="cursor-pointer border-none bg-transparent px-1 text-[12px] font-semibold text-muted hover:text-navy"
-      >
-        Limpiar
-      </button>
-    </div>
-  );
-}
 
 export function DateRangePicker({
   from,
@@ -83,7 +59,7 @@ export function DateRangePicker({
 
   const picker = (
     <DayPicker
-      className={compact ? "rdp-hmv-filter" : "rdp-root"}
+      className={DATE_PICKER_ROOT_CLASS}
       mode="range"
       locale={es}
       selected={selected}
@@ -99,19 +75,15 @@ export function DateRangePicker({
 
   if (compact) {
     return (
-      <div className="rdp-hmv-filter-shell">
+      <DatePickerShell footer={<DatePickerClearFooter onClear={handleClear} />}>
         {picker}
-        <ClearFooter onClear={handleClear} />
-      </div>
+      </DatePickerShell>
     );
   }
 
   return (
-    <div>
+    <DatePickerShell wide footer={<DatePickerClearFooter onClear={handleClear} />}>
       {picker}
-      <div className="mt-2 px-1">
-        <ClearFooter onClear={handleClear} />
-      </div>
-    </div>
+    </DatePickerShell>
   );
 }

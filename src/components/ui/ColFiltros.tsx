@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/src/components/ui/Button";
+import { DateInput } from "@/src/components/ui/DateInput";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
 import { dataThWithAlign } from "@/src/components/ui/DataTable";
@@ -204,8 +205,7 @@ export function ColFilterDateRange({
       <div className="space-y-2">
         <label className="block text-[11px] font-semibold text-muted">
           Desde
-          <input
-            type="date"
+          <DateInput
             value={fechaIni}
             onChange={(e) => {
               const ini = e.target.value;
@@ -214,17 +214,16 @@ export function ColFilterDateRange({
                 fechaFin && ini > fechaFin ? ini : fechaFin,
               );
             }}
-            className="mt-1 w-full rounded-lg border border-border px-2.5 py-2 text-[13px] focus:border-navy focus:outline-none"
+            className="mt-1"
           />
         </label>
         <label className="block text-[11px] font-semibold text-muted">
           Hasta
-          <input
-            type="date"
+          <DateInput
             value={fechaFin}
             min={fechaIni || undefined}
             onChange={(e) => onChange(fechaIni, e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border px-2.5 py-2 text-[13px] focus:border-navy focus:outline-none"
+            className="mt-1"
           />
         </label>
       </div>

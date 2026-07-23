@@ -4,7 +4,7 @@ import {
 } from "@/src/generated/prisma/client";
 import { prisma } from "@/src/lib/db";
 import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
-import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import { PROYECTOS, type RegistroEstado, type RegistroMock } from "@/src/lib/mi-tiempo-mock";
 
 export const SESSION_EMPLEADO_ID = SESSION_EMPLEADO.cedula.replace(/\./g, "");
 
@@ -87,4 +87,27 @@ export async function nextRegistroCodigo(): Promise<string> {
   }
 
   return `HTREG${String(max + 1).padStart(6, "0")}`;
+}
+
+/** Garantiza filas padre antes de crear/actualizar (evita FK si no corrió el seed). */
+export async function ensureRegistroTiempoRefs(proyectoId: string): Promise<void> {
+  await prisma.empleado.upsert({
+    where: { id: SESSION_EMPLEADO_ID },
+    create: {
+      id: SESSION_EMPLEADO_ID,
+      nombre: SESSION_EMPLEADO.nombre,
+    },
+    update: {},
+  });
+
+  const mock = PROYECTOS.find((p) => p.id === proyectoId);
+  await prisma.proyecto.upsert({
+    where: { id: proyectoId },
+    create: {
+      id: proyectoId,
+      nombre: mock?.nombre ?? proyectoId,
+      cliente: mock?.sub ?? "—",
+    },
+    update: {},
+  });
 }

@@ -16,7 +16,10 @@ export function FocusGuard({ children }: { children: React.ReactNode }) {
   const { homePath, roleReady } = useRole();
 
   const focus = getFocusModule();
-  const oculto = focus !== null && pathname !== "/" && !isPathVisible(pathname);
+  const oculto =
+    focus !== null &&
+    pathname !== "/" &&
+    !isPathVisible(pathname);
 
   useEffect(() => {
     if (!roleReady) return;

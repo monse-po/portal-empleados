@@ -9,6 +9,7 @@ import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
 import { TIPO_LEGALIZACION_OPTIONS } from "@/src/components/ui/TipoLegalizacionPill";
 import { useToast } from "@/src/components/ui/Toast";
+import { useAsyncAction } from "@/src/lib/use-async-action";
 import { DestinoLegalizacionFields } from "@/src/app/legalizaciones/DestinoLegalizacionFields";
 import { AnticiposLegalizarPicker } from "@/src/app/legalizaciones/AnticiposLegalizarPicker";
 import { LineasGastoEditor } from "@/src/app/legalizaciones/LineasGastoEditor";
@@ -344,7 +345,7 @@ export function LegalizacionesFormulario({
     };
   };
 
-  const guardarBorrador = () => {
+  const { loading: guardando, run: runGuardarBorrador } = useAsyncAction(async () => {
     if (!validar(false)) return;
     const no = crearLegalizacion(buildInput(false));
     if (!no) {
@@ -353,7 +354,7 @@ export function LegalizacionesFormulario({
     }
     toast(`Legalización ${no} guardada como borrador`, "navy");
     onCreada(no);
-  };
+  });
 
   const validarYAbrirEnvio = () => {
     if (!validar(true)) return;
@@ -583,7 +584,12 @@ export function LegalizacionesFormulario({
             <Button variant="tertiary" onClick={onVolver}>
               Descartar
             </Button>
-            <Button variant="secondary" onClick={guardarBorrador}>
+            <Button
+              variant="secondary"
+              onClick={() => void runGuardarBorrador()}
+              loading={guardando}
+              loadingLabel="Guardando…"
+            >
               Guardar borrador
             </Button>
             <Button variant="success" onClick={validarYAbrirEnvio}>

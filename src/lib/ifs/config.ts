@@ -94,3 +94,26 @@ export function isIfsAuthReady(): boolean {
   const { oauthClientId, oauthClientSecret, oauthRedirectUri } = getIfsConfig();
   return Boolean(oauthClientId && oauthClientSecret && oauthRedirectUri);
 }
+
+/**
+ * Solo localhost: token Bearer copiado de Aurena (DevTools → Network).
+ * Evita OAuth cuando IFS responde 400 por cookies acumuladas en ifs360.cloud.
+ */
+export function isIfsDevTokenBypass(): boolean {
+  if (process.env.VERCEL) return false;
+  if (process.env.NODE_ENV === "production") return false;
+  return Boolean(
+    envFirst("IFS_DEV_ACCESS_TOKEN") && envFirst("IFS_DEV_EMAIL"),
+  );
+}
+
+export function getIfsDevBypassCredentials(): {
+  email: string;
+  accessToken: string;
+} | null {
+  if (!isIfsDevTokenBypass()) return null;
+  return {
+    email: envFirst("IFS_DEV_EMAIL").toLowerCase(),
+    accessToken: envFirst("IFS_DEV_ACCESS_TOKEN"),
+  };
+}

@@ -7,6 +7,7 @@ import { FilterChainRow } from "@/src/components/ui/FilterChainRow";
 import { Icon } from "@/src/components/ui/Icon";
 import type { IconName } from "@/src/components/ui/Icon";
 import {
+  buildFilterMultiOptions,
   FilterBarMultiDropdown,
   FilterBarTextInput,
   FilterBarTrigger,
@@ -52,11 +53,15 @@ function multiOptions(
   column: "empleado" | "tipo" | "estado",
   registros: LegalizacionApro[],
 ): FilterDropdownOption[] {
-  return getDistinctValues(registros, column).map((val) => ({
-    value: val,
-    label: val,
-    icon: valueOptionIcon(column, val),
-  }));
+  return buildFilterMultiOptions(
+    "legalizacion",
+    column,
+    getDistinctValues(registros, column),
+    (val) => ({
+      label: val,
+      icon: valueOptionIcon(column, val),
+    }),
+  );
 }
 
 function filterOperatorLabel(column: AproLegFilterColumn): string {

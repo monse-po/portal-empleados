@@ -7,6 +7,7 @@ import { FilterChainRow } from "@/src/components/ui/FilterChainRow";
 import { Icon } from "@/src/components/ui/Icon";
 import type { IconName } from "@/src/components/ui/Icon";
 import {
+  buildFilterMultiOptions,
   FilterBarMultiDropdown,
   FilterBarTextInput,
   FilterBarTrigger,
@@ -57,8 +58,7 @@ function multiOptions(
   column: "tipo" | "estado",
   registros: Legalizacion[],
 ): FilterDropdownOption[] {
-  return getDistinctValues(registros, column).map((val) => ({
-    value: val,
+  return buildFilterMultiOptions("legalizacion", column, getDistinctValues(registros, column), (val) => ({
     label: val,
     icon: valueOptionIcon(column, val),
   }));

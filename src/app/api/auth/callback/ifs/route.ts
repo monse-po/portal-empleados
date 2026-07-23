@@ -20,29 +20,29 @@ export async function GET(request: Request) {
   const oauthError = url.searchParams.get("error");
 
   const jar = await cookies();
-  const clearOAuthCookies = () => {
-    jar.delete(PKCE_COOKIE);
-    jar.delete(STATE_COOKIE);
-    jar.delete(NEXT_COOKIE);
+
+  const redirectToLogin = (error: string) => {
+    const response = NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(error)}`, url.origin),
+    );
+    response.cookies.delete(PKCE_COOKIE);
+    response.cookies.delete(STATE_COOKIE);
+    response.cookies.delete(NEXT_COOKIE);
+    return response;
   };
 
   if (oauthError) {
-    clearOAuthCookies();
-    return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(oauthError)}`, url.origin),
-    );
+    return redirectToLogin(oauthError);
   }
 
   if (!code || !state) {
-    clearOAuthCookies();
-    return NextResponse.redirect(new URL("/login?error=missing_code", url.origin));
+    return redirectToLogin("missing_code");
   }
 
   const expectedState = jar.get(STATE_COOKIE)?.value;
   const verifier = jar.get(PKCE_COOKIE)?.value;
   if (!expectedState || expectedState !== state || !verifier) {
-    clearOAuthCookies();
-    return NextResponse.redirect(new URL("/login?error=invalid_state", url.origin));
+    return redirectToLogin("invalid_state");
   }
 
   const next = jar.get(NEXT_COOKIE)?.value;
@@ -56,10 +56,7 @@ export async function GET(request: Request) {
     const claims = tokens.idToken ? parseIdTokenClaims(tokens.idToken) : {};
     const email = resolveSessionEmail(claims);
     if (!email) {
-      clearOAuthCookies();
-      return NextResponse.redirect(
-        new URL("/login?error=no_email_in_token", url.origin),
-      );
+      return redirectToLogin("no_email_in_token");
     }
 
     const sealed = sealSession({
@@ -70,13 +67,18 @@ export async function GET(request: Request) {
       expiresAt: Date.now() + tokens.expiresIn * 1000,
     });
 
-    jar.set(SESSION_COOKIE, sealed, sessionCookieOptions(tokens.expiresIn));
-    clearOAuthCookies();
-
     const dest = next?.startsWith("/") ? next : "/";
-    return NextResponse.redirect(new URL(dest, url.origin));
+    const response = NextResponse.redirect(new URL(dest, url.origin));
+    response.cookies.set(
+      SESSION_COOKIE,
+      sealed,
+      sessionCookieOptions(tokens.expiresIn),
+    );
+    response.cookies.delete(PKCE_COOKIE);
+    response.cookies.delete(STATE_COOKIE);
+    response.cookies.delete(NEXT_COOKIE);
+    return response;
   } catch {
-    clearOAuthCookies();
-    return NextResponse.redirect(new URL("/login?error=token_exchange", url.origin));
+    return redirectToLogin("token_exchange");
   }
 }

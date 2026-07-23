@@ -1,4 +1,5 @@
 import { Icon } from "@/src/components/ui/Icon";
+import { Spinner } from "@/src/components/ui/Spinner";
 
 export type TableAproIconVariant = "ok" | "no" | "undo";
 
@@ -6,6 +7,8 @@ type TableAproIconButtonProps = {
   variant: TableAproIconVariant;
   title: string;
   onClick: (e: React.MouseEvent) => void;
+  loading?: boolean;
+  disabled?: boolean;
 };
 
 const variantStyles: Record<TableAproIconVariant, string> = {
@@ -25,15 +28,23 @@ export function TableAproIconButton({
   variant,
   title,
   onClick,
+  loading = false,
+  disabled = false,
 }: TableAproIconButtonProps) {
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
-      className={`inline-flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-[7px] border border-border bg-white text-[12px] transition-colors ${variantStyles[variant]}`}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={`inline-flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-[7px] border border-border bg-white text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${variantStyles[variant]}`}
     >
-      <Icon name={variantIcon[variant]} size="xs" />
+      {loading ? (
+        <Spinner size="xs" />
+      ) : (
+        <Icon name={variantIcon[variant]} size="xs" />
+      )}
     </button>
   );
 }

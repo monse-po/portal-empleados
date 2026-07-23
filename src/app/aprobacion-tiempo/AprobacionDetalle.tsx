@@ -18,6 +18,7 @@ import { Icon } from "@/src/components/ui/Icon";
 import { EstadoTiempoPill, estadoTiempoPillProps } from "@/src/components/ui/Pill";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import { useToast } from "@/src/components/ui/Toast";
+import { useAsyncAction } from "@/src/lib/use-async-action";
 import { horasNum, type HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 
 type AprobacionDetalleProps = {
@@ -62,6 +63,9 @@ export function AprobacionDetalle({
     onRechazar(trimmed);
   };
 
+  const { loading: rechazando, run: runRechazar } =
+    useAsyncAction(handleRechazar);
+
   return (
     <div className="content-standard">
       <RecordDetailHeader
@@ -93,8 +97,9 @@ export function AprobacionDetalle({
                 if (error) setError("");
               }}
               error={error}
-              onRechazar={handleRechazar}
+              onRechazar={() => void runRechazar()}
               onAprobar={() => onAprobar(comentario.trim() || undefined)}
+              loadingRechazar={rechazando}
               hint="Al aprobar, las horas quedan confirmadas en IFS. Esta acción no se puede deshacer."
               placeholder="Ej: Horas conformes / Rechazado — excede horas autorizadas"
             />

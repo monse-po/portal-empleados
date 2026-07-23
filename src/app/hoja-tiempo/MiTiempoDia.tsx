@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardHeader } from "@/src/components/ui/Card";
 import { Icon } from "@/src/components/ui/Icon";
@@ -17,6 +18,7 @@ import {
   MI_TIEMPO_DIA_COLS,
 } from "@/src/components/ui/DataTable";
 import { useToast } from "@/src/components/ui/Toast";
+import { useAsyncAction } from "@/src/lib/use-async-action";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import {
   formatFechaLegible,
@@ -24,6 +26,7 @@ import {
   getRegistrosDia,
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
+import { formatProyectoEmpleado } from "@/src/lib/tiempo-bridge";
 
 type MiTiempoDiaProps = {
   fecha: string;
@@ -64,6 +67,19 @@ export function MiTiempoDia({
   const { registros, openRegistrarModal, deleteRegistro, enviarDia } =
     useMiTiempo();
   const { toast } = useToast();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { loading: enviando, run: runEnviar } = useAsyncAction(async () => {
+    try {
+      const enviados = await enviarDia(fecha);
+      if (!enviados.length) {
+        toast("No hay borradores para enviar", "warn");
+        return;
+      }
+      toast("Registros enviados a aprobación", "green");
+    } catch {
+      toast("No se pudo enviar a aprobación. Intenta de nuevo.", "danger");
+    }
+  });
   const diaRegsAll = getRegistrosDia(registros, fecha);
   const diaRegs = esHistorial
     ? diaRegsAll.filter(
@@ -173,7 +189,7 @@ export function MiTiempoDia({
                     className={`transition-colors duration-100 hover:bg-[#fafbfc] ${esEditable && !esHistorial ? "cursor-pointer" : ""}`}
                   >
                     <td className={`${dataTd} font-medium ${dataTdTruncate}`}>
-                      {r.proy}
+                      {formatProyectoEmpleado(r.proy)}
                     </td>
                     <td className={`${dataTd} ${dataTdTruncate}`}>{r.act}</td>
                     <td className={dataTd}>
@@ -199,10 +215,22 @@ export function MiTiempoDia({
                           variant="danger"
                           className="!px-2 !py-1 text-[11px]"
                           title="Eliminar"
+                          loading={deletingId === r.id}
+                          disabled={!!deletingId || enviando}
                           onClick={async (e) => {
                             e.stopPropagation();
-                            await deleteRegistro(r.id);
-                            toast("Registro eliminado", "navy");
+                            setDeletingId(r.id);
+                            try {
+                              await deleteRegistro(r.id);
+                              toast("Registro eliminado", "navy");
+                            } catch {
+                              toast(
+                                "No se pudo eliminar el registro. Intenta de nuevo.",
+                                "danger",
+                              );
+                            } finally {
+                              setDeletingId(null);
+                            }
                           }}
                         >
                           ✕
@@ -232,24 +260,15 @@ export function MiTiempoDia({
             </Button>
             <Button
               variant="success"
-              disabled={normales > 8.5}
+              disabled={normales > 8.5 || enviando || !!deletingId}
+              loading={enviando}
+              loadingLabel="Enviando…"
               title={
                 normales > 8.5
                   ? "Corrige las horas normales antes de enviar"
                   : undefined
               }
-              onClick={async () => {
-                try {
-                  const enviados = await enviarDia(fecha);
-                  if (!enviados.length) {
-                    toast("No hay borradores para enviar", "warn");
-                    return;
-                  }
-                  toast("Registros enviados a aprobación", "green");
-                } catch {
-                  toast("No se pudo enviar a aprobación. Intenta de nuevo.", "danger");
-                }
-              }}
+              onClick={() => void runEnviar()}
             >
               Enviar a Aprobación
             </Button>

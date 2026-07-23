@@ -30,7 +30,7 @@ export function FilterChainRow({
       <div className="flex items-center border-r border-[#e5e9f0] bg-white px-2 py-1 text-[12px] text-muted">
         {operator}
       </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-1 bg-white px-1 py-0.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-1 bg-white px-1 py-0.5 [&_[data-col-filter]]:shrink-0">
         {children}
       </div>
       <button

@@ -8,7 +8,9 @@ alwaysApply: false
 
 **Referencia canónica:** `AprobacionLista` + `AprobacionFilterBar` + `aprobacion-filtros.ts`.
 
-Aplicar el mismo patrón en `aprobacion-anticipos` (`AprobacionAnticiposLista`, `AprobacionAnticiposFilterBar`, `aprobacion-anticipos-filtros.ts`).
+Aplicar el mismo patrón en `aprobacion-anticipos` y `aprobacion-legalizaciones` (`Aprobacion*Lista`, `Aprobacion*FilterBar`, `aprobacion-*-filtros.ts`).
+
+Controles de fecha y selectores: **`02-design-system.mdc`** (canónico para todos los módulos).
 
 ## Layout (`view-wide`)
 
@@ -43,11 +45,13 @@ Flujo:
 5. Reglas en **AND**; valores multiselect en **OR**
 6. **Limpiar todo** cuando hay filtros activos
 
-Componentes:
+Componentes (detalle en `02-design-system.mdc`):
 - `FilterChainRow` — `src/components/ui/FilterChainRow.tsx`
-- `TableFilterSection`, `FilterBarMultiDropdown`, `FilterBarTrigger`, `FilterBarTextInput` — `TableFilterBar.tsx`
-- `DateRangePicker` compacto (252px) en `Dropdown` con `fitContent`
-- `SelectControl` / `DropdownChevron` — `DropdownAffordance.tsx`
+- `TableFilterSection`, `FilterBarMultiDropdown`, `buildFilterMultiOptions`, `FilterBarTrigger`, `FilterBarTextInput` — `TableFilterBar.tsx`
+- `FilterValuePill` — pills de chip en columnas tipo/estado (`FilterPillModule`)
+- `DateRangePicker` compacto en `Dropdown` con `fitContent` — ver § Campos de fecha en design system
+- `SelectControl` / `DropdownChevron` — `DropdownAffordance.tsx` (solo catálogos cortos)
+- `SearchableSelect` / `LovPicker` — catálogos grandes en formularios (ver design system)
 
 Colores cadena de filtro:
 - Activo: borde `#c7d9ed`
@@ -57,10 +61,7 @@ Colores cadena de filtro:
 
 ## Datepicker filtro
 
-- Clase CSS: `rdp-hmv-filter` en `globals.css`
-- `compact`, `resetOnSelect`, `onRangeComplete` cierra popover
-- `showOutsideDays={false}`, `defaultMonth` al abrir
-- Dropdown: `fitContent`, `w-[252px]`, sin scroll
+Ver **`02-design-system.mdc` § Campos de fecha** (clases `ds-date-picker-*`, `DATE_PICKER_WIDTH` 252px).
 
 ## KPIs
 
@@ -109,4 +110,4 @@ Cuando hay filtros activos: **mostrando X de Y** (`text-[12px] text-muted`, núm
 
 - Barra filtros **deshabilitada** sin proyecto (`opacity-45 pointer-events-none`)
 - Filtros se limpian al cambiar proyecto
-- Barra proyecto: `SelectControl` + `AprobacionProyMeta`
+- Barra proyecto (solo tiempo): label **Proyecto** + `SearchableSelect`; texto guía «Selecciona el proyecto que quieres revisar.» — sin metadatos mock flotantes

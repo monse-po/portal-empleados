@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/src/components/ui/Toast";
 import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import { AprobacionDetalle, horasLabel } from "@/src/app/aprobacion-tiempo/AprobacionDetalle";
@@ -11,11 +12,15 @@ import {
   RechazarModal,
 } from "@/src/app/aprobacion-tiempo/AprobacionModals";
 import { toastAprobados, toastAnulados, toastRechazados } from "@/src/lib/tiempo-bridge";
+import { getHojasPendientesAprobacionAction } from "@/src/server/mi-tiempo-actions";
 
 type Vista = "lista" | "detalle";
 
 export function AprobacionView() {
-  const { getHoja, aprobar, rechazar, anular } = useAprobacion();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { getHoja, aprobar, rechazar, anular, setProySel, ingresarHojas, hojas, proySel } =
+    useAprobacion();
   const { toast } = useToast();
   const [vista, setVista] = useState<Vista>("lista");
   const [detalleNo, setDetalleNo] = useState<string | null>(null);
@@ -23,6 +28,44 @@ export function AprobacionView() {
   const [aprobarTargets, setAprobarTargets] = useState<string[]>([]);
   const [anularTargets, setAnularTargets] = useState<string[]>([]);
   const [aprobarComentario, setAprobarComentario] = useState("");
+  const [pendientesLoaded, setPendientesLoaded] = useState(false);
+  const proyParam = searchParams.get("proy");
+  const deepLinkNo = searchParams.get("no");
+  const deepLinkHandled = useRef<string | null>(null);
+  const pendientesFetchStarted = useRef(false);
+
+  useEffect(() => {
+    if (pendientesFetchStarted.current) return;
+    pendientesFetchStarted.current = true;
+    let cancelled = false;
+    void getHojasPendientesAprobacionAction()
+      .then((hojasPendientes) => {
+        if (cancelled || !hojasPendientes.length) return;
+        ingresarHojas(hojasPendientes);
+      })
+      .finally(() => {
+        if (!cancelled) setPendientesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ingresarHojas]);
+
+  useEffect(() => {
+    if (proyParam && proyParam !== proySel) {
+      setProySel(proyParam);
+    }
+  }, [proyParam, proySel, setProySel]);
+
+  useEffect(() => {
+    if (!pendientesLoaded || !deepLinkNo || deepLinkHandled.current === deepLinkNo) {
+      return;
+    }
+    if (!hojas[deepLinkNo]) return;
+    deepLinkHandled.current = deepLinkNo;
+    setDetalleNo(deepLinkNo);
+    setVista("detalle");
+  }, [deepLinkNo, hojas, pendientesLoaded]);
 
   const hojaDetalle = detalleNo ? getHoja(detalleNo) : undefined;
   const enDetalle = vista === "detalle" && !!hojaDetalle;
@@ -72,6 +115,11 @@ export function AprobacionView() {
   const volverLista = () => {
     setVista("lista");
     setDetalleNo(null);
+    deepLinkHandled.current = deepLinkNo ?? "dismissed";
+    const href = proyParam
+      ? `/aprobacion-tiempo?proy=${encodeURIComponent(proyParam)}`
+      : "/aprobacion-tiempo";
+    router.replace(href);
   };
 
   const solicitarAprobacion = (nos: string[]) => {

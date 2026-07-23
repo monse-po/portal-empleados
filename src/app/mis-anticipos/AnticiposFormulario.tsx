@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody } from "@/src/components/ui/Card";
+import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 import { LovPicker } from "@/src/components/ui/LovPicker";
@@ -77,51 +78,6 @@ function getCompaniaGastoLabel(
   const fromBenef = COMPANIAS_HMV.find((c) => c.id === id);
   if (fromBenef) return `${fromBenef.id} – ${fromBenef.nombre} (${fromBenef.sub})`;
   return id;
-}
-
-function DateFieldInput({
-  value,
-  onChange,
-  min,
-  className = "ant-field-input",
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  min?: string;
-  className?: string;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const openPicker = () => {
-    const input = inputRef.current;
-    if (!input) return;
-    try {
-      input.showPicker();
-    } catch {
-      input.focus();
-    }
-  };
-
-  const handleChange = (next: string) => {
-    if (!next) {
-      onChange("");
-      return;
-    }
-    if (min && next < min) return;
-    onChange(next);
-  };
-
-  return (
-    <input
-      ref={inputRef}
-      type="date"
-      min={min}
-      value={value}
-      onChange={(e) => handleChange(e.target.value)}
-      onClick={openPicker}
-      className={`${className} cursor-pointer`}
-    />
-  );
 }
 
 function FormGrid({
@@ -829,10 +785,16 @@ export function AnticiposFormulario({
               {tipo === "Viaje" && (
                 <FormGrid className="mt-3">
                   <Field label="Fecha salida" required>
-                    <DateFieldInput
+                    <DateInput
                       min={hoy}
                       value={fechaIda}
-                      onChange={(next) => {
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        if (!next) {
+                          setFechaIda("");
+                          return;
+                        }
+                        if (next < hoy) return;
                         setFechaIda(next);
                         if (
                           fechaRegreso &&
@@ -842,13 +804,15 @@ export function AnticiposFormulario({
                           setFechaRegreso(next);
                         }
                       }}
+                      className="ant-field-input"
                     />
                   </Field>
                   <Field label="Fecha regreso" required>
-                    <DateFieldInput
+                    <DateInput
                       min={fechaIda && fechaIda > hoy ? fechaIda : hoy}
                       value={fechaRegreso}
-                      onChange={setFechaRegreso}
+                      onChange={(e) => setFechaRegreso(e.target.value)}
+                      className="ant-field-input"
                     />
                   </Field>
                   <Field label="Destino" required>

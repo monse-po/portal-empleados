@@ -102,8 +102,18 @@ export function getVisibleModules(): ModuleDef[] {
   return MODULES.filter((m) => m.id === focus);
 }
 
+/** Rutas de herramientas / auth: siempre accesibles aunque FOCUS=tiempo, etc. */
+export function isUtilityPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/dev") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/auth")
+  );
+}
+
 /** ¿La ruta pertenece a un módulo visible con el enfoque actual? */
 export function isPathVisible(pathname: string): boolean {
+  if (isUtilityPath(pathname)) return true;
   return getVisibleModules().some((m) =>
     m.routes.some((r) => pathname.startsWith(r.path)),
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useMemo } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/Card";
 import { Icon } from "@/src/components/ui/Icon";
@@ -19,15 +19,14 @@ import {
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import {
   buildCalendarioGrid,
-  CALENDARIO_MES,
   formatFechaLegible,
   getHistorialDias,
   getMesLabel,
   getResumenHoras,
   getTipoHoraMeta,
-  HOY_MOCK,
   type RegistroEstado,
 } from "@/src/lib/mi-tiempo-mock";
+import { formatProyectoEmpleado } from "@/src/lib/tiempo-bridge";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -104,11 +103,16 @@ function CalendarioTab({
 }: Pick<MiTiempoListaProps, "onSelectDia">) {
   const { registros } = useMiTiempo();
   const resumen = getResumenHoras(registros);
-  const celdas = buildCalendarioGrid(
-    new Date(CALENDARIO_MES),
-    registros,
-    HOY_MOCK,
+  const hoy = useMemo(() => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    return d;
+  }, []);
+  const mesRef = useMemo(
+    () => new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+    [hoy],
   );
+  const celdas = buildCalendarioGrid(mesRef, registros, hoy);
 
   return (
     <div className="mt-1">
@@ -153,7 +157,7 @@ function CalendarioTab({
         <CardBody>
           <div className="mb-3 flex items-center justify-between gap-3">
             <span className="text-lg font-extrabold tracking-tight text-navy">
-              {getMesLabel(new Date(CALENDARIO_MES))}
+              {getMesLabel(mesRef)}
             </span>
           </div>
 
@@ -184,12 +188,9 @@ function CalendarioTab({
                   type="button"
                   disabled={celda.bloqueado}
                   onClick={() => onSelectDia(celda.fechaStr, false)}
-                  className={`relative flex ${CAL_DIA_CELL} flex-col items-start p-2.5 text-left transition-[filter] duration-100 ${celda.bloqueado ? "cursor-default opacity-70" : "cursor-pointer hover:brightness-[0.96]"}`}
+                  className={`relative flex ${CAL_DIA_CELL} flex-col items-start p-2.5 text-left transition-[filter,box-shadow] duration-100 ${celda.bloqueado ? "cursor-default opacity-70" : "cursor-pointer hover:brightness-[0.96]"} ${celda.esHoy ? "z-[1] ring-2 ring-inset ring-navy shadow-[0_0_0_1px_var(--navy)]" : ""}`}
                   style={{
                     background: celda.bg,
-                    boxShadow: celda.esHoy
-                      ? "inset 0 0 0 2px var(--navy)"
-                      : undefined,
                   }}
                 >
                   <div className="w-full shrink-0">
@@ -200,6 +201,11 @@ function CalendarioTab({
                         >
                           {celda.dia}
                         </span>
+                        {celda.esHoy && (
+                          <span className="rounded-full bg-navy px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+                            Hoy
+                          </span>
+                        )}
                         {celda.resumen && (
                           <CalendarioEstadoDia estado={celda.resumen.estadoDia} />
                         )}
@@ -323,7 +329,7 @@ function HistorialTab() {
                         className="transition-colors duration-100 hover:bg-[#fafbfc]"
                       >
                         <td className={`${dataTd} font-medium ${dataTdTruncate}`}>
-                          {r.proy}
+                          {formatProyectoEmpleado(r.proy)}
                         </td>
                         <td className={`${dataTd} ${dataTdTruncate}`}>{r.act}</td>
                         <td className={dataTd}>

@@ -35,8 +35,10 @@ type AprobacionLegalizacionesTablaProps = {
   totalBase: number;
   hasFilters: boolean;
   onOpenDetalle: (no: string) => void;
-  onAprobar: (nos: string[]) => void;
-  onRechazar: (nos: string[]) => void;
+  onAprobar: (nos: string[]) => void | Promise<void>;
+  onRechazar: (nos: string[]) => void | Promise<void>;
+  loadingAprobar?: boolean;
+  loadingRechazar?: boolean;
 };
 
 export function AprobacionLegalizacionesTabla({
@@ -46,11 +48,30 @@ export function AprobacionLegalizacionesTabla({
   onOpenDetalle,
   onAprobar,
   onRechazar,
+  loadingAprobar = false,
+  loadingRechazar = false,
 }: AprobacionLegalizacionesTablaProps) {
   const { tab, seleccion, toggleSeleccion, toggleSeleccionLote } =
     useAprobacionLegalizaciones();
   const esPendientes = tab === "pend";
   const [page, setPage] = useState(1);
+  const [rowAction, setRowAction] = useState<{
+    no: string;
+    action: "aprobar" | "rechazar";
+  } | null>(null);
+
+  const runRowAction = async (
+    no: string,
+    action: "aprobar" | "rechazar",
+  ) => {
+    setRowAction({ no, action });
+    try {
+      if (action === "aprobar") await onAprobar([no]);
+      else await onRechazar([no]);
+    } finally {
+      setRowAction(null);
+    }
+  };
 
   if (!totalBase) {
     return (
@@ -131,17 +152,29 @@ export function AprobacionLegalizacionesTabla({
           <TableAproIconButton
             variant="ok"
             title="Aprobar"
+            loading={rowAction?.no === s.no && rowAction.action === "aprobar"}
+            disabled={
+              loadingAprobar ||
+              loadingRechazar ||
+              (rowAction !== null && rowAction.no !== s.no)
+            }
             onClick={(e) => {
               e.stopPropagation();
-              onAprobar([s.no]);
+              void runRowAction(s.no, "aprobar");
             }}
           />
           <TableAproIconButton
             variant="no"
             title="Rechazar"
+            loading={rowAction?.no === s.no && rowAction.action === "rechazar"}
+            disabled={
+              loadingAprobar ||
+              loadingRechazar ||
+              (rowAction !== null && rowAction.no !== s.no)
+            }
             onClick={(e) => {
               e.stopPropagation();
-              onRechazar([s.no]);
+              void runRowAction(s.no, "rechazar");
             }}
           />
         </TableActionWrap>

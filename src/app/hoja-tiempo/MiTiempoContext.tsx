@@ -25,6 +25,7 @@ import {
   updateRegistroEstadoAction,
   upsertRegistroAction,
 } from "@/src/server/mi-tiempo-actions";
+import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 
 export type RegistrarModalState = {
   editId?: string;
@@ -65,6 +66,8 @@ type MiTiempoContextValue = {
   registros: Record<string, RegistroMock[]>;
   registrosLoaded: boolean;
   registrosError: string | null;
+  ifsConnected: boolean;
+  ifsEmail: string | null;
   reloadRegistros: () => Promise<void>;
   upsertRegistro: (reg: RegistroMock) => Promise<void>;
   upsertRegistroYEnviarDia: (reg: RegistroMock) => Promise<RegistroMock[]>;
@@ -95,6 +98,8 @@ export function MiTiempoProvider({
   const [registros, setRegistros] = useState<Record<string, RegistroMock[]>>({});
   const [registrosLoaded, setRegistrosLoaded] = useState(false);
   const [registrosError, setRegistrosError] = useState<string | null>(null);
+  const [ifsConnected, setIfsConnected] = useState(false);
+  const [ifsEmail, setIfsEmail] = useState<string | null>(null);
   const [modal, setModal] = useState<RegistrarModalState>(null);
   const registroGuardadoHandler = useRef<RegistroGuardadoHandler | undefined>(
     undefined,
@@ -117,6 +122,13 @@ export function MiTiempoProvider({
   useEffect(() => {
     void reloadRegistros();
   }, [reloadRegistros]);
+
+  useEffect(() => {
+    void getIfsSessionStatusAction().then((status) => {
+      setIfsConnected(status.connected);
+      setIfsEmail(status.email ?? null);
+    });
+  }, []);
 
   const setRegistroGuardadoHandler = useCallback(
     (handler?: RegistroGuardadoHandler) => {
@@ -193,6 +205,8 @@ export function MiTiempoProvider({
       registros,
       registrosLoaded,
       registrosError,
+      ifsConnected,
+      ifsEmail,
       reloadRegistros,
       upsertRegistro,
       upsertRegistroYEnviarDia,
@@ -208,6 +222,8 @@ export function MiTiempoProvider({
       registros,
       registrosLoaded,
       registrosError,
+      ifsConnected,
+      ifsEmail,
       reloadRegistros,
       upsertRegistro,
       upsertRegistroYEnviarDia,

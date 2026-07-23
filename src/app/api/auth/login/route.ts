@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { isIfsAuthReady } from "@/src/lib/ifs/config";
 import {
@@ -21,18 +20,19 @@ export async function GET(request: Request) {
 
   const { verifier, challenge } = createPkcePair();
   const state = createOAuthState();
-  const jar = await cookies();
   const opts = sessionCookieOptions(600);
-
-  jar.set(PKCE_COOKIE, verifier, opts);
-  jar.set(STATE_COOKIE, state, opts);
 
   const url = new URL(request.url);
   const next = url.searchParams.get("next");
+  const authUrl = buildAuthorizationUrl({ state, codeChallenge: challenge });
+  const response = NextResponse.redirect(authUrl);
+
+  // Cookies en la respuesta de redirect (cookies() del jar no siempre viajan en Vercel).
+  response.cookies.set(PKCE_COOKIE, verifier, opts);
+  response.cookies.set(STATE_COOKIE, state, opts);
   if (next?.startsWith("/")) {
-    jar.set("hmv_oauth_next", next, opts);
+    response.cookies.set("hmv_oauth_next", next, opts);
   }
 
-  const authUrl = buildAuthorizationUrl({ state, codeChallenge: challenge });
-  return NextResponse.redirect(authUrl);
+  return response;
 }

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Icon } from "@/src/components/ui/Icon";
 import { Modal } from "@/src/components/ui/Modal";
+import { ModalConfirmFooter } from "@/src/components/ui/ModalConfirmFooter";
+import { useAsyncAction } from "@/src/lib/use-async-action";
 import { BULK_COMENTARIO_APLICA_TODOS } from "@/src/lib/bulk-action-copy";
 
 type AprobarAnticipoModalProps = {
@@ -12,7 +14,7 @@ type AprobarAnticipoModalProps = {
   empleado: string;
   monto: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 };
 
 export function AprobarAnticipoModal({
@@ -23,22 +25,29 @@ export function AprobarAnticipoModal({
   onClose,
   onConfirm,
 }: AprobarAnticipoModalProps) {
+  const [busy, setBusy] = useState(false);
+
   return (
     <Modal
       open={open}
       onClose={onClose}
+      busy={busy}
       title="Aprobar solicitud"
       icon="circleCheck"
       footer={
-        <>
-          <Button variant="tertiary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={onConfirm}>
-            <Icon name="check" size="xs" />
-            Confirmar aprobación
-          </Button>
-        </>
+        <ModalConfirmFooter
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          confirmLabel={
+            <>
+              <Icon name="check" size="xs" />
+              Confirmar aprobación
+            </>
+          }
+          confirmVariant="success"
+          loadingLabel="Aprobando…"
+          onBusyChange={setBusy}
+        />
       }
     >
       <p className="mb-4 text-[13px] text-[#374151]">
@@ -68,7 +77,7 @@ type RechazarAnticipoModalProps = {
   empleado: string;
   motivo: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 };
 
 export function RechazarAnticipoModal({
@@ -79,21 +88,24 @@ export function RechazarAnticipoModal({
   onClose,
   onConfirm,
 }: RechazarAnticipoModalProps) {
+  const [busy, setBusy] = useState(false);
+
   return (
     <Modal
       open={open}
       onClose={onClose}
+      busy={busy}
       title="Rechazar solicitud"
       icon="x"
       footer={
-        <>
-          <Button variant="tertiary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={onConfirm}>
-            Confirmar rechazo
-          </Button>
-        </>
+        <ModalConfirmFooter
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          confirmLabel="Confirmar rechazo"
+          confirmVariant="danger"
+          loadingLabel="Rechazando…"
+          onBusyChange={setBusy}
+        />
       }
     >
       <p className="mb-4 text-[13px] text-[#374151]">
@@ -122,7 +134,7 @@ type RechazarAnticiposLoteModalProps = {
   open: boolean;
   resumen: string;
   onClose: () => void;
-  onConfirm: (motivo: string) => void;
+  onConfirm: (motivo: string) => void | Promise<void>;
 };
 
 export function RechazarAnticiposLoteModal({
@@ -133,8 +145,10 @@ export function RechazarAnticiposLoteModal({
 }: RechazarAnticiposLoteModalProps) {
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState("");
+  const { loading, run } = useAsyncAction(onConfirm);
 
   const handleClose = () => {
+    if (loading) return;
     setMotivo("");
     setError("");
     onClose();
@@ -146,23 +160,30 @@ export function RechazarAnticiposLoteModal({
       setError("Agrega un motivo de rechazo");
       return;
     }
-    onConfirm(trimmed);
-    setMotivo("");
-    setError("");
+    void run(trimmed).then(() => {
+      setMotivo("");
+      setError("");
+    });
   };
 
   return (
     <Modal
       open={open}
       onClose={handleClose}
+      busy={loading}
       title="Rechazar solicitud(es)"
       icon="x"
       footer={
         <>
-          <Button variant="tertiary" onClick={handleClose}>
+          <Button variant="tertiary" onClick={handleClose} disabled={loading}>
             Cancelar
           </Button>
-          <Button variant="danger" onClick={handleConfirm}>
+          <Button
+            variant="danger"
+            onClick={handleConfirm}
+            loading={loading}
+            loadingLabel="Rechazando…"
+          >
             Confirmar rechazo
           </Button>
         </>
@@ -188,8 +209,9 @@ export function RechazarAnticiposLoteModal({
           setMotivo(e.target.value);
           if (error) setError("");
         }}
+        disabled={loading}
         placeholder="Ej: Excede el presupuesto disponible del proyecto..."
-        className={`min-h-[88px] w-full resize-y rounded-lg border px-3 py-2 text-[13px] focus:border-navy focus:outline-none ${error ? "border-red bg-[#fff5f5]" : "border-[#c7d2e0]"}`}
+        className={`min-h-[88px] w-full resize-y rounded-lg border px-3 py-2 text-[13px] focus:border-navy focus:outline-none disabled:opacity-60 ${error ? "border-red bg-[#fff5f5]" : "border-[#c7d2e0]"}`}
       />
       {error && <p className="mt-1 text-[11px] text-red">{error}</p>}
     </Modal>

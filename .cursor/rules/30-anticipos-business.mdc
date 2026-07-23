@@ -58,3 +58,7 @@ Tabs: **Pendientes** / **Resueltas** (`estadoApro: ""` vs resuelto). En Resuelta
 - Fecha fija: `HOY_MOCK` en `mi-tiempo-mock.ts`; fechas display DMY, ISO solo para inputs/filtros.
 - Divisas por compañía (`DIVISAS_POR_COMPANIA`).
 - Catálogos (compañías, empleados, destinos) son mock; en producción vienen de IFS.
+
+## UI — formularios y filtros
+
+Ver **`02-design-system.mdc`** (canónico): `LovPicker` (proyecto, empleado, destino), `SelectControl` (divisa, compañía), `DateInput` (fechas viaje), `FilterBarMultiDropdown` en aprobación gerente.

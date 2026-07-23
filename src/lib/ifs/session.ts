@@ -1,6 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { isIfsAuthEnabled } from "@/src/lib/ifs/config";
+import {
+  getIfsDevBypassCredentials,
+  isIfsAuthEnabled,
+} from "@/src/lib/ifs/config";
 import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
 
 export type IfsUserSession = {
@@ -60,11 +63,24 @@ export function unsealSession(token: string): IfsUserSession | null {
 }
 
 export async function getServerIfsSession(): Promise<IfsUserSession | null> {
-  if (!isIfsAuthEnabled()) return null;
   const jar = await cookies();
   const raw = jar.get(SESSION_COOKIE)?.value;
-  if (!raw) return null;
-  return unsealSession(raw);
+  if (raw) {
+    const session = unsealSession(raw);
+    if (session) return session;
+  }
+
+  const bypass = getIfsDevBypassCredentials();
+  if (bypass) {
+    return {
+      email: bypass.email,
+      accessToken: bypass.accessToken,
+      expiresAt: Date.now() + 3600_000,
+    };
+  }
+
+  if (!isIfsAuthEnabled()) return null;
+  return null;
 }
 
 export function sessionCookieOptions(maxAgeSec: number) {

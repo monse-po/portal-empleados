@@ -3,9 +3,11 @@ import { Icon } from "@/src/components/ui/Icon";
 
 type BulkSelectionBarProps = {
   count: number;
-  onAprobar: () => void;
-  onRechazar: () => void;
+  onAprobar: () => void | Promise<void>;
+  onRechazar: () => void | Promise<void>;
   className?: string;
+  loadingAprobar?: boolean;
+  loadingRechazar?: boolean;
 };
 
 export function BulkSelectionBar({
@@ -13,7 +15,10 @@ export function BulkSelectionBar({
   onAprobar,
   onRechazar,
   className = "",
+  loadingAprobar = false,
+  loadingRechazar = false,
 }: BulkSelectionBarProps) {
+  const busy = loadingAprobar || loadingRechazar;
   return (
     <div
       className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-navy bg-[#eef3f9] px-4 py-3 ${className}`.trim()}
@@ -33,7 +38,10 @@ export function BulkSelectionBar({
         <Button
           variant="success"
           title="Aprobar seleccionados"
-          onClick={onAprobar}
+          onClick={() => void onAprobar()}
+          loading={loadingAprobar}
+          loadingLabel="Aprobando…"
+          disabled={busy}
         >
           <Icon name="check" size="xs" />
           Aprobar
@@ -41,7 +49,10 @@ export function BulkSelectionBar({
         <Button
           variant="danger"
           title="Rechazar seleccionados"
-          onClick={onRechazar}
+          onClick={() => void onRechazar()}
+          loading={loadingRechazar}
+          loadingLabel="Rechazando…"
+          disabled={busy}
         >
           <Icon name="x" size="xs" />
           Rechazar

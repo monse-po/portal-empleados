@@ -4,14 +4,16 @@ import { useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Field } from "@/src/components/ui/Field";
 import { Modal } from "@/src/components/ui/Modal";
+import { ModalConfirmFooter } from "@/src/components/ui/ModalConfirmFooter";
 import { useToast } from "@/src/components/ui/Toast";
+import { useAsyncAction } from "@/src/lib/use-async-action";
 import { BULK_COMENTARIO_APLICA_TODOS } from "@/src/lib/bulk-action-copy";
 
 type RechazarModalProps = {
   open: boolean;
   resumen: string;
   onClose: () => void;
-  onConfirm: (motivo: string) => void;
+  onConfirm: (motivo: string) => void | Promise<void>;
 };
 
 export function RechazarModal({
@@ -23,8 +25,10 @@ export function RechazarModal({
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState("");
   const { toast } = useToast();
+  const { loading, run } = useAsyncAction(onConfirm);
 
   const handleClose = () => {
+    if (loading) return;
     setMotivo("");
     setError("");
     onClose();
@@ -37,22 +41,29 @@ export function RechazarModal({
       toast("Escribe el motivo del rechazo", "danger");
       return;
     }
-    onConfirm(trimmed);
-    setMotivo("");
-    setError("");
+    void run(trimmed).then(() => {
+      setMotivo("");
+      setError("");
+    });
   };
 
   return (
     <Modal
       open={open}
       onClose={handleClose}
+      busy={loading}
       title="Rechazar registro(s)"
       footer={
         <>
-          <Button variant="tertiary" onClick={handleClose}>
+          <Button variant="tertiary" onClick={handleClose} disabled={loading}>
             Cancelar
           </Button>
-          <Button variant="danger" onClick={handleConfirm}>
+          <Button
+            variant="danger"
+            onClick={handleConfirm}
+            loading={loading}
+            loadingLabel="Rechazando…"
+          >
             Confirmar rechazo
           </Button>
         </>
@@ -75,8 +86,9 @@ export function RechazarModal({
             setMotivo(e.target.value);
             if (error) setError("");
           }}
+          disabled={loading}
           placeholder="Ej: Exceden las horas autorizadas para el proyecto..."
-          className={`min-h-[88px] w-full resize-y rounded-lg border px-3 py-2 text-[13px] focus:border-navy focus:outline-none ${error ? "border-red bg-[#fff5f5]" : "border-[#c7d2e0]"}`}
+          className={`min-h-[88px] w-full resize-y rounded-lg border px-3 py-2 text-[13px] focus:border-navy focus:outline-none disabled:opacity-60 ${error ? "border-red bg-[#fff5f5]" : "border-[#c7d2e0]"}`}
         />
       </Field>
     </Modal>
@@ -88,7 +100,7 @@ type AnularModalProps = {
   registroLabel: string;
   horas: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 };
 
 export function AnularModal({
@@ -98,20 +110,22 @@ export function AnularModal({
   onClose,
   onConfirm,
 }: AnularModalProps) {
+  const [busy, setBusy] = useState(false);
+
   return (
     <Modal
       open={open}
       onClose={onClose}
+      busy={busy}
       title="Anular registro(s)"
       footer={
-        <>
-          <Button variant="tertiary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button variant="primary" onClick={onConfirm}>
-            Confirmar anulación
-          </Button>
-        </>
+        <ModalConfirmFooter
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          confirmLabel="Confirmar anulación"
+          loadingLabel="Anulando…"
+          onBusyChange={setBusy}
+        />
       }
     >
       <p className="mb-4 text-[13px] text-[#374151]">
@@ -138,7 +152,7 @@ type AprobarModalProps = {
   empleado: string;
   horas: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 };
 
 export function AprobarModal({
@@ -149,20 +163,23 @@ export function AprobarModal({
   onClose,
   onConfirm,
 }: AprobarModalProps) {
+  const [busy, setBusy] = useState(false);
+
   return (
     <Modal
       open={open}
       onClose={onClose}
+      busy={busy}
       title="Aprobar registro"
       footer={
-        <>
-          <Button variant="tertiary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={onConfirm}>
-            Confirmar aprobación
-          </Button>
-        </>
+        <ModalConfirmFooter
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          confirmLabel="Confirmar aprobación"
+          confirmVariant="success"
+          loadingLabel="Aprobando…"
+          onBusyChange={setBusy}
+        />
       }
     >
       <p className="mb-4 text-[13px] text-[#374151]">

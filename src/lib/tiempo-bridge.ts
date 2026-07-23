@@ -29,11 +29,49 @@ export function comentarioRechazoDesdeAccion(
   return accion === "rechazado" ? (comentario || "") : "";
 }
 
-const PROY_MAP: Record<string, { cod: string; label: string }> = {
-  "PRY-2024-001": { cod: "PRY2024003", label: "Proyecto Gamma" },
-  "PRY-2024-003": { cod: "PRY2025002", label: "Proyecto Beta" },
-  "PRY-2025-002": { cod: "PRY2025001", label: "Proyecto Alfa" },
+const PROY_MAP: Record<string, string> = {
+  "PRY-2024-001": "PRY2024003",
+  "PRY-2024-003": "PRY2025002",
+  "PRY-2025-002": "PRY2025001",
 };
+
+export function proyCodAprobacion(proyectoId: string): string {
+  return PROY_MAP[proyectoId] ?? proyectoId.replace(/-/g, "");
+}
+
+export function nombreProyectoPorCodAprobacion(cod: string): string | undefined {
+  for (const [empleadoId, aprobCod] of Object.entries(PROY_MAP)) {
+    if (aprobCod !== cod) continue;
+    const meta = PROYECTOS.find((p) => p.id === empleadoId);
+    if (meta) return meta.nombre;
+  }
+  return undefined;
+}
+
+/** Etiqueta en Mi Tiempo (empleado): PRY-2024-001 – Construcción Planta Norte */
+export function formatProyectoEmpleado(proyectoId: string): string {
+  const meta = PROYECTOS.find((p) => p.id === proyectoId);
+  return meta ? `${meta.id} – ${meta.nombre}` : proyectoId;
+}
+
+/** Etiqueta en aprobación / notificaciones: PRY2024003 · Construcción Planta Norte */
+export function formatProyectoAprobacion(
+  proyectoIdEmpleado: string,
+): string {
+  const cod = proyCodAprobacion(proyectoIdEmpleado);
+  const meta = PROYECTOS.find((p) => p.id === proyectoIdEmpleado);
+  const nombre = meta?.nombre ?? nombreProyectoPorCodAprobacion(cod) ?? cod;
+  return `${cod} · ${nombre}`;
+}
+
+export function formatProyectoAprobacionPorCod(
+  cod: string,
+  fallbackNombre = "",
+): string {
+  const nombre =
+    nombreProyectoPorCodAprobacion(cod) ?? (fallbackNombre.trim() || cod);
+  return `${cod} · ${nombre}`;
+}
 
 const EMPLEADO = {
   solicitante: "Carlos Rivas",
@@ -58,20 +96,11 @@ export function hojaNoFromRegistro(reg: RegistroMock): string {
 }
 
 export function registroToHoja(reg: RegistroMock): HojaAprobacion {
-  const mapped = PROY_MAP[reg.proy] ?? {
-    cod: "PRY2025001",
-    label: "Proyecto Alfa",
-  };
-  const proyMeta = PROYECTOS.find((p) => p.id === reg.proy);
-  const proyLabel = proyMeta
-    ? `${mapped.cod} · ${proyMeta.nombre}`
-    : `${mapped.cod} · ${mapped.label}`;
-
   return {
     no: hojaNoFromRegistro(reg),
     fecha: isoToDmy(reg.fecha),
     compania: "HMVINGCO",
-    proy: proyLabel,
+    proy: formatProyectoAprobacion(reg.proy),
     subproy: reg.subproy || "—",
     tipo: reg.tipo,
     solicitante: EMPLEADO.solicitante,

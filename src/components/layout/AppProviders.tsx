@@ -15,6 +15,7 @@ import {
   MiTiempoProvider,
   useMiTiempo,
 } from "@/src/app/hoja-tiempo/MiTiempoContext";
+import { NotificationProvider } from "@/src/components/notifications/NotificationContext";
 import type { SyncRegistroHandler } from "@/src/lib/tiempo-bridge";
 
 function MiTiempoBridge({
@@ -63,12 +64,14 @@ export function AppProviders({ children }: { children: ReactNode }) {
   );
 
   return (
-    <AprobacionProvider onSyncRegistro={onSyncRegistro}>
-      <AprobacionAnticiposProvider>
-        <AprobacionLegalizacionesProvider>
-          <MiTiempoBridge syncRef={syncRef}>{children}</MiTiempoBridge>
-        </AprobacionLegalizacionesProvider>
-      </AprobacionAnticiposProvider>
-    </AprobacionProvider>
+    <NotificationProvider>
+      <AprobacionProvider onSyncRegistro={onSyncRegistro}>
+        <AprobacionAnticiposProvider>
+          <AprobacionLegalizacionesProvider>
+            <MiTiempoBridge syncRef={syncRef}>{children}</MiTiempoBridge>
+          </AprobacionLegalizacionesProvider>
+        </AprobacionAnticiposProvider>
+      </AprobacionProvider>
+    </NotificationProvider>
   );
 }

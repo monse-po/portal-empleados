@@ -704,6 +704,7 @@ export function buildCalendarioGrid(
 ): CalendarioCelda[] {
   const año = mesRef.getFullYear();
   const mes = mesRef.getMonth();
+  const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
 
   let startDow = new Date(año, mes, 1).getDay();
   startDow = startDow === 0 ? 6 : startDow - 1;
@@ -721,7 +722,7 @@ export function buildCalendarioGrid(
     const esFinSemana = dow === 0 || dow === 6;
     const fechaStr = `${año}-${String(mes + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const esFestivo = FESTIVOS_2026.includes(fechaStr);
-    const esHoy = fecha.getTime() === hoy.getTime();
+    const esHoy = fechaStr === hoyStr;
     const resumen = getResumenDia(registros, fechaStr);
 
     let bg = "white";

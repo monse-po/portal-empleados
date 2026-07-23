@@ -25,43 +25,132 @@ alwaysApply: true
 
 | Componente | Uso |
 |------------|-----|
-| `Button` | `primary` / `success` / `danger` / `secondary` / `tertiary`, `rounded-[7px]`, `text-xs font-semibold` |
+| `Button` | Ver tabla «Botones» abajo |
 | `PageBreadcrumb` | Volver + segmento — subpáginas y detalle |
 | `PortalSubpageHeader` | Breadcrumb + H1 + trailing (formularios, vista día) |
+| `Card` + `CardHeader` + `CardBody` | Secciones; header `#fafbfc`, título navy |
+| `Pill` + helpers | Estados: `EstadoAnticipoPill`, `EstadoTiempoPill`, etc. |
+| `TipoAnticipoPill` | Tipo anticipo Gasto/Viaje — tablas, detalle y selector |
+| `TipoHoraPill` | Tipo de hora — tablas, detalle y formulario |
+| `Modal` | Portal `z-[1100]`, Escape + overlay, footer opcional, prop `busy` |
+| `Toast` | `green` / `danger` / `navy` / `warn`, 3500ms |
+| `Field` | Label 12px semibold, asterisco rojo si requerido |
+| `Icon` | Lucide, tamaños `xs`–`xl` |
+| `Spinner` | Indicador inline en botones (`Button loading`) |
+| `TableFilterBar` | Filtros por columna; `TableFilterSection` fuera del Card |
+| `FilterValuePill` + `buildFilterMultiOptions` | Pills en chips de filtro (tipo/estado) — mismos colores que tablas |
+| `BulkSelectionBar` | Selección en lote — tab pendientes |
+| `TableSelectionCheckbox` | Checkbox en columnas de tabla |
+| `TableAproIconButton` | Aprobar / rechazar / anular inline (30×30) |
 
 ## Botones — jerarquía de acción
 
 | Variante | Peso | Uso |
 |----------|------|-----|
-| `primary` | Alto — navy sólido | CTA de página/lista («Agregar registro», «Solicitar anticipo») |
+| `primary` | Alto — navy sólido | CTA de página/lista |
 | `success` | Alto — verde sólido | Confirmar, enviar, aprobar |
-| `secondary` | Medio — azul suave `#eef3f9` | Acción alternativa positiva: «Agregar al día» |
-| `tertiary` | Medio-bajo — outline gris | Cancelar, volver, anular; neutro sin tinte azul |
+| `secondary` | Medio — azul suave `#eef3f9` | Acción alternativa («Agregar al día») |
+| `tertiary` | Medio-bajo — outline gris | Cancelar, volver, anular |
 | `danger` | Alerta — rojo suave | Rechazar, confirmar cancelación |
 
-Utilidades fuera de `Button`: `btn-link` (Copiar día anterior), `TableAproIconButton` (inline tabla).
+Utilidades: `btn-link`, `TableAproIconButton`. Footer modales: `tertiary` · `secondary` · `success`. Acciones async: `Button` con `loading` + `loadingLabel`.
 
-- Footer modales/formularios: `tertiary` (cancelar) · `secondary` (acción intermedia) · `success` (confirmar)
-| `Card` + `CardHeader` + `CardBody` | Secciones; header `#fafbfc`, título navy |
-| `Pill` + helpers | Estados: `EstadoAnticipoPill`, `EstadoTiempoPill` — no texto plano ni colores ad hoc |
-| `TipoAnticipoPill` | Tipo anticipo Gasto/Viaje — tablas, detalle y selector de formulario |
-| `TipoHoraPill` | Tipo de hora — tablas, detalle y formulario de registro |
-| `Modal` | Portal `z-[1100]`, Escape + overlay, footer opcional |
-| `Toast` | `green` / `danger` / `navy` / `warn`, 3500ms |
-| `Field` | Label 12px semibold, asterisco rojo si requerido |
-| `Icon` | Lucide, tamaños `xs`–`xl` |
-| `TableFilterBar` | Controles de filtro por columna (`TableFilterSection` va fuera del Card de tabla) |
-| `BulkSelectionBar` | Barra selección en lote — tab pendientes (`Button success` / `danger`) |
-| `TableSelectionCheckbox` | Checkbox estándar en columnas de tabla |
-| `TableAproIconButton` | Aprobar / rechazar / anular inline en fila (30×30) |
+---
+
+## Campos de fecha (todos los módulos)
+
+**Regla:** no usar `<input type="date">` suelto ni `react-day-picker/style.css` global.
+
+| Caso | Componente | CSS / tokens |
+|------|------------|--------------|
+| Formulario (fecha suelta) | `DateInput` | clase `ds-date-input` |
+| Mi Tiempo (mes actual) | `MonthDateInput` | wrapper sobre `DateInput` + `clampFechaMes` |
+| Filtro «entre fechas» | `DateRangePicker` `compact` | `ds-date-picker-shell` + `ds-date-picker` |
+| Utilidades ISO | `date-picker-utils.ts` | `isoToDate`, `dateToIso` |
+
+Estilos en `src/components/ui/date-picker.css` (importado en `globals.css`): navy, fondo activo `#eef3f9`, celdas 32px, caption 12px.
+
+```tsx
+import { DateInput } from "@/src/components/ui/DateInput";
+import { DateRangePicker } from "@/src/components/ui/DateRangePicker";
+
+<DateInput value={fecha} onChange={(e) => setFecha(e.target.value)} className="ant-field-input" />
+
+<DateRangePicker from={from} to={to} onChange={setFecha} compact onRangeComplete={() => setOpen(false)} />
+```
+
+**Por módulo:** Mi Tiempo (`MonthDateInput`), Anticipos viaje (`DateInput`), Legalizaciones factura (`DateInput`), filtros de aprobación/listas (`DateRangePicker` en `Dropdown` `fitContent`, ancho 252px).
+
+---
+
+## Selectores, dropdowns y catálogos (todos los módulos)
+
+**Regla:** catálogos **grandes o buscables** → picker con búsqueda. **No** `<select>` nativo suelto.
+
+### Árbol de decisión
+
+| Situación | Componente |
+|-----------|------------|
+| Entidad `LovItem` (`id`, `nombre`, `sub`) — proyecto, empleado, destino | `LovPicker` |
+| Lista `{ value, label, hint? }` o strings — proyecto aprobación, subproyecto, actividad | `SearchableSelect` |
+| Multi-select en barra de filtros (empleado, subproy, actividad…) | `FilterBarMultiDropdown` + `searchable` |
+| Multiselect **tipo** o **estado** en barra de filtros | `buildFilterMultiOptions` + `FilterValuePill` (pills = tablas) |
+| Menú contextual / popover (acciones, +Filtros) | `Dropdown` + `DropdownChevron` |
+| ≤5 opciones fijas (divisa, tipo documento, operador filtro) | `SelectControl` |
+| 2–4 mutuamente excluyentes visibles (tipo legalización) | `SegmentedControl` |
+
+### Implementación
+
+```tsx
+import { LovPicker } from "@/src/components/ui/LovPicker";
+import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
+import { SelectControl, DropdownChevron } from "@/src/components/ui/DropdownAffordance";
+import { FilterBarMultiDropdown, buildFilterMultiOptions } from "@/src/components/ui/TableFilterBar";
+
+<LovPicker items={PROYECTOS_LOV} value={proySel} onChange={setProySel} placeholder="Proyecto…" />
+
+<SearchableSelect value={proySel} onChange={setProySel} options={...} />
+
+<SelectControl value={divisa} onChange={...} className="ant-field-input">
+  <option value="COP">COP</option>
+</SelectControl>
+
+<FilterBarMultiDropdown searchable searchPlaceholder="Buscar empleado…" /* ... */ />
+
+// multiselect — pills automáticas en columnas tipo/estado
+buildFilterMultiOptions("tiempo", column, values, (val) => ({
+  label: val,
+  icon: valueOptionIcon(column, val),
+}));
+```
+
+**Chips de filtro con pills (regla general):** en **todas** las barras `*FilterBar`, columnas multiselect `tipo` y `estado` deben usar `buildFilterMultiOptions(module, …)` — nunca `FilterOptionChip` genérico navy para esos valores. El chip seleccionado y cada fila del menú muestran la misma pill que la tabla (`TipoHoraPill`, `EstadoTiempoPill`, `TipoAnticipoPill`, etc.). Texto plano + icono gris solo para columnas sin pill (empleado, subproy, actividad…).
+
+Módulos → `FilterPillModule`: `tiempo` | `anticipo` | `legalizacion`. Implementación: `FilterValuePill.tsx` + `TableFilterBar.buildFilterMultiOptions`.
+
+Trigger estándar: texto truncado + `DropdownChevron`; panel blanco, borde `border`, sombra suave, buscador 12px arriba si `searchable`.
+
+### Por módulo (referencia actual)
+
+| Módulo | Selectores |
+|--------|------------|
+| **Mi Tiempo** | `SearchableSelect` proy/sub/act (mock o IFS); `Dropdown` tipo hora |
+| **Aprobación tiempo** | `SearchableSelect` proyecto; `FilterBarMultiDropdown` empleado/subproy/actividad |
+| **Anticipos** | `LovPicker` proyecto, empleado, destino; `SelectControl` divisa, compañía (listas cortas) |
+| **Legalizaciones** | `SearchableSelect` proyecto/destino; `SelectControl` tipo doc., categoría costo (catálogo IFS acotado) |
+| **Aprobación anticipos / legalizaciones** | `FilterBarMultiDropdown` (+ `searchable` donde aplique) |
+
+**Módulos futuros:** copiar el módulo más parecido (formulario → Anticipos/Legalizaciones; lista aprobación → `11-aprobacion-list-ui.mdc` + esta sección). Reglas de negocio por módulo: `31-tiempo-business.mdc`, `30-anticipos-business.mdc`, `32-legalizaciones-business.mdc`.
+
+---
 
 ## Pills (estado, tipo, etc.)
 
-- **Siempre** vía `Pill`, `Estado*Pill`, `TipoAnticipoPill` o `TipoHoraPill` — nunca spans ad hoc en tablas
-- **Sin border** en ninguna pill; solo `background` + `color` según semántica
-- Geometría fija (`pillBase`): `rounded-full px-2.5 py-[3px] text-[11px] font-semibold`
-- Estados → `estado*PillVariant`; tipos anticipo → `gasto` / `viaje`; tipos hora → colores de `getTipoHoraMeta`
-- Inactivo (selector): variante `inactivo` (`bg-[#f3f4f6] text-muted`), mismo estilo para todos los tipos
+- **Siempre** vía `Pill`, `Estado*Pill`, `TipoAnticipoPill` o `TipoHoraPill` — nunca spans ad hoc en tablas **ni en chips de filtro tipo/estado**
+- En barras de filtros: `buildFilterMultiOptions` aplica pills automáticamente; no duplicar estilos a mano
+- **Sin border**; solo `background` + `color`
+- Geometría: `rounded-full px-2.5 py-[3px] text-[11px] font-semibold`
+- Inactivo (selector): `inactivo` (`bg-[#f3f4f6] text-muted`)
 
 ## Tabs
 
@@ -72,17 +161,16 @@ Utilidades fuera de `Button`: `btn-link` (Copiar día anterior), `TableAproIconB
 ## Tablas
 
 - `DataTable`: `table-fixed`, `text-[12px]`, `TABLE_PAGE_SIZE = 50`
-- TH: 10px uppercase muted; hover fila `#fafbfc`; filas clicables → detalle
-- Filtros: barra Notion (`+ Filtro`, chips removibles) externa al Card; ver `10-tables-filters.mdc`
+- TH: 10px uppercase muted; hover fila `#fafbfc`
+- Filtros externos al Card — ver `10-tables-filters.mdc` y `11-aprobacion-list-ui.mdc`
 
 ## Formularios
 
 - Secciones en Cards; grid `md:grid-cols-3`
-- Tipo anticipo: `TipoAnticipoPill` con `active` + `onClick` (sin border; Gasto morado / Viaje rosa solo en fondo)
-- Tipo hora: `TipoHoraPill` en selector y tablas
-- Estados siempre con `EstadoAnticipoPill` o `EstadoTiempoPill` — nunca texto suelto
+- Campos fecha → `DateInput` / `MonthDateInput` (ver arriba)
+- Catálogos → `LovPicker` / `SearchableSelect` (ver arriba)
 - Campos solo lectura: fondo `#f3f4f6`, `cursor-not-allowed`
-- Footer: hint izquierda (icon info + texto muted 11.5px) + acciones derecha (`tertiary` · `secondary` · `success`)
+- Footer: hint izquierda + acciones (`tertiary` · `secondary` · `success`)
 
 ## Nav badges (pendientes)
 

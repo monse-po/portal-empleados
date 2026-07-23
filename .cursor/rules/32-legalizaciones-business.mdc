@@ -1,0 +1,61 @@
+---
+description: Reglas de negocio del módulo Legalizaciones (empleado y gerente)
+globs: src/app/**/legalizaciones/**,src/app/**/aprobacion-legalizaciones/**,src/lib/*legalizaciones*
+alwaysApply: false
+---
+
+# Legalizaciones — reglas de negocio
+
+## Estados y tabs (empleado: Mis Legalizaciones)
+
+| Tab UI | Key interno | Estados |
+|--------|-------------|---------|
+| En proceso | `pendientes` | Borrador, En revisión |
+| Historial | `historial` | Aprobado, Rechazado |
+
+- Códigos: **LG####**
+- Tipos: **Con anticipo**, **Tarjeta corporativa**, **Sin anticipos** (`SegmentedControl` en formulario)
+
+## Con anticipo
+
+- Solo anticipos en estado **Pagado** (`puedeLegalizarAnticipo`).
+- Un anticipo solo puede tener **una** legalización vinculada.
+- Destino contable: proyecto / subproyecto / actividad (catálogo IFS mock vía jerarquía Mi Tiempo).
+
+## Líneas de gasto
+
+- Catálogos por compañía: `VOUCHER_TYPES_BY_COMPANY`, `COST_CATEGORIES_BY_COMPANY`.
+- Proveedor por NIT (`resolveProveedor` mock IFS).
+- Fecha factura: `DateInput` (ISO interno, display DMY).
+
+## Validación al enviar
+
+- Al menos una línea; montos > 0; campos obligatorios según tipo.
+- Enviar → estado **En revisión**; guardar borrador → **Borrador**.
+
+## Aprobación (gerente)
+
+Tabs: **Pendientes** / **Resueltas** (mismo layout que `11-aprobacion-list-ui.mdc`).
+
+- Filtros externos: `AprobacionLegalizacionesFilterBar` + `aprobacion-legalizaciones-filtros.ts` — sin selector de proyecto global.
+- **Aprobación masiva** en Pendientes — ver `12-table-selection-bulk.mdc`.
+- Rechazar: motivo obligatorio; empleado debe crear nueva solicitud.
+
+## UI — formularios y filtros
+
+Ver **`02-design-system.mdc`** (canónico, compartido con anticipos y módulos futuros):
+
+| Control | Uso en legalizaciones |
+|---------|------------------------|
+| `SearchableSelect` | Proyecto, subproyecto, actividad (destino) |
+| `SelectControl` | Tipo documento, categoría costo (catálogo acotado por compañía) |
+| `DateInput` | Fecha factura en línea de gasto |
+| `SegmentedControl` | Tipo legalización (Con anticipo / Tarjeta / Sin anticipos) |
+| `FilterBarMultiDropdown` | Filtros en lista empleado y aprobación gerente |
+| `DateRangePicker` | Filtro «entre fechas» en barras de filtro |
+
+No duplicar reglas de componentes aquí; actualizar solo `02-design-system.mdc`.
+
+## Datos mock
+
+- Fecha fija: `HOY_MOCK` / `hoyDMY()`; catálogos voucher/categoría por compañía son mock IFS.

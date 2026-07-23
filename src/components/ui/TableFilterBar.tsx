@@ -1,22 +1,35 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Dropdown } from "@/src/components/ui/Dropdown";
 import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
+import {
+  FilterValuePill,
+  filterPillLabel,
+  isFilterPillColumn,
+  type FilterPillModule,
+} from "@/src/components/ui/FilterValuePill";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 
 export function TableFilterSection({
   children,
   embedded = false,
+  sticky = true,
 }: {
   children: ReactNode;
   embedded?: boolean;
+  /** Evita saltos de scroll al expandir filtros dentro de un contenedor con overflow */
+  sticky?: boolean;
 }) {
   if (embedded) {
     return <div className="px-[18px] py-3">{children}</div>;
   }
   return (
-    <section className="sticky top-0 z-20 mb-3.5 rounded-xl border border-border bg-white px-[18px] py-3">
+    <section
+      className={`z-20 mb-3.5 rounded-xl border border-border bg-white px-[18px] py-3 ${
+        sticky ? "sticky top-0" : ""
+      }`}
+    >
       {children}
     </section>
   );
@@ -79,6 +92,27 @@ export function FilterBarField({
   );
 }
 
+export function FilterPillChip({
+  onToggle,
+  title,
+  children,
+}: {
+  onToggle: () => void;
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onToggle}
+      className="inline-flex shrink-0 cursor-pointer items-center border-0 bg-transparent p-0"
+    >
+      {children}
+    </button>
+  );
+}
+
 export function FilterOptionChip({
   icon,
   label,
@@ -114,7 +148,42 @@ export type FilterDropdownOption = {
   label: string;
   title?: string;
   icon: IconName;
+  /** Pill con colores de tabla (tipo/estado) en chips y menú */
+  renderChip?: ReactNode;
 };
+
+/**
+ * Opciones para FilterBarMultiDropdown.
+ * Columnas `tipo` / `estado` reciben automáticamente `renderChip` con la pill del módulo.
+ */
+export function buildFilterMultiOptions(
+  module: FilterPillModule,
+  column: string,
+  values: readonly string[],
+  toOption: (value: string) => {
+    label: string;
+    title?: string;
+    icon: IconName;
+  },
+): FilterDropdownOption[] {
+  return values.map((value) => {
+    const base = toOption(value);
+    const pillColumn = isFilterPillColumn(column) ? column : null;
+    const label = pillColumn
+      ? filterPillLabel(module, pillColumn, value, base.label)
+      : base.label;
+
+    return {
+      value,
+      label,
+      title: base.title,
+      icon: base.icon,
+      renderChip: pillColumn ? (
+        <FilterValuePill module={module} column={pillColumn} value={value} />
+      ) : undefined,
+    };
+  });
+}
 
 export function FilterBarMultiDropdown({
   options,
@@ -143,9 +212,15 @@ export function FilterBarMultiDropdown({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [q, setQ] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const selectedSet = new Set(selected);
   const active = selected.length > 0;
   const showSearch = searchable ?? options.length >= 6;
+
+  useEffect(() => {
+    if (!open || !showSearch) return;
+    searchRef.current?.focus({ preventScroll: true });
+  }, [open, showSearch]);
 
   const filteredOptions = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -173,6 +248,17 @@ export function FilterBarMultiDropdown({
         selected.map((val) => {
           const opt = options.find((o) => o.value === val);
           if (!opt) return null;
+          if (opt.renderChip) {
+            return (
+              <FilterPillChip
+                key={val}
+                title={opt.title ?? opt.label}
+                onToggle={() => onToggle(val)}
+              >
+                {opt.renderChip}
+              </FilterPillChip>
+            );
+          }
           return (
             <FilterOptionChip
               key={val}
@@ -196,9 +282,9 @@ export function FilterBarMultiDropdown({
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
-            className={`inline-flex shrink-0 cursor-pointer items-center gap-1 px-2 py-1 text-[12px] font-medium transition-colors ${
+            className={`inline-flex cursor-pointer items-center gap-1 px-2 py-1 text-[12px] font-medium transition-colors ${
               embedded
-                ? "max-w-[200px] border-none bg-transparent text-[#374151] hover:bg-[#f4f7fb]"
+                ? "shrink-0 border-none bg-transparent text-[#374151] hover:bg-[#f4f7fb]"
                 : open
                   ? "rounded-[6px] border border-navy bg-navy text-white"
                   : active
@@ -206,7 +292,13 @@ export function FilterBarMultiDropdown({
                     : "rounded-[6px] border border-border bg-white text-[#374151] hover:border-[#c7d9ed] hover:bg-[#f4f7fb]"
             }`}
           >
-            <span className="max-w-[180px] truncate">{triggerLabel}</span>
+            <span
+              className={
+                embedded ? "whitespace-nowrap" : "max-w-[180px] truncate"
+              }
+            >
+              {triggerLabel}
+            </span>
             <DropdownChevron
               open={open}
               className={open ? "text-white" : "text-muted"}
@@ -218,12 +310,12 @@ export function FilterBarMultiDropdown({
           <div className="flex items-center gap-2 border-b border-[#f3f4f6] px-2.5 py-2">
             <Icon name="search" size="xs" className="text-[#9ca3af]" />
             <input
+              ref={searchRef}
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder={searchPlaceholder}
               className="min-w-0 flex-1 border-0 text-[12px] outline-none"
-              autoFocus
             />
           </div>
         ) : null}
@@ -245,12 +337,18 @@ export function FilterBarMultiDropdown({
                     size="sm"
                     className={on ? "text-navy" : "text-[#c2c8d0]"}
                   />
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] bg-[#eef3f9] text-navy">
-                    <Icon name={opt.icon} size="xs" />
-                  </span>
-                  <span className="min-w-0 truncate" title={opt.title ?? opt.label}>
-                    {opt.label}
-                  </span>
+                  {opt.renderChip ? (
+                    <span className="min-w-0 shrink-0">{opt.renderChip}</span>
+                  ) : (
+                    <>
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] bg-[#eef3f9] text-navy">
+                        <Icon name={opt.icon} size="xs" />
+                      </span>
+                      <span className="min-w-0 truncate" title={opt.title ?? opt.label}>
+                        {opt.label}
+                      </span>
+                    </>
+                  )}
                 </button>
               );
             })
@@ -285,14 +383,16 @@ export function FilterBarTrigger({
       type="button"
       data-col-filter
       onClick={(e) => onClick(e.currentTarget.getBoundingClientRect())}
-      className={`inline-flex max-w-[200px] cursor-pointer items-center gap-1 px-2 py-1 text-[12px] font-medium transition-colors ${
+      className={`inline-flex cursor-pointer items-center gap-1 px-2 py-1 text-[12px] font-medium transition-colors ${
         embedded
-          ? "border-none bg-transparent text-[#374151] hover:bg-[#f4f7fb]"
-          : isOpen
-            ? "rounded-[6px] border border-navy bg-navy text-white"
-            : active
-              ? "rounded-[6px] border border-[#c7d9ed] text-navy"
-              : "rounded-[6px] border border-border bg-white text-[#374151] hover:border-[#c7d9ed] hover:bg-[#f4f7fb]"
+          ? "shrink-0 border-none bg-transparent text-[#374151] hover:bg-[#f4f7fb]"
+          : `max-w-[200px] ${
+              isOpen
+                ? "rounded-[6px] border border-navy bg-navy text-white"
+                : active
+                  ? "rounded-[6px] border border-[#c7d9ed] text-navy"
+                  : "rounded-[6px] border border-border bg-white text-[#374151] hover:border-[#c7d9ed] hover:bg-[#f4f7fb]"
+            }`
       }`}
     >
       {leadingIcon && (
@@ -302,7 +402,15 @@ export function FilterBarTrigger({
           className={isOpen ? "opacity-100" : "opacity-80"}
         />
       )}
-      <span className="min-w-0 truncate">{text}</span>
+      <span
+        className={
+          embedded && !displayValue
+            ? "whitespace-nowrap"
+            : "min-w-0 max-w-[180px] truncate"
+        }
+      >
+        {text}
+      </span>
       <DropdownChevron
         open={isOpen}
         className={isOpen ? "text-white" : "text-muted"}

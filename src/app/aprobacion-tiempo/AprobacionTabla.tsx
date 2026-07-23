@@ -31,7 +31,6 @@ import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import { getSelectionState } from "@/src/lib/use-table-selection";
 import {
   horasNum,
-  PROY_INFO,
   splitSubproy,
   type HojaAprobacion,
 } from "@/src/lib/aprobacion-tiempo-mock";
@@ -289,78 +288,6 @@ export function AprobacionTabla({
         total={total}
         onPageChange={setPage}
       />
-    </div>
-  );
-}
-
-export function AprobacionProyMeta({
-  shown,
-  total,
-  hasFilters,
-}: {
-  shown: number;
-  total: number;
-  hasFilters: boolean;
-}) {
-  const { proySel, tab, registrosActuales } = useAprobacion();
-  if (!proySel) return null;
-  const info = PROY_INFO[proySel];
-  const horasPend = registrosActuales.reduce(
-    (acc, s) => acc + horasNum(s.horas),
-    0,
-  );
-  const horasLabel =
-    horasPend % 1 === 0 ? `${horasPend}h` : `${horasPend.toFixed(1)}h`;
-
-  const countLine = hasFilters ? (
-    <span className="rounded-md border border-[#c7d9ed] bg-white px-2 py-0.5 text-[12px] text-muted">
-      Mostrando <b className="text-navy">{shown}</b> de{" "}
-      <b className="text-navy">{total}</b>
-    </span>
-  ) : null;
-
-  if (tab === "pend") {
-    return (
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {info?.cliente ? (
-          <span className="rounded-md bg-[#f3f4f6] px-2.5 py-1 text-[12px] font-medium text-[#374151]">
-            {info.cliente}
-          </span>
-        ) : null}
-        <span className="rounded-md bg-[#eef3f9] px-2.5 py-1 text-[12px] text-navy">
-          <b>{total}</b> pendiente{total !== 1 ? "s" : ""}
-        </span>
-        {total > 0 ? (
-          <span className="rounded-md bg-[#fffbeb] px-2.5 py-1 text-[12px] text-[#b45309]">
-            <b>{horasLabel}</b> por aprobar
-          </span>
-        ) : null}
-        {countLine}
-      </div>
-    );
-  }
-
-  const aprobadas = registrosActuales.filter(
-    (s) => s.estadoApro === "Aprobado",
-  ).length;
-  const rechazadas = registrosActuales.filter(
-    (s) => s.estadoApro === "Rechazado",
-  ).length;
-
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
-      {info?.cliente ? (
-        <span className="rounded-md bg-[#f3f4f6] px-2.5 py-1 text-[12px] font-medium text-[#374151]">
-          {info.cliente}
-        </span>
-      ) : null}
-      <span className="rounded-md bg-[#ecfdf5] px-2.5 py-1 text-[12px] text-[#16a34a]">
-        <b>{aprobadas}</b> aprobada{aprobadas !== 1 ? "s" : ""}
-      </span>
-      <span className="rounded-md bg-[#fef2f2] px-2.5 py-1 text-[12px] text-[#dc2626]">
-        <b>{rechazadas}</b> rechazada{rechazadas !== 1 ? "s" : ""}
-      </span>
-      {countLine}
     </div>
   );
 }
