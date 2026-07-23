@@ -19,7 +19,7 @@ type Vista = "lista" | "detalle";
 export function AprobacionView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { getHoja, aprobar, rechazar, anular, setProySel, ingresarHojas, hojas, proySel } =
+  const { getHoja, aprobar, rechazar, anular, setProySel, syncPendientesDesdeDb, hojas, proySel } =
     useAprobacion();
   const { toast } = useToast();
   const [vista, setVista] = useState<Vista>("lista");
@@ -40,8 +40,8 @@ export function AprobacionView() {
     let cancelled = false;
     void getHojasPendientesAprobacionAction()
       .then((hojasPendientes) => {
-        if (cancelled || !hojasPendientes.length) return;
-        ingresarHojas(hojasPendientes);
+        if (cancelled) return;
+        syncPendientesDesdeDb(hojasPendientes);
       })
       .finally(() => {
         if (!cancelled) setPendientesLoaded(true);
@@ -49,7 +49,7 @@ export function AprobacionView() {
     return () => {
       cancelled = true;
     };
-  }, [ingresarHojas]);
+  }, [syncPendientesDesdeDb]);
 
   useEffect(() => {
     if (proyParam && proyParam !== proySel) {

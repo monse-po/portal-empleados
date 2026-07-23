@@ -11,7 +11,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  cloneInitialHojas,
   filterHojasByProyTab,
   getAprobacionKpis,
   getProyConMasPendientes,
@@ -37,6 +36,7 @@ type AprobacionContextValue = {
   clearSeleccion: () => void;
   registrosActuales: HojaAprobacion[];
   ingresarHojas: (hojas: HojaAprobacion[]) => void;
+  syncPendientesDesdeDb: (hojas: HojaAprobacion[]) => void;
   aprobar: (nos: string[], comentario?: string) => void;
   rechazar: (nos: string[], comentario: string) => void;
   anular: (nos: string[]) => void;
@@ -55,10 +55,8 @@ export function AprobacionProvider({
   children,
   onSyncRegistro,
 }: AprobacionProviderProps) {
-  const [hojas, setHojas] = useState(cloneInitialHojas);
-  const [proySel, setProySelState] = useState(() =>
-    getProyConMasPendientes(cloneInitialHojas()),
-  );
+  const [hojas, setHojas] = useState<Record<string, HojaAprobacion>>(() => ({}));
+  const [proySel, setProySelState] = useState("");
   const [tab, setTab] = useState<"pend" | "res">("pend");
   const {
     seleccion,
@@ -84,7 +82,23 @@ export function AprobacionProvider({
       nuevas.forEach((hoja) => {
         if (!next[hoja.no]) next[hoja.no] = hoja;
       });
+      setProySelState((sel) => sel || getProyConMasPendientes(next));
       return next;
+    });
+  }, []);
+
+  const syncPendientesDesdeDb = useCallback((pendientes: HojaAprobacion[]) => {
+    setHojas((prev) => {
+      const resueltas = Object.fromEntries(
+        Object.entries(prev).filter(([, h]) => !!h.estadoApro),
+      );
+      const pend = Object.fromEntries(pendientes.map((h) => [h.no, h]));
+      return { ...resueltas, ...pend };
+    });
+    setProySelState((prev) => {
+      if (prev) return prev;
+      const pendMap = Object.fromEntries(pendientes.map((h) => [h.no, h]));
+      return getProyConMasPendientes(pendMap);
     });
   }, []);
 
@@ -218,6 +232,7 @@ export function AprobacionProvider({
       clearSeleccion,
       registrosActuales,
       ingresarHojas,
+      syncPendientesDesdeDb,
       aprobar,
       rechazar,
       anular,
@@ -237,6 +252,7 @@ export function AprobacionProvider({
       clearSeleccion,
       registrosActuales,
       ingresarHojas,
+      syncPendientesDesdeDb,
       aprobar,
       rechazar,
       anular,
