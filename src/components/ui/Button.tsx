@@ -5,7 +5,7 @@ const variants = {
   primary:
     "bg-navy text-white hover:bg-navy-mid border-none",
   success:
-    "bg-[#16a34a] text-white hover:bg-green border-none",
+    "bg-green text-white hover:bg-green-dark border-none",
   danger:
     "bg-[#fde8e8] text-[#9b1c1c] hover:bg-[#fbd5d5] border-none",
   secondary:

@@ -1,9 +1,18 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
+import { expiredSessionCookieOptions } from "@/src/lib/ifs/session-cookie";
+
+const OAUTH_COOKIES = ["hmv_oauth_pkce", "hmv_oauth_state", "hmv_oauth_next", "hmv_oauth_email"] as const;
 
 export async function GET(request: Request) {
-  const jar = await cookies();
-  jar.delete(SESSION_COOKIE);
-  return NextResponse.redirect(new URL("/login", new URL(request.url).origin));
+  const url = new URL(request.url);
+  const response = NextResponse.redirect(new URL("/login", url.origin));
+  const expired = expiredSessionCookieOptions();
+
+  response.cookies.set(SESSION_COOKIE, "", expired);
+  for (const name of OAUTH_COOKIES) {
+    response.cookies.set(name, "", expired);
+  }
+
+  return response;
 }

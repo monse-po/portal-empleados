@@ -1,8 +1,10 @@
 import {
   cempPortalUserPath,
   ifsFetch,
+  odataStringKey,
   type IfsRequestInit,
 } from "@/src/lib/ifs/client";
+import { IfsApiError } from "@/src/lib/ifs/errors";
 import type {
   CempPortalUser,
   CutOffDateParams,
@@ -11,6 +13,7 @@ import type {
   EmpTimeReg,
   EmpTimeUpdate,
   HoursSummary,
+  ProjectInfoQuery,
   UserInfo,
   ValidActReportCodeParams,
 } from "@/src/lib/ifs/types";
@@ -135,8 +138,39 @@ export async function getValidEmpPrjAct(
   session: CempPortalSession,
   accountDate: string,
 ): Promise<unknown> {
-  const fn = `${FN.getValidEmpPrjAct}(AccountDate=${accountDate})`;
-  return ifsFetch(fnPath(session, fn), sessionRequest(session));
+  const base = fnPath(session, FN.getValidEmpPrjAct);
+  const attempts: Array<{ label: string; path: string; init?: Omit<IfsRequestInit, "accessToken" | "ifMatch"> }> = [
+    { label: "date", path: `${base}(AccountDate=${accountDate})` },
+    { label: "date-quoted", path: `${base}(AccountDate='${accountDate}')` },
+    { label: "date-literal", path: `${base}(AccountDate=date'${accountDate}')` },
+    { label: "query", path: `${base}?AccountDate=${accountDate}` },
+    { label: "query-date-literal", path: `${base}?AccountDate=date'${accountDate}'` },
+  ];
+
+  let lastErr: unknown;
+  for (const attempt of attempts) {
+    try {
+      return await ifsFetch(attempt.path, sessionRequest(session, attempt.init));
+    } catch (err) {
+      lastErr = err;
+      if (!(err instanceof IfsApiError) || err.status !== 404) throw err;
+    }
+  }
+
+  try {
+    return await ifsFetch(base, {
+      ...sessionRequest(session, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ AccountDate: accountDate }),
+      }),
+    });
+  } catch (err) {
+    lastErr = err;
+    if (!(err instanceof IfsApiError) || err.status !== 404) throw err;
+  }
+
+  throw lastErr;
 }
 
 export async function getValidActReportCode(
@@ -210,8 +244,9 @@ export async function getScheduleHoursForDate(
   accountDate: string,
 ): Promise<number | undefined> {
   const summary = await getHoursSummary(session);
+  const target = accountDate.slice(0, 10);
   const day = summary.EmployeeSchedule?.find(
-    (d) => d.AccountDate === accountDate,
+    (d) => (d.AccountDate ?? "").slice(0, 10) === target,
   );
   return day?.ScheduleHours;
 }
@@ -224,4 +259,15 @@ export async function listPortalUsers(
     { accessToken },
   );
   return data.value ?? [];
+}
+
+/** Gerente del proyecto (aprobador) desde Reference_ProjectInfoQuery. */
+export async function getProjectInfo(
+  accessToken: string,
+  projectId: string,
+): Promise<ProjectInfoQuery> {
+  return ifsFetch<ProjectInfoQuery>(
+    `/Reference_ProjectInfoQuery(ProjectId='${odataStringKey(projectId)}')?$select=ProjectId,Manager,Name`,
+    { accessToken },
+  );
 }

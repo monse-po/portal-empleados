@@ -229,7 +229,7 @@ export function LineaGastoModal({
           {draft.supplierLookupStatus === "loading" ? (
             <p className="mt-1 text-[11px] text-muted">Validando en IFS…</p>
           ) : draft.supplierLookupStatus === "found" ? (
-            <p className="mt-1 text-[11px] text-[#15803d]">Proveedor registrado en IFS</p>
+            <p className="mt-1 text-[11px] text-green">Proveedor registrado en IFS</p>
           ) : draft.supplierLookupStatus === "not_found" ? (
             <p className="mt-1 text-[11px] text-[#b45309]">
               No encontrado en IFS — indica nombre y adjunta soporte

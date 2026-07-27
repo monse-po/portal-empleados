@@ -5,10 +5,11 @@ import {
   createOAuthState,
   createPkcePair,
 } from "@/src/lib/ifs/oauth-user";
-import { sessionCookieOptions } from "@/src/lib/ifs/session";
+import { sessionCookieOptions, resolveSessionEmail } from "@/src/lib/ifs/session";
 
 const PKCE_COOKIE = "hmv_oauth_pkce";
 const STATE_COOKIE = "hmv_oauth_state";
+const EMAIL_COOKIE = "hmv_oauth_email";
 
 export async function GET(request: Request) {
   if (!isIfsAuthReady()) {
@@ -24,7 +25,19 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const next = url.searchParams.get("next");
-  const authUrl = buildAuthorizationUrl({ state, codeChallenge: challenge });
+  const loginHint = url.searchParams.get("email")?.trim();
+  const loginEmail = loginHint
+    ? resolveSessionEmail({
+        email: loginHint,
+        preferred_username: loginHint,
+        username: loginHint,
+      })
+    : undefined;
+  const authUrl = buildAuthorizationUrl({
+    state,
+    codeChallenge: challenge,
+    loginHint: loginEmail ?? loginHint,
+  });
   const response = NextResponse.redirect(authUrl);
 
   // Cookies en la respuesta de redirect (cookies() del jar no siempre viajan en Vercel).
@@ -32,6 +45,9 @@ export async function GET(request: Request) {
   response.cookies.set(STATE_COOKIE, state, opts);
   if (next?.startsWith("/")) {
     response.cookies.set("hmv_oauth_next", next, opts);
+  }
+  if (loginEmail) {
+    response.cookies.set(EMAIL_COOKIE, loginEmail, opts);
   }
 
   return response;

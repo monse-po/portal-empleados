@@ -1,15 +1,35 @@
 "use client";
 
-import { Icon } from "@/src/components/ui/Icon";
+import { useEffect, useState } from "react";
+import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
+import { LOADING_COPY } from "@/src/lib/copy/loading";
+import { registrosLoadingHint } from "@/src/lib/ifs/tiempo-timesheet";
+import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 
 export function MiTiempoLoading() {
+  const { ifsConnected } = useMiTiempo();
+  const [hintFromIfs, setHintFromIfs] = useState(ifsConnected);
+
+  useEffect(() => {
+    if (ifsConnected) {
+      setHintFromIfs(true);
+      return;
+    }
+    void getIfsSessionStatusAction().then((status) => {
+      setHintFromIfs(status.connected);
+    });
+  }, [ifsConnected]);
+
   return (
-    <div className="view-wide flex min-h-[320px] flex-col items-center justify-center gap-3 text-center">
-      <Icon name="clock" size="lg" className="animate-pulse text-navy" />
-      <p className="text-[13px] font-medium text-[#374151]">
-        Cargando registros de tiempo…
-      </p>
-      <p className="text-[12px] text-muted">Conectando con la base de datos</p>
+    <div className="view-wide">
+      <LoadingNotice
+        variant="panel"
+        icon={LOADING_COPY.timeRecords.icon}
+        label={LOADING_COPY.timeRecords.label}
+        hint={registrosLoadingHint(hintFromIfs)}
+        className="min-h-[320px]"
+      />
     </div>
   );
 }

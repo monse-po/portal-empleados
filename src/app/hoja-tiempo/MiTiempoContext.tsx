@@ -30,6 +30,8 @@ import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-action
 export type RegistrarModalState = {
   editId?: string;
   fecha?: string;
+  /** Abierto desde tab Lista — un solo botón guardar; envío desde vista día. */
+  origen?: "lista" | "dia";
 } | null;
 
 type RegistroGuardadoHandler = (fecha: string) => void;
@@ -66,6 +68,7 @@ type MiTiempoContextValue = {
   registros: Record<string, RegistroMock[]>;
   registrosLoaded: boolean;
   registrosError: string | null;
+  registrosFromIfs: boolean;
   ifsConnected: boolean;
   ifsEmail: string | null;
   reloadRegistros: () => Promise<void>;
@@ -79,7 +82,11 @@ type MiTiempoContextValue = {
     comentario?: string,
   ) => Promise<void>;
   modal: RegistrarModalState;
-  openRegistrarModal: (opts?: { editId?: string; fecha?: string }) => void;
+  openRegistrarModal: (opts?: {
+    editId?: string;
+    fecha?: string;
+    origen?: "lista" | "dia";
+  }) => void;
   closeRegistrarModal: () => void;
   setRegistroGuardadoHandler: (handler?: RegistroGuardadoHandler) => void;
 };
@@ -98,6 +105,7 @@ export function MiTiempoProvider({
   const [registros, setRegistros] = useState<Record<string, RegistroMock[]>>({});
   const [registrosLoaded, setRegistrosLoaded] = useState(false);
   const [registrosError, setRegistrosError] = useState<string | null>(null);
+  const [registrosFromIfs, setRegistrosFromIfs] = useState(false);
   const [ifsConnected, setIfsConnected] = useState(false);
   const [ifsEmail, setIfsEmail] = useState<string | null>(null);
   const [modal, setModal] = useState<RegistrarModalState>(null);
@@ -108,11 +116,18 @@ export function MiTiempoProvider({
   const reloadRegistros = useCallback(async () => {
     setRegistrosError(null);
     try {
-      const data = await getRegistrosGroupedAction();
-      setRegistros(data);
+      const result = await getRegistrosGroupedAction();
+      setRegistros(result.registros);
+      setRegistrosFromIfs(result.fromIfs);
+      if (result.warning) {
+        setRegistrosError(
+          "No se pudo leer la hoja de IFS. Mostrando registros locales.",
+        );
+      }
     } catch {
+      setRegistrosFromIfs(false);
       setRegistrosError(
-        "No se pudieron cargar los registros. Revisa la base de datos.",
+        "No se pudieron cargar los registros. Revisa la conexión o la base de datos.",
       );
     } finally {
       setRegistrosLoaded(true);
@@ -151,7 +166,8 @@ export function MiTiempoProvider({
         onIngresarHojas?.(enviados.map((r) => registroToHoja(r)));
       }
       const fresh = await getRegistrosGroupedAction();
-      setRegistros(fresh);
+      setRegistros(fresh.registros);
+      setRegistrosFromIfs(fresh.fromIfs);
       registroGuardadoHandler.current?.(reg.fecha);
       return enviados;
     },
@@ -183,14 +199,19 @@ export function MiTiempoProvider({
         onIngresarHojas?.(enviados.map((reg) => registroToHoja(reg)));
       }
       const fresh = await getRegistrosGroupedAction();
-      setRegistros(fresh);
+      setRegistros(fresh.registros);
+      setRegistrosFromIfs(fresh.fromIfs);
       return enviados;
     },
     [onIngresarHojas],
   );
 
   const openRegistrarModal = useCallback(
-    (opts?: { editId?: string; fecha?: string }) => {
+    (opts?: {
+      editId?: string;
+      fecha?: string;
+      origen?: "lista" | "dia";
+    }) => {
       setModal(opts ?? {});
     },
     [],
@@ -205,6 +226,7 @@ export function MiTiempoProvider({
       registros,
       registrosLoaded,
       registrosError,
+      registrosFromIfs,
       ifsConnected,
       ifsEmail,
       reloadRegistros,
@@ -222,6 +244,7 @@ export function MiTiempoProvider({
       registros,
       registrosLoaded,
       registrosError,
+      registrosFromIfs,
       ifsConnected,
       ifsEmail,
       reloadRegistros,

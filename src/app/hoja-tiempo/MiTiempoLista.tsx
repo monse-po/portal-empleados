@@ -14,19 +14,23 @@ import {
   dataTdTruncate,
   dataTh,
   dataThWithAlign,
-  MI_TIEMPO_COLS,
+  dataTdResPrimary,
+  dataTdResSecondary,
+  MI_TIEMPO_LISTA_COLS,
 } from "@/src/components/ui/DataTable";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import {
   buildCalendarioGrid,
   formatFechaLegible,
-  getHistorialDias,
   getMesLabel,
   getResumenHoras,
   getTipoHoraMeta,
   type RegistroEstado,
 } from "@/src/lib/mi-tiempo-mock";
-import { formatProyectoEmpleado } from "@/src/lib/tiempo-bridge";
+import { getListaRegistrosPorDia, isRegistroEditable } from "@/src/lib/tiempo-registro-rules";
+import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
+import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";
+import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -37,6 +41,7 @@ const CAL_DIA_CELL = `${CAL_DIA_MIN_H} ${CAL_DIA_MAX_H} overflow-hidden`;
 
 const ESTADOS_CAL_DESTACADOS = new Set<RegistroEstado>([
   "Aprobado",
+  "Borrador",
   "Registrado",
   "Rechazado",
 ]);
@@ -93,8 +98,8 @@ function ResumenItem({
 }
 
 type MiTiempoListaProps = {
-  tab: "cal" | "hist";
-  onTabChange: (tab: "cal" | "hist") => void;
+  tab: "cal" | "lista";
+  onTabChange: (tab: "cal" | "lista") => void;
   onSelectDia: (fecha: string, esHistorial: boolean) => void;
 };
 
@@ -257,9 +262,16 @@ function CalendarioTab({
   );
 }
 
-function HistorialTab() {
-  const { registros } = useMiTiempo();
-  const dias = getHistorialDias(registros);
+function ListaTab({
+  onSelectDia,
+}: Pick<MiTiempoListaProps, "onSelectDia">) {
+  const { registros, openRegistrarModal } = useMiTiempo();
+  const dias = getListaRegistrosPorDia(registros);
+  const hayFilasEditables = dias.some((dia) =>
+    dia.registros.some(
+      (r) => !isIfsRegistroId(r.id) && isRegistroEditable(r.estado),
+    ),
+  );
 
   const columnas: { label: string; align: string }[] = [
     { label: "Proyecto", align: "text-left" },
@@ -281,19 +293,26 @@ function HistorialTab() {
           </span>
         }
       >
-        <span className="flex flex-row items-center gap-1.5">
-          <Icon name="history" size="sm" />
-          <span>Historial</span>
-        </span>
+        <div className="flex flex-col gap-0.5">
+          <span className="flex flex-row items-center gap-1.5">
+            <Icon name="list" size="sm" />
+            <span>Lista</span>
+          </span>
+          {hayFilasEditables && (
+            <span className="text-[11px] font-normal text-muted">
+              {TIEMPO_UI_COPY.filaEditableHint}
+            </span>
+          )}
+        </div>
       </CardHeader>
 
       <div>
         {dias.length === 0 ? (
           <div className="px-6 py-8 text-center text-[13px] text-muted">
-            Aún no hay registros aprobados o rechazados.
+            No hay registros todavía.
           </div>
         ) : (
-          <DataTable colWidths={[...MI_TIEMPO_COLS]}>
+          <DataTable colWidths={[...MI_TIEMPO_LISTA_COLS]}>
             <thead>
               <tr>
                 {columnas.map((col) => (
@@ -310,26 +329,64 @@ function HistorialTab() {
                     <tr style={{ background: "#f8fafc" }}>
                       <td
                         colSpan={columnas.length}
-                        className="border-t-2 border-border px-3 py-2.5"
+                        className="border-t-2 border-border px-3 py-0"
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                          <span className="text-[13px] font-semibold text-navy">
-                            {formatFechaLegible(dia.fecha)}
+                        <button
+                          type="button"
+                          onClick={() => onSelectDia(dia.fecha, false)}
+                          className="flex w-full items-center justify-between gap-3 rounded-sm px-1 py-2.5 text-left transition-colors hover:bg-[#eef3f9] active:bg-[#e5edf7]"
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Icon
+                              name="calendar"
+                              size="xs"
+                              className="shrink-0 text-muted"
+                            />
+                            <span className="text-[13px] font-semibold text-navy">
+                              {formatFechaLegible(dia.fecha)}
+                            </span>
                           </span>
-                          <span className="text-[12px] text-muted">
+                          <span className="shrink-0 text-[12px] text-muted">
                             {dia.registros.length} registro
-                            {dia.registros.length !== 1 ? "s" : ""} – {dia.totalHoras} h
+                            {dia.registros.length !== 1 ? "s" : ""} ·{" "}
+                            {dia.totalHoras} h
                           </span>
-                        </div>
+                        </button>
                       </td>
                     </tr>
-                    {dia.registros.map((r) => (
+                    {dia.registros.map((r) => {
+                      const esEditable =
+                        !isIfsRegistroId(r.id) && isRegistroEditable(r.estado);
+                      return (
                       <tr
                         key={r.id}
-                        className="transition-colors duration-100 hover:bg-[#fafbfc]"
+                        onClick={
+                          esEditable
+                            ? () =>
+                                openRegistrarModal({
+                                  editId: r.id,
+                                  fecha: r.fecha,
+                                  origen: "lista",
+                                })
+                            : undefined
+                        }
+                        className={`transition-colors duration-100 ${esEditable ? "cursor-pointer hover:bg-[#eef3f9] active:bg-[#dbeafe]" : "hover:bg-[#fafbfc]"}`}
                       >
-                        <td className={`${dataTd} font-medium ${dataTdTruncate}`}>
-                          {formatProyectoEmpleado(r.proy)}
+                        <td className={dataTd}>
+                          {(() => {
+                            const proy = getProyectoListaParts(r.proy);
+                            return (
+                              <div className="min-w-0">
+                                <div className={dataTdResPrimary}>{proy.codigo}</div>
+                                <div
+                                  className={dataTdResSecondary}
+                                  title={proy.nombreFull}
+                                >
+                                  {proy.nombre}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className={`${dataTd} ${dataTdTruncate}`}>{r.act}</td>
                         <td className={dataTd}>
@@ -347,10 +404,11 @@ function HistorialTab() {
                           </div>
                         </td>
                         <td className={`${dataTd} text-center`}>
-                            <EstadoTiempoPill estado={r.estado} />
+                          <EstadoTiempoPill estado={r.estado} />
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </Fragment>
                 );
               })}
@@ -377,7 +435,7 @@ export function MiTiempoLista({
             <h1 className="text-xl font-bold text-[#111]">Mi Tiempo</h1>
           </div>
           <div className="flex shrink-0 items-center gap-2.5">
-            <Button variant="primary" onClick={() => openRegistrarModal()}>
+            <Button variant="primary" onClick={() => openRegistrarModal({ origen: "lista" })}>
               <Icon name="plus" size="xs" />
               Registrar horas
             </Button>
@@ -400,22 +458,22 @@ export function MiTiempoLista({
         </button>
         <button
           type="button"
-          onClick={() => onTabChange("hist")}
+          onClick={() => onTabChange("lista")}
           className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all duration-150 ${
-            tab === "hist"
+            tab === "lista"
               ? "border-b-navy bg-white font-bold text-navy"
               : "border-b-transparent font-medium text-muted hover:bg-[#f0f2f5] hover:text-navy"
           }`}
         >
-          <Icon name="history" size="sm" />
-          Historial
+          <Icon name="list" size="sm" />
+          Lista
         </button>
       </div>
 
       {tab === "cal" ? (
         <CalendarioTab onSelectDia={onSelectDia} />
       ) : (
-        <HistorialTab />
+        <ListaTab onSelectDia={onSelectDia} />
       )}
     </div>
   );

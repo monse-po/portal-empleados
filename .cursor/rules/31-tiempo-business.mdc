@@ -1,6 +1,6 @@
 ---
 description: Reglas de negocio del módulo Tiempo (registro de horas)
-globs: src/app/hoja-tiempo/**,src/lib/mi-tiempo-mock.ts,src/server/mi-tiempo-actions.ts
+globs: src/app/hoja-tiempo/**,src/lib/mi-tiempo-mock.ts,src/lib/tiempo-config.ts,src/lib/tiempo-registro-rules.ts,src/server/mi-tiempo-actions.ts
 alwaysApply: false
 ---
 
@@ -16,20 +16,49 @@ Implementación:
 - `getMesActualBounds()` → `min`/`max` = primer y último día del mes (`MonthDateInput`, `clampFechaMes`).
 - `buildCalendarioGrid()` → `bloqueado = esFestivo` (solo festivos).
 
-## Tope de horas
+## Tope de horas normales por día
 
-- Máximo **8.5h normales por día** (`getHorasNormales` + tope en `validateForm` y en el botón "Enviar a Aprobación").
+- **No hardcodear** (ej. 8.5h). Depende de **configuración de sistema por compañía/país** (`src/lib/tiempo-config.ts` → `TIEMPO_JORNADA_POR_COMPANIA`).
+- Con sesión IFS, **`GetHoursSummary`** puede sobreescribir el tope del día (`fetchScheduleHoursAction` → `resolveScheduleHoursLimit`).
+- Validación en `validateForm`, contador del día y botón **Enviar a Aprobación** (`exceedsNormalLimit` + `maxScheduleHours`).
 
-## Estados y envío a aprobación
+## Estados y edición
 
-- **Borrador** (`Registrado`): editable y eliminable.
-- **Enviar a Aprobación:** solo los registros en borrador del día pasan a `En revisión` y quedan bloqueados.
+| Estado UI | Significado | ¿Editable / eliminable? |
+|-----------|-------------|-------------------------|
+| **Borrador** | Guardado en el día, **no enviado** a aprobación | Sí |
+| **Registrado** | **Enviado** a aprobación; aprobador aún no confirma | Sí |
+| **Rechazado** | Aprobador rechazó | Sí |
+| **Aprobado** | Aprobador confirmó | No |
+
+Reglas:
+
+- `isRegistroEditable` / `isRegistroEliminable` en `src/lib/tiempo-registro-rules.ts` — bloqueo solo en **Aprobado**.
+- Al guardar edición, **preservar** el estado actual (no resetear a borrador salvo rechazo corregido → borrador).
+- **Enviar a Aprobación:** solo registros en **borrador** del día pasan a **Registrado**.
 - Tras enviar, **sí se pueden agregar** registros nuevos al mismo día (nuevos borradores).
-- Los enviados no se editan hasta respuesta del aprobador (`Aprobado` / `Rechazado`; rechazado vuelve a editable).
+
+## UI — pills de estado
+
+- **Borrador** y **Registrado:** tonos neutros parecidos (gris / slate); **Registrado** ligeramente más frío.
+- **Icono lápiz** en pill de Borrador y Registrado → refuerza que el empleado puede editar.
+- **Aprobado** verde; **Rechazado** rojo (sin lápiz).
 
 ## Códigos HTREG
 
 - `nextRegistroCodigo()` toma el **máximo numérico** existente + 1 (no `count + 1`, para evitar colisiones con el seed).
+
+## UI — modal Registrar horas
+
+- **Siempre:** Cancelar + **Guardar** (o **Guardar cambios** si edición).
+- **Nunca** incluir «Enviar a aprobación» en el modal.
+- Desde **tab Lista**, hint breve: enviar solo desde la vista del día.
+- **Enviar a aprobación:** solo footer de `MiTiempoDia` (todos los borradores del día).
+
+## UI — tab Lista
+
+- Muestra **todos** los estados: Borrador, Registrado, Rechazado y **Aprobado**.
+- Orden por día: borrador → registrado → rechazado → aprobado.
 
 ## UI — formularios y filtros
 

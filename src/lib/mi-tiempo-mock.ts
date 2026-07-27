@@ -1,9 +1,8 @@
 export type RegistroEstado =
-  | "Aprobado"
-  | "Rechazado"
+  | "Borrador"
   | "Registrado"
-  | "En revisión"
-  | "Nuevo";
+  | "Aprobado"
+  | "Rechazado";
 
 export type RegistroMock = {
   id: string;
@@ -148,8 +147,9 @@ export const REGISTROS_MOCK: Record<string, RegistroMock[]> = {
       act: "Ingeniería de proceso",
       tipo: "DN",
       horas: 4,
-      fecha: "2026-03-18",
+      fecha: "2026-03-17",
       comentario: "Modelado P&ID unidad 3",
+      aprobador: "Carlos Méndez",
       estado: "Registrado",
     },
     {
@@ -160,7 +160,7 @@ export const REGISTROS_MOCK: Record<string, RegistroMock[]> = {
       horas: 3,
       fecha: "2026-03-18",
       comentario: "Call semanal Ecopetrol",
-      estado: "Registrado",
+      estado: "Borrador",
     },
     {
       id: "r5",
@@ -183,7 +183,7 @@ export const REGISTROS_MOCK: Record<string, RegistroMock[]> = {
       horas: 7,
       fecha: "2026-03-16",
       comentario: "Revisión isométricos líneas vapor",
-      estado: "Registrado",
+      estado: "Borrador",
     },
     {
       id: "r7",
@@ -193,7 +193,7 @@ export const REGISTROS_MOCK: Record<string, RegistroMock[]> = {
       horas: 1.5,
       fecha: "2026-03-16",
       comentario: "Informe ejecutivo Q1",
-      estado: "Registrado",
+      estado: "Borrador",
     },
   ],
   "2026-03-12": [
@@ -279,7 +279,7 @@ export const REGISTROS_MOCK: Record<string, RegistroMock[]> = {
       horas: 5,
       fecha: "2026-03-13",
       comentario: "Balance de masa unidad 2",
-      estado: "Registrado",
+      estado: "Borrador",
     },
     {
       id: "r15",
@@ -289,7 +289,7 @@ export const REGISTROS_MOCK: Record<string, RegistroMock[]> = {
       horas: 3,
       fecha: "2026-03-13",
       comentario: "Avance modelo 3D para entrega",
-      estado: "Registrado",
+      estado: "Borrador",
     },
   ],
 };
@@ -372,6 +372,25 @@ export function resolveFechaMes(
   return clampFechaMes(fecha ?? bounds.defaultFecha, bounds);
 }
 
+function toIsoDateLocal(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** Suma días a una fecha ISO (yyyy-mm-dd) sin salir del mes actual. */
+export function shiftFechaMes(
+  fecha: string,
+  deltaDays: number,
+  bounds: MesActualBounds = getMesActualBounds(),
+): string | null {
+  const [y, m, d] = fecha.split("-").map(Number);
+  const next = new Date(y, m - 1, d);
+  next.setDate(next.getDate() + deltaDays);
+  const iso = toIsoDateLocal(next);
+  if (iso < bounds.min || iso > bounds.max) return null;
+  return iso;
+}
+
 export function inferSubproyecto(
   proyId: string,
   act: string,
@@ -398,12 +417,7 @@ export function getResumenHoras(
     .forEach((r) => {
       const h = r.horas || 0;
       if (r.estado === "Aprobado") aprob += h;
-      else if (
-        r.estado === "Registrado" ||
-        r.estado === "Nuevo" ||
-        r.estado === "En revisión"
-      )
-        rev += h;
+      else if (r.estado === "Borrador" || r.estado === "Registrado") rev += h;
       else if (r.estado === "Rechazado") rech += h;
     });
 
@@ -435,8 +449,8 @@ export const TIPO_HORA: Record<string, TipoHoraMeta> = {
   DN: {
     s: "Diurna Normal",
     n: "Diurno Normal (100%)",
-    c: "#0f766e",
-    b: "#ccfbf1",
+    c: "#014783",
+    b: "#eef3f9",
     cat: "normal",
     icon: "clock",
   },
@@ -558,10 +572,10 @@ export type DiaResumen = {
 export function getEstadoDia(diaRegs: RegistroMock[]): RegistroEstado {
   const estados = diaRegs.map((r) => r.estado);
   if (estados.includes("Rechazado")) return "Rechazado";
-  if (estados.some((e) => e === "Registrado" || e === "Nuevo")) return "Registrado";
+  if (estados.some((e) => e === "Borrador")) return "Borrador";
   if (estados.every((e) => e === "Aprobado")) return "Aprobado";
-  if (estados.includes("En revisión")) return "En revisión";
-  return "Registrado";
+  if (estados.includes("Registrado")) return "Registrado";
+  return "Borrador";
 }
 
 export function getRegistrosDia(
@@ -634,15 +648,19 @@ export function isDiaHistorial(
   );
 }
 
-export type HistorialDia = {
+export type ListaRegistroDia = {
   fecha: string;
   registros: RegistroMock[];
   totalHoras: number;
 };
 
+/** @deprecated Usar getListaRegistrosPorDia en tiempo-registro-rules. */
+export type HistorialDia = ListaRegistroDia;
+
+/** @deprecated Usar getListaRegistrosPorDia. */
 export function getHistorialDias(
   registros: Record<string, RegistroMock[]> = REGISTROS_MOCK,
-): HistorialDia[] {
+): ListaRegistroDia[] {
   const data = Object.values(registros)
     .flat()
     .filter((r) => r.estado === "Aprobado" || r.estado === "Rechazado");
@@ -656,12 +674,11 @@ export function getHistorialDias(
   return Object.keys(porDia)
     .sort((a, b) => b.localeCompare(a))
     .map((fecha) => {
-      const registros = porDia[fecha];
-
+      const dayRows = porDia[fecha];
       return {
         fecha,
-        registros,
-        totalHoras: registros.reduce((s, r) => s + r.horas, 0),
+        registros: dayRows,
+        totalHoras: dayRows.reduce((s, r) => s + r.horas, 0),
       };
     });
 }

@@ -1,17 +1,21 @@
 import type { CSSProperties, ReactNode } from "react";
+import { Icon } from "@/src/components/ui/Icon";
 
 /** Base compartida — sin border en ninguna pill */
 export const pillBase =
   "inline-flex items-center gap-1 rounded-full px-2.5 py-[3px] text-[11px] font-semibold whitespace-nowrap";
 
 const variants = {
-  registrado: "bg-[#eef2f6] text-[#64748b]",
-  aprobado: "bg-[#ccfbf1] text-[#0f766e]",
+  /** Borrador — no enviado (familia neutra editable). */
+  borrador: "bg-[#f1f5f9] text-[#64748b]",
+  /** Registrado — enviado, pendiente de aprobador (tono parecido, un poco más frío). */
+  registrado: "bg-[#e8eef4] text-[#475569]",
+  /** Aprobado — cerrado OK (verde bosque pastel, más peso que borrador). */
+  aprobado: "bg-green-soft text-green",
   rechazado: "bg-[#fee2e2] text-[#b91c1c]",
   lanzado: "bg-[#dbeafe] text-[#1d4ed8]",
-  borrador: "bg-[#f0f4f8] text-muted",
   revision: "bg-[#fef9c3] text-[#854d0e]",
-  pagado: "bg-[#dcfce7] text-[#15803d]",
+  pagado: "bg-green-soft text-green",
   enviado: "bg-[#dbeafe] text-[#1d4ed8]",
   cancelado: "bg-[#f3f4f6] text-[#6b7280]",
   gasto: "bg-[#f5f3ff] text-[#6d28d9]",
@@ -47,11 +51,17 @@ export function Pill({
   );
 }
 
-export const estadoPillVariant: Record<string, PillVariant> = {
+export const estadoTiempoPillVariant: Record<string, PillVariant> = {
+  Borrador: "borrador",
   Registrado: "registrado",
-  "En revisión": "revision",
+  /** Legacy — misma pill que Registrado. */
+  "En revisión": "registrado",
   Aprobado: "aprobado",
   Rechazado: "rechazado",
+};
+
+export const estadoPillVariant: Record<string, PillVariant> = {
+  ...estadoTiempoPillVariant,
 };
 
 export const estadoAnticipoPillVariant: Record<string, PillVariant> = {
@@ -75,12 +85,28 @@ export function estadoAnticipoPillProps(estado: string) {
   };
 }
 
+const ESTADO_TIEMPO_LABEL: Record<string, string> = {
+  "En revisión": "Registrado",
+};
+
+function estadoTiempoLabel(estado: string): string {
+  if (!estado) return "Pendiente";
+  return ESTADO_TIEMPO_LABEL[estado] ?? estado;
+}
+
+function estadoTiempoEditable(estado: string): boolean {
+  return (
+    estado === "Borrador" ||
+    estado === "Registrado" ||
+    estado === "En revisión"
+  );
+}
+
 export function estadoTiempoPillProps(estado: string) {
-  const label = estado || "Pendiente";
-  const variant = estado
-    ? (estadoPillVariant[estado] ?? "registrado")
-    : "lanzado";
-  return { variant, label };
+  const label = estadoTiempoLabel(estado);
+  const variant = estadoTiempoPillVariant[estado] ?? "borrador";
+  const editable = estadoTiempoEditable(estado);
+  return { variant, label, editable };
 }
 
 export function EstadoAnticipoPill({
@@ -105,9 +131,10 @@ export function EstadoTiempoPill({
   estado: string;
   className?: string;
 }) {
-  const { variant, label } = estadoTiempoPillProps(estado);
+  const { variant, label, editable } = estadoTiempoPillProps(estado);
   return (
-    <Pill variant={variant} className={className}>
+    <Pill variant={variant} className={className} title={editable ? "Editable" : undefined}>
+      {editable ? <Icon name="pencil" size="xs" className="opacity-80" /> : null}
       {label}
     </Pill>
   );

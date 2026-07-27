@@ -12,7 +12,23 @@
   --text: #1a1a2e;
   --muted: #6b7280;
   --green: #15803d;
+  --green-dark: #14532d;
+  --green-text: #166534;
+  --green-soft: #bbf7d0;
+  --green-bg: #ecf6ef;
+  --green-border: #9fd4b0;
   --orange: #ea580c;
+
+  --loading-violet: #7c3aed;
+  --loading-violet-deep: #5b21b6;
+  --loading-violet-muted: #8b5cf6;
+  --loading-violet-soft: #f5f3ff;
+  --loading-violet-border: #c4b5fd;
+  --loading-violet-glow: rgba(124, 58, 237, 0.22);
+
+  --warn-bg: #fffbeb;
+  --warn-border: #fde68a;
+  --warn-text: #92400e;
 
   --radius-sm: 6px;
   --radius: 8px;
@@ -37,6 +53,11 @@
   --color-text: var(--text);
   --color-muted: var(--muted);
   --color-green: var(--green);
+  --color-green-dark: var(--green-dark);
+  --color-green-text: var(--green-text);
+  --color-green-soft: var(--green-soft);
+  --color-green-bg: var(--green-bg);
+  --color-green-border: var(--green-border);
   --color-orange: var(--orange);
 
   --radius-sm: var(--radius-sm);
@@ -75,5 +96,156 @@
   .btn-link {
     @apply inline-flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 text-[12px] font-medium text-navy transition-colors hover:bg-[#eef3f9];
   }
-}
 
+  .alert-warn {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--warn-border);
+    background: var(--warn-bg);
+    color: var(--warn-text);
+  }
+
+  .loading-notice {
+    display: flex;
+    align-items: center;
+    color: var(--loading-violet-deep);
+  }
+
+  .loading-notice--inline {
+    gap: 0.625rem;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .loading-notice--banner {
+    gap: 0.75rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--loading-violet-border);
+    background: linear-gradient(
+      135deg,
+      var(--loading-violet-soft) 0%,
+      #faf5ff 100%
+    );
+    padding: 0.625rem 0.875rem;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.75),
+      0 0 0 1px rgba(124, 58, 237, 0.06);
+  }
+
+  .loading-notice--panel {
+    min-height: 200px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.75rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--loading-violet-border);
+    background: linear-gradient(
+      180deg,
+      var(--loading-violet-soft) 0%,
+      #ffffff 100%
+    );
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+
+  .loading-notice-label {
+    color: var(--loading-violet-deep);
+  }
+
+  .loading-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-shrink: 0;
+  }
+
+  .loading-indicator--sm {
+    height: 14px;
+  }
+
+  .loading-indicator--md {
+    height: 16px;
+  }
+
+  .loading-indicator--lg {
+    height: 20px;
+  }
+
+  .loading-indicator-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--loading-violet);
+    filter: drop-shadow(0 0 6px var(--loading-violet-glow));
+    animation: loading-indicator-icon 1.6s ease-in-out infinite;
+  }
+
+  .loading-indicator--icon-only {
+    height: auto;
+  }
+
+  .loading-indicator--dots-only {
+    height: auto;
+    align-items: center;
+  }
+
+  .loading-indicator-dots {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 0.22rem;
+  }
+
+  .loading-indicator-dot {
+    display: block;
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: 9999px;
+    background: var(--loading-violet);
+    box-shadow: 0 0 8px var(--loading-violet-glow);
+    animation: loading-indicator-wave 1.05s ease-in-out infinite;
+  }
+
+  .loading-indicator--md .loading-indicator-dot {
+    width: 0.42rem;
+    height: 0.42rem;
+  }
+
+  .loading-indicator--lg .loading-indicator-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+  }
+
+  .loading-indicator-dot:nth-child(2) {
+    animation-delay: 0.14s;
+  }
+
+  .loading-indicator-dot:nth-child(3) {
+    animation-delay: 0.28s;
+  }
+
+  @keyframes loading-indicator-icon {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg) scale(1);
+      opacity: 0.72;
+    }
+    50% {
+      transform: translateY(-2px) rotate(12deg) scale(1.08);
+      opacity: 1;
+    }
+  }
+
+  @keyframes loading-indicator-wave {
+    0%,
+    70%,
+    100% {
+      transform: translateY(0) scale(1);
+      opacity: 0.35;
+    }
+    35% {
+      transform: translateY(-65%) scale(1.08);
+      opacity: 1;
+    }
+  }
+}

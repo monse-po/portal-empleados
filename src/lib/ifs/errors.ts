@@ -18,3 +18,17 @@ export function assertIfsOk(res: Response, body: string): void {
     body,
   );
 }
+
+export function formatIfsError(err: unknown): string {
+  if (err instanceof IfsApiError) {
+    if (err.status === 401) {
+      const isHtml = err.body.trim().startsWith("<!");
+      if (isHtml) {
+        return "401 Unauthorized — sesión IFS expirada o token inválido. Vuelve a iniciar sesión.";
+      }
+    }
+    const detail = err.body.replace(/\s+/g, " ").trim().slice(0, 240);
+    return detail ? `${err.message} — ${detail}` : err.message;
+  }
+  return err instanceof Error ? err.message : "Error IFS desconocido";
+}

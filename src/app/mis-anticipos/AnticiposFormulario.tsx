@@ -444,7 +444,7 @@ export function AnticiposFormulario({
       const tvColor =
         tipoViaje === "internacional"
           ? "background:#dbeafe;color:#1e40af"
-          : "background:#dcfce7;color:#15803d";
+          : "background:var(--green-soft);color:var(--green)";
       const tvLabel =
         tipoViaje === "internacional" ? "Internacional" : "Nacional";
       viajeDet = `<div class="mt-2 text-[12px] text-muted">${selDest.label} · ${isoToDmy(fechaIda)} → ${isoToDmy(fechaRegreso)}<span class="ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold" style="${tvColor}">${tvLabel}</span></div>`;

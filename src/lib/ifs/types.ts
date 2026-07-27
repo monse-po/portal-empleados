@@ -92,6 +92,47 @@ export type ValidEmpPrjActRow = {
   Description?: string;
   ReportCode?: string;
   ActivitySeq?: number;
+  CApprover?: string;
+  CApproverName?: string;
+  CAutoApprover?: string;
+  CAutoApproverName?: string;
+  Manager?: string;
+};
+
+/** Ficha de proyecto (Reference_ProjectInfoQuery) — incluye gerente/aprobador. */
+export type ProjectInfoQuery = {
+  ProjectId?: string;
+  Company?: string;
+  Name?: string;
+  Description?: string;
+  Manager?: string;
+};
+
+/** Fila de GetEmployeeTimesheet (EmpReportItemStructure). */
+export type EmpReportItemRow = {
+  CompanyId?: string;
+  EmpNo?: string;
+  ProjectTransactionSeq?: number;
+  ActivitySeq?: number;
+  AccountDate?: string;
+  Module?: string;
+  ModuleDecoded?: string;
+  Hours?: string | number;
+  InternalComments?: string;
+  CStatus?: string;
+  CStatusDb?: string;
+  CRejectNote?: string;
+  CApprover?: string;
+  CApproverName?: string;
+  CAutoApproverName?: string;
+  ProjectId?: string;
+  SubProjectId?: string;
+  SubProjectDesc?: string;
+  ActivityNo?: string;
+  ActDescription?: string;
+  ShortName?: string;
+  ReportCostCode?: string;
+  Objid?: string;
 };
 
 /** Fila de GetValidActReportCode (tipo de hora / report cost code). */

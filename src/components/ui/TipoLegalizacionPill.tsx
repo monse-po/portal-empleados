@@ -17,8 +17,8 @@ export const TIPO_LEGALIZACION_OPTIONS: SegmentedOption<LegalizacionTipo>[] = [
     label: "Tarjeta corp.",
     icon: "briefcase",
     activeClassName:
-      "bg-[#f0fdf4] text-[#15803d] shadow-sm ring-1 ring-[#15803d]/30",
-    inactiveClassName: "text-muted hover:bg-[#f3f4f6] hover:text-[#15803d]",
+      "bg-green-bg text-green shadow-sm ring-1 ring-green/30",
+    inactiveClassName: "text-muted hover:bg-[#f3f4f6] hover:text-green",
   },
   {
     value: "Sin anticipos",

@@ -12,7 +12,7 @@ type TableAproIconButtonProps = {
 };
 
 const variantStyles: Record<TableAproIconVariant, string> = {
-  ok: "text-green hover:border-[#86efac] hover:bg-[#dcfce7]",
+  ok: "text-green hover:border-green-border hover:bg-green-bg",
   no: "text-red hover:border-[#fca5a5] hover:bg-[#fee2e2]",
   undo: "text-muted hover:border-border hover:bg-[#f8fafc]",
 };

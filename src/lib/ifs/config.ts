@@ -7,7 +7,7 @@ const DEFAULT_SYSTEM = "https://hmvdev.ifs360.cloud";
 const DEFAULT_OPENID =
   `${DEFAULT_SYSTEM}/auth/realms/${DEFAULT_REALM}/.well-known/openid-configuration`;
 
-const DEFAULT_SCOPE = "openid microprofile-jwt";
+const DEFAULT_SCOPE = "openid email profile microprofile-jwt";
 /** Scope Oracle IDCS para client_credentials (distinto del realm IFS). */
 const DEFAULT_IDCS_SCOPE = "urn:opc:idm:__myscopes__";
 

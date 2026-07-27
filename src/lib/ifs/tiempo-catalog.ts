@@ -24,6 +24,11 @@ export type TiempoCatalogSubproyecto = {
   actividades: TiempoCatalogActividad[];
 };
 
+export type TiempoCatalogAprobador = {
+  code?: string;
+  name?: string;
+};
+
 export type TiempoCatalog = {
   proyectos: TiempoCatalogProyecto[];
   porProyecto: Record<
@@ -31,6 +36,7 @@ export type TiempoCatalog = {
     {
       companyId: string;
       projectId: string;
+      aprobador?: TiempoCatalogAprobador;
       subs: TiempoCatalogSubproyecto[];
     }
   >;
@@ -65,9 +71,14 @@ export function buildTiempoCatalogFromIfs(
       porProyecto[shortName] = { companyId, projectId, subs: [] };
     }
 
+    const entry = porProyecto[shortName];
+    if (!entry.aprobador) {
+      const approver = readAprobadorFromRow(row);
+      if (approver) entry.aprobador = approver;
+    }
+
     const subId = row.SubProjectId?.trim() || "—";
     const subLabel = row.SubProjectDesc?.trim() || subId;
-    const entry = porProyecto[shortName];
     let sub = entry.subs.find((s) => s.id === subId);
     if (!sub) {
       sub = { id: subId, label: subLabel, actividades: [] };
@@ -123,6 +134,58 @@ export function mapReportCodesToTipos(
   }
 
   return tipos.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function readAprobadorFromRow(
+  row: ValidEmpPrjActRow,
+): TiempoCatalogAprobador | undefined {
+  const name = row.CApproverName?.trim();
+  const code = row.CApprover?.trim();
+  if (name || code) {
+    return { name: name || undefined, code: code || undefined };
+  }
+
+  const autoName = row.CAutoApproverName?.trim();
+  const autoCode = row.CAutoApprover?.trim();
+  if (autoName || autoCode) {
+    return { name: autoName || undefined, code: autoCode || undefined };
+  }
+
+  const manager = row.Manager?.trim();
+  if (manager) {
+    return { name: manager };
+  }
+
+  return undefined;
+}
+
+export function applyProjectManagersToCatalog(
+  catalog: TiempoCatalog,
+  managersByProjectId: Map<string, string>,
+): void {
+  for (const [shortName, entry] of Object.entries(catalog.porProyecto)) {
+    if (entry.aprobador?.name || entry.aprobador?.code) continue;
+
+    const manager =
+      managersByProjectId.get(entry.projectId) ??
+      managersByProjectId.get(shortName);
+    if (manager) {
+      entry.aprobador = { name: manager };
+    }
+  }
+}
+
+import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
+
+export function resolveAprobadorLabel(
+  catalog: TiempoCatalog | null,
+  proyId: string,
+): string {
+  const fallback = TIEMPO_UI_COPY.approverFallback;
+  if (!proyId) return fallback;
+  const aprobador = catalog?.porProyecto[proyId]?.aprobador;
+  if (!aprobador) return fallback;
+  return aprobador.name?.trim() || aprobador.code?.trim() || fallback;
 }
 
 export function resolveSubproyectoId(

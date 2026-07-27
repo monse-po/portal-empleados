@@ -2,6 +2,10 @@
 
 import { RegistroEstadoDb } from "@/src/generated/prisma/client";
 import { prisma } from "@/src/lib/db";
+import {
+  isIfsRegistroId,
+  mergeIfsAndLocalRegistros,
+} from "@/src/lib/ifs/tiempo-timesheet";
 import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import {
   SESSION_EMPLEADO_ID,
@@ -13,10 +17,12 @@ import {
   toRegistroMock,
 } from "@/src/lib/registro-tiempo-db";
 import { createNotificacionesTiempoEnvioAction } from "@/src/server/notificacion-actions";
+import { fetchRegistrosFromIfsAction } from "@/src/server/mi-tiempo-timesheet-actions";
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 import { registroToHoja } from "@/src/lib/tiempo-bridge";
 
 async function findRowByPublicId(id: string) {
+  if (isIfsRegistroId(id)) return null;
   return prisma.registroTiempo.findFirst({
     where: {
       empleadoId: SESSION_EMPLEADO_ID,
@@ -25,14 +31,34 @@ async function findRowByPublicId(id: string) {
   });
 }
 
-export async function getRegistrosGroupedAction(): Promise<
-  Record<string, RegistroMock[]>
-> {
+async function getRegistrosFromNeon(): Promise<Record<string, RegistroMock[]>> {
   const rows = await prisma.registroTiempo.findMany({
     where: { empleadoId: SESSION_EMPLEADO_ID },
     orderBy: [{ fecha: "asc" }, { createdAt: "asc" }],
   });
   return groupRegistrosByFecha(rows);
+}
+
+export async function getRegistrosGroupedAction(): Promise<{
+  registros: Record<string, RegistroMock[]>;
+  fromIfs: boolean;
+  warning?: string;
+}> {
+  const localGrouped = await getRegistrosFromNeon();
+  const ifsResult = await fetchRegistrosFromIfsAction();
+
+  if (ifsResult.grouped) {
+    return {
+      registros: mergeIfsAndLocalRegistros(ifsResult.grouped, localGrouped),
+      fromIfs: true,
+    };
+  }
+
+  return {
+    registros: localGrouped,
+    fromIfs: false,
+    warning: ifsResult.error,
+  };
 }
 
 export async function getRegistrosDiaAction(
@@ -51,9 +77,16 @@ export async function getRegistrosDiaAction(
 export async function upsertRegistroAction(
   reg: RegistroMock,
 ): Promise<RegistroMock> {
+  if (isIfsRegistroId(reg.id)) {
+    throw new Error("Los registros de IFS aún no se pueden editar desde el portal.");
+  }
+
   await ensureRegistroTiempoRefs(reg.proy);
 
   const existing = await findRowByPublicId(reg.id);
+  if (existing?.estado === RegistroEstadoDb.APROBADO) {
+    throw new Error("Los registros aprobados no se pueden modificar.");
+  }
   const data = {
     empleadoId: SESSION_EMPLEADO_ID,
     proyectoId: reg.proy,
@@ -88,8 +121,9 @@ export async function upsertRegistroAction(
 }
 
 export async function deleteRegistroAction(id: string): Promise<void> {
+  if (isIfsRegistroId(id)) return;
   const existing = await findRowByPublicId(id);
-  if (!existing) return;
+  if (!existing || existing.estado === RegistroEstadoDb.APROBADO) return;
   await prisma.registroTiempo.delete({ where: { id: existing.id } });
 }
 

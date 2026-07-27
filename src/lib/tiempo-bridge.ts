@@ -19,7 +19,7 @@ export function estadoDesdeAccionAprobacion(
 ): RegistroEstado {
   if (accion === "aprobado") return "Aprobado";
   if (accion === "rechazado") return "Rechazado";
-  return "Registrado";
+  return "Borrador";
 }
 
 export function comentarioRechazoDesdeAccion(
@@ -52,6 +52,20 @@ export function nombreProyectoPorCodAprobacion(cod: string): string | undefined 
 export function formatProyectoEmpleado(proyectoId: string): string {
   const meta = PROYECTOS.find((p) => p.id === proyectoId);
   return meta ? `${meta.id} – ${meta.nombre}` : proyectoId;
+}
+
+export const PROYECTO_NOMBRE_LISTA_MAX = 36;
+
+/** Código + nombre truncado para la tab Lista. */
+export function getProyectoListaParts(proyectoId: string) {
+  const meta = PROYECTOS.find((p) => p.id === proyectoId);
+  const codigo = meta?.id ?? proyectoId;
+  const nombreFull = meta?.nombre ?? proyectoId;
+  const nombre =
+    nombreFull.length > PROYECTO_NOMBRE_LISTA_MAX
+      ? `${nombreFull.slice(0, PROYECTO_NOMBRE_LISTA_MAX)}…`
+      : nombreFull;
+  return { codigo, nombre, nombreFull };
 }
 
 /** Etiqueta en aprobación / notificaciones: PRY2024003 · Construcción Planta Norte */

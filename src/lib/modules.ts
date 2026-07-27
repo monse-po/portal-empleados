@@ -34,6 +34,12 @@ export const MODULES: ModuleDef[] = [
         icon: "clock",
       },
       {
+        path: "/historico-tiempo",
+        rol: "empleado",
+        navLabel: "Histórico",
+        icon: "history",
+      },
+      {
         path: "/aprobacion-tiempo",
         rol: "gerente",
         navLabel: "Tiempo",

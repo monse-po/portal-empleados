@@ -64,7 +64,7 @@ export function AnticipoReconciliacionBar({
     diferencia > 0
       ? "text-[#b45309]"
       : diferencia < 0
-        ? "text-[#15803d]"
+        ? "text-green"
         : "text-navy";
 
   return (

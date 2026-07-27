@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/src/components/ui/Icon";
+import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+import { LOADING_COPY } from "@/src/lib/copy/loading";
 import { useNotificationsOptional } from "@/src/components/notifications/NotificationContext";
 import { useRole } from "@/src/components/layout/RoleContext";
 
@@ -89,9 +91,13 @@ export function NotificationBell() {
 
           <div className="max-h-[360px] overflow-y-auto">
             {loading && items.length === 0 ? (
-              <p className="px-4 py-6 text-center text-[12px] text-muted">
-                Cargando…
-              </p>
+              <div className="border-b border-loading-violet-border bg-loading-violet-soft px-4 py-5">
+                <LoadingNotice
+                  variant="inline"
+                  icon={LOADING_COPY.notifications.icon}
+                  label={LOADING_COPY.notifications.label}
+                />
+              </div>
             ) : items.length === 0 ? (
               <p className="px-4 py-6 text-center text-[12px] text-muted">
                 No hay notificaciones recientes.

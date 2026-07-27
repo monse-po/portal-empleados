@@ -36,9 +36,14 @@ export async function ifsFetch<T>(
   return JSON.parse(text) as T;
 }
 
+/** Escapa comillas simples en literales OData entre comillas. */
+export function odataStringKey(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
 /** Escapa EmailId para clave OData: CEmpPortalUserSet(EmailId='…') */
 export function odataEmailKey(emailId: string): string {
-  return emailId.replace(/'/g, "''");
+  return odataStringKey(emailId);
 }
 
 export function cempPortalUserPath(emailId: string): string {

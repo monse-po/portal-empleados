@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { MiTiempoDia } from "@/src/app/hoja-tiempo/MiTiempoDia";
 import { MiTiempoLista } from "@/src/app/hoja-tiempo/MiTiempoLista";
 import { MiTiempoLoading } from "@/src/app/hoja-tiempo/MiTiempoLoading";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import { RegistrarHorasModal } from "@/src/app/hoja-tiempo/RegistrarHorasModal";
+import { LOADING_COPY, loadingPlaceholder } from "@/src/lib/copy/loading";
 import { useAsyncAction } from "@/src/lib/use-async-action";
 
 type Vista = "lista" | "dia";
@@ -30,7 +31,7 @@ export function MiTiempoView() {
   const { registrosLoaded, registrosError, reloadRegistros } = useMiTiempo();
   const { loading: retrying, run: retryLoad } = useAsyncAction(reloadRegistros);
   const [vista, setVista] = useState<Vista>("lista");
-  const [tab, setTab] = useState<"cal" | "hist">("cal");
+  const [tab, setTab] = useState<"cal" | "lista">("cal");
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(
     null,
   );
@@ -48,11 +49,22 @@ export function MiTiempoView() {
     setEsHistorial(false);
   };
 
-  const handleRegistroGuardado = (fecha: string) => {
-    setFechaSeleccionada(fecha);
-    setEsHistorial(false);
-    setVista("dia");
-  };
+  const handleRegistroGuardado = useCallback(
+    (fecha: string) => {
+      if (vista === "dia") {
+        setFechaSeleccionada(fecha);
+        setEsHistorial(false);
+        return;
+      }
+      if (tab === "lista") {
+        return;
+      }
+      setFechaSeleccionada(fecha);
+      setEsHistorial(false);
+      setVista("dia");
+    },
+    [vista, tab],
+  );
 
   if (!registrosLoaded) {
     return <MiTiempoLoading />;
@@ -76,7 +88,7 @@ export function MiTiempoView() {
           variant="primary"
           onClick={() => void retryLoad()}
           loading={retrying}
-          loadingLabel="Cargando…"
+          loadingLabel={loadingPlaceholder(LOADING_COPY.generic)}
         >
           Reintentar
         </Button>
@@ -93,6 +105,10 @@ export function MiTiempoView() {
           fecha={fechaSeleccionada}
           esHistorial={esHistorial}
           onVolver={handleVolver}
+          onCambiarDia={(f) => {
+            setFechaSeleccionada(f);
+            setEsHistorial(false);
+          }}
         />
       ) : (
         <MiTiempoLista

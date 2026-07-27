@@ -1,10 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-const AURENA_URL =
-  "https://hmvdev.ifs360.cloud/main/ifsapplications/web/";
 
 export function IfsDevTokenForm() {
   const router = useRouter();
@@ -38,81 +36,99 @@ export function IfsDevTokenForm() {
   }
 
   return (
-    <div className="mt-6 rounded-xl border border-[#c7d9ed] bg-[#f8fbff] p-5">
-      <h2 className="text-base font-semibold text-navy">
-        Conectar IFS en 2 minutos (solo local)
-      </h2>
-      <p className="mt-1 text-sm text-muted">
-        Sin OAuth, sin .env.local. Solo para probar la API en tu Mac.
-      </p>
+    <div className="mt-6 space-y-4">
+      <div className="rounded-xl border border-green-border bg-green-bg p-5">
+        <h2 className="text-base font-semibold text-navy">
+          Forma recomendada: login OAuth desde el portal
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-green-text">
+          Aurena web <strong>no expone</strong> el Bearer en DevTools (solo cookies
+          como <code className="text-xs">JSESSIONID</code>). El portal obtiene el token
+          por OAuth en el servidor, no copiándolo de Network.
+        </p>
 
-      <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-navy">
-        <li>
-          Abre{" "}
-          <a
-            href={AURENA_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold underline"
-          >
-            Aurena DEV
-          </a>{" "}
-          e inicia sesión.
-        </li>
-        <li>
-          Pulsa <kbd className="rounded bg-white px-1.5 py-0.5 text-xs">F12</kbd> →
-          pestaña <strong>Red / Network</strong> → recarga la página (
-          <kbd className="rounded bg-white px-1.5 py-0.5 text-xs">F5</kbd>).
-        </li>
-        <li>
-          Clic en cualquier fila que diga{" "}
-          <code className="text-xs">ifs360.cloud</code> →{" "}
-          <strong>Encabezados / Headers</strong> → busca{" "}
-          <code className="text-xs">authorization</code> → copia el valor
-          completo (incluye <code className="text-xs">Bearer …</code>).
-        </li>
-        <li>Pégalo abajo con tu correo.</li>
-      </ol>
+        <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-navy">
+          <li>
+            En IFS Solution Manager → IAM Clients →{" "}
+            <code className="text-xs">IFS_EMP_PORTAL_USER</code> → agrega redirect:{" "}
+            <code className="text-xs">
+              http://localhost:3000/api/auth/callback/ifs
+            </code>
+          </li>
+          <li>
+            En <code className="text-xs">.env.local</code> (ver{" "}
+            <code className="text-xs">docs/PENDIENTE-IFS.md</code>):{" "}
+            <code className="text-xs">IFS_AUTH_ENABLED=true</code> + client secret +
+            redirect.
+          </li>
+          <li>
+            Reinicia <code className="text-xs">npm run dev</code> →{" "}
+            <Link href="/login" className="font-semibold underline">
+              /login
+            </Link>{" "}
+            → <strong>Entrar con IFS</strong> → vuelve aquí.
+          </li>
+        </ol>
 
-      <form onSubmit={onSubmit} className="mt-5 space-y-3">
-        <label className="block text-sm">
-          <span className="font-medium text-navy">Tu correo</span>
-          <input
-            type="email"
-            required
-            placeholder="nombre@h-mv.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm"
-          />
-        </label>
-
-        <label className="block text-sm">
-          <span className="font-medium text-navy">Authorization (de Network)</span>
-          <textarea
-            required
-            rows={4}
-            placeholder="Bearer eyJhbGciOi…"
-            value={accessToken}
-            onChange={(e) => setAccessToken(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 font-mono text-xs"
-          />
-        </label>
-
-        {error && (
-          <p className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-sm text-[#b91c1c]">
-            {error}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-navy px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+        <Link
+          href="/login"
+          className="mt-4 inline-flex rounded-lg bg-navy px-4 py-2.5 text-sm font-semibold text-white no-underline"
         >
-          {loading ? "Conectando…" : "Probar conexión IFS"}
-        </button>
-      </form>
+          Ir a login IFS
+        </Link>
+      </div>
+
+      <details className="rounded-xl border border-[#c7d9ed] bg-[#f8fbff] p-5">
+        <summary className="cursor-pointer text-sm font-semibold text-navy">
+          Alternativa avanzada: pegar token manual (casi nunca funciona con Aurena)
+        </summary>
+        <p className="mt-3 text-sm text-muted">
+          Si filtrar <code className="text-xs">token</code> o{" "}
+          <code className="text-xs">openid-connect</code> no muestra nada, es esperado.
+          Solo sirve si TI te entrega un <code className="text-xs">access_token</code>{" "}
+          por otro medio (Postman, script, etc.).
+        </p>
+
+        <form onSubmit={onSubmit} className="mt-4 space-y-3">
+          <label className="block text-sm">
+            <span className="font-medium text-navy">Tu correo</span>
+            <input
+              type="email"
+              required
+              placeholder="nombre@h-mv.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm"
+            />
+          </label>
+
+          <label className="block text-sm">
+            <span className="font-medium text-navy">access_token</span>
+            <textarea
+              required
+              rows={4}
+              placeholder="eyJhbGciOi…"
+              value={accessToken}
+              onChange={(e) => setAccessToken(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 font-mono text-xs"
+            />
+          </label>
+
+          {error && (
+            <p className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-sm text-[#b91c1c]">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg border border-navy bg-white px-4 py-2.5 text-sm font-semibold text-navy disabled:opacity-60"
+          >
+            {loading ? "Conectando…" : "Probar con token manual"}
+          </button>
+        </form>
+      </details>
     </div>
   );
 }

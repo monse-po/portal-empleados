@@ -194,7 +194,7 @@ export function AprobacionLista({
 
           {proySel && tab === "res" && (
             <span className="text-[13px] text-[#475569]">
-              <span className="font-bold text-[#16a34a]">
+              <span className="font-bold text-green">
                 {proyResueltas?.aprobadas ?? 0}
               </span>
               {" aprobada"}

@@ -35,7 +35,7 @@ export const PROY_INFO: Record<string, ProyInfo> = {
     cliente: "Ecopetrol S.A.",
     lider: "María Restrepo",
     inicio: "Ene 2024",
-    color: "#0f766e",
+    color: "#15803d",
   },
   PRY2025001: {
     cliente: "Cerrejón",

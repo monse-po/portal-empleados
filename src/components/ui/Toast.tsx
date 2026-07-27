@@ -30,7 +30,7 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 const TOAST_DURATION_MS = 3500;
 
 const variantStyles: Record<ToastVariant, string> = {
-  green: "bg-[#f0fdf4] text-[#15803d] border-[#bbf7d0]",
+  green: "bg-green-bg text-green border-green-border",
   danger: "bg-[#fff5f5] text-[#b91c1c] border-[#fecaca]",
   navy: "bg-[#eff6ff] text-[#1e40af] border-[#bfdbfe]",
   warn: "bg-[#fffbeb] text-[#92400e] border-[#fde68a]",

@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
-import { isIfsAuthReady } from "@/src/lib/ifs/config";
-import { buildIfsLogoutUrl } from "@/src/lib/ifs/oauth-user";
+import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
+import { expiredSessionCookieOptions } from "@/src/lib/ifs/session-cookie";
+import { getFocusModule, getHomePathForRole } from "@/src/lib/modules";
 
+const OAUTH_COOKIES = ["hmv_oauth_pkce", "hmv_oauth_state", "hmv_oauth_next", "hmv_oauth_email"] as const;
+
+/** Limpia cookies del portal. No redirige a IFS (evita 400 por cookies enormes en ifs360.cloud). */
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const loginUrl = new URL("/login", url.origin).toString();
+  const defaultNext = getFocusModule()
+    ? getHomePathForRole("empleado")
+    : "/hoja-tiempo";
+  const loginUrl = new URL("/login", url.origin);
+  loginUrl.searchParams.set("next", defaultNext);
+  loginUrl.searchParams.set("hint", "clear_ifs_cookies");
 
-  if (isIfsAuthReady()) {
-    return NextResponse.redirect(buildIfsLogoutUrl(loginUrl));
+  const response = NextResponse.redirect(loginUrl);
+  const expired = expiredSessionCookieOptions();
+
+  response.cookies.set(SESSION_COOKIE, "", expired);
+  for (const name of OAUTH_COOKIES) {
+    response.cookies.set(name, "", expired);
   }
 
-  return NextResponse.redirect(loginUrl);
+  return response;
 }

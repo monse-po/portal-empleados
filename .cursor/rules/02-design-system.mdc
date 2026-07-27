@@ -37,6 +37,7 @@ alwaysApply: true
 | `Field` | Label 12px semibold, asterisco rojo si requerido |
 | `Icon` | Lucide, tamaños `xs`–`xl` |
 | `Spinner` | Indicador inline en botones (`Button loading`) |
+| `LoadingNotice` | Espera de datos/API — violeta + `LoadingIndicator` (icono + puntos) |
 | `TableFilterBar` | Filtros por columna; `TableFilterSection` fuera del Card |
 | `FilterValuePill` + `buildFilterMultiOptions` | Pills en chips de filtro (tipo/estado) — mismos colores que tablas |
 | `BulkSelectionBar` | Selección en lote — tab pendientes |
@@ -54,6 +55,27 @@ alwaysApply: true
 | `danger` | Alerta — rojo suave | Rechazar, confirmar cancelación |
 
 Utilidades: `btn-link`, `TableAproIconButton`. Footer modales: `tertiary` · `secondary` · `success`. Acciones async: `Button` con `loading` + `loadingLabel`.
+
+## Estados de carga (datos / API)
+
+**Regla:** si la UI espera datos (catálogo IFS, aprobador, tipos de hora, listas, etc.), mostrar feedback visible — nunca dejar selects vacíos sin explicación.
+
+| Caso | Componente | Variante |
+|------|------------|----------|
+| Banner en formulario / modal | `LoadingNotice` | `banner` — fondo violeta `#f5f3ff`, borde `#c4b5fd`, icono + puntos |
+| Campo read-only o inline | `LoadingNotice` | `inline` — texto `#5b21b6` + `LoadingIndicator` |
+| Vista o panel vacío | `LoadingNotice` | `panel` — tarjeta violeta con `hint` opcional |
+| Acción en botón | `Button` | `loading` + `loadingLabel` (Spinner en botón) |
+
+Animación: `LoadingIndicator` = **icono contextual** (Lucide) con pulso suave + **3 puntos violeta** en onda. Props `icon` en `LoadingNotice` (`folderOpen`, `clock`, `bell`, etc.). Contrasta con hints azules navy y textos `muted`.
+
+```tsx
+import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+
+{catalogLoading && (
+  <LoadingNotice variant="banner" label="Cargando catálogo IFS" />
+)}
+```
 
 ---
 

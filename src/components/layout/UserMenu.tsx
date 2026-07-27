@@ -8,6 +8,8 @@ import { useToast } from "@/src/components/ui/Toast";
 import { useRole, type UsuarioRol } from "@/src/components/layout/RoleContext";
 import { getHomePathForRole } from "@/src/lib/modules";
 
+const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
+
 export function UserMenu() {
   const { rol, setRol, homePath } = useRole();
   const { toast } = useToast();
@@ -149,6 +151,10 @@ export function UserMenu() {
             role="menuitem"
             onClick={() => {
               setOpen(false);
+              if (IFS_AUTH_ENABLED) {
+                window.location.href = "/api/auth/ifs-logout";
+                return;
+              }
               router.push(homePath);
               toast("Sesión cerrada (demo)", "navy");
             }}

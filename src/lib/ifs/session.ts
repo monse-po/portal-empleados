@@ -5,6 +5,7 @@ import {
   isIfsAuthEnabled,
 } from "@/src/lib/ifs/config";
 import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
+import { expiredSessionCookieOptions } from "@/src/lib/ifs/session-cookie";
 
 export type IfsUserSession = {
   email: string;
@@ -83,6 +84,24 @@ export async function getServerIfsSession(): Promise<IfsUserSession | null> {
   return null;
 }
 
+export async function persistIfsSession(session: IfsUserSession): Promise<void> {
+  const jar = await cookies();
+  const maxAgeSec = Math.max(
+    60,
+    Math.floor((session.expiresAt - Date.now()) / 1000),
+  );
+  jar.set(
+    SESSION_COOKIE,
+    sealSession(session),
+    sessionCookieOptions(maxAgeSec),
+  );
+}
+
+export async function clearServerIfsSession(): Promise<void> {
+  const jar = await cookies();
+  jar.set(SESSION_COOKIE, "", expiredSessionCookieOptions());
+}
+
 export function sessionCookieOptions(maxAgeSec: number) {
   return {
     httpOnly: true,
@@ -93,26 +112,111 @@ export function sessionCookieOptions(maxAgeSec: number) {
   };
 }
 
-export function parseIdTokenClaims(idToken: string): {
+export type TokenIdentityClaims = {
   email?: string;
   name?: string;
   preferred_username?: string;
-} {
-  const part = idToken.split(".")[1];
-  if (!part) return {};
-  const json = Buffer.from(part, "base64url").toString("utf8");
-  return JSON.parse(json) as {
-    email?: string;
-    name?: string;
-    preferred_username?: string;
+  upn?: string;
+  username?: string;
+  sub?: string;
+  unique_name?: string;
+};
+
+function stringClaim(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+export function parseIdTokenClaims(idToken: string): TokenIdentityClaims {
+  const payload = parseJwtPayload(idToken);
+  return {
+    email: stringClaim(payload.email),
+    name: stringClaim(payload.name),
+    preferred_username: stringClaim(payload.preferred_username),
+    upn: stringClaim(payload.upn),
+    username: stringClaim(payload.username),
+    sub: stringClaim(payload.sub),
+    unique_name: stringClaim(payload.unique_name),
   };
 }
 
-export function resolveSessionEmail(claims: {
-  email?: string;
-  preferred_username?: string;
-}): string | undefined {
-  const email = claims.email?.trim() || claims.preferred_username?.trim();
-  if (!email || !email.includes("@")) return undefined;
-  return email.toLowerCase();
+export function parseAccessTokenClaims(accessToken: string): TokenIdentityClaims {
+  const payload = parseJwtPayload(accessToken);
+  return {
+    email: stringClaim(payload.email),
+    name: stringClaim(payload.name),
+    preferred_username: stringClaim(payload.preferred_username),
+    upn: stringClaim(payload.upn),
+    username: stringClaim(payload.username),
+    sub: stringClaim(payload.sub),
+    unique_name: stringClaim(payload.unique_name),
+  };
+}
+
+function parseJwtPayload(token: string): Record<string, unknown> {
+  const part = token.split(".")[1];
+  if (!part) return {};
+  try {
+    return JSON.parse(Buffer.from(part, "base64url").toString("utf8")) as Record<
+      string,
+      unknown
+    >;
+  } catch {
+    return {};
+  }
+}
+
+export function isSystemPortalEmail(email: string): boolean {
+  const lower = email.trim().toLowerCase();
+  if (!lower.includes("@")) return true;
+  if (lower.endsWith("@local")) return true;
+  if (lower.startsWith("ifsapp@")) return true;
+  if (lower.includes("service-account")) return true;
+  if (isUuidLike(lower.split("@")[0] ?? "")) return true;
+  return false;
+}
+
+function isUuidLike(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value.trim(),
+  );
+}
+
+function portalEmailDomain(): string | undefined {
+  const configured = process.env.IFS_PORTAL_EMAIL_DOMAIN?.trim().replace(/^@/, "");
+  if (configured) return configured;
+  if (process.env.NODE_ENV !== "production") return "h-mv.com";
+  return undefined;
+}
+
+function normalizeToPortalEmail(raw: string): string | undefined {
+  const value = raw.trim().toLowerCase();
+  if (!value || isUuidLike(value)) return undefined;
+
+  if (value.includes("@")) {
+    if (isSystemPortalEmail(value)) return undefined;
+    return value;
+  }
+
+  const domain = portalEmailDomain();
+  if (!domain) return undefined;
+  const email = `${value}@${domain}`;
+  if (isSystemPortalEmail(email)) return undefined;
+  return email;
+}
+
+export function resolveSessionEmail(claims: TokenIdentityClaims): string | undefined {
+  const candidates = [
+    claims.email,
+    claims.preferred_username,
+    claims.upn,
+    claims.username,
+    claims.unique_name,
+  ];
+
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const email = normalizeToPortalEmail(raw);
+    if (email) return email;
+  }
+  return undefined;
 }

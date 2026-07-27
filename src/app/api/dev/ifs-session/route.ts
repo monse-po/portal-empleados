@@ -19,6 +19,7 @@ export async function POST(request: Request) {
   const email = resolveSessionEmail({
     email: body.email?.trim(),
     preferred_username: body.email?.trim(),
+    username: body.email?.trim(),
   });
 
   if (!accessToken || !email) {
