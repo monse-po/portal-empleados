@@ -39,12 +39,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const inFlight = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (!roleReady || !isGerente) {
-      setItems([]);
-      setUnreadCount(0);
-      setLoading(false);
-      return;
-    }
+    if (!roleReady || !isGerente) return;
     if (inFlight.current) return;
     inFlight.current = true;
     setLoading(true);
@@ -63,18 +58,44 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [isGerente, roleReady]);
 
   useEffect(() => {
-    void refresh();
     if (!roleReady || !isGerente) return;
-    const timer = window.setInterval(() => void refresh(), POLL_MS);
-    const onFocus = () => void refresh();
+
+    let cancelled = false;
+
+    const load = async () => {
+      if (inFlight.current) return;
+      inFlight.current = true;
+      setLoading(true);
+      try {
+        const data = await getNotificacionesGerenteAction();
+        if (!cancelled) {
+          setItems(data.items);
+          setUnreadCount(data.unreadCount);
+        }
+      } catch (error) {
+        console.error("[notificaciones] error al cargar", error);
+        if (!cancelled) {
+          setItems([]);
+          setUnreadCount(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+        inFlight.current = false;
+      }
+    };
+
+    void load();
+    const timer = window.setInterval(() => void load(), POLL_MS);
+    const onFocus = () => void load();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
     return () => {
+      cancelled = true;
       window.clearInterval(timer);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [refresh, isGerente, roleReady]);
+  }, [isGerente, roleReady]);
 
   const markRead = useCallback(async (id: string) => {
     await marcarNotificacionLeidaAction(id);
@@ -90,17 +111,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setUnreadCount(0);
   }, []);
 
-  const value = useMemo(
-    () => ({
-      items,
-      unreadCount,
-      loading,
+  const value = useMemo(() => {
+    const visibleItems = roleReady && isGerente ? items : [];
+    const visibleUnread = roleReady && isGerente ? unreadCount : 0;
+    return {
+      items: visibleItems,
+      unreadCount: visibleUnread,
+      loading: roleReady && isGerente ? loading : false,
       refresh,
       markRead,
       markAllRead,
-    }),
-    [items, unreadCount, loading, refresh, markRead, markAllRead],
-  );
+    };
+  }, [items, unreadCount, loading, roleReady, isGerente, refresh, markRead, markAllRead]);
 
   return (
     <NotificationContext.Provider value={value}>
