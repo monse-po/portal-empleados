@@ -135,8 +135,36 @@ export function MiTiempoProvider({
   }, []);
 
   useEffect(() => {
-    void reloadRegistros();
-  }, [reloadRegistros]);
+    let cancelled = false;
+
+    const load = async () => {
+      setRegistrosError(null);
+      try {
+        const result = await getRegistrosGroupedAction();
+        if (cancelled) return;
+        setRegistros(result.registros);
+        setRegistrosFromIfs(result.fromIfs);
+        if (result.warning) {
+          setRegistrosError(
+            "No se pudo leer la hoja de IFS. Mostrando registros locales.",
+          );
+        }
+      } catch {
+        if (cancelled) return;
+        setRegistrosFromIfs(false);
+        setRegistrosError(
+          "No se pudieron cargar los registros. Revisa la conexión o la base de datos.",
+        );
+      } finally {
+        if (!cancelled) setRegistrosLoaded(true);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     void getIfsSessionStatusAction().then((status) => {

@@ -54,7 +54,7 @@ async function resolveFreshSession(): Promise<IfsUserSession | null> {
 export async function withValidIfsSession<T>(
   fn: (session: IfsUserSession) => Promise<T>,
 ): Promise<T> {
-  let session = await resolveFreshSession();
+  const session = await resolveFreshSession();
   if (!session) {
     throw new IfsSessionExpiredError("Sin sesión IFS");
   }
