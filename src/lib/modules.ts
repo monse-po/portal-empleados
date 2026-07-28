@@ -7,7 +7,7 @@ import type { UsuarioRol } from "@/src/components/layout/RoleContext";
  * Fuente de verdad para navegación, rutas por rol y el "Modo enfoque".
  * Al agregar un módulo nuevo basta con añadir una entrada aquí.
  */
-export type ModuleId = "tiempo" | "anticipos" | "legalizaciones";
+export type ModuleId = "tiempo" | "historico" | "anticipos" | "legalizaciones";
 
 export type ModuleRoute = {
   path: string;
@@ -32,12 +32,6 @@ export const MODULES: ModuleDef[] = [
         rol: "empleado",
         navLabel: "Mi Tiempo",
         icon: "clock",
-      },
-      {
-        path: "/historico-tiempo",
-        rol: "empleado",
-        navLabel: "Histórico",
-        icon: "history",
       },
       {
         path: "/aprobacion-tiempo",
@@ -80,6 +74,18 @@ export const MODULES: ModuleDef[] = [
         rol: "gerente",
         navLabel: "Legalizaciones",
         icon: "folderOpen",
+      },
+    ],
+  },
+  {
+    id: "historico",
+    label: "Histórico",
+    routes: [
+      {
+        path: "/historico-tiempo",
+        rol: "empleado",
+        navLabel: "Mi Histórico",
+        icon: "history",
       },
     ],
   },

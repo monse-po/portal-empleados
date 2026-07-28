@@ -36,7 +36,7 @@ function shortLabel(route: ModuleRoute): string {
   if (route.path === "/mis-anticipos") return "Anticipos";
   if (route.path === "/legalizaciones") return "Mis Leg.";
   if (route.path === "/hoja-tiempo") return "Mi Tiempo";
-  if (route.path === "/historico-tiempo") return "Histórico";
+  if (route.path === "/historico-tiempo") return "Mi Hist.";
   return route.navLabel;
 }
 

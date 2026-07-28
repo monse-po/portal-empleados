@@ -26,9 +26,21 @@ export type ProyectoMock = {
 };
 
 export const PROYECTOS: ProyectoMock[] = [
-  { id: "PRY-2024-001", nombre: "Construcción Planta Norte", sub: "Ecopetrol" },
-  { id: "PRY-2024-003", nombre: "Mantenimiento Subestación 115kV", sub: "ISA" },
-  { id: "PRY-2025-002", nombre: "Ingeniería de Detalle Refinería", sub: "Reficar" },
+  {
+    id: "PRY-2024-001",
+    nombre: "Modernización PTF Cusiana – Bloque B",
+    sub: "Ecopetrol S.A.",
+  },
+  {
+    id: "PRY-2024-003",
+    nombre: "Renovación Subestación La Loma 500 kV",
+    sub: "ISA Intercolombia",
+  },
+  {
+    id: "PRY-2025-002",
+    nombre: "Obras Civiles Mina Sur – Fase III",
+    sub: "Cerrejón",
+  },
 ];
 
 export type JerTiempoEntry = {
@@ -40,22 +52,37 @@ export const JER_TIEMPO: Record<string, JerTiempoEntry> = {
   "PRY-2024-001": {
     aprobador: "Carlos Méndez Rojas",
     subs: {
-      "SUB-101 · Obra civil": ["Diseño estructural", "Supervisión en campo"],
-      "SUB-102 · Documentación": ["Informes técnicos", "Reuniones cliente"],
+      "SUB-101 · Obra civil y estructuras": [
+        "Diseño estructural",
+        "Supervisión en campo",
+      ],
+      "SUB-102 · Ingeniería y documentación": [
+        "Informes técnicos",
+        "Reuniones cliente",
+      ],
     },
   },
   "PRY-2024-003": {
     aprobador: "Carlos Méndez Rojas",
     subs: {
-      "SUB-201 · Inspección": ["Inspección eléctrica", "Pruebas de equipos"],
-      "SUB-202 · Gestión": ["Documentación", "Coordinación"],
+      "SUB-201 · Equipos de potencia": [
+        "Inspección eléctrica",
+        "Pruebas de equipos",
+      ],
+      "SUB-202 · Protecciones y control": ["Documentación", "Coordinación"],
     },
   },
   "PRY-2025-002": {
     aprobador: "Laura Gómez Díaz",
     subs: {
-      "SUB-301 · Ingeniería": ["Ingeniería de proceso", "Modelado 3D"],
-      "SUB-302 · Planos": ["Revisión planos", "Gestión cambios"],
+      "SUB-301 · Movimiento de tierras": [
+        "Ingeniería de proceso",
+        "Modelado 3D",
+      ],
+      "SUB-302 · Infraestructura vial mina": [
+        "Revisión planos",
+        "Gestión cambios",
+      ],
     },
   },
 };
@@ -103,196 +130,378 @@ export const FESTIVOS_2026 = [
   "2026-12-25",
 ];
 
-export const REGISTROS_MOCK: Record<string, RegistroMock[]> = {
-  "2026-03-17": [
-    {
-      id: "r1",
-      proy: "PRY-2024-001",
-      act: "Diseño estructural",
-      tipo: "DN",
-      horas: 6,
-      fecha: "2026-03-17",
-      comentario: "Revisión cálculos fundaciones bloque A",
-      comentarioRechazo: "",
-      aprobador: "Carlos Méndez",
-      estado: "Aprobado",
-    },
-    {
-      id: "r2",
-      proy: "PRY-2024-003",
-      act: "Inspección eléctrica",
-      tipo: "DN",
-      horas: 1,
-      fecha: "2026-03-17",
-      comentario: "Verificación tableros principales",
-      estado: "Aprobado",
-    },
-    {
-      id: "r2b",
-      proy: "PRY-2024-003",
-      act: "Coordinación",
-      tipo: "HED",
-      horas: 1.5,
-      fecha: "2026-03-17",
-      comentario: "Cierre urgente documentación ISA",
-      comentarioRechazo: "",
-      aprobador: "Carlos Méndez",
-      estado: "Aprobado",
-    },
-  ],
-  "2026-03-18": [
-    {
-      id: "r3",
-      proy: "PRY-2025-002",
-      act: "Ingeniería de proceso",
-      tipo: "DN",
-      horas: 4,
-      fecha: "2026-03-17",
-      comentario: "Modelado P&ID unidad 3",
-      aprobador: "Carlos Méndez",
-      estado: "Registrado",
-    },
-    {
-      id: "r4",
-      proy: "PRY-2024-001",
-      act: "Reuniones cliente",
-      tipo: "DN",
-      horas: 3,
-      fecha: "2026-03-18",
-      comentario: "Call semanal Ecopetrol",
-      estado: "Borrador",
-    },
-    {
-      id: "r5",
-      proy: "PRY-2024-003",
-      act: "Coordinación",
-      tipo: "HED",
-      horas: 1.5,
-      fecha: "2026-03-18",
-      comentario: "Gestión urgente materiales",
-      comentarioRechazo: "Horas extra requieren pre-autorización",
-      estado: "Rechazado",
-    },
-  ],
-  "2026-03-16": [
-    {
-      id: "r6",
-      proy: "PRY-2025-002",
-      act: "Revisión planos",
-      tipo: "DN",
-      horas: 7,
-      fecha: "2026-03-16",
-      comentario: "Revisión isométricos líneas vapor",
-      estado: "Borrador",
-    },
-    {
-      id: "r7",
-      proy: "PRY-2024-001",
-      act: "Informes técnicos",
-      tipo: "HA",
-      horas: 1.5,
-      fecha: "2026-03-16",
-      comentario: "Informe ejecutivo Q1",
-      estado: "Borrador",
-    },
-  ],
-  "2026-03-12": [
-    {
-      id: "r8",
-      proy: "PRY-2024-001",
-      act: "Supervisión en campo",
-      tipo: "DN",
-      horas: 8.5,
-      fecha: "2026-03-12",
-      comentario: "Supervisión instalación estructura metálica",
-      aprobador: "Carlos Méndez",
-      estado: "Aprobado",
-    },
-  ],
-  "2026-03-09": [
-    {
-      id: "r9",
-      proy: "PRY-2024-001",
-      act: "Diseño estructural",
-      tipo: "DN",
-      horas: 8,
-      fecha: "2026-03-09",
-      comentario: "Modelado estructura metálica nivel 2",
-      aprobador: "Carlos Méndez Rojas",
-      estado: "Aprobado",
-    },
-  ],
-  "2026-03-10": [
-    {
-      id: "r10",
-      proy: "PRY-2024-001",
-      act: "Supervisión en campo",
-      tipo: "HFDT",
-      horas: 6.5,
-      fecha: "2026-03-10",
-      comentario: "Inspección avance de obra",
-      aprobador: "Carlos Méndez Rojas",
-      estado: "Aprobado",
-    },
-    {
-      id: "r11",
-      proy: "PRY-2024-001",
-      act: "Informes técnicos",
-      tipo: "HED",
-      horas: 2,
-      fecha: "2026-03-10",
-      comentario: "Cierre informe mensual",
-      aprobador: "Carlos Méndez Rojas",
-      estado: "Aprobado",
-    },
-  ],
-  "2026-03-11": [
-    {
-      id: "r12",
-      proy: "PRY-2024-003",
-      act: "Inspección eléctrica",
-      tipo: "HA",
-      horas: 7,
-      fecha: "2026-03-11",
-      comentario: "Pruebas tableros zona norte",
-      aprobador: "Carlos Méndez Rojas",
-      estado: "Aprobado",
-    },
-    {
-      id: "r13",
-      proy: "PRY-2024-003",
-      act: "Pruebas de equipos",
-      tipo: "HA",
-      horas: 1.5,
-      fecha: "2026-03-11",
-      comentario: "Ensayo adicional solicitado",
-      comentarioRechazo: "Sin soporte de autorización",
-      estado: "Rechazado",
-    },
-  ],
-  "2026-03-13": [
-    {
-      id: "r14",
-      proy: "PRY-2025-002",
-      act: "Ingeniería de proceso",
-      tipo: "RF",
-      horas: 5,
-      fecha: "2026-03-13",
-      comentario: "Balance de masa unidad 2",
-      estado: "Borrador",
-    },
-    {
-      id: "r15",
-      proy: "PRY-2025-002",
-      act: "Modelado 3D",
-      tipo: "HED",
-      horas: 3,
-      fecha: "2026-03-13",
-      comentario: "Avance modelo 3D para entrega",
-      estado: "Borrador",
-    },
-  ],
+/** Fecha «hoy» para toda la app demo. Usa el reloj del sistema (no viene de BD). */
+function fechaReferenciaHoy(): Date {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  return d;
+}
+
+export const HOY_MOCK = fechaReferenciaHoy();
+export const CALENDARIO_MES = new Date(
+  HOY_MOCK.getFullYear(),
+  HOY_MOCK.getMonth(),
+  1,
+);
+
+const MOCK_COMENTARIOS = [
+  "Avance conforme al cronograma.",
+  "Revisión técnica del entregable.",
+  "Coordinación con el cliente.",
+  "Trabajo de campo del día.",
+  "Cierre de pendientes de la semana.",
+  "Ajustes solicitados por interventoría.",
+];
+
+function mockActs(proyId: string): string[] {
+  const jer = JER_TIEMPO[proyId];
+  if (!jer) return ["Actividad general"];
+  return Object.values(jer.subs).flat();
+}
+
+function mockEstado(monthOffset: number, seed: number): RegistroEstado {
+  const roll = seed % 20;
+  if (monthOffset <= -1) {
+    if (roll === 0) return "Rechazado";
+    if (roll < 3) return "Registrado";
+    return "Aprobado";
+  }
+  if (roll < 5) return "Borrador";
+  if (roll < 10) return "Registrado";
+  if (roll === 10) return "Rechazado";
+  return "Aprobado";
+}
+
+function mockSubproy(proyId: string, act: string): string {
+  const data = JER_TIEMPO[proyId];
+  if (!data) return "";
+  for (const [sub, acts] of Object.entries(data.subs)) {
+    if (acts.includes(act)) return sub;
+  }
+  return "";
+}
+
+function mod(n: number, m: number): number {
+  return ((n % m) + m) % m;
+}
+
+function isoFecha(y: number, m: number, d: number): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${y}-${pad(m + 1)}-${pad(d)}`;
+}
+
+function isDiaLaborable(fecha: string, y: number, m: number, d: number): boolean {
+  if (FESTIVOS_2026.includes(fecha)) return false;
+  const dow = new Date(y, m, d).getDay();
+  return dow !== 0 && dow !== 6;
+}
+
+/** Mes actual: como si el empleado hubiera registrado todos los días hábiles hasta hoy. */
+function mockEstadoMesActual(d: number, hoyDia: number, seed: number): RegistroEstado {
+  if (d === hoyDia) return "Borrador";
+  const diasAtras = hoyDia - d;
+  if (diasAtras <= 2) return "Registrado";
+  if (diasAtras === 4 && mod(seed, 7) === 0) return "Rechazado";
+  return "Aprobado";
+}
+
+function horasDelDia(seed: number): { tipo: string; horas: number }[] {
+  if (mod(seed, 6) === 0) {
+    return [
+      { tipo: "DN", horas: 4 },
+      { tipo: "DN", horas: 4 },
+    ];
+  }
+  if (mod(seed, 11) === 0) {
+    return [
+      { tipo: "DN", horas: 6 },
+      { tipo: "HED", horas: 2 },
+    ];
+  }
+  return [{ tipo: "DN", horas: 8 }];
+}
+
+function appendRegistroRows(
+  out: Record<string, RegistroMock[]>,
+  fecha: string,
+  rows: RegistroMock[],
+): void {
+  if (rows.length) out[fecha] = rows;
+}
+
+function buildRegistroRow(
+  seq: { n: number },
+  fecha: string,
+  seed: number,
+  slot: number,
+  proyIds: string[],
+  estado: RegistroEstado,
+  slotHoras: { tipo: string; horas: number },
+  overrides?: { proy?: string; act?: string; comentario?: string },
+): RegistroMock {
+  const seedKey = seed + slot * 17;
+  const proy = overrides?.proy ?? proyIds[mod(seedKey, proyIds.length)];
+  const acts = mockActs(proy);
+  const act = overrides?.act ?? acts[mod(seedKey, acts.length)];
+  const jer = JER_TIEMPO[proy];
+
+  const row: RegistroMock = {
+    id: `r${seq.n++}`,
+    proy,
+    subproy: mockSubproy(proy, act) || undefined,
+    act,
+    tipo: slotHoras.tipo,
+    horas: slotHoras.horas,
+    fecha,
+    comentario:
+      overrides?.comentario ??
+      MOCK_COMENTARIOS[mod(seedKey, MOCK_COMENTARIOS.length)],
+    estado,
+  };
+
+  if (estado === "Aprobado" || estado === "Registrado") {
+    row.aprobador = jer?.aprobador;
+  }
+  if (estado === "Rechazado") {
+    row.comentarioRechazo = "Falta documentación de soporte.";
+    row.aprobador = jer?.aprobador;
+  }
+
+  return row;
+}
+
+type DiaVariadoSpec = {
+  estado: RegistroEstado;
+  comentarioRechazo?: string;
+  entries: {
+    proy: string;
+    act: string;
+    tipo: string;
+    horas: number;
+    comentario?: string;
+  }[];
 };
+
+/** Últimos N días hábiles (incl. hoy), del más antiguo al más reciente. */
+function getUltimosDiasLaborables(hoy: Date, count: number): string[] {
+  const fechas: string[] = [];
+  const cursor = new Date(hoy);
+
+  while (fechas.length < count) {
+    const y = cursor.getFullYear();
+    const m = cursor.getMonth();
+    const d = cursor.getDate();
+    const fecha = isoFecha(y, m, d);
+    if (isDiaLaborable(fecha, y, m, d)) fechas.unshift(fecha);
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return fechas;
+}
+
+/** Una semana reciente con mix de tipos de hora y estados para demo. */
+function applySemanaVariada(
+  out: Record<string, RegistroMock[]>,
+  hoy: Date,
+  seq: { n: number },
+  proyIds: string[],
+): void {
+  const fechas = getUltimosDiasLaborables(hoy, 5);
+  if (fechas.length < 5) return;
+
+  const specs: DiaVariadoSpec[] = [
+    {
+      estado: "Aprobado",
+      entries: [
+        {
+          proy: "PRY-2024-001",
+          act: "Supervisión en campo",
+          tipo: "DN",
+          horas: 6,
+          comentario: "Inspección de avance en obra.",
+        },
+        {
+          proy: "PRY-2024-003",
+          act: "Inspección eléctrica",
+          tipo: "HED",
+          horas: 2,
+          comentario: "Cierre de jornada con horas extra.",
+        },
+      ],
+    },
+    {
+      estado: "Aprobado",
+      entries: [
+        {
+          proy: "PRY-2025-002",
+          act: "Ingeniería de proceso",
+          tipo: "DN",
+          horas: 4,
+        },
+        {
+          proy: "PRY-2024-001",
+          act: "Reuniones cliente",
+          tipo: "HA",
+          horas: 2,
+          comentario: "Coordinación con interventoría.",
+        },
+        {
+          proy: "PRY-2024-001",
+          act: "Informes técnicos",
+          tipo: "HEN",
+          horas: 2,
+          comentario: "Entrega nocturna de informe.",
+        },
+      ],
+    },
+    {
+      estado: "Registrado",
+      entries: [
+        {
+          proy: "PRY-2024-003",
+          act: "Documentación",
+          tipo: "DN",
+          horas: 5,
+        },
+        {
+          proy: "PRY-2024-003",
+          act: "Pruebas de equipos",
+          tipo: "HED",
+          horas: 3,
+          comentario: "Enviado a aprobación del gerente.",
+        },
+      ],
+    },
+    {
+      estado: "Rechazado",
+      comentarioRechazo: "Adjuntar acta de reunión firmada por el cliente.",
+      entries: [
+        {
+          proy: "PRY-2025-002",
+          act: "Modelado 3D",
+          tipo: "DN",
+          horas: 6,
+        },
+        {
+          proy: "PRY-2025-002",
+          act: "Revisión planos",
+          tipo: "HEFD",
+          horas: 2,
+          comentario: "Sábado en campo — falta soporte.",
+        },
+      ],
+    },
+    {
+      estado: "Borrador",
+      entries: [
+        {
+          proy: "PRY-2024-001",
+          act: "Diseño estructural",
+          tipo: "DN",
+          horas: 4,
+          comentario: "Avance parcial del día.",
+        },
+        {
+          proy: "PRY-2024-003",
+          act: "Coordinación",
+          tipo: "HFDT",
+          horas: 2,
+        },
+        {
+          proy: "PRY-2025-002",
+          act: "Gestión cambios",
+          tipo: "RF",
+          horas: 1,
+          comentario: "Recargo festivo pendiente de envío.",
+        },
+        {
+          proy: "PRY-2024-001",
+          act: "Informes técnicos",
+          tipo: "HA",
+          horas: 1,
+        },
+      ],
+    },
+  ];
+
+  fechas.forEach((fecha, index) => {
+    const spec = specs[index];
+    if (!spec) return;
+
+    const seed = 9000 + index;
+    out[fecha] = spec.entries.map((entry, slot) => {
+      const row = buildRegistroRow(
+        seq,
+        fecha,
+        seed,
+        slot,
+        proyIds,
+        spec.estado,
+        { tipo: entry.tipo, horas: entry.horas },
+        {
+          proy: entry.proy,
+          act: entry.act,
+          comentario: entry.comentario,
+        },
+      );
+      if (spec.estado === "Rechazado" && spec.comentarioRechazo) {
+        row.comentarioRechazo = spec.comentarioRechazo;
+      }
+      return row;
+    });
+  });
+}
+
+/** Últimos 3 meses; mes actual completo (días hábiles hasta hoy). */
+function buildRegistrosMock(hoy: Date): Record<string, RegistroMock[]> {
+  const out: Record<string, RegistroMock[]> = {};
+  const proyIds = PROYECTOS.map((p) => p.id);
+  const seq = { n: 1 };
+
+  for (let monthOffset = -2; monthOffset <= 0; monthOffset++) {
+    const monthStart = new Date(hoy.getFullYear(), hoy.getMonth() + monthOffset, 1);
+    const y = monthStart.getFullYear();
+    const m = monthStart.getMonth();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const mesActual = monthOffset === 0;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (mesActual && d > hoy.getDate()) continue;
+
+      const fecha = isoFecha(y, m, d);
+      if (!isDiaLaborable(fecha, y, m, d)) continue;
+
+      // Meses anteriores: muestra parcial; mes actual: todos los días hábiles.
+      if (!mesActual && (d + m) % 2 !== 0) continue;
+
+      const seed = d + monthOffset * 31;
+      const slots = mesActual ? horasDelDia(seed) : d % 5 === 0 ? [{ tipo: "DN", horas: 4 }, { tipo: "DN", horas: 4 }] : [{ tipo: mod(seed, 9) === 0 ? "HED" : "DN", horas: mod(seed, 3) === 0 ? 8 : 4 }];
+      const estado = mesActual
+        ? mockEstadoMesActual(d, hoy.getDate(), seed)
+        : mockEstado(monthOffset, Math.abs(seed));
+
+      const rows = slots.map((slotHoras, i) =>
+        buildRegistroRow(
+          seq,
+          fecha,
+          seed,
+          i,
+          proyIds,
+          estado,
+          slotHoras,
+        ),
+      );
+
+      appendRegistroRows(out, fecha, rows);
+    }
+  }
+
+  applySemanaVariada(out, hoy, seq, proyIds);
+
+  return out;
+}
+
+export const REGISTROS_MOCK = buildRegistrosMock(HOY_MOCK);
 
 const MESES = [
   "Enero",
@@ -308,20 +517,6 @@ const MESES = [
   "Noviembre",
   "Diciembre",
 ];
-
-/** Fecha «hoy» para toda la app demo. Usa el reloj del sistema (no viene de BD). */
-function fechaReferenciaHoy(): Date {
-  const d = new Date();
-  d.setHours(12, 0, 0, 0);
-  return d;
-}
-
-export const HOY_MOCK = fechaReferenciaHoy();
-export const CALENDARIO_MES = new Date(
-  HOY_MOCK.getFullYear(),
-  HOY_MOCK.getMonth(),
-  1,
-);
 
 export function cloneInitialRegistros(): Record<string, RegistroMock[]> {
   return JSON.parse(JSON.stringify(REGISTROS_MOCK)) as Record<

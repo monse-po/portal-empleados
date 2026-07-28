@@ -1,10 +1,6 @@
 import { LOADING_COPY } from "@/src/lib/copy/loading";
 import type { EmpReportItemRow } from "@/src/lib/ifs/types";
 import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
-import {
-  isRegistroBorrador,
-  normalizeRegistroEstado,
-} from "@/src/lib/tiempo-registro-rules";
 
 export function isIfsRegistroId(id: string): boolean {
   return id.startsWith("ifs-pt-");
@@ -100,12 +96,17 @@ export function groupRegistrosMockByFecha(
   return grouped;
 }
 
-function isLocalDraft(row: RegistroMock): boolean {
-  if (isIfsRegistroId(row.id)) return false;
-  return isRegistroBorrador(normalizeRegistroEstado(row.estado));
+/** Filas locales que aún no tienen equivalente en IFS (mismo id). */
+function localRowsNotInIfs(
+  localRows: RegistroMock[],
+  ifsIds: Set<string>,
+): RegistroMock[] {
+  return localRows.filter(
+    (row) => !isIfsRegistroId(row.id) && !ifsIds.has(row.id),
+  );
 }
 
-/** IFS + borradores/locales aún no sincronizados en IFS. */
+/** IFS como fuente principal + registros locales sin par en IFS (demo, pendientes de sync). */
 export function mergeIfsAndLocalRegistros(
   ifsGrouped: Record<string, RegistroMock[]>,
   localGrouped: Record<string, RegistroMock[]>,
@@ -121,11 +122,7 @@ export function mergeIfsAndLocalRegistros(
     const localRows = localGrouped[fecha] ?? [];
     const ifsIds = new Set(ifsRows.map((row) => row.id));
 
-    const localPending = localRows.filter(
-      (row) => !ifsIds.has(row.id) && isLocalDraft(row),
-    );
-
-    merged[fecha] = [...ifsRows, ...localPending];
+    merged[fecha] = [...ifsRows, ...localRowsNotInIfs(localRows, ifsIds)];
   }
 
   return merged;

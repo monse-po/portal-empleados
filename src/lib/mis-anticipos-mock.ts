@@ -97,9 +97,21 @@ export const DIVISAS_POR_COMPANIA: Record<
 };
 
 export const PROYECTOS_ANT = [
-  { id: "PRY2024001", nombre: "Construcción Planta Norte", sub: "Ecopetrol" },
-  { id: "PRY2024003", nombre: "Mantenimiento Subestación 115kV", sub: "ISA" },
-  { id: "PRY2025002", nombre: "Ingeniería de Detalle Refinería", sub: "Reficar" },
+  {
+    id: "PRY2024001",
+    nombre: "Modernización PTF Cusiana – Bloque B",
+    sub: "Ecopetrol S.A.",
+  },
+  {
+    id: "PRY2024003",
+    nombre: "Renovación Subestación La Loma 500 kV",
+    sub: "ISA Intercolombia",
+  },
+  {
+    id: "PRY2025002",
+    nombre: "Obras Civiles Mina Sur – Fase III",
+    sub: "Cerrejón",
+  },
 ] as const;
 
 export type LovItem = {

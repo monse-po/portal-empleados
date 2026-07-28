@@ -16,70 +16,62 @@ import {
 } from "@/src/components/ui/DataTable";
 import { MiTiempoLoading } from "@/src/app/hoja-tiempo/MiTiempoLoading";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
+import { HistoricoTiempoFilterBar } from "@/src/app/historico-tiempo/HistoricoTiempoFilterBar";
+import { HISTORICO_UI_COPY } from "@/src/lib/copy/historico";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
+import {
+  applyHistoricoFilters,
+  type HistoricoFilterRule,
+} from "@/src/lib/historico-tiempo-filtros";
 import {
   formatHistoricoFechaCorta,
   formatHistoricoMesLabel,
-  formatHistoricoRango,
   getHistoricoMesKey,
-  getHistoricoResumenPorProyecto,
   getRegistrosHistoricoAprobados,
 } from "@/src/lib/historico-tiempo";
 
 const HISTORICO_COLS = ["10%", "18%", "16%", "11%", "6%", "22%", "17%"] as const;
 
-function ResumenChip({
-  active,
-  title,
-  label,
-  sub,
-  onClick,
+function formatHorasTotal(horas: number): string {
+  return Number.isInteger(horas) ? String(horas) : horas.toFixed(1);
+}
+
+function HistoricoTimelineStats({
+  count,
+  horas,
 }: {
-  active: boolean;
-  title: string;
-  label: string;
-  sub: string;
-  onClick: () => void;
+  count: number;
+  horas: number;
 }) {
   return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      className={`inline-flex max-w-full flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors ${
-        active
-          ? "border-[#c7d9ed] bg-[#eef3f9] ring-1 ring-[#bfdbfe]"
-          : "border-border bg-white hover:border-[#d1d5db] hover:bg-[#f8fafc]"
-      }`}
-    >
-      <span
-        className={`truncate text-[12px] font-semibold ${active ? "text-navy" : "text-[#111]"}`}
-      >
-        {label}
+    <div className="flex items-center gap-2.5">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#c7d9ed] bg-white px-2.5 py-1 text-[11px] font-medium text-muted">
+        <Icon name="list" size="xs" className="text-navy" />
+        <span className="font-bold text-navy">{count}</span>
+        registro{count !== 1 ? "s" : ""}
       </span>
-      <span className="text-[11px] text-muted">{sub}</span>
-    </button>
+      <span aria-hidden className="h-4 w-px bg-[#d1d9e6]" />
+      <span className="inline-flex items-baseline gap-0.5 rounded-full bg-[#eef3f9] px-3 py-1">
+        <span className="text-[15px] font-bold leading-none text-navy">
+          {formatHorasTotal(horas)}
+        </span>
+        <span className="text-[11px] font-semibold text-muted">h</span>
+      </span>
+    </div>
   );
 }
 
 export function HistoricoTiempoView() {
   const { registros, registrosLoaded, registrosError } = useMiTiempo();
-  const [proyFiltro, setProyFiltro] = useState<string | null>(null);
+  const [filters, setFilters] = useState<HistoricoFilterRule[]>([]);
 
   const aprobados = useMemo(
     () => getRegistrosHistoricoAprobados(registros),
     [registros],
   );
-  const resumenProyectos = useMemo(
-    () => getHistoricoResumenPorProyecto(aprobados),
-    [aprobados],
-  );
   const filas = useMemo(
-    () =>
-      proyFiltro
-        ? aprobados.filter((r) => r.proy === proyFiltro)
-        : aprobados,
-    [aprobados, proyFiltro],
+    () => applyHistoricoFilters(aprobados, filters),
+    [aprobados, filters],
   );
   const totalHoras = useMemo(
     () => filas.reduce((s, r) => s + r.horas, 0),
@@ -101,44 +93,28 @@ export function HistoricoTiempoView() {
   return (
     <div className="view-wide">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-[#111]">Histórico de tiempo</h1>
-        <p className="mt-1 max-w-2xl text-[13px] leading-snug text-muted">
-          Horas <strong className="font-semibold text-[#374151]">aprobadas</strong>{" "}
-          por proyecto. Solo consulta — útil para tu hoja de vida y evidencia de
-          dedicación real a cada proyecto.
+        <h1 className="text-xl font-bold text-[#111]">Mi Histórico</h1>
+        <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">
+          {HISTORICO_UI_COPY.subtitle}
         </p>
       </div>
 
       {aprobados.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          <ResumenChip
-            active={proyFiltro === null}
-            title="Ver todos los proyectos"
-            label="Todos los proyectos"
-            sub={`${aprobados.length} registro${aprobados.length !== 1 ? "s" : ""} · ${aprobados.reduce((s, r) => s + r.horas, 0)} h`}
-            onClick={() => setProyFiltro(null)}
-          />
-          {resumenProyectos.map((p) => (
-            <ResumenChip
-              key={p.proyId}
-              active={proyFiltro === p.proyId}
-              title={p.nombre}
-              label={p.codigo}
-              sub={`${p.totalHoras} h · ${formatHistoricoRango(p.desde, p.hasta)}`}
-              onClick={() =>
-                setProyFiltro((prev) => (prev === p.proyId ? null : p.proyId))
-              }
-            />
-          ))}
-        </div>
+        <HistoricoTiempoFilterBar
+          registros={aprobados}
+          filters={filters}
+          onChange={setFilters}
+          shown={filas.length}
+          total={aprobados.length}
+        />
       )}
 
       <Card>
         <CardHeader
           right={
-            <span className="text-[11px] font-normal text-muted">
-              {filas.length} registro{filas.length !== 1 ? "s" : ""} · {totalHoras} h
-            </span>
+            filas.length > 0 ? (
+              <HistoricoTimelineStats count={filas.length} horas={totalHoras} />
+            ) : null
           }
         >
           <span className="flex flex-row items-center gap-1.5">
@@ -159,7 +135,7 @@ export function HistoricoTiempoView() {
                   </span>
                 </>
               ) : (
-                "No hay registros para este proyecto."
+                "Ningún registro coincide con los filtros."
               )}
             </div>
           ) : (

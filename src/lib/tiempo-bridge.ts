@@ -48,7 +48,7 @@ export function nombreProyectoPorCodAprobacion(cod: string): string | undefined 
   return undefined;
 }
 
-/** Etiqueta en Mi Tiempo (empleado): PRY-2024-001 – Construcción Planta Norte */
+/** Etiqueta en Mi Tiempo (empleado): PRY-2024-001 – Modernización PTF Cusiana… */
 export function formatProyectoEmpleado(proyectoId: string): string {
   const meta = PROYECTOS.find((p) => p.id === proyectoId);
   return meta ? `${meta.id} – ${meta.nombre}` : proyectoId;
@@ -68,7 +68,7 @@ export function getProyectoListaParts(proyectoId: string) {
   return { codigo, nombre, nombreFull };
 }
 
-/** Etiqueta en aprobación / notificaciones: PRY2024003 · Construcción Planta Norte */
+/** Etiqueta en aprobación / notificaciones: PRY2024003 · Modernización PTF Cusiana… */
 export function formatProyectoAprobacion(
   proyectoIdEmpleado: string,
 ): string {

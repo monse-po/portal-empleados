@@ -8,13 +8,16 @@ export function FilterChainRow({
   operator,
   active,
   onRemove,
+  removable = true,
   children,
 }: {
   label: string;
   icon: IconName;
   operator: string;
   active?: boolean;
-  onRemove: () => void;
+  onRemove?: () => void;
+  /** Si false, no muestra botón X (filtro fijo). */
+  removable?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -33,14 +36,16 @@ export function FilterChainRow({
       <div className="flex min-w-0 flex-wrap items-center gap-1 bg-white px-1 py-0.5 [&_[data-col-filter]]:shrink-0">
         {children}
       </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="inline-flex shrink-0 cursor-pointer items-center border-l border-[#e5e9f0] bg-white px-1.5 text-muted hover:bg-[#f4f7fb] hover:text-navy"
-        aria-label={`Quitar filtro ${label}`}
-      >
-        <Icon name="x" size="xs" />
-      </button>
+      {removable && onRemove ? (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="inline-flex shrink-0 cursor-pointer items-center border-l border-[#e5e9f0] bg-white px-1.5 text-muted hover:bg-[#f4f7fb] hover:text-navy"
+          aria-label={`Quitar filtro ${label}`}
+        >
+          <Icon name="x" size="xs" />
+        </button>
+      ) : null}
     </div>
   );
 }
