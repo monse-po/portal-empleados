@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/Card";
 import { Icon } from "@/src/components/ui/Icon";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
@@ -14,11 +14,10 @@ import {
   dataTdTruncate,
   dataThWithAlign,
 } from "@/src/components/ui/DataTable";
-import { MiTiempoLoading } from "@/src/app/hoja-tiempo/MiTiempoLoading";
-import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import { HistoricoTiempoFilterBar } from "@/src/app/historico-tiempo/HistoricoTiempoFilterBar";
 import { HISTORICO_UI_COPY } from "@/src/lib/copy/historico";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
+import type { RegistroMock } from "@/src/lib/tiempo-registro";
 import {
   applyHistoricoFilters,
   type HistoricoFilterRule,
@@ -26,9 +25,10 @@ import {
 import {
   formatHistoricoFechaCorta,
   formatHistoricoMesLabel,
+  formatHistoricoVentanaLabel,
   getHistoricoMesKey,
-  getRegistrosHistoricoAprobados,
 } from "@/src/lib/historico-tiempo";
+import { getHistoricoRegistrosAction } from "@/src/server/historico-tiempo-actions";
 
 const HISTORICO_COLS = ["10%", "18%", "16%", "11%", "6%", "22%", "17%"] as const;
 
@@ -62,13 +62,37 @@ function HistoricoTimelineStats({
 }
 
 export function HistoricoTiempoView() {
-  const { registros, registrosLoaded, registrosError } = useMiTiempo();
+  const [aprobados, setAprobados] = useState<RegistroMock[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filters, setFilters] = useState<HistoricoFilterRule[]>([]);
 
-  const aprobados = useMemo(
-    () => getRegistrosHistoricoAprobados(registros),
-    [registros],
-  );
+  const reload = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const result = await getHistoricoRegistrosAction();
+      if (result.error && result.registros.length === 0) {
+        setLoadError(result.error);
+        setAprobados([]);
+      } else {
+        setAprobados(result.registros);
+      }
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo cargar el histórico.",
+      );
+      setAprobados([]);
+    } finally {
+      setLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
   const filas = useMemo(
     () => applyHistoricoFilters(aprobados, filters),
     [aprobados, filters],
@@ -78,14 +102,19 @@ export function HistoricoTiempoView() {
     [filas],
   );
 
-  if (!registrosLoaded) {
-    return <MiTiempoLoading />;
+  if (!loaded) {
+    return (
+      <div className="view-wide flex min-h-[240px] items-center justify-center text-[13px] text-muted">
+        Consultando histórico en IFS…
+      </div>
+    );
   }
 
-  if (registrosError) {
+  if (loadError) {
     return (
       <div className="view-wide px-2 py-8 text-center text-[13px] text-muted">
-        {registrosError}
+        <p>{loadError}</p>
+        <p className="mt-2 text-[12px]">Inicia sesión con tu correo @h-mv.com</p>
       </div>
     );
   }
@@ -94,8 +123,11 @@ export function HistoricoTiempoView() {
     <div className="view-wide">
       <div className="mb-4">
         <h1 className="text-xl font-bold text-[#111]">Mi Histórico</h1>
-        <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">
+        <p className="mt-1 text-[13px] text-muted">
           {HISTORICO_UI_COPY.subtitle}
+          <span className="mt-0.5 block text-[12px]">
+            Desde {formatHistoricoVentanaLabel()} hasta hoy.
+          </span>
         </p>
       </div>
 
@@ -128,10 +160,13 @@ export function HistoricoTiempoView() {
             <div className="px-6 py-10 text-center text-[13px] text-muted">
               {aprobados.length === 0 ? (
                 <>
-                  Aún no hay horas aprobadas en el histórico.
+                  No hay horas confirmadas por tu gerente en los últimos 12 meses.
                   <br />
                   <span className="mt-1 inline-block text-[12px]">
-                    Los registros aparecerán aquí cuando el gerente los apruebe.
+                    Aquí entran solo registros <strong>aprobados</strong> (IFS{" "}
+                    <strong>Confirmed</strong>). Los de Mi Tiempo en{" "}
+                    <strong>Borrador</strong> o <strong>Registrado</strong> aún
+                    no han sido confirmados.
                   </span>
                 </>
               ) : (

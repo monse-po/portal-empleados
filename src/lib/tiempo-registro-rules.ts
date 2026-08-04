@@ -1,4 +1,4 @@
-import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroEstado, RegistroMock } from "@/src/lib/tiempo-registro";
 
 /** Borrador: guardado en el día, aún no enviado a aprobación. */
 export function isRegistroBorrador(estado: RegistroEstado): boolean {

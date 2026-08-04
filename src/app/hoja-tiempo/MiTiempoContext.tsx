@@ -16,7 +16,7 @@ import {
   registroToHoja,
   type SyncRegistroAccion,
 } from "@/src/lib/tiempo-bridge";
-import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroEstado, RegistroMock } from "@/src/lib/tiempo-registro";
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 import {
   deleteRegistroAction,
@@ -119,15 +119,13 @@ export function MiTiempoProvider({
       const result = await getRegistrosGroupedAction();
       setRegistros(result.registros);
       setRegistrosFromIfs(result.fromIfs);
-      if (result.warning) {
-        setRegistrosError(
-          "No se pudo leer la hoja de IFS. Mostrando registros locales.",
-        );
-      }
-    } catch {
+    } catch (error) {
       setRegistrosFromIfs(false);
+      setRegistros({});
       setRegistrosError(
-        "No se pudieron cargar los registros. Revisa la conexión o la base de datos.",
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar los registros desde IFS.",
       );
     } finally {
       setRegistrosLoaded(true);
@@ -144,16 +142,14 @@ export function MiTiempoProvider({
         if (cancelled) return;
         setRegistros(result.registros);
         setRegistrosFromIfs(result.fromIfs);
-        if (result.warning) {
-          setRegistrosError(
-            "No se pudo leer la hoja de IFS. Mostrando registros locales.",
-          );
-        }
-      } catch {
+      } catch (error) {
         if (cancelled) return;
         setRegistrosFromIfs(false);
+        setRegistros({});
         setRegistrosError(
-          "No se pudieron cargar los registros. Revisa la conexión o la base de datos.",
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar los registros desde IFS.",
         );
       } finally {
         if (!cancelled) setRegistrosLoaded(true);

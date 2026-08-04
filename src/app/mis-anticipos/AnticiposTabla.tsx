@@ -23,7 +23,7 @@ import {
   getBeneficiarioSolicitante,
   nombreAprobador,
   type Anticipo,
-} from "@/src/lib/mis-anticipos-mock";
+} from "@/src/lib/anticipos-registro";
 
 type AnticiposTablaProps = {
   registros: Anticipo[];
@@ -49,7 +49,7 @@ export function AnticiposTabla({
   hasFilters,
   onOpenDetalle,
 }: AnticiposTablaProps) {
-  const { tab } = useAnticipos();
+  const { tab, empleadoId } = useAnticipos();
   const esHistorial = tab === "disponibles";
 
   const [page, setPage] = useState(1);
@@ -159,7 +159,9 @@ export function AnticiposTabla({
         </thead>
         <tbody>
           {visibles.map((s) => {
-            const solicitanteBenef = getBeneficiarioSolicitante(s);
+            const solicitanteBenef = empleadoId
+              ? getBeneficiarioSolicitante(s, empleadoId)
+              : null;
             const nombreBenef = getBeneficiarioNombre(s);
             return (
               <tr

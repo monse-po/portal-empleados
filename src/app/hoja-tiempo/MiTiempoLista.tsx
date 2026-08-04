@@ -26,7 +26,7 @@ import {
   getResumenHoras,
   getTipoHoraMeta,
   type RegistroEstado,
-} from "@/src/lib/mi-tiempo-mock";
+} from "@/src/lib/tiempo-registro";
 import { getListaRegistrosPorDia, isRegistroEditable } from "@/src/lib/tiempo-registro-rules";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
 import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";

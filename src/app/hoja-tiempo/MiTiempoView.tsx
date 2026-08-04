@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { Button } from "@/src/components/ui/Button";
 import { MiTiempoDia } from "@/src/app/hoja-tiempo/MiTiempoDia";
 import { MiTiempoLista } from "@/src/app/hoja-tiempo/MiTiempoLista";
@@ -74,24 +75,31 @@ export function MiTiempoView() {
     return (
       <div className="view-wide flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
         <p className="max-w-md text-[13px] text-[#374151]">{registrosError}</p>
-        <p className="text-[12px] text-muted">
-          Ejecuta{" "}
-          <code className="rounded bg-[#f3f4f6] px-1.5 py-0.5">
-            npm run db:migrate
-          </code>{" "}
-          y{" "}
-          <code className="rounded bg-[#f3f4f6] px-1.5 py-0.5">
-            npm run db:seed
-          </code>
+        <p className="max-w-md text-[12px] text-muted">
+          Inicia sesión con tu correo{" "}
+          <span className="font-medium">@h-mv.com</span> o revisa el estado de
+          la conexión en{" "}
+          <a href="/dev/ifs" className="font-semibold text-navy underline">
+            /dev/ifs
+          </a>
+          .
         </p>
-        <Button
-          variant="primary"
-          onClick={() => void retryLoad()}
-          loading={retrying}
-          loadingLabel={loadingPlaceholder(LOADING_COPY.generic)}
-        >
-          Reintentar
-        </Button>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button
+            variant="primary"
+            onClick={() => void retryLoad()}
+            loading={retrying}
+            loadingLabel={loadingPlaceholder(LOADING_COPY.generic)}
+          >
+            Reintentar
+          </Button>
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center rounded-lg border border-[#c7d9ed] bg-[#eef3f9] px-4 py-2 text-[13px] font-medium text-navy hover:bg-[#dbeafe]"
+          >
+            Iniciar sesión
+          </Link>
+        </div>
       </div>
     );
   }

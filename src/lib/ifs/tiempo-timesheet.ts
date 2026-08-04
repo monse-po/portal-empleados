@@ -1,6 +1,6 @@
 import { LOADING_COPY } from "@/src/lib/copy/loading";
 import type { EmpReportItemRow } from "@/src/lib/ifs/types";
-import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroEstado, RegistroMock } from "@/src/lib/tiempo-registro";
 
 export function isIfsRegistroId(id: string): boolean {
   return id.startsWith("ifs-pt-");
@@ -8,8 +8,18 @@ export function isIfsRegistroId(id: string): boolean {
 
 export function parseEmpReportItems(raw: unknown): EmpReportItemRow[] {
   if (Array.isArray(raw)) return raw as EmpReportItemRow[];
-  const value = (raw as { value?: EmpReportItemRow[] })?.value;
-  return Array.isArray(value) ? value : [];
+  if (!raw || typeof raw !== "object") return [];
+  const obj = raw as Record<string, unknown>;
+  if (Array.isArray(obj.value)) return obj.value as EmpReportItemRow[];
+  for (const key of [
+    "EmpReportItemStructure",
+    "EmpReportItem",
+    "ReportItem",
+  ]) {
+    const nested = obj[key];
+    if (Array.isArray(nested)) return nested as EmpReportItemRow[];
+  }
+  return [];
 }
 
 function isoDate(value: string | undefined): string | null {
@@ -24,11 +34,65 @@ function parseHoras(value: string | number | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function readIfsText(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    for (const key of ["value", "Value", "Name", "name", "@odata.id"]) {
+      const nested = obj[key];
+      if (typeof nested === "string") return nested;
+      if (typeof nested === "number") return String(nested);
+    }
+  }
+  return "";
+}
+
+/** CEmpProjTimeStatus: Registered, Confirmed, NotApplicable, Rejected */
 function mapIfsEstado(row: EmpReportItemRow): RegistroEstado {
-  const status = `${row.CStatusDb ?? row.CStatus ?? ""}`.toLowerCase();
-  if (status.includes("reject")) return "Rechazado";
-  if (status.includes("confirm")) return "Aprobado";
-  if (status.includes("registered")) return "Registrado";
+  const statusDb = readIfsText(row.CStatusDb).trim().toLowerCase();
+  const statusRaw = readIfsText(row.CStatus).trim();
+  const status = statusRaw.toLowerCase();
+  const combined = `${statusDb} ${status}`.trim();
+
+  if (
+    combined.includes("reject") ||
+    status === "3" ||
+    statusRaw === "Rejected"
+  ) {
+    return "Rechazado";
+  }
+  if (
+    status === "confirmed" ||
+    statusDb === "confirmed" ||
+    status === "1" ||
+    statusRaw === "Confirmed" ||
+    combined.includes("confirm") ||
+    combined.includes("aprob") ||
+    combined.includes("closed") ||
+    combined.includes("posted")
+  ) {
+    return "Aprobado";
+  }
+  if (
+    status === "registered" ||
+    statusDb === "registered" ||
+    status === "0" ||
+    statusRaw === "Registered" ||
+    combined.includes("register") ||
+    combined.includes("pending")
+  ) {
+    return "Registrado";
+  }
+  if (
+    (row.CApproverName?.trim() || row.CAutoApproverName?.trim()) &&
+    !combined.includes("reject")
+  ) {
+    return "Aprobado";
+  }
   return "Borrador";
 }
 
@@ -46,7 +110,12 @@ export function mapEmpReportItemToRegistro(
   index: number,
 ): RegistroMock | null {
   const fecha = isoDate(row.AccountDate);
-  const proy = row.ShortName?.trim() || row.ProjectId?.trim();
+  const proy =
+    row.ShortName?.trim() ||
+    row.ProjectId?.trim() ||
+    (row.ProjectTransactionSeq != null
+      ? `SEQ-${row.ProjectTransactionSeq}`
+      : null);
   if (!fecha || !proy) return null;
 
   const horas = parseHoras(row.Hours);
@@ -82,6 +151,92 @@ export function mapEmployeeTimesheetToRegistros(
 ): RegistroMock[] {
   return parseEmpReportItems(raw)
     .map(mapEmpReportItemToRegistro)
+    .filter((row): row is RegistroMock => row !== null);
+}
+
+type ReportItemExpanded = EmpReportItemRow & {
+  Col2?: string;
+  ProjectTransactionRef?:
+    | Partial<EmpReportItemRow>
+    | { value?: Partial<EmpReportItemRow>[] };
+  ActivityRef?:
+    | (Partial<EmpReportItemRow> & { Description?: string })
+    | { value?: (Partial<EmpReportItemRow> & { Description?: string })[] };
+  ReportCostRef?:
+    | { ReportCostCode?: string }
+    | { value?: { ReportCostCode?: string }[] };
+};
+
+function pickExpanded<T>(ref: T | { value?: T[] } | undefined): T | undefined {
+  if (!ref) return undefined;
+  if (typeof ref === "object" && "value" in ref && Array.isArray(ref.value)) {
+    return ref.value[0];
+  }
+  return ref as T;
+}
+
+export function flattenReportItemRow(item: ReportItemExpanded): EmpReportItemRow {
+  const pt = pickExpanded(item.ProjectTransactionRef);
+  const act = pickExpanded(item.ActivityRef);
+  const cost = pickExpanded(item.ReportCostRef);
+
+  return {
+    CompanyId: item.CompanyId ?? pt?.CompanyId,
+    EmpNo: item.EmpNo,
+    ProjectTransactionSeq:
+      item.ProjectTransactionSeq ?? pt?.ProjectTransactionSeq,
+    ActivitySeq: item.ActivitySeq ?? act?.ActivitySeq,
+    AccountDate: item.AccountDate,
+    Module: item.Module,
+    Hours: item.Hours ?? pt?.Hours,
+    InternalComments: pt?.InternalComments ?? item.InternalComments,
+    CStatus: pt?.CStatus ?? item.CStatus,
+    CStatusDb: pt?.CStatusDb ?? item.CStatusDb,
+    CRejectNote: pt?.CRejectNote ?? item.CRejectNote,
+    CApprover: pt?.CApprover ?? item.CApprover,
+    CApproverName: pt?.CApproverName ?? item.CApproverName,
+    CAutoApproverName: pt?.CAutoApproverName ?? item.CAutoApproverName,
+    ProjectId: pt?.ProjectId ?? act?.ProjectId ?? item.ProjectId,
+    SubProjectId: pt?.SubProjectId ?? act?.SubProjectId ?? item.SubProjectId,
+    SubProjectDesc: pt?.SubProjectDesc ?? act?.SubProjectDesc ?? item.SubProjectDesc,
+    ActivityNo: act?.ActivityNo ?? item.ActivityNo,
+    ActDescription:
+      act?.ActDescription ?? act?.Description ?? item.ActDescription,
+    ShortName:
+      act?.ShortName ??
+      pt?.ShortName ??
+      item.ShortName ??
+      item.Col2 ??
+      pt?.ProjectId ??
+      act?.ProjectId ??
+      item.ProjectId,
+    ReportCostCode: cost?.ReportCostCode ?? item.ReportCostCode,
+    Objid: item.Objid,
+  };
+}
+
+export function dedupeRegistros(rows: RegistroMock[]): RegistroMock[] {
+  const byKey = new Map<string, RegistroMock>();
+  for (const row of rows) {
+    const key =
+      row.codigo?.startsWith("IFS-")
+        ? row.codigo
+        : isIfsRegistroId(row.id)
+          ? row.id
+          : `${row.fecha}|${row.proy}|${row.horas}|${row.act}|${row.tipo}`;
+    const existing = byKey.get(key);
+    if (!existing || isIfsRegistroId(row.id)) {
+      byKey.set(key, row);
+    }
+  }
+  return [...byKey.values()];
+}
+
+export function mapReportItemsHistoricoToRegistros(raw: unknown): RegistroMock[] {
+  return parseEmpReportItems(raw)
+    .map((row, index) =>
+      mapEmpReportItemToRegistro(flattenReportItemRow(row as ReportItemExpanded), index),
+    )
     .filter((row): row is RegistroMock => row !== null);
 }
 

@@ -4,25 +4,29 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-import { hoyDMY } from "@/src/lib/mis-anticipos-mock";
 import {
-  cloneInitialAproAnticipos,
   countAproAnticiposTabs,
   filterAproAnticiposByTab,
-  GERENTE_APROBADOR,
   getAproAnticiposKpis,
   type AnticipoAprobacion,
-  type AnticipoAprobacionEstado,
   type AnticipoAprobacionTab,
-} from "@/src/lib/aprobacion-anticipos-mock";
+} from "@/src/lib/aprobacion-anticipos-registro";
+import {
+  aprobarAnticiposAction,
+  getAprobacionAnticiposAction,
+  rechazarAnticiposAction,
+} from "@/src/server/aprobacion-anticipos-actions";
 import { useTableSelection } from "@/src/lib/use-table-selection";
 
 type AprobacionAnticiposContextValue = {
   solicitudes: Record<string, AnticipoAprobacion>;
+  loaded: boolean;
+  loadError: string | null;
   kpis: ReturnType<typeof getAproAnticiposKpis>;
   pendientesCount: number;
   tab: AnticipoAprobacionTab;
@@ -33,8 +37,9 @@ type AprobacionAnticiposContextValue = {
   toggleSeleccionLote: (nos: string[]) => void;
   clearSeleccion: () => void;
   registrosActuales: AnticipoAprobacion[];
-  aprobar: (nos: string[], comentario?: string) => void;
-  rechazar: (nos: string[], comentario: string) => void;
+  reload: () => Promise<void>;
+  aprobar: (nos: string[], comentario?: string) => Promise<void>;
+  rechazar: (nos: string[], comentario: string) => Promise<void>;
   getSolicitud: (no: string) => AnticipoAprobacion | undefined;
 };
 
@@ -46,7 +51,11 @@ export function AprobacionAnticiposProvider({
 }: {
   children: ReactNode;
 }) {
-  const [solicitudes, setSolicitudes] = useState(cloneInitialAproAnticipos);
+  const [solicitudes, setSolicitudes] = useState<
+    Record<string, AnticipoAprobacion>
+  >({});
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTabState] = useState<AnticipoAprobacionTab>("pendientes");
   const {
     seleccion,
@@ -54,6 +63,27 @@ export function AprobacionAnticiposProvider({
     toggleSeleccionLote,
     clearSeleccion,
   } = useTableSelection();
+
+  const reload = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const data = await getAprobacionAnticiposAction();
+      setSolicitudes(data);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar las solicitudes.",
+      );
+      setSolicitudes({});
+    } finally {
+      setLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   const setTab = useCallback(
     (next: AnticipoAprobacionTab) => {
@@ -63,44 +93,22 @@ export function AprobacionAnticiposProvider({
     [clearSeleccion],
   );
 
-  const aplicarEstado = useCallback(
-    (
-      nos: string[],
-      estado: AnticipoAprobacionEstado,
-      comentario: string,
-    ) => {
-      setSolicitudes((prev) => {
-        const next = { ...prev };
-        nos.forEach((no) => {
-          if (!next[no]) return;
-          next[no] = {
-            ...next[no],
-            estadoApro: estado,
-            comentarioApro: comentario,
-            fechaApro: estado ? hoyDMY() : "",
-            aprobador: estado ? GERENTE_APROBADOR : "",
-          };
-        });
-        return next;
-      });
-    },
-    [],
-  );
-
   const aprobar = useCallback(
-    (nos: string[], comentario = "") => {
-      aplicarEstado(nos, "Aprobado", comentario);
+    async (nos: string[], comentario = "") => {
+      await aprobarAnticiposAction(nos, comentario);
       clearSeleccion();
+      await reload();
     },
-    [aplicarEstado, clearSeleccion],
+    [clearSeleccion, reload],
   );
 
   const rechazar = useCallback(
-    (nos: string[], comentario: string) => {
-      aplicarEstado(nos, "Rechazado", comentario);
+    async (nos: string[], comentario: string) => {
+      await rechazarAnticiposAction(nos, comentario);
       clearSeleccion();
+      await reload();
     },
-    [aplicarEstado, clearSeleccion],
+    [clearSeleccion, reload],
   );
 
   const kpis = useMemo(() => getAproAnticiposKpis(solicitudes), [solicitudes]);
@@ -116,6 +124,8 @@ export function AprobacionAnticiposProvider({
   const value = useMemo(
     () => ({
       solicitudes,
+      loaded,
+      loadError,
       kpis,
       pendientesCount: kpis.pendientes,
       tab,
@@ -126,12 +136,15 @@ export function AprobacionAnticiposProvider({
       toggleSeleccionLote,
       clearSeleccion,
       registrosActuales,
+      reload,
       aprobar,
       rechazar,
       getSolicitud: (no: string) => solicitudes[no],
     }),
     [
       solicitudes,
+      loaded,
+      loadError,
       kpis,
       tab,
       tabCounts,
@@ -140,6 +153,7 @@ export function AprobacionAnticiposProvider({
       toggleSeleccionLote,
       clearSeleccion,
       registrosActuales,
+      reload,
       aprobar,
       rechazar,
     ],

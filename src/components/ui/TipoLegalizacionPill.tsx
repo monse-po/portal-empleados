@@ -9,24 +9,24 @@ export const TIPO_LEGALIZACION_OPTIONS: SegmentedOption<LegalizacionTipo>[] = [
     label: "Con anticipo",
     icon: "wallet",
     activeClassName:
-      "bg-[#eff6ff] text-[#1d4ed8] shadow-sm ring-1 ring-[#1d4ed8]/30",
-    inactiveClassName: "text-muted hover:bg-[#f3f4f6] hover:text-[#1d4ed8]",
+      "bg-[#dbeafe] text-[#1e40af] shadow-sm ring-1 ring-[#1d4ed8]/45",
+    inactiveClassName: "text-muted hover:bg-[#f3f4f6] hover:text-[#1e40af]",
   },
   {
     value: "Tarjeta corporativa",
     label: "Tarjeta corp.",
     icon: "briefcase",
     activeClassName:
-      "bg-green-bg text-green shadow-sm ring-1 ring-green/30",
-    inactiveClassName: "text-muted hover:bg-[#f3f4f6] hover:text-green",
+      "bg-[#bbf7d0] text-[#15803d] shadow-sm ring-1 ring-[#15803d]/45",
+    inactiveClassName: "text-muted hover:bg-[#f3f4f6] hover:text-[#15803d]",
   },
   {
     value: "Sin anticipos",
     label: "Sin anticipo",
-    icon: "folderOpen",
+    icon: "receipt",
     activeClassName:
-      "bg-[#f5f3ff] text-[#6d28d9] shadow-sm ring-1 ring-[#6d28d9]/30",
-    inactiveClassName: "text-muted hover:bg-[#f3f4f6] hover:text-[#6d28d9]",
+      "bg-[#ede9fe] text-[#5b21b6] shadow-sm ring-1 ring-[#6d28d9]/45",
+    inactiveClassName: "text-muted hover:bg-[#f3f4f6] hover:text-[#5b21b6]",
   },
 ];
 
@@ -44,7 +44,7 @@ const tipoLegalizacionPillVariant: Record<LegalizacionTipo, PillVariant> = {
 const tipoLegalizacionIcon = {
   "Con anticipo": "wallet",
   "Tarjeta corporativa": "briefcase",
-  "Sin anticipos": "folderOpen",
+  "Sin anticipos": "receipt",
 } as const;
 
 type TipoLegalizacionPillProps = {

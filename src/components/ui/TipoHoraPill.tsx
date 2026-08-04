@@ -1,6 +1,6 @@
 import { Icon } from "@/src/components/ui/Icon";
 import { Pill } from "@/src/components/ui/Pill";
-import { getTipoHoraMeta } from "@/src/lib/mi-tiempo-mock";
+import { getTipoHoraMeta } from "@/src/lib/tiempo-registro";
 
 type TipoHoraPillProps = {
   tipo: string;

@@ -1,5 +1,5 @@
 /** Textos de UI del módulo Mi Histórico. */
 export const HISTORICO_UI_COPY = {
   subtitle:
-    "Consulta las horas que tu gerente ya aprobó, proyecto por proyecto. Solo lectura — tu respaldo para hoja de vida y certificaciones.",
+    "Horas enviadas y confirmadas por tu gerente en IFS — últimos 12 meses, solo lectura.",
 };

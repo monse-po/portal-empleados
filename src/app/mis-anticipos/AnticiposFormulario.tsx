@@ -19,38 +19,46 @@ import type { LanzarAnticipoInput } from "@/src/app/mis-anticipos/AnticiposConte
 import {
   COMPANIAS,
   COMPANIAS_HMV,
-  DIVISAS_POR_COMPANIA,
-  EMP_DET,
   EMPLEADOS_ANT,
   fmtMontoInput,
-  getDirectorProyecto,
   getEmpleadosPorEmpresa,
+  parseMontoInput,
+  type DestinoSel,
+  type EmpleadoAnticipo,
+} from "@/src/lib/anticipos-catalog";
+import {
+  flattenLocalDestinos,
+  searchDestinosConfig,
+  type DivisaOption,
+} from "@/src/lib/anticipos-ifs-catalog";
+import {
   hoyDMY,
   hoyIso,
   isoToDmy,
-  parseMontoInput,
-  PRE_MAP,
-  PROYECTOS_ANT,
-  searchDestinos,
-  SESSION_EMPLEADO,
   validarFechaIdaViaje,
   type AnticipoTipo,
-  type DestinoSel,
-  type EmpleadoAnticipo,
   type LovItem,
-} from "@/src/lib/mis-anticipos-mock";
+} from "@/src/lib/anticipos-registro";
+import {
+  resolveAprobadorLabel,
+  type TiempoCatalog,
+} from "@/src/lib/ifs/tiempo-catalog";
+import type { PortalUserProfile } from "@/src/lib/portal-user-profile";
+import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
+import {
+  fetchDestinosAnticipoAction,
+  fetchDivisasAnticipoAction,
+} from "@/src/server/anticipos-catalog-actions";
+import {
+  fetchProjectAprobadorAction,
+  fetchTiempoCatalogAction,
+} from "@/src/server/mi-tiempo-catalog-actions";
 
 type AnticiposFormularioProps = {
   onVolver: () => void;
-  onLanzar: (input: LanzarAnticipoInput) => string | null;
+  onLanzar: (input: LanzarAnticipoInput) => Promise<string | null>;
   onLanzarOtro: (beneficiario: string) => void;
 };
-
-const PROYECTOS_LOV: LovItem[] = PROYECTOS_ANT.map((p) => ({
-  id: p.id,
-  nombre: p.nombre,
-  sub: p.sub,
-}));
 
 function RoInput({ value }: { value: string }) {
   return <input readOnly value={value} className="ant-ro-input" />;
@@ -165,16 +173,27 @@ function FormNote({
 function DestinoPicker({
   value,
   onChange,
-  error,
+  destinos,
+  loading,
 }: {
   value: DestinoSel | null;
   onChange: (dest: DestinoSel | null) => void;
-  error?: boolean;
+  destinos: DestinoSel[];
+  loading?: boolean;
 }) {
   const [q, setQ] = useState(value?.label || "");
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const resultados = useMemo(() => searchDestinos(q), [q]);
+  const resultados = useMemo(
+    () => searchDestinosConfig(destinos, q),
+    [destinos, q],
+  );
+
+  useEffect(() => {
+    if (value?.label && value.label !== q) setQ(value.label);
+    // Solo sincronizar cuando cambia la selección externa
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value?.label]);
 
   useEffect(() => {
     if (!open) return;
@@ -184,15 +203,6 @@ function DestinoPicker({
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
-
-  const porPais = useMemo(() => {
-    const map: Record<string, DestinoSel[]> = {};
-    resultados.forEach((r) => {
-      if (!map[r.pais]) map[r.pais] = [];
-      map[r.pais].push(r);
-    });
-    return map;
-  }, [resultados]);
 
   return (
     <div ref={wrapRef} className="relative">
@@ -205,48 +215,45 @@ function DestinoPicker({
         <input
           type="text"
           value={q}
+          disabled={loading}
           onChange={(e) => {
             setQ(e.target.value);
             onChange(null);
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Ej: Medellín, Bogotá, Miami..."
+          placeholder={
+            loading
+              ? "Cargando destinos…"
+              : "Ej: Bello, Antioquia, Colombia…"
+          }
           autoComplete="off"
-          className={`ant-field-input !pl-[30px] ${error ? "!border-red" : ""}`}
+          className="ant-field-input !pl-[30px]"
         />
       </div>
-      {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+3px)] z-[200] max-h-[260px] overflow-y-auto rounded-lg border border-border bg-white shadow-[0_4px_16px_rgba(0,0,0,0.10)]">
-          {Object.keys(porPais).length === 0 ? (
+      {open && !loading && (
+        <div className="absolute left-0 right-0 top-[calc(100%+3px)] z-[200] max-h-[280px] overflow-y-auto rounded-lg border border-border bg-white shadow-[0_4px_16px_rgba(0,0,0,0.10)]">
+          {resultados.length === 0 ? (
             <div className="px-3.5 py-3 text-[12px] text-[#9ca3af]">
               Sin resultados
             </div>
           ) : (
-            Object.entries(porPais).map(([pais, items]) => (
-              <div key={pais}>
-                <div className="border-t border-[#f3f4f6] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#9ca3af] first:border-t-0">
-                  {pais}
-                </div>
-                {items.map((r) => (
-                  <button
-                    key={`${r.pCode}-${r.ciudad}`}
-                    type="button"
-                    onClick={() => {
-                      onChange(r);
-                      setQ(r.label);
-                      setOpen(false);
-                    }}
-                    className="flex w-full cursor-pointer items-center gap-2 px-3.5 py-[7px] text-left hover:bg-[#f5f7fa]"
-                  >
-                    <Icon name="mapPin" size="xs" className="text-navy" />
-                    <span className="text-[12.5px] font-medium text-[#1a1a2e]">
-                      {r.ciudad}
-                    </span>
-                    <span className="text-[11px] text-[#9ca3af]">· {r.dpto}</span>
-                  </button>
-                ))}
-              </div>
+            resultados.map((r) => (
+              <button
+                key={`${r.pCode}-${r.dpto}-${r.ciudad}`}
+                type="button"
+                onClick={() => {
+                  onChange(r);
+                  setQ(r.label);
+                  setOpen(false);
+                }}
+                className="flex w-full cursor-pointer items-center gap-2 px-3.5 py-[8px] text-left hover:bg-[#f5f7fa]"
+              >
+                <Icon name="mapPin" size="xs" className="shrink-0 text-navy" />
+                <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-[#1a1a2e]">
+                  {r.label}
+                </span>
+              </button>
             ))
           )}
         </div>
@@ -261,14 +268,24 @@ export function AnticiposFormulario({
   onLanzarOtro,
 }: AnticiposFormularioProps) {
   const { toast } = useToast();
+  const [profile, setProfile] = useState<PortalUserProfile | null>(null);
+  const [catalog, setCatalog] = useState<TiempoCatalog | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [proyectosLov, setProyectosLov] = useState<LovItem[]>([]);
+  const [aprobadorIfs, setAprobadorIfs] = useState<string | null>(null);
+  const [aprobadorLoading, setAprobadorLoading] = useState(false);
   const [paraOtro, setParaOtro] = useState(false);
   const [tipo, setTipo] = useState<AnticipoTipo | "">("");
-  const [companiaId, setCompaniaId] = useState(SESSION_EMPLEADO.companiaDefault);
+  const [companiaId, setCompaniaId] = useState("");
   const [companiaGastoOtro, setCompaniaGastoOtro] = useState("");
   const [proySel, setProySel] = useState<LovItem | null>(null);
   const [compBenef, setCompBenef] = useState<LovItem | null>(null);
   const [empOtro, setEmpOtro] = useState<EmpleadoAnticipo | null>(null);
   const [divisa, setDivisa] = useState("COP");
+  const [divisas, setDivisas] = useState<DivisaOption[]>([]);
+  const [destinos, setDestinos] = useState<DestinoSel[]>([]);
+  const [destinosLoading, setDestinosLoading] = useState(true);
   const [monto, setMonto] = useState("");
   const [motivo, setMotivo] = useState("");
   const [fechaIda, setFechaIda] = useState("");
@@ -280,32 +297,155 @@ export function AnticiposFormulario({
   const [envioOpen, setEnvioOpen] = useState(false);
   const [resumenHtml, setResumenHtml] = useState("");
 
+  useEffect(() => {
+    void fetch("/api/auth/session")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.ok) return;
+        const p = data as PortalUserProfile & { ok?: boolean };
+        setProfile(p);
+        if (p.companyId) setCompaniaId(p.companyId);
+      });
+  }, []);
+
+  useEffect(() => {
+    const hoy = hoyIso();
+    setCatalogLoading(true);
+    setCatalogError(null);
+    void fetchTiempoCatalogAction(hoy).then((result) => {
+      setCatalogLoading(false);
+      if (!result.catalog) {
+        setCatalog(null);
+        setProyectosLov([]);
+        setCatalogError(
+          result.error ??
+            "No se pudieron cargar tus proyectos desde IFS. Vuelve a iniciar sesión.",
+        );
+        return;
+      }
+      setCatalog(result.catalog);
+      setProyectosLov(
+        result.catalog.proyectos.map((p) => ({
+          id: p.id,
+          nombre: p.nombre,
+          sub: p.projectId !== p.id ? p.projectId : "",
+        })),
+      );
+    });
+  }, []);
+
+  useEffect(() => {
+    setDestinos(flattenLocalDestinos());
+    setDestinosLoading(false);
+    void fetchDestinosAnticipoAction().then((result) => {
+      if (result.destinos.length) setDestinos(result.destinos);
+    });
+  }, []);
+
+  const aprobadorLabel = useMemo(() => {
+    if (!proySel) return "";
+    if (aprobadorLoading) return "Consultando aprobador en IFS…";
+    return (
+      aprobadorIfs ??
+      resolveAprobadorLabel(catalog, proySel.id) ??
+      TIEMPO_UI_COPY.approverFallback
+    );
+  }, [proySel, aprobadorLoading, aprobadorIfs, catalog]);
+
+  useEffect(() => {
+    if (!proySel || !catalog) {
+      setAprobadorIfs(null);
+      setAprobadorLoading(false);
+      return;
+    }
+
+    const entry = catalog.porProyecto[proySel.id];
+    if (!entry) {
+      setAprobadorIfs(null);
+      setAprobadorLoading(false);
+      return;
+    }
+
+    // Si el catálogo solo tiene código (abreviación IFS), igual consultar
+    // ProjectInfo + EmployeeInfo para intentar el nombre completo.
+    const cachedName = entry.aprobador?.name?.trim();
+    if (cachedName) {
+      setAprobadorIfs(cachedName);
+      setAprobadorLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setAprobadorLoading(true);
+    setAprobadorIfs(entry.aprobador?.code?.trim() || null);
+
+    void fetchProjectAprobadorAction({
+      shortName: proySel.id,
+      projectId: entry.projectId,
+      companyId: entry.companyId,
+    }).then((result) => {
+      if (cancelled) return;
+      setAprobadorLoading(false);
+      setAprobadorIfs(
+        result.aprobador ?? entry.aprobador?.code?.trim() ?? null,
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [proySel, catalog]);
+
   const companiaDivisa = paraOtro ? companiaGastoOtro || companiaId : companiaId;
-  const divisas =
-    DIVISAS_POR_COMPANIA[companiaDivisa] || DIVISAS_POR_COMPANIA.HMVINGCO;
+
+  useEffect(() => {
+    if (!companiaDivisa) return;
+    let cancelled = false;
+    void fetchDivisasAnticipoAction(companiaDivisa).then((result) => {
+      if (cancelled) return;
+      setDivisas(result.divisas);
+      setDivisa((prev) => {
+        if (result.divisas.some((d) => d.code === prev)) return prev;
+        return result.divisas[0]?.code || "COP";
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [companiaDivisa]);
+
+  const divisaPre = useMemo(
+    () => divisas.find((d) => d.code === divisa)?.pre || "$",
+    [divisas, divisa],
+  );
   const hoy = hoyIso();
   const empLogueado = useMemo(
     () =>
-      EMPLEADOS_ANT.find((e) => e.id === fmtCedulaSinPuntos(EMP_DET.cedula)),
-    [],
+      profile
+        ? EMPLEADOS_ANT.find((e) => e.id === profile.empleadoDbId.replace(/\D/g, ""))
+        : undefined,
+    [profile],
   );
-  const companiasPropias = useMemo(
-    () =>
+  const companiasPropias = useMemo(() => {
+    if (profile?.companyId) {
+      const label =
+        COMPANIAS.find((c) => c.id === profile.companyId)?.label ??
+        profile.companyName ??
+        profile.companyId;
+      return [{ id: profile.companyId, label }];
+    }
+    return (
       empLogueado?.companias ?? [
         {
-          id: SESSION_EMPLEADO.companiaDefault,
+          id: companiaId || "HMVINGCO",
           label:
-            COMPANIAS.find((c) => c.id === SESSION_EMPLEADO.companiaDefault)
-              ?.label ?? SESSION_EMPLEADO.companiaDefault,
+            COMPANIAS.find((c) => c.id === (companiaId || "HMVINGCO"))?.label ??
+            companiaId,
         },
-      ],
-    [empLogueado],
-  );
+      ]
+    );
+  }, [profile, empLogueado, companiaId]);
   const montoNum = useMemo(() => parseMontoInput(monto), [monto]);
-  const directorProyecto = useMemo(
-    () => getDirectorProyecto(proySel?.id),
-    [proySel],
-  );
   const empleadosOtro = compBenef ? getEmpleadosPorEmpresa(compBenef.id) : [];
   const showEmpOtroBenefRows = paraOtro && !!compBenef;
   const showEmpOtroDatos = showEmpOtroBenefRows && !!empOtro;
@@ -344,11 +484,7 @@ export function AnticiposFormulario({
     setCompBenef(item);
     setProySel(null);
     setEmpOtro(null);
-    const compId = item?.id ?? "";
-    setCompaniaGastoOtro(compId);
-    if (item) {
-      setDivisa(DIVISAS_POR_COMPANIA[item.id]?.[0]?.code || "COP");
-    }
+    setCompaniaGastoOtro(item?.id ?? "");
   };
 
   const handleProyOtroChange = (item: LovItem | null) => {
@@ -360,28 +496,25 @@ export function AnticiposFormulario({
   const handleEmpOtroChange = (item: LovItem | null) => {
     const emp = EMPLEADOS_ANT.find((e) => e.id === item?.id) || null;
     setEmpOtro(emp);
-    const compId = emp?.empresa ?? compBenef?.id ?? "";
-    setCompaniaGastoOtro(compId);
-    if (compId) {
-      setDivisa(DIVISAS_POR_COMPANIA[compId]?.[0]?.code || "COP");
-    }
+    setCompaniaGastoOtro(emp?.empresa ?? compBenef?.id ?? "");
   };
 
   const handleCompaniaPropiaChange = (id: string) => {
     setCompaniaId(id);
     setProySel(null);
-    setDivisa(DIVISAS_POR_COMPANIA[id]?.[0]?.code || "COP");
   };
 
   const handleCompaniaGastoOtroChange = (id: string) => {
     setCompaniaGastoOtro(id);
-    setDivisa(DIVISAS_POR_COMPANIA[id]?.[0]?.code || "COP");
   };
 
   const handleDestinoChange = (dest: DestinoSel | null) => {
     setSelDest(dest);
     if (dest) {
-      setTipoViaje(dest.pCode === "CO" ? "nacional" : "internacional");
+      const code = dest.pCode.toUpperCase();
+      setTipoViaje(
+        code === "CO" || code === "COL" ? "nacional" : "internacional",
+      );
     }
   };
 
@@ -438,7 +571,7 @@ export function AnticiposFormulario({
       }
     }
 
-    const pre = PRE_MAP[divisa] || "$";
+    const pre = divisaPre;
     let viajeDet = "";
     if (tipo === "Viaje" && selDest) {
       const tvColor =
@@ -459,7 +592,7 @@ export function AnticiposFormulario({
       : "mí";
     const empCoLabel = paraOtro
       ? `${compBenef!.id} – ${compBenef!.nombre}`
-      : EMP_DET.empresa.split("–")[0].trim();
+      : profile?.companyName ?? profile?.companyId ?? companiaId;
 
     setResumenHtml(`
       <div class="mb-4 rounded-lg border border-border bg-[#f8fafc] p-4">
@@ -477,7 +610,7 @@ export function AnticiposFormulario({
       <div class="space-y-2 text-[12.5px]">
         <div class="flex justify-between gap-4"><span class="text-muted">Para</span><span class="font-medium">${empLabel}</span></div>
         <div class="flex justify-between gap-4"><span class="text-muted">Proyecto</span><span class="font-medium">${proySel!.id}</span></div>
-        <div class="flex justify-between gap-4"><span class="text-muted">Director de proyecto</span><span class="font-medium">${directorProyecto ? `${directorProyecto.nombre} (${directorProyecto.codigo})` : "—"}</span></div>
+        <div class="flex justify-between gap-4"><span class="text-muted">Director de proyecto</span><span class="font-medium">${aprobadorLabel || "—"}</span></div>
         <div class="flex justify-between gap-4"><span class="text-muted">Compañía que asume el gasto</span><span class="font-medium">${compLabel.split("–")[0].trim()}</span></div>
         <div class="flex justify-between gap-4"><span class="text-muted">Empresa del empleado</span><span class="font-medium">${empCoLabel}</span></div>
       </div>
@@ -485,25 +618,37 @@ export function AnticiposFormulario({
     setEnvioOpen(true);
   };
 
-  const ejecutarEnvio = () => {
+  const ejecutarEnvio = async () => {
     setEnvioOpen(false);
     const compLabel = paraOtro
       ? empOtro!.companias.find((c) => c.id === companiaGastoOtro)?.label ||
         companiaGastoOtro
       : companiasPropias.find((c) => c.id === companiaId)?.label || companiaId;
-    const proy = PROYECTOS_ANT.find((p) => p.id === proySel!.id)!;
 
-    const input: LanzarAnticipoInput = {
+  const aprobadorPersistible =
+    aprobadorIfs?.trim() ||
+    (proySel
+      ? resolveAprobadorLabel(catalog, proySel.id).trim()
+      : "");
+  // No guardar el texto genérico de fallback
+  const aprobadorParaGuardar =
+    aprobadorPersistible &&
+    aprobadorPersistible !== TIEMPO_UI_COPY.approverFallback
+      ? aprobadorPersistible
+      : undefined;
+
+  const input: LanzarAnticipoInput = {
       tipo: tipo as AnticipoTipo,
-      proyId: proy.id,
-      proyN: proy.nombre,
+      proyId: proySel!.id,
+      proyN: proySel!.nombre,
       monto: montoNum,
       div: divisa,
       motivo: motivo.trim(),
       compania: compLabel,
       empCompania: paraOtro
         ? `${compBenef!.id} – ${compBenef!.nombre}`
-        : EMP_DET.empresa,
+        : profile?.companyName ?? profile?.companyId ?? companiaId,
+      aprobador: aprobadorParaGuardar,
       paraOtro,
       beneficiarioId: paraOtro ? empOtro!.id : undefined,
       beneficiarioNombre: paraOtro ? empOtro!.nombre : undefined,
@@ -515,21 +660,20 @@ export function AnticiposFormulario({
     };
 
     if (paraOtro) {
-      onLanzar(input);
+      await onLanzar(input);
       onLanzarOtro(empOtro!.nombre);
-      onVolver();
       return;
     }
 
-    const no = onLanzar(input);
-    if (!no) return;
-
-    toast(
-      `Solicitud ${no} enviada — notificamos al director de proyecto`,
-      "green",
-    );
-    onVolver();
+    const codigo = await onLanzar(input);
+    if (codigo) {
+      toast(`Solicitud ${codigo} lanzada`, "green");
+      onVolver();
+    }
   };
+
+  const empleadoNombre = profile?.name ?? "—";
+  const empleadoIdDisplay = profile?.empleadoDbId ?? "—";
 
   return (
     <>
@@ -577,6 +721,17 @@ export function AnticiposFormulario({
         <Card className="mb-3 overflow-visible">
           <CardBody className="py-4">
             <FormSection icon="userCircle" title="Empleado beneficiario">
+              {catalogError && (
+                <FormHint>
+                  <strong>Proyectos IFS:</strong> {catalogError}
+                </FormHint>
+              )}
+              {!catalogLoading && !catalogError && proyectosLov.length === 0 && (
+                <FormHint>
+                  IFS no devolvió proyectos asociados a tu empleado. Revisa
+                  GetValidEmpPrjAct en /dev/ifs.
+                </FormHint>
+              )}
               {paraOtro ? (
                 <>
                   <FormHint>
@@ -604,18 +759,18 @@ export function AnticiposFormulario({
                           <LovPicker
                             value={proySel}
                             onChange={handleProyOtroChange}
-                            items={PROYECTOS_LOV}
-                            placeholder="Seleccionar proyecto"
+                            items={proyectosLov}
+                            placeholder={
+                              catalogLoading
+                                ? "Cargando proyectos IFS…"
+                                : "Seleccionar proyecto"
+                            }
+                            searchPlaceholder="Buscar proyecto…"
+                            disabled={catalogLoading || proyectosLov.length === 0}
                           />
                         </Field>
                         <Field label="Aprobador">
-                          <RoInput
-                            value={
-                              directorProyecto
-                                ? `${directorProyecto.nombre} (${directorProyecto.codigo})`
-                                : ""
-                            }
-                          />
+                          <RoInput value={aprobadorLabel} />
                         </Field>
                         <Field label="Compañía que asume el gasto">
                           <SelectControl
@@ -671,18 +826,18 @@ export function AnticiposFormulario({
                       <LovPicker
                         value={proySel}
                         onChange={setProySel}
-                        items={PROYECTOS_LOV}
-                        placeholder="Seleccionar proyecto"
+                        items={proyectosLov}
+                        placeholder={
+                          catalogLoading
+                            ? "Cargando proyectos IFS…"
+                            : "Seleccionar proyecto"
+                        }
+                        searchPlaceholder="Buscar proyecto…"
+                        disabled={catalogLoading || proyectosLov.length === 0}
                       />
                     </Field>
                     <Field label="Aprobador">
-                      <RoInput
-                        value={
-                          directorProyecto
-                            ? `${directorProyecto.nombre} (${directorProyecto.codigo})`
-                            : ""
-                        }
-                      />
+                      <RoInput value={aprobadorLabel} />
                     </Field>
                     <Field label="Compañía que asume el gasto">
                       <SelectControl
@@ -701,14 +856,14 @@ export function AnticiposFormulario({
                     </Field>
                   </FormGrid>
                   <FormGrid className="mt-3">
-                    <Field label="Cédula">
-                      <RoInput value={fmtCedulaSinPuntos(EMP_DET.cedula)} />
+                    <Field label="Identificador">
+                      <RoInput value={empleadoIdDisplay} />
                     </Field>
                     <Field label="Nombre">
-                      <RoInput value={EMP_DET.nombre} />
+                      <RoInput value={empleadoNombre} />
                     </Field>
                     <Field label="Cuenta">
-                      <RoInput value={maskCuenta(EMP_DET.cuenta)} />
+                      <RoInput value="Consultar en IFS" />
                     </Field>
                   </FormGrid>
                 </>
@@ -764,7 +919,7 @@ export function AnticiposFormulario({
                 <Field label="Monto" required>
                   <div className="flex h-9 w-full overflow-hidden rounded-[5px] border border-border bg-white focus-within:border-navy">
                     <span className="flex min-w-[34px] items-center justify-center border-r border-border bg-[#f3f4f6] px-2 text-[13px] font-medium text-muted">
-                      {PRE_MAP[divisa] || "$"}
+                      {divisaPre}
                     </span>
                     <input
                       type="text"
@@ -796,11 +951,7 @@ export function AnticiposFormulario({
                         }
                         if (next < hoy) return;
                         setFechaIda(next);
-                        if (
-                          fechaRegreso &&
-                          next &&
-                          fechaRegreso < next
-                        ) {
+                        if (fechaRegreso && next && fechaRegreso < next) {
                           setFechaRegreso(next);
                         }
                       }}
@@ -819,6 +970,8 @@ export function AnticiposFormulario({
                     <DestinoPicker
                       value={selDest}
                       onChange={handleDestinoChange}
+                      destinos={destinos}
+                      loading={destinosLoading}
                     />
                   </Field>
                 </FormGrid>

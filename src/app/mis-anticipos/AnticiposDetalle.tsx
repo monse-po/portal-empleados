@@ -14,15 +14,14 @@ import {
 } from "@/src/components/ui/DetailView";
 import { Icon } from "@/src/components/ui/Icon";
 import { TipoAnticipoPill } from "@/src/components/ui/TipoAnticipoPill";
+import { useAnticipos } from "@/src/app/mis-anticipos/AnticiposContext";
 import {
   formatMonto,
   getBeneficiarioDetalle,
-  getDirectorProyecto,
   puedeCancelarEmpleado,
-  SESSION_EMPLEADO,
   type Anticipo,
   type AnticipoExtra,
-} from "@/src/lib/mis-anticipos-mock";
+} from "@/src/lib/anticipos-registro";
 
 type AnticiposDetalleProps = {
   anticipo: Anticipo;
@@ -37,14 +36,12 @@ export function AnticiposDetalle({
   onVolver,
   onCancelar,
 }: AnticiposDetalleProps) {
-  const puedeCancelar = puedeCancelarEmpleado(anticipo);
-  const solicitanteNombre =
-    anticipo.solicitante || SESSION_EMPLEADO.nombre;
-  const beneficiario = getBeneficiarioDetalle(anticipo);
-  const director = getDirectorProyecto(anticipo.proy);
-  const aprobadorLabel = director
-    ? `${director.nombre} (${director.codigo})`
-    : anticipo.aprobador || "—";
+  const { empleadoId } = useAnticipos();
+  const puedeCancelar =
+    empleadoId != null && puedeCancelarEmpleado(anticipo, empleadoId);
+  const solicitanteNombre = anticipo.solicitante ?? "—";
+  const beneficiario = getBeneficiarioDetalle(anticipo, extra);
+  const aprobadorLabel = anticipo.aprobador?.trim() || "—";
   const companiaGasto =
     extra?.compania || "HMVINGCO – HMV Ingenieros";
   const banner = getAnticipoEventBanner(

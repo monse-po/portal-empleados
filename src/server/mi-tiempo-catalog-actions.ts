@@ -6,6 +6,7 @@ import {
   getValidActReportCode,
   getValidEmpPrjAct,
   openCempPortalSession,
+  resolvePersonDisplayName,
 } from "@/src/lib/ifs/cemp-portal";
 import { formatIfsError, IfsApiError } from "@/src/lib/ifs/errors";
 import {
@@ -87,8 +88,10 @@ export async function fetchTiempoCatalogAction(accountDate: string): Promise<{
 export async function fetchProjectAprobadorAction(input: {
   shortName: string;
   projectId: string;
+  companyId?: string;
 }): Promise<{
   aprobador?: string;
+  aprobadorCode?: string;
   error?: string;
   sessionExpired?: boolean;
 }> {
@@ -99,7 +102,18 @@ export async function fetchProjectAprobadorAction(input: {
         try {
           const info = await getProjectInfo(session.accessToken, projectId);
           const manager = info.Manager?.trim();
-          if (manager) return { aprobador: manager };
+          if (!manager) continue;
+
+          const fullName = await resolvePersonDisplayName(
+            session.accessToken,
+            manager,
+            info.Company ?? input.companyId,
+          );
+          // Preferir nombre completo; si IFS no lo resuelve, queda el código.
+          return {
+            aprobador: fullName || manager,
+            aprobadorCode: manager,
+          };
         } catch {
           /* probar siguiente clave */
         }

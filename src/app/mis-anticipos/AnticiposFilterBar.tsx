@@ -27,7 +27,7 @@ import {
   type AnticipoFilterColumn,
   type AnticipoFilterRule,
 } from "@/src/lib/anticipos-filtros";
-import type { Anticipo, AnticipoTab } from "@/src/lib/mis-anticipos-mock";
+import type { Anticipo, AnticipoTab } from "@/src/lib/anticipos-registro";
 import type { IconName } from "@/src/components/ui/Icon";
 
 type AnticiposFilterBarProps = {

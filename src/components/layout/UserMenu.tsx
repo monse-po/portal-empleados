@@ -7,15 +7,60 @@ import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
 import { useToast } from "@/src/components/ui/Toast";
 import { useRole, type UsuarioRol } from "@/src/components/layout/RoleContext";
 import { getHomePathForRole } from "@/src/lib/modules";
+import {
+  profileSubtitle,
+  type PortalUserProfile,
+} from "@/src/lib/portal-user-profile";
 
 const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
+
+const FALLBACK_PROFILE: PortalUserProfile = {
+  email: "carlos.rivas@hmvingenieros.com",
+  name: "Carlos Rivas",
+  companyId: "HMVINGCO",
+  empleadoDbId: "1023456789",
+  source: "demo",
+};
+
+type SessionResponse = PortalUserProfile & { ok: boolean };
 
 export function UserMenu() {
   const { rol, setRol, homePath } = useRole();
   const { toast } = useToast();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState<PortalUserProfile | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as SessionResponse;
+        if (!cancelled && data.ok) {
+          setProfile({
+            email: data.email,
+            name: data.name,
+            companyId: data.companyId,
+            companyName: data.companyName,
+            empNo: data.empNo,
+            ifsEmpId: data.ifsEmpId,
+            empleadoDbId: data.empleadoDbId,
+            source: data.source,
+          });
+        }
+      } catch {
+        /* mantener fallback */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -34,6 +79,9 @@ export function UserMenu() {
       document.removeEventListener("mousedown", onClick);
     };
   }, [open]);
+
+  const user = profile ?? FALLBACK_PROFILE;
+  const subtitle = profileSubtitle(user);
 
   const cambiarRol = (next: UsuarioRol) => {
     if (next === rol) {
@@ -66,10 +114,10 @@ export function UserMenu() {
         </div>
         <div className="hidden flex-col gap-px text-left md:flex">
           <span className="text-[13px] font-semibold leading-tight text-navy">
-            Carlos Rivas
+            {user.name}
           </span>
-          <span className="text-[11px] leading-tight text-muted">
-            carlos.rivas@hmvingenieros.com · HMVINGCO
+          <span className="max-w-[240px] truncate text-[11px] leading-tight text-muted">
+            {subtitle}
           </span>
         </div>
         <span
@@ -85,12 +133,13 @@ export function UserMenu() {
           className="absolute right-0 top-[calc(100%+8px)] z-[300] min-w-[220px] overflow-hidden rounded-[10px] border border-border bg-white py-1 shadow-[0_10px_28px_rgba(15,23,42,0.14)]"
         >
           <div className="border-b border-[#f1f5f9] px-3.5 py-2.5">
-            <div className="text-[13px] font-semibold text-navy">
-              Carlos Rivas
-            </div>
-            <div className="text-[11px] text-muted">
-              carlos.rivas@hmvingenieros.com
-            </div>
+            <div className="text-[13px] font-semibold text-navy">{user.name}</div>
+            <div className="break-all text-[11px] text-muted">{user.email}</div>
+            {user.source === "ifs" && user.companyId ? (
+              <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-green">
+                IFS · {user.companyId}
+              </div>
+            ) : null}
           </div>
 
           <button
@@ -98,7 +147,12 @@ export function UserMenu() {
             role="menuitem"
             onClick={() => {
               setOpen(false);
-              toast("Perfil de usuario (demo)", "navy");
+              toast(
+                user.source === "ifs"
+                  ? `Sesión IFS: ${user.email}`
+                  : "Perfil de usuario (demo)",
+                "navy",
+              );
             }}
             className="flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-3.5 py-2 text-left text-[12.5px] text-[#374151] hover:bg-[#f4f7fb]"
           >

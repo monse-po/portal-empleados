@@ -14,8 +14,14 @@ import {
 type Vista = "lista" | "detalle" | "form";
 
 function AnticiposViewInner() {
-  const { getAnticipo, getExtra, lanzarAnticipo, cancelarAnticipo } =
-    useAnticipos();
+  const {
+    getAnticipo,
+    getExtra,
+    lanzarAnticipo,
+    cancelarAnticipo,
+    loaded,
+    loadError,
+  } = useAnticipos();
   const { toast } = useToast();
   const [vista, setVista] = useState<Vista>("lista");
   const [detalleNo, setDetalleNo] = useState<string | null>(null);
@@ -29,22 +35,57 @@ function AnticiposViewInner() {
     setDetalleNo(null);
   };
 
-  const handleCancelar = () => {
+  const handleCancelar = async () => {
     if (!cancelarNo) return;
-    cancelarAnticipo(cancelarNo);
-    toast(
-      `Solicitud ${cancelarNo} cancelada — queda registrada en IFS`,
-      "danger",
-    );
-    setCancelarNo(null);
-    volverLista();
+    try {
+      await cancelarAnticipo(cancelarNo);
+      toast(
+        `Solicitud ${cancelarNo} cancelada`,
+        "danger",
+      );
+      setCancelarNo(null);
+      volverLista();
+    } catch (error) {
+      toast(
+        error instanceof Error ? error.message : "No se pudo cancelar",
+        "danger",
+      );
+    }
   };
+
+  if (!loaded) {
+    return (
+      <div className="view-wide flex min-h-[240px] items-center justify-center text-[13px] text-muted">
+        Cargando anticipos…
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="view-wide flex min-h-[240px] flex-col items-center justify-center gap-2 text-center text-[13px]">
+        <p className="text-[#374151]">{loadError}</p>
+        <p className="text-muted">Inicia sesión con tu correo @h-mv.com</p>
+      </div>
+    );
+  }
 
   if (vista === "form") {
     return (
       <AnticiposFormulario
         onVolver={volverLista}
-        onLanzar={lanzarAnticipo}
+        onLanzar={async (input) => {
+          try {
+            const codigo = await lanzarAnticipo(input);
+            return codigo;
+          } catch (error) {
+            toast(
+              error instanceof Error ? error.message : "No se pudo lanzar",
+              "danger",
+            );
+            return null;
+          }
+        }}
         onLanzarOtro={(nombre) => {
           toast(
             `Solicitud registrada para ${nombre} — visible en tu lista`,

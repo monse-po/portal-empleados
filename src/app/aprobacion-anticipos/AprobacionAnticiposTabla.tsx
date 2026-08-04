@@ -28,8 +28,8 @@ import { getSelectionState } from "@/src/lib/use-table-selection";
 import {
   APRO_ANT_COLS_PEND,
   type AnticipoAprobacion,
-} from "@/src/lib/aprobacion-anticipos-mock";
-import { formatMonto } from "@/src/lib/mis-anticipos-mock";
+} from "@/src/lib/aprobacion-anticipos-registro";
+import { formatMonto } from "@/src/lib/anticipos-registro";
 
 type AprobacionAnticiposTablaProps = {
   registros: AnticipoAprobacion[];

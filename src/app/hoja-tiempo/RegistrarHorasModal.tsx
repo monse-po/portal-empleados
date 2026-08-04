@@ -33,13 +33,10 @@ import {
   getRegistrosDia,
   getMesActualBounds,
   HORAS_OPTIONS,
-  inferSubproyecto,
-  JER_TIEMPO,
-  PROYECTOS,
   resolveFechaMes,
-  TIPO_HORA,
+  tipoCat,
   type RegistroMock,
-} from "@/src/lib/mi-tiempo-mock";
+} from "@/src/lib/tiempo-registro";
 import {
   fetchProjectAprobadorAction,
   fetchScheduleHoursAction,
@@ -95,7 +92,7 @@ function buildInitialForm(
     if (reg) {
       const sub = catalog
         ? resolveSubproyectoId(catalog, reg.proy, reg.subproy, reg.act)
-        : inferSubproyecto(reg.proy, reg.act, reg.subproy);
+        : (reg.subproy ?? "");
       const act = catalog
         ? resolveActividadId(catalog, reg.proy, sub, reg.act)
         : reg.act;
@@ -126,7 +123,6 @@ function validateForm(
   form: FormState,
   registros: Record<string, RegistroMock[]>,
   tipos: TiempoTipoHoraOption[],
-  useIfsCatalog: boolean,
   maxScheduleHours: number,
   editId?: string,
 ): Partial<Record<FieldKey, string>> {
@@ -142,18 +138,18 @@ function validateForm(
   if (!form.horas || horasNum <= 0 || Number.isNaN(horasNum)) {
     errors.horas = "Requerido";
   } else if (form.tipo) {
-    const esNormal = useIfsCatalog
+    const esNormal = tipos.length
       ? tipoCatFromOptions(form.tipo, tipos) === "normal"
-      : (TIPO_HORA[form.tipo]?.cat ?? "normal") === "normal";
+      : tipoCat(form.tipo) === "normal";
     if (esNormal) {
-    const horasExistentes = getHorasNormales(
-      registros,
-      form.fecha,
-      editId,
-    );
-    if (horasExistentes + horasNum > maxScheduleHours) {
-      errors.horas = normalLimitErrorMessage(maxScheduleHours, horasExistentes);
-    }
+      const horasExistentes = getHorasNormales(
+        registros,
+        form.fecha,
+        editId,
+      );
+      if (horasExistentes + horasNum > maxScheduleHours) {
+        errors.horas = normalLimitErrorMessage(maxScheduleHours, horasExistentes);
+      }
     }
   }
 
@@ -189,10 +185,10 @@ function RegistroHorasForm({
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [tipoOpen, setTipoOpen] = useState(false);
   const { toast } = useToast();
-  const useIfsCatalog = ifsConnected;
+  const catalogReady = Boolean(catalog) && !catalogError;
 
   useEffect(() => {
-    if (!useIfsCatalog || !form.fecha) return;
+    if (!ifsConnected || !form.fecha) return;
 
     let cancelled = false;
     setCatalogLoading(true);
@@ -222,7 +218,7 @@ function RegistroHorasForm({
     return () => {
       cancelled = true;
     };
-  }, [useIfsCatalog, form.fecha, editId, defaultFecha, registros]);
+  }, [ifsConnected, form.fecha, editId, defaultFecha, registros]);
 
   useEffect(() => {
     if (!form.fecha) return;
@@ -240,38 +236,23 @@ function RegistroHorasForm({
     };
   }, [form.fecha]);
 
-  const useIfsCatalogLive = useIfsCatalog && Boolean(catalog) && !catalogError;
-
-  const mockSubs =
-    form.proy && JER_TIEMPO[form.proy]
-      ? Object.keys(JER_TIEMPO[form.proy].subs)
-      : [];
-  const mockActs =
-    form.proy && form.sub && JER_TIEMPO[form.proy]?.subs[form.sub]
-      ? JER_TIEMPO[form.proy].subs[form.sub]
-      : [];
   const proyEntry = form.proy ? catalog?.porProyecto[form.proy] : undefined;
-  const subs = useIfsCatalogLive
-    ? (proyEntry?.subs ?? [])
-    : mockSubs.map((s) => ({ id: s, label: s }));
-  const actividades = useIfsCatalogLive
-    ? (proyEntry?.subs.find((s) => s.id === form.sub)?.actividades ?? [])
-    : mockActs.map((a) => ({ id: a, label: a, activitySeq: 0, activityNo: a }));
-  const actMeta = useIfsCatalogLive
+  const subs = proyEntry?.subs ?? [];
+  const actividades =
+    proyEntry?.subs.find((s) => s.id === form.sub)?.actividades ?? [];
+  const actMeta = catalogReady
     ? findActividadMeta(catalog, form.proy, form.sub, form.act)
     : null;
-  const aprobadorLabel = useIfsCatalogLive
-    ? aprobadorLoading ? null : aprobadorIfs ?? resolveAprobadorLabel(catalog, form.proy)
-    : form.proy && JER_TIEMPO[form.proy]
-      ? JER_TIEMPO[form.proy].aprobador
-      : TIEMPO_UI_COPY.approverFallback;
+  const aprobadorLabel = aprobadorLoading
+    ? null
+    : aprobadorIfs ??
+      resolveAprobadorLabel(catalog, form.proy) ??
+      TIEMPO_UI_COPY.approverFallback;
   const aprobador =
-    useIfsCatalogLive
-      ? aprobadorIfs ?? resolveAprobadorLabel(catalog, form.proy)
-      : aprobadorLabel;
+    aprobadorIfs ?? resolveAprobadorLabel(catalog, form.proy) ?? undefined;
 
   useEffect(() => {
-    if (!useIfsCatalogLive || !form.proy) {
+    if (!catalogReady || !form.proy) {
       setAprobadorIfs(null);
       setAprobadorLoading(false);
       return;
@@ -280,34 +261,36 @@ function RegistroHorasForm({
     const entry = catalog?.porProyecto[form.proy];
     if (!entry) return;
 
-    const cached =
-      entry.aprobador?.name?.trim() || entry.aprobador?.code?.trim();
-    if (cached) {
-      setAprobadorIfs(cached);
+    const cachedName = entry.aprobador?.name?.trim();
+    if (cachedName) {
+      setAprobadorIfs(cachedName);
       setAprobadorLoading(false);
       return;
     }
 
     let cancelled = false;
     setAprobadorLoading(true);
-    setAprobadorIfs(null);
+    setAprobadorIfs(entry.aprobador?.code?.trim() || null);
 
     void fetchProjectAprobadorAction({
       shortName: form.proy,
       projectId: entry.projectId,
+      companyId: entry.companyId,
     }).then((result) => {
       if (cancelled) return;
       setAprobadorLoading(false);
-      setAprobadorIfs(result.aprobador ?? null);
+      setAprobadorIfs(
+        result.aprobador ?? entry.aprobador?.code?.trim() ?? null,
+      );
     });
 
     return () => {
       cancelled = true;
     };
-  }, [useIfsCatalogLive, form.proy, catalog?.porProyecto]);
+  }, [catalogReady, form.proy, catalog?.porProyecto]);
 
   useEffect(() => {
-    if (!useIfsCatalogLive || !form.proy || !form.sub || !form.act || !form.fecha) {
+    if (!catalogReady || !form.proy || !form.sub || !form.act || !form.fecha) {
       setTipos([]);
       return;
     }
@@ -344,7 +327,7 @@ function RegistroHorasForm({
       cancelled = true;
     };
   }, [
-    useIfsCatalogLive,
+    catalogReady,
     catalog,
     form.proy,
     form.sub,
@@ -385,7 +368,6 @@ function RegistroHorasForm({
       form,
       registros,
       tipos,
-      useIfsCatalogLive,
       maxScheduleHours,
       editId,
     );
@@ -401,7 +383,7 @@ function RegistroHorasForm({
     }
 
     const horasNum = parseFloat(form.horas);
-    const actLabel = useIfsCatalogLive ? (actMeta?.label ?? form.act) : form.act;
+    const actLabel = actMeta?.label ?? form.act;
     const registroExistente = editId ? findRegistroById(registros, editId) : undefined;
 
     await onSave(
@@ -432,13 +414,19 @@ function RegistroHorasForm({
       return;
     }
 
+    if (!catalog) {
+      toast("Espera a que cargue el catálogo de proyectos", "warn");
+      return;
+    }
+
     const ultimo = registros[anterior][registros[anterior].length - 1];
-    const sub = useIfsCatalogLive
-      ? resolveSubproyectoId(catalog, ultimo.proy, ultimo.subproy, ultimo.act)
-      : inferSubproyecto(ultimo.proy, ultimo.act, ultimo.subproy);
-    const act = useIfsCatalogLive
-      ? resolveActividadId(catalog, ultimo.proy, sub, ultimo.act)
-      : ultimo.act;
+    const sub = resolveSubproyectoId(
+      catalog,
+      ultimo.proy,
+      ultimo.subproy,
+      ultimo.act,
+    );
+    const act = resolveActividadId(catalog, ultimo.proy, sub, ultimo.act);
 
     patch({
       proy: ultimo.proy,
@@ -452,16 +440,30 @@ function RegistroHorasForm({
     toast(`Copiado del ${formatFechaLegible(anterior, false)}`, "navy");
   };
 
+  if (!ifsConnected) {
+    return (
+      <div className="flex flex-col gap-3 text-[13px] text-[#374151]">
+        <p>
+          Debes iniciar sesión con tu correo{" "}
+          <span className="font-medium">@h-mv.com</span> para registrar horas.
+        </p>
+        <a href="/login" className="font-semibold text-navy underline">
+          Iniciar sesión
+        </a>
+      </div>
+    );
+  }
+
   return (
     <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-      {useIfsCatalog && catalogLoading && (
+      {catalogLoading && (
         <LoadingNotice
           variant="banner"
           icon={LOADING_COPY.catalogIfs.icon}
           label={LOADING_COPY.catalogIfs.label}
         />
       )}
-      {useIfsCatalog && catalogError && (
+      {catalogError && (
         <p className="alert-warn px-3 py-2 text-sm">
           {ifsSessionExpired ? (
             <>
@@ -496,25 +498,17 @@ function RegistroHorasForm({
         <SearchableSelect
           value={form.proy}
           onChange={handleProyChange}
-          options={
-            useIfsCatalogLive
-              ? (catalog?.proyectos ?? []).map((p) => ({
-                  value: p.id,
-                  label: `${p.id} – ${p.nombre}`,
-                }))
-              : PROYECTOS.map((p) => ({
-                  value: p.id,
-                  label: `${p.id} – ${p.nombre}`,
-                  hint: p.sub,
-                }))
-          }
+          options={(catalog?.proyectos ?? []).map((p) => ({
+            value: p.id,
+            label: `${p.id} – ${p.nombre}`,
+          }))}
           placeholder={
-            useIfsCatalog && catalogLoading
+            catalogLoading
               ? loadingPlaceholder(LOADING_COPY.projects)
               : TIEMPO_UI_COPY.selectProject
           }
           searchPlaceholder={TIEMPO_UI_COPY.searchProject}
-          disabled={useIfsCatalog && catalogLoading && !catalogError}
+          disabled={catalogLoading && !catalogError}
           error={!!errors.proy}
         />
       </Field>
@@ -533,7 +527,7 @@ function RegistroHorasForm({
               : TIEMPO_UI_COPY.selectProjectFirst
           }
           searchPlaceholder={TIEMPO_UI_COPY.searchSubproject}
-          disabled={!form.proy || (useIfsCatalog && catalogLoading)}
+          disabled={!form.proy || catalogLoading}
           error={!!errors.sub}
         />
       </Field>
@@ -555,7 +549,7 @@ function RegistroHorasForm({
               : TIEMPO_UI_COPY.selectSubprojectFirst
           }
           searchPlaceholder={TIEMPO_UI_COPY.searchActivity}
-          disabled={!form.sub || (useIfsCatalog && catalogLoading)}
+          disabled={!form.sub || catalogLoading}
           error={!!errors.act}
         />
       </Field>
@@ -568,11 +562,7 @@ function RegistroHorasForm({
               bounds={bounds}
               invalid={!!errors.fecha}
               onChange={(fecha) => {
-                patch(
-                  useIfsCatalogLive
-                    ? { fecha, proy: "", sub: "", act: "", tipo: "" }
-                    : { fecha },
-                );
+                patch({ fecha, proy: "", sub: "", act: "", tipo: "" });
                 clearError("fecha");
               }}
             />
@@ -588,7 +578,7 @@ function RegistroHorasForm({
               trigger={
                 <button
                   type="button"
-                  disabled={useIfsCatalogLive ? !form.act || tiposLoading : false}
+                  disabled={!form.act || tiposLoading}
                   onClick={(event) => {
                     event.stopPropagation();
                     setTipoOpen((open) => !open);
@@ -601,7 +591,7 @@ function RegistroHorasForm({
                 >
                   {form.tipo ? (
                     <TipoHoraPill tipo={form.tipo} />
-                  ) : useIfsCatalogLive && tiposLoading ? (
+                  ) : tiposLoading ? (
                     <LoadingNotice
                       variant="inline"
                       icon={LOADING_COPY.hourTypes.icon}
@@ -610,7 +600,7 @@ function RegistroHorasForm({
                     />
                   ) : (
                     <span className="text-muted">
-                      {useIfsCatalogLive && !form.act
+                      {!form.act
                         ? TIEMPO_UI_COPY.selectActivityFirst
                         : TIEMPO_UI_COPY.selectHourType}
                     </span>
@@ -619,14 +609,7 @@ function RegistroHorasForm({
                 </button>
               }
             >
-              {(useIfsCatalogLive
-                ? tipos
-                : Object.keys(TIPO_HORA).map((code) => ({
-                    code,
-                    label: TIPO_HORA[code].n,
-                    cat: TIPO_HORA[code].cat,
-                  }))
-              ).map((tipo) => (
+              {tipos.map((tipo) => (
                 <button
                   key={tipo.code}
                   type="button"
@@ -685,7 +668,7 @@ function RegistroHorasForm({
         <div className="min-w-[130px] flex-1">
           <Field label="Aprobador">
             <div className="flex h-9 items-center rounded-lg border border-border bg-[#f8fafc] px-3 text-[13px] text-muted">
-              {useIfsCatalogLive && aprobadorLoading ? (
+              {aprobadorLoading ? (
                 <LoadingNotice
                   variant="inline"
                   icon={LOADING_COPY.approver.icon}
@@ -815,7 +798,7 @@ export function RegistrarHorasModal() {
               type="submit"
               form={FORM_ID}
               variant="primary"
-              disabled={saving}
+              disabled={saving || !ifsConnected}
               loading={saving}
               loadingLabel="Guardando…"
             >

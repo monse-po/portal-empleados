@@ -600,31 +600,62 @@ export function inferSubproyecto(
   return "";
 }
 
+export function getMesActualPrefix(refDate: Date = HOY_MOCK): string {
+  const y = refDate.getFullYear();
+  const m = String(refDate.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+/** Horas del mes que cuentan para el cuadre (enviadas o aprobadas; no borrador ni rechazadas). */
+export function horasReportadasParaCuadre(
+  registros: Record<string, RegistroMock[]>,
+  mesPrefix = getMesActualPrefix(),
+): number {
+  let total = 0;
+  for (const [fecha, rows] of Object.entries(registros)) {
+    if (!fecha.startsWith(mesPrefix)) continue;
+    for (const r of rows) {
+      const estado = r.estado;
+      if (estado === "Aprobado" || estado === "Registrado") {
+        total += r.horas || 0;
+      }
+    }
+  }
+  return Math.round(total * 10) / 10;
+}
+
 export function getResumenHoras(
   registros: Record<string, RegistroMock[]> = REGISTROS_MOCK,
+  refDate: Date = HOY_MOCK,
 ) {
+  const mesPrefix = getMesActualPrefix(refDate);
   let aprob = 0;
   let rev = 0;
+  let borrador = 0;
   let rech = 0;
 
-  Object.values(registros)
-    .flat()
-    .forEach((r) => {
+  for (const [fecha, rows] of Object.entries(registros)) {
+    if (!fecha.startsWith(mesPrefix)) continue;
+    for (const r of rows) {
       const h = r.horas || 0;
       if (r.estado === "Aprobado") aprob += h;
-      else if (r.estado === "Borrador" || r.estado === "Registrado") rev += h;
+      else if (r.estado === "Registrado") rev += h;
+      else if (r.estado === "Borrador") borrador += h;
       else if (r.estado === "Rechazado") rech += h;
-    });
+    }
+  }
 
   const round = (x: number) => Math.round(x * 10) / 10;
-  const reportadas = round(aprob + rev + rech);
+  const reportadas = round(aprob + rev);
+  const pendientesReportar = Math.max(0, round(META_HORAS_MES - reportadas));
 
   return {
     horasMes: META_HORAS_MES,
-    pendientesReportar: round(META_HORAS_MES - reportadas),
+    pendientesReportar,
     reportadas,
     aprobadas: round(aprob),
     pendAprobacion: round(rev),
+    borrador: round(borrador),
     rechazadas: round(rech),
   };
 }

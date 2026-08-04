@@ -1,6 +1,6 @@
 import { format, parse } from "date-fns";
 import type { IconName } from "@/src/components/ui/Icon";
-import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroMock } from "@/src/lib/tiempo-registro";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
 
 export type HistoricoFilterColumn =

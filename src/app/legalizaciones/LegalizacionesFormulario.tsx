@@ -28,16 +28,15 @@ import {
   hoyDMY,
   labelCostCategory,
   lineaRequiereAdjunto,
-  resolveCompaniaId,
   type DestinoLegalizacion,
   type LegalizacionTipo,
   type LineaGastoDraft,
 } from "@/src/lib/legalizaciones-mock";
 import {
-  EMP_DET,
   formatMonto,
   parseMontoInput,
   PROYECTOS_ANT,
+  SESSION_EMPLEADO,
 } from "@/src/lib/mis-anticipos-mock";
 
 type LegalizacionesFormularioProps = {
@@ -194,7 +193,7 @@ export function LegalizacionesFormulario({
   const defaultDiv = paymentRef?.moneda ?? "COP";
   const companiaId = paymentRef
     ? paymentRef.companiaId
-    : resolveCompaniaId(EMP_DET.empresa);
+    : SESSION_EMPLEADO.companiaDefault;
   const defaultProyectoId = form.destino.proyectoId || paymentRef?.proyectoId || "";
   const proyectoLineaPendiente =
     form.tipo !== "Con anticipo" && !form.lineas[0]?.proyectoId;
@@ -429,16 +428,12 @@ export function LegalizacionesFormulario({
 
         <Card className="mb-3 overflow-visible">
           <CardBody className="py-4">
-            <FormSection icon="send" title="Datos de la solicitud">
+            <FormSection
+              icon="wallet"
+              title="Tipo de Legalización"
+              hint={tipoHint}
+            >
               <FormGrid>
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <span className="text-[12px] font-semibold text-[#374151]">
-                    Fecha de solicitud
-                  </span>
-                  <span className="flex h-9 items-center text-[13px] text-muted">
-                    {hoyDMY()}
-                  </span>
-                </div>
                 <FormGridSpan span={2}>
                   <p className="mb-1.5 text-[12px] font-semibold text-[#374151]">
                     Tipo de legalización
@@ -458,6 +453,14 @@ export function LegalizacionesFormulario({
                     options={TIPO_LEGALIZACION_OPTIONS}
                   />
                 </FormGridSpan>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <span className="text-[12px] font-semibold text-[#374151]">
+                    Fecha de solicitud
+                  </span>
+                  <span className="flex h-9 items-center text-[13px] text-muted">
+                    {hoyDMY()}
+                  </span>
+                </div>
               </FormGrid>
             </FormSection>
           </CardBody>
@@ -490,7 +493,7 @@ export function LegalizacionesFormulario({
         {form.tipo === "Tarjeta corporativa" && (
           <Card className="mb-3 overflow-visible">
             <CardBody className="py-4">
-              <FormSection icon="wallet" title="Tarjeta corporativa" hint={tipoHint}>
+              <FormSection icon="wallet" title="Tarjeta corporativa">
                 <FormGrid>
                   <Field label="Referencia tarjeta corporativa" required>
                     <input
@@ -501,18 +504,6 @@ export function LegalizacionesFormulario({
                     />
                   </Field>
                 </FormGrid>
-              </FormSection>
-            </CardBody>
-          </Card>
-        )}
-
-        {form.tipo === "Sin anticipos" && (
-          <Card className="mb-3 overflow-visible">
-            <CardBody className="py-4">
-              <FormSection icon="wallet" title="Sin anticipo previo" hint={tipoHint}>
-                <p className="text-[12px] text-muted">
-                  Registra cada gasto de bolsillo en las líneas de abajo.
-                </p>
               </FormSection>
             </CardBody>
           </Card>

@@ -5,7 +5,7 @@ import { DateInput, dateInputClass, dateInputClassWithError } from "@/src/compon
 import {
   clampFechaMes,
   type MesActualBounds,
-} from "@/src/lib/mi-tiempo-mock";
+} from "@/src/lib/tiempo-registro";
 
 /** @deprecated Usar `dateInputClass` desde `DateInput`. */
 export const inputClass = dateInputClass;

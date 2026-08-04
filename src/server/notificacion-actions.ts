@@ -5,14 +5,16 @@ import {
   buildNotificacionesTiempoEnvio,
   NOTIF_ROL_GERENTE,
   toNotificacionUi,
+  type NotificacionEmpleado,
   type NotificacionUi,
 } from "@/src/lib/notificacion-tiempo";
-import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroMock } from "@/src/lib/tiempo-registro";
 
 export async function createNotificacionesTiempoEnvioAction(
   registros: RegistroMock[],
+  empleado: NotificacionEmpleado,
 ): Promise<void> {
-  const payloads = buildNotificacionesTiempoEnvio(registros);
+  const payloads = buildNotificacionesTiempoEnvio(registros, empleado);
   if (!payloads.length) return;
 
   await prisma.notificacion.createMany({

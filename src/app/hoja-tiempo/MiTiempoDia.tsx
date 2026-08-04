@@ -28,7 +28,7 @@ import {
   getRegistrosDia,
   shiftFechaMes,
   type RegistroMock,
-} from "@/src/lib/mi-tiempo-mock";
+} from "@/src/lib/tiempo-registro";
 import { formatProyectoEmpleado } from "@/src/lib/tiempo-bridge";
 import { fetchScheduleHoursAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
@@ -117,9 +117,13 @@ export function MiTiempoDia({
         toast("No hay borradores para enviar", "warn");
         return;
       }
-      toast("Registros enviados a aprobación", "green");
-    } catch {
-      toast("No se pudo enviar a aprobación. Intenta de nuevo.", "danger");
+      toast("Registros enviados a IFS y a aprobación", "green");
+    } catch (error) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "No se pudo enviar a aprobación. Intenta de nuevo.";
+      toast(msg, "danger");
     }
   });
   const diaRegsAll = getRegistrosDia(registros, fecha);

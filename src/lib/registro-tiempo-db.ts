@@ -4,7 +4,7 @@ import {
 } from "@/src/generated/prisma/client";
 import { prisma } from "@/src/lib/db";
 import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
-import { PROYECTOS, type RegistroEstado, type RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroEstado, RegistroMock } from "@/src/lib/tiempo-registro";
 
 export const SESSION_EMPLEADO_ID = SESSION_EMPLEADO.cedula.replace(/\./g, "");
 
@@ -94,23 +94,26 @@ export async function nextRegistroCodigo(): Promise<string> {
 }
 
 /** Garantiza filas padre antes de crear/actualizar (evita FK si no corrió el seed). */
-export async function ensureRegistroTiempoRefs(proyectoId: string): Promise<void> {
+export async function ensureRegistroTiempoRefs(
+  empleadoId: string,
+  empleadoNombre: string,
+  proyectoId: string,
+): Promise<void> {
   await prisma.empleado.upsert({
-    where: { id: SESSION_EMPLEADO_ID },
+    where: { id: empleadoId },
     create: {
-      id: SESSION_EMPLEADO_ID,
-      nombre: SESSION_EMPLEADO.nombre,
+      id: empleadoId,
+      nombre: empleadoNombre,
     },
-    update: {},
+    update: { nombre: empleadoNombre },
   });
 
-  const mock = PROYECTOS.find((p) => p.id === proyectoId);
   await prisma.proyecto.upsert({
     where: { id: proyectoId },
     create: {
       id: proyectoId,
-      nombre: mock?.nombre ?? proyectoId,
-      cliente: mock?.sub ?? "—",
+      nombre: proyectoId,
+      cliente: "—",
     },
     update: {},
   });

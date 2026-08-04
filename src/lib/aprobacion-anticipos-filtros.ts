@@ -1,7 +1,7 @@
 import { format, parse } from "date-fns";
 import type { IconName } from "@/src/components/ui/Icon";
 import { dmyToSortKey } from "@/src/lib/tiempo-bridge";
-import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-mock";
+import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-registro";
 
 export type AproAntFilterColumn =
   | "codigo"

@@ -1,6 +1,31 @@
-import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import { subMonths, format } from "date-fns";
+import type { RegistroMock } from "@/src/lib/tiempo-registro";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
 import { normalizeRegistroEstado } from "@/src/lib/tiempo-registro-rules";
+
+/** Meses hacia atrás: toda la hoja aprobada del último año. */
+export const HISTORICO_MESES_VENTANA = 12;
+
+export function getHistoricoFechaMinimaIso(base = new Date()): string {
+  return format(subMonths(base, HISTORICO_MESES_VENTANA), "yyyy-MM-dd");
+}
+
+export function isFechaEnVentanaHistorico(
+  fecha: string,
+  base = new Date(),
+): boolean {
+  return fecha >= getHistoricoFechaMinimaIso(base);
+}
+
+export function formatHistoricoVentanaLabel(base = new Date()): string {
+  const desde = getHistoricoFechaMinimaIso(base);
+  const [y, m, d] = desde.split("-").map(Number);
+  const label = new Date(y, m - 1, d).toLocaleDateString("es-ES", {
+    month: "long",
+    year: "numeric",
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
 
 export type HistoricoProyectoResumen = {
   proyId: string;
@@ -12,13 +37,36 @@ export type HistoricoProyectoResumen = {
   hasta: string;
 };
 
-/** Solo registros aprobados, más recientes primero. */
+/**
+ * Histórico = horas enviadas por el empleado y confirmadas por el gerente en IFS.
+ * En UI: estado Aprobado (IFS: Confirmed). Borrador/Registrado no entran.
+ */
+export function isRegistroHistoricoConfirmado(estado: string): boolean {
+  return normalizeRegistroEstado(estado) === "Aprobado";
+}
+
+/** Solo registros aprobados en la ventana de los últimos meses, más recientes primero. */
 export function getRegistrosHistoricoAprobados(
   registros: Record<string, RegistroMock[]>,
 ): RegistroMock[] {
+  const minFecha = getHistoricoFechaMinimaIso();
   return Object.values(registros)
     .flat()
-    .filter((r) => normalizeRegistroEstado(r.estado) === "Aprobado")
+    .filter((r) => isRegistroHistoricoConfirmado(r.estado))
+    .filter((r) => r.fecha >= minFecha)
+    .sort((a, b) => {
+      const byFecha = b.fecha.localeCompare(a.fecha);
+      if (byFecha !== 0) return byFecha;
+      return a.id.localeCompare(b.id);
+    });
+}
+
+/** Lista plana ya filtrada (p. ej. desde IFS histórico). */
+export function sortRegistrosHistorico(rows: RegistroMock[]): RegistroMock[] {
+  const minFecha = getHistoricoFechaMinimaIso();
+  return rows
+    .filter((r) => isRegistroHistoricoConfirmado(r.estado))
+    .filter((r) => r.fecha >= minFecha)
     .sort((a, b) => {
       const byFecha = b.fecha.localeCompare(a.fecha);
       if (byFecha !== 0) return byFecha;

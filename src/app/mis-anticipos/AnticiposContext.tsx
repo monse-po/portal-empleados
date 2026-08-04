@@ -4,24 +4,24 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { getAnticiposRegistrosTab } from "@/src/lib/anticipos-filtros";
 import {
-  cloneInitialAnticipos,
-  cloneInitialExtras,
   countAnticiposTab,
-  getDirectorProyecto,
-  hoyDMY,
-  nuevoCodigoAnticipo,
-  SESSION_EMPLEADO,
   type Anticipo,
   type AnticipoExtra,
   type AnticipoTab,
   type AnticipoTipo,
-} from "@/src/lib/mis-anticipos-mock";
+} from "@/src/lib/anticipos-registro";
+import {
+  cancelarAnticipoAction,
+  getAnticiposAction,
+  lanzarAnticipoAction,
+} from "@/src/server/mis-anticipos-actions";
 
 export type LanzarAnticipoInput = {
   tipo: AnticipoTipo;
@@ -32,6 +32,8 @@ export type LanzarAnticipoInput = {
   motivo: string;
   compania: string;
   empCompania: string;
+  /** Código o nombre del aprobador/gerente IFS del proyecto. */
+  aprobador?: string;
   paraOtro: boolean;
   beneficiarioId?: string;
   beneficiarioNombre?: string;
@@ -45,12 +47,16 @@ export type LanzarAnticipoInput = {
 type AnticiposContextValue = {
   anticipos: Record<string, Anticipo>;
   extras: Record<string, AnticipoExtra>;
+  loaded: boolean;
+  loadError: string | null;
+  empleadoId: string | null;
   tab: AnticipoTab;
   setTab: (tab: AnticipoTab) => void;
   tabCounts: { pendientes: number; disponibles: number };
   registrosActuales: Anticipo[];
-  lanzarAnticipo: (input: LanzarAnticipoInput) => string | null;
-  cancelarAnticipo: (no: string) => void;
+  reload: () => Promise<void>;
+  lanzarAnticipo: (input: LanzarAnticipoInput) => Promise<string | null>;
+  cancelarAnticipo: (no: string) => Promise<void>;
   getAnticipo: (no: string) => Anticipo | undefined;
   getExtra: (no: string) => AnticipoExtra | undefined;
 };
@@ -58,136 +64,82 @@ type AnticiposContextValue = {
 const AnticiposContext = createContext<AnticiposContextValue | null>(null);
 
 export function AnticiposProvider({ children }: { children: ReactNode }) {
-  const [anticipos, setAnticipos] = useState(cloneInitialAnticipos);
-  const [extras, setExtras] = useState(cloneInitialExtras);
+  const [anticipos, setAnticipos] = useState<Record<string, Anticipo>>({});
+  const [extras, setExtras] = useState<Record<string, AnticipoExtra>>({});
+  const [empleadoId, setEmpleadoId] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<AnticipoTab>("pendientes");
 
-  const lanzarAnticipo = useCallback(
-    (input: LanzarAnticipoInput): string | null => {
-      const no = nuevoCodigoAnticipo(
-        input.tipo,
-        Object.keys(anticipos).length,
+  const reload = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const result = await getAnticiposAction();
+      setAnticipos(result.anticipos);
+      setExtras(result.extras);
+      setEmpleadoId(result.empleadoId);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar los anticipos.",
       );
-      const fecha = hoyDMY();
-      const ahora = `${fecha} · ahora`;
-      const sessionId = SESSION_EMPLEADO.cedula.replace(/\./g, "");
-      const benefId = input.paraOtro
-        ? (input.beneficiarioId ?? "").replace(/\./g, "")
-        : sessionId;
-
-      const registro: Anticipo = {
-        no,
-        fecha,
-        proy: input.proyId,
-        proyN: input.proyN,
-        tipo: input.tipo,
-        div: input.div,
-        monto: input.monto,
-        motivo: input.motivo,
-        estado: "Lanzado",
-        disponible: false,
-        aprobador: getDirectorProyecto(input.proyId)?.codigo ?? null,
-        fechaAprob: null,
-        pago: "Pendiente",
-        solicitante: SESSION_EMPLEADO.nombre,
-        solicitanteId: sessionId,
-        beneficiarioId: benefId,
-        beneficiarioNombre: input.paraOtro
-          ? input.beneficiarioNombre
-          : SESSION_EMPLEADO.nombre,
-        cedula: input.paraOtro
-          ? input.beneficiarioCedula ?? input.beneficiarioId
-          : SESSION_EMPLEADO.cedula,
-        paraOtro: input.paraOtro,
-      };
-
-      const extra: AnticipoExtra = {
-        compania: input.compania,
-        empCompania: input.empCompania,
-        empId: benefId,
-        tl: [
-          {
-            accion: "Solicitud lanzada",
-            usuario: SESSION_EMPLEADO.nombre,
-            fecha: ahora,
-            icon: "send",
-            color: "#1e40af",
-          },
-          {
-            accion: "Esperando aprobación",
-            usuario: "Sistema",
-            fecha: "Pendiente",
-            icon: "clock",
-            color: "#854d0e",
-          },
-        ],
-      };
-
-      if (input.tipo === "Viaje" && input.fechaIda) {
-        extra.fechaIda = input.fechaIda;
-        extra.fechaRegreso = input.fechaRegreso;
-        extra.destino = input.destino;
-        extra.tipoViaje = input.tipoViaje;
-      }
-
-      setAnticipos((prev) => ({ ...prev, [no]: registro }));
-      setExtras((prev) => ({ ...prev, [no]: extra }));
-      return no;
-    },
-    [anticipos],
-  );
-
-  const cancelarAnticipo = useCallback((no: string) => {
-    setAnticipos((prev) => {
-      const item = prev[no];
-      if (!item || item.estado !== "Lanzado") return prev;
-      return {
-        ...prev,
-        [no]: {
-          ...item,
-          disponible: true,
-          estado: "Cancelado",
-          pago: "—",
-        },
-      };
-    });
-    setExtras((prev) => {
-      const ex = prev[no];
-      if (!ex) return prev;
-      const tl = ex.tl.filter((t) => !t.accion.startsWith("Esperando"));
-      return {
-        ...prev,
-        [no]: {
-          ...ex,
-          tl: [
-            ...tl,
-            {
-              accion: "Cancelado por el empleado",
-              usuario: SESSION_EMPLEADO.nombre,
-              fecha: hoyDMY(),
-              icon: "ban",
-              color: "#6b7280",
-            },
-          ],
-        },
-      };
-    });
+      setAnticipos({});
+      setExtras({});
+    } finally {
+      setLoaded(true);
+    }
   }, []);
 
-  const tabCounts = useMemo(() => countAnticiposTab(anticipos), [anticipos]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const lanzarAnticipo = useCallback(
+    async (input: LanzarAnticipoInput): Promise<string | null> => {
+      const { codigo } = await lanzarAnticipoAction(input);
+      await reload();
+      return codigo;
+    },
+    [reload],
+  );
+
+  const cancelarAnticipo = useCallback(
+    async (no: string) => {
+      await cancelarAnticipoAction(no);
+      await reload();
+    },
+    [reload],
+  );
+
+  const tabCounts = useMemo(
+    () =>
+      empleadoId
+        ? countAnticiposTab(anticipos, empleadoId)
+        : { pendientes: 0, disponibles: 0 },
+    [anticipos, empleadoId],
+  );
+
   const registrosActuales = useMemo(
-    () => getAnticiposRegistrosTab(anticipos, tab),
-    [anticipos, tab],
+    () =>
+      empleadoId
+        ? getAnticiposRegistrosTab(anticipos, tab, empleadoId)
+        : [],
+    [anticipos, tab, empleadoId],
   );
 
   const value = useMemo(
     () => ({
       anticipos,
       extras,
+      loaded,
+      loadError,
+      empleadoId,
       tab,
       setTab,
       tabCounts,
       registrosActuales,
+      reload,
       lanzarAnticipo,
       cancelarAnticipo,
       getAnticipo: (no: string) => anticipos[no],
@@ -196,9 +148,13 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
     [
       anticipos,
       extras,
+      loaded,
+      loadError,
+      empleadoId,
       tab,
       tabCounts,
       registrosActuales,
+      reload,
       lanzarAnticipo,
       cancelarAnticipo,
     ],

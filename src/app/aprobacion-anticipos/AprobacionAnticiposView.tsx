@@ -10,7 +10,7 @@ import {
 } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposModals";
 import { useAprobacionAnticipos } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposContext";
 import { useToast } from "@/src/components/ui/Toast";
-import { formatMonto } from "@/src/lib/mis-anticipos-mock";
+import { formatMonto } from "@/src/lib/anticipos-registro";
 
 type Vista = "lista" | "detalle";
 
@@ -97,26 +97,38 @@ export function AprobacionAnticiposView() {
     setAprobarTargets(nos);
   };
 
-  const confirmarAprobacion = () => {
-    aprobar(aprobarTargets, comentarioAprobar);
-    toast(toastAprobados(aprobarTargets), "green");
-    setAprobarTargets([]);
-    setComentarioAprobar("");
-    if (enDetalle) volverLista();
+  const confirmarAprobacion = async () => {
+    try {
+      await aprobar(aprobarTargets, comentarioAprobar);
+      toast(toastAprobados(aprobarTargets), "green");
+      setAprobarTargets([]);
+      setComentarioAprobar("");
+      if (enDetalle) volverLista();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Error al aprobar", "danger");
+    }
   };
 
-  const confirmarRechazoLote = (motivo: string) => {
-    rechazar(rechazarTargets, motivo);
-    toast(toastRechazados(rechazarTargets), "danger");
-    setRechazarTargets([]);
-    if (enDetalle) volverLista();
+  const confirmarRechazoLote = async (motivo: string) => {
+    try {
+      await rechazar(rechazarTargets, motivo);
+      toast(toastRechazados(rechazarTargets), "danger");
+      setRechazarTargets([]);
+      if (enDetalle) volverLista();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Error al rechazar", "danger");
+    }
   };
 
-  const confirmarRechazoDetalle = () => {
+  const confirmarRechazoDetalle = async () => {
     if (!solicitud) return;
-    rechazar([solicitud.no], comentarioRechazarDetalle);
-    toast(toastRechazados([solicitud.no]), "danger");
-    volverLista();
+    try {
+      await rechazar([solicitud.no], comentarioRechazarDetalle);
+      toast(toastRechazados([solicitud.no]), "danger");
+      volverLista();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Error al rechazar", "danger");
+    }
   };
 
   if (enDetalle && solicitud) {

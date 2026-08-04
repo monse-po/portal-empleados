@@ -16,11 +16,9 @@ import { GerenteAccionBar } from "@/src/components/ui/GerenteAccionBar";
 import { TipoAnticipoPill } from "@/src/components/ui/TipoAnticipoPill";
 import { useToast } from "@/src/components/ui/Toast";
 import { useAsyncAction } from "@/src/lib/use-async-action";
-import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-mock";
-import {
-  formatMonto,
-  getDirectorProyecto,
-} from "@/src/lib/mis-anticipos-mock";
+import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-registro";
+import { getDirectorProyecto } from "@/src/lib/anticipos-catalog";
+import { formatMonto } from "@/src/lib/anticipos-registro";
 
 type AprobacionAnticiposDetalleProps = {
   solicitud: AnticipoAprobacion;

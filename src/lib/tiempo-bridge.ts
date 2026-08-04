@@ -2,8 +2,8 @@ import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 import {
   PROYECTOS,
   type RegistroEstado,
-  type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroMock } from "@/src/lib/tiempo-registro";
 
 export type SyncRegistroAccion = "aprobado" | "rechazado" | "anulado";
 
@@ -48,19 +48,17 @@ export function nombreProyectoPorCodAprobacion(cod: string): string | undefined 
   return undefined;
 }
 
-/** Etiqueta en Mi Tiempo (empleado): PRY-2024-001 – Modernización PTF Cusiana… */
+/** Etiqueta en Mi Tiempo (empleado): código/nombre del proyecto en IFS. */
 export function formatProyectoEmpleado(proyectoId: string): string {
-  const meta = PROYECTOS.find((p) => p.id === proyectoId);
-  return meta ? `${meta.id} – ${meta.nombre}` : proyectoId;
+  return proyectoId;
 }
 
 export const PROYECTO_NOMBRE_LISTA_MAX = 36;
 
 /** Código + nombre truncado para la tab Lista. */
 export function getProyectoListaParts(proyectoId: string) {
-  const meta = PROYECTOS.find((p) => p.id === proyectoId);
-  const codigo = meta?.id ?? proyectoId;
-  const nombreFull = meta?.nombre ?? proyectoId;
+  const codigo = proyectoId;
+  const nombreFull = proyectoId;
   const nombre =
     nombreFull.length > PROYECTO_NOMBRE_LISTA_MAX
       ? `${nombreFull.slice(0, PROYECTO_NOMBRE_LISTA_MAX)}…`

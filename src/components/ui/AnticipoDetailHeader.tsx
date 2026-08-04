@@ -5,7 +5,7 @@ import {
   estadoAnticipoPillProps,
   type PillVariant,
 } from "@/src/components/ui/Pill";
-import type { AnticipoExtra } from "@/src/lib/mis-anticipos-mock";
+import type { AnticipoExtra } from "@/src/lib/anticipos-registro";
 
 export type RecordEventBanner = {
   autor: string;

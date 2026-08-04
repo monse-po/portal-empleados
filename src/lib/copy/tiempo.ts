@@ -34,9 +34,9 @@ export const TIEMPO_UI_COPY = {
     sessionExpiredAction: "Vuelve a iniciar sesión",
     sessionExpiredSuffix: "con tu correo @h-mv.com para cargar proyectos reales.",
     fetchFailed: (detail: string) =>
-      `No se pudo leer proyectos de IFS (${detail}). Mostrando catálogo demo.`,
+      `No se pudo leer proyectos de IFS (${detail}).`,
     fetchFailedAction: "Revisa /dev/ifs",
     fetchFailedSuffix:
-      "— si CEmpPortalUserSet y GetUserInfo están verdes, pide a TI proyectos asignados a tu empleado para esa fecha.",
+      "Si CEmpPortalUserSet y GetUserInfo están verdes, pide a TI proyectos asignados a tu empleado para esa fecha.",
   },
 } as const;

@@ -105,7 +105,18 @@ export type ProjectInfoQuery = {
   Company?: string;
   Name?: string;
   Description?: string;
+  /** Identidad / PersonId del gerente (abreviación IFS, p. ej. JCORREA). */
   Manager?: string;
+};
+
+/** Empleado (Reference_EmployeeInfoQuery) — para resolver nombre del Manager. */
+export type EmployeeInfoQuery = {
+  Company?: string;
+  Identity?: string;
+  EmpName?: string;
+  PersonId?: string;
+  CEmpNo?: string;
+  SupplierName?: string;
 };
 
 /** Fila de GetEmployeeTimesheet (EmpReportItemStructure). */
@@ -117,6 +128,7 @@ export type EmpReportItemRow = {
   AccountDate?: string;
   Module?: string;
   ModuleDecoded?: string;
+  Col2?: string;
   Hours?: string | number;
   InternalComments?: string;
   CStatus?: string;
@@ -135,7 +147,24 @@ export type EmpReportItemRow = {
   Objid?: string;
 };
 
-/** Fila de GetValidActReportCode (tipo de hora / report cost code). */
+/** Fila de GetCurrencyCodes / Reference_CurrencyCodesQuery. */
+export type CurrencyCodeRow = {
+  Company?: string;
+  CurrencyCode?: string;
+  Description?: string;
+};
+
+/** Fila de Lookup_IsoCountry_EntitySet. */
+export type IsoCountryRow = {
+  Id?: string;
+  Description?: string;
+};
+
+/** Fila de Lookup_IsoCurrency_EntitySet. */
+export type IsoCurrencyRow = {
+  Id?: string;
+  Description?: string;
+};
 export type LovReportCostCodeRow = {
   ReportCostCode?: string;
   ReportCostName?: string;
