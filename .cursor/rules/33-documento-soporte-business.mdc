@@ -1,0 +1,44 @@
+---
+description: Reglas de negocio del módulo Documento de Soporte (MVP mock empleado)
+globs: src/app/**/documento-soporte/**,src/lib/*documento-soporte*
+alwaysApply: false
+---
+
+# Documento de Soporte — reglas de negocio
+
+## Alcance MVP
+
+- Solo rol **empleado**. Sin aprobación gerente en este branch.
+- Datos **mock en memoria** (sin Prisma / IFS / upload real).
+- Códigos: **DS####**.
+
+## Estados y tabs
+
+| Tab UI | Key interno | Estados |
+|--------|-------------|---------|
+| En proceso | `pendientes` | Borrador, En revisión |
+| Historial | `historial` | Aprobado, Rechazado |
+
+## Flujo
+
+- **Guardar** / **Guardar cambios** → estado **Borrador** (visible en En proceso, editable).
+- **Enviar a revisión** → estado **En revisión**.
+- Clic en borrador desde la lista abre el formulario de edición.
+- Detalle de borrador ofrece **Continuar edición**.
+
+## Formulario
+
+- Campos: tipo (`Factura` / `Recibo` / `Cotización` / `Otro`), referencia, descripción (≥ 5), comentario opcional, adjunto mock.
+- Adjunto: nombre + tamaño + mime del archivo seleccionado; no se persiste el binario.
+
+## UI
+
+Ver **`02-design-system.mdc`**. Controles: `SelectControl` (tipo), input texto, textarea, file input simulado.
+
+## Enfoque
+
+```bash
+FOCUS=documento-soporte npm run dev
+```
+
+Branch: `cursor/modulo-documento-soporte` (desde `main`).

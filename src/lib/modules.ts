@@ -7,7 +7,12 @@ import type { UsuarioRol } from "@/src/components/layout/RoleContext";
  * Fuente de verdad para navegación, rutas por rol y el "Modo enfoque".
  * Al agregar un módulo nuevo basta con añadir una entrada aquí.
  */
-export type ModuleId = "tiempo" | "historico" | "anticipos" | "legalizaciones";
+export type ModuleId =
+  | "tiempo"
+  | "historico"
+  | "anticipos"
+  | "legalizaciones"
+  | "documento-soporte";
 
 export type ModuleRoute = {
   path: string;
@@ -89,13 +94,26 @@ export const MODULES: ModuleDef[] = [
       },
     ],
   },
+  {
+    id: "documento-soporte",
+    label: "Documento de Soporte",
+    routes: [
+      {
+        path: "/documento-soporte",
+        rol: "empleado",
+        navLabel: "Documento de Soporte",
+        icon: "paperclip",
+      },
+    ],
+  },
 ];
 
 /**
  * Módulo enfocado vía variable de entorno.
  *
- *   FOCUS=tiempo npm run dev   → solo el módulo Tiempo
- *   npm run dev                → app completa (sin enfoque)
+ *   FOCUS=tiempo npm run dev              → solo el módulo Tiempo
+ *   FOCUS=documento-soporte npm run dev   → solo Documento de Soporte
+ *   npm run dev                           → app completa (sin enfoque)
  *
  * `FOCUS` se mapea a NEXT_PUBLIC_FOCUS en next.config para que esté
  * disponible también en componentes de cliente.

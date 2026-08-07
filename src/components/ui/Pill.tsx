@@ -168,3 +168,26 @@ export function EstadoLegalizacionPill({
     </Pill>
   );
 }
+
+export const estadoDocumentoSoportePillVariant: Record<string, PillVariant> = {
+  Borrador: "borrador",
+  "En revisión": "revision",
+  Aprobado: "aprobado",
+  Rechazado: "rechazado",
+};
+
+export function EstadoDocumentoSoportePill({
+  estado,
+  className = "",
+}: {
+  estado: string;
+  className?: string;
+}) {
+  const variant =
+    estadoDocumentoSoportePillVariant[estado] ?? ("registrado" as PillVariant);
+  return (
+    <Pill variant={variant} className={className}>
+      {estado}
+    </Pill>
+  );
+}

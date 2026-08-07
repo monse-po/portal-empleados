@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import {
   EstadoAnticipoPill,
+  EstadoDocumentoSoportePill,
   EstadoLegalizacionPill,
   EstadoTiempoPill,
+  Pill,
 } from "@/src/components/ui/Pill";
 import {
   TipoAnticipoPill,
@@ -16,7 +18,11 @@ import {
 import type { LegalizacionTipo } from "@/src/lib/legalizaciones-mock";
 
 /** Módulo de negocio — alinea pills de filtro con tablas del mismo dominio */
-export type FilterPillModule = "tiempo" | "anticipo" | "legalizacion";
+export type FilterPillModule =
+  | "tiempo"
+  | "anticipo"
+  | "legalizacion"
+  | "documento-soporte";
 
 /** Columnas multiselect cuyos valores se muestran como pill en filtros */
 export const FILTER_PILL_COLUMNS = ["tipo", "estado"] as const;
@@ -70,6 +76,19 @@ export function FilterValuePill({
       return tipo ? <TipoLegalizacionPill tipo={tipo} /> : null;
     }
     if (column === "estado") return <EstadoLegalizacionPill estado={value} />;
+  }
+
+  if (module === "documento-soporte") {
+    if (column === "tipo") {
+      return (
+        <Pill variant="registrado" className="max-w-full truncate">
+          {value}
+        </Pill>
+      );
+    }
+    if (column === "estado") {
+      return <EstadoDocumentoSoportePill estado={value} />;
+    }
   }
 
   return null;

@@ -34,7 +34,7 @@ Datos y filtros en `src/lib/{modulo}-mock.ts` y `src/lib/{modulo}-filtros.ts`.
 | `gerente` | `/aprobacion-tiempo` | `/aprobacion-tiempo`, `/aprobacion-anticipos`, `/aprobacion-legalizaciones` |
 | `empleado` | `/hoja-tiempo` | — |
 
-Rutas empleado adicionales: `/mis-anticipos`, `/legalizaciones`.
+Rutas empleado adicionales: `/mis-anticipos`, `/legalizaciones`, `/documento-soporte`.
 
 Rutas gerente: `<RoleRouteGuard allow="gerente">` en `page.tsx`. Rol en `sessionStorage` (`hmv-usuario-rol`).
 
@@ -63,6 +63,7 @@ Dos perfiles — ver regla `10-tables-filters.mdc`:
 - **`cursor/modulo-tiempo`:** `/hoja-tiempo` + `/aprobacion-tiempo` + Prisma/server actions tiempo.
 - **`cursor/modulo-anticipos`:** `/mis-anticipos` + `/aprobacion-anticipos` + libs anticipos.
 - **`cursor/shell-shared`:** layout, `src/components/ui/*`, tokens, `AppProviders`.
+- **`cursor/modulo-documento-soporte`:** `/documento-soporte` (MVP mock empleado).
 - Módulos nuevos: `cursor/modulo-{nombre}` desde `main`; merge al integrar par empleado+gerente.
 
 Detalle: `docs/MODULES.md`.
