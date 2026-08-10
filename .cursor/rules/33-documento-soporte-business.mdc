@@ -1,39 +1,58 @@
 ---
-description: Reglas de negocio del módulo Documento de Soporte (MVP mock empleado)
-globs: src/app/**/documento-soporte/**,src/lib/*documento-soporte*
+description: Reglas de negocio Documento de Soporte (DSE/NA) — Modo A portal
+globs: src/app/**/documento-soporte/**,src/lib/*documento-soporte*,docs/documento-soporte/**
 alwaysApply: false
 ---
 
-# Documento de Soporte — reglas de negocio
+# Documento de Soporte — reglas (portal Modo A)
 
-## Alcance MVP
+Fuente: `docs/documento-soporte/02-reglas-negocio-y-campos.md` y `03-referencia-tecnica.md`.
 
-- Solo rol **empleado**. Sin aprobación gerente en este branch.
-- Datos **mock en memoria** (sin Prisma / IFS / upload real).
-- Códigos: **DS####**.
+## Tipos
 
-## Estados y tabs
+- **DSE** — Documento Soporte Electrónico  
+- **NA** — Nota de Ajuste  
 
-| Tab UI | Key interno | Estados |
-|--------|-------------|---------|
-| En proceso | `pendientes` | Borrador, En revisión |
-| Historial | `historial` | Aprobado, Rechazado |
+## Estados
 
-## Flujo
+| Estado | Quién | Notas |
+|--------|-------|-------|
+| Solicitado | Sistema al guardar | Estado inicial |
+| Aprobado | Contabilidad | No editable |
+| Rechazado | Contabilidad | Nota obligatoria; no reabrir |
+| Anulado | Contabilidad | No reabrir |
 
-- **Guardar** / **Guardar cambios** → estado **Borrador** (visible en En proceso, editable).
-- **Enviar a revisión** → estado **En revisión**.
-- Clic en borrador desde la lista abre el formulario de edición.
-- Detalle de borrador ofrece **Continuar edición**.
+- Rechazado / Anulado / Aprobado → no se editan. Corrección = **nueva** solicitud (NA si corrige DSE aprobado).
 
-## Formulario
+## Tabs empleado
 
-- Campos: tipo (`Factura` / `Recibo` / `Cotización` / `Otro`), referencia, descripción (≥ 5), comentario opcional, adjunto mock.
-- Adjunto: nombre + tamaño + mime del archivo seleccionado; no se persiste el binario.
+| Tab | Estados |
+|-----|---------|
+| En proceso | Solicitado |
+| Historial | Aprobado, Rechazado, Anulado |
 
-## UI
+## Visibilidad (igual Anticipos)
 
-Ver **`02-design-system.mdc`**. Controles: `SelectControl` (tipo), input texto, textarea, file input simulado.
+El empleado ve solicitudes donde es **Solicitado Por** o **Registrado por** (misma tabla).
+
+## Formulario portal (captura)
+
+Obligatorios al guardar: Empresa, Tipo, Solicitado Por, NIF (sin espacios), No. Documento Original, Fecha Documento, Concepto, Divisa, Monto, Adjunto.
+
+- **Monto** > 0 si DSE; < 0 si NA (regla de signo).  
+- **Tarjeta corporativa**: solo últimos 4 dígitos (opcional).  
+- **NA**: Tipo Ajuste, Documento Soporte a Anular, CUDS a Anular — obligatorios en portal al guardar (para que Contabilidad pueda aprobar).  
+- **Impuestos IVA/RIVA/RFTE/RICA**: **no** en portal (Modelo Tributario; pendiente vs tabla Campos).
+
+Automáticos: No. Solicitud (`DS####` mock / consecutivo IFS), Fecha Solicitud, Registrado por, Estado = Solicitado.
+
+## Anti-duplicados
+
+Bloquear mismo **NIF + No. Documento Original** (cross-company según Reglas; pendiente confirmar si incluye Empresa). Mensaje: ver Referencia Técnica.
+
+## Fuera del portal MVP
+
+Series DIAN, Factura Manual Proveedor, Invoice ID, botón Solicitar DSE, PAC/Carvajal, CUDS DIAN. Solo lectura de estado (y campos de seguimiento si existen).
 
 ## Enfoque
 
@@ -41,4 +60,4 @@ Ver **`02-design-system.mdc`**. Controles: `SelectControl` (tipo), input texto, 
 FOCUS=documento-soporte npm run dev
 ```
 
-Branch: `cursor/modulo-documento-soporte` (desde `main`).
+Branch: `cursor/modulo-documento-soporte`.

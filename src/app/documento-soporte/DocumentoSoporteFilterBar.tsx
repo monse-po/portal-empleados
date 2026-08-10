@@ -47,15 +47,15 @@ function valueOptionIcon(
   val: string,
 ): IconName {
   if (column === "tipo") {
-    if (val === "Factura") return "briefcase";
-    if (val === "Recibo") return "paperclip";
-    if (val === "Cotización") return "copy";
-    return "folderOpen";
+    if (val === "DSE") return "paperclip";
+    if (val === "NA") return "pencil";
+    return "briefcase";
   }
   if (column === "estado") {
     if (val === "Aprobado") return "check";
     if (val === "Rechazado") return "x";
-    if (val === "Borrador") return "pencil";
+    if (val === "Anulado") return "x";
+    if (val === "Solicitado") return "hourglass";
     return "clock";
   }
   return getFilterColumnDef(column).icon;
@@ -79,8 +79,9 @@ function multiOptions(
 function filterOperatorLabel(column: DocumentoSoporteFilterColumn): string {
   switch (column) {
     case "codigo":
-    case "referencia":
-    case "descripcion":
+    case "nif":
+    case "documento":
+    case "concepto":
       return "contiene";
     case "fecha":
       return "entre";
@@ -132,7 +133,7 @@ function useColumnFilterActions(
   };
 
   const setText = (text: string) => {
-    const col = column as "codigo" | "referencia" | "descripcion";
+    const col = column as "codigo" | "nif" | "documento" | "concepto";
     if (!text.trim()) {
       onChange((prev) => removeFilterByColumn(prev, column));
       return;
@@ -234,8 +235,9 @@ function ColumnBarControl({
 
   const text =
     existing?.column === "codigo" ||
-    existing?.column === "referencia" ||
-    existing?.column === "descripcion"
+    existing?.column === "nif" ||
+    existing?.column === "documento" ||
+    existing?.column === "concepto"
       ? existing.text
       : "";
   return (

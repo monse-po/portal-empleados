@@ -11,8 +11,19 @@ import {
 
 type Vista = "lista" | "detalle" | "form";
 
+function puedeEditar(
+  estado: string,
+  registradoPorId: string,
+  sessionEmpleadoId: string,
+): boolean {
+  return (
+    estado === "Solicitado" &&
+    registradoPorId.replace(/\D/g, "") === sessionEmpleadoId.replace(/\D/g, "")
+  );
+}
+
 function DocumentoSoporteViewInner() {
-  const { getDocumento } = useDocumentoSoporte();
+  const { getDocumento, sessionEmpleadoId } = useDocumentoSoporte();
   const [vista, setVista] = useState<Vista>("lista");
   const [detalleNo, setDetalleNo] = useState<string | null>(null);
   const [editNo, setEditNo] = useState<string | null>(null);
@@ -45,7 +56,11 @@ function DocumentoSoporteViewInner() {
           documento={documento}
           onVolver={volverLista}
           onContinuarEdicion={
-            documento.estado === "Borrador"
+            puedeEditar(
+              documento.estado,
+              documento.registradoPorId,
+              sessionEmpleadoId,
+            )
               ? () => {
                   setEditNo(documento.no);
                   setVista("form");
@@ -61,7 +76,10 @@ function DocumentoSoporteViewInner() {
     <DocumentoSoporteLista
       onOpenDetalle={(no) => {
         const doc = getDocumento(no);
-        if (doc?.estado === "Borrador") {
+        if (
+          doc &&
+          puedeEditar(doc.estado, doc.registradoPorId, sessionEmpleadoId)
+        ) {
           setEditNo(no);
           setVista("form");
           return;

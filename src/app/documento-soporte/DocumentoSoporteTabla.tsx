@@ -15,7 +15,8 @@ import { TablePagination } from "@/src/components/ui/TablePagination";
 import {
   DS_COLS_HIST,
   DS_COLS_PEND,
-  formatSizeKb,
+  formatMontoDs,
+  getRegistradoPorLabel,
   type DocumentoSoporte,
 } from "@/src/lib/documento-soporte-mock";
 
@@ -30,9 +31,11 @@ const headerCols: [string, string][] = [
   ["Código", "text-left"],
   ["Solicitado", "text-left"],
   ["Tipo", "text-left"],
-  ["Referencia", "text-left"],
-  ["Descripción", "text-left"],
-  ["Adjunto", "text-left"],
+  ["Solicitado Por", "text-left"],
+  ["NIF", "text-left"],
+  ["Documento", "text-left"],
+  ["Concepto", "text-left"],
+  ["Monto", "text-right"],
   ["Estado", "text-left"],
 ];
 
@@ -42,7 +45,7 @@ export function DocumentoSoporteTabla({
   hasFilters,
   onOpenDetalle,
 }: DocumentoSoporteTablaProps) {
-  const { tab } = useDocumentoSoporte();
+  const { tab, sessionEmpleadoId } = useDocumentoSoporte();
   const esHistorial = tab === "historial";
   const [page, setPage] = useState(1);
 
@@ -52,7 +55,7 @@ export function DocumentoSoporteTabla({
         <Icon name="paperclip" size="xl" className="mx-auto mb-2 opacity-30" />
         {esHistorial
           ? "Sin registros en el historial."
-          : "Sin documentos en proceso."}
+          : "Sin solicitudes en proceso."}
       </div>
     );
   }
@@ -78,7 +81,7 @@ export function DocumentoSoporteTabla({
     <div>
       <div className="overflow-x-auto">
         <DataTable
-          className="min-w-[1020px]"
+          className="min-w-[1100px]"
           colWidths={[...(esHistorial ? DS_COLS_HIST : DS_COLS_PEND)]}
         >
           <thead>
@@ -91,49 +94,75 @@ export function DocumentoSoporteTabla({
             </tr>
           </thead>
           <tbody>
-            {visibles.map((row) => (
-              <tr
-                key={row.no}
-                onClick={() => onOpenDetalle(row.no)}
-                className="cursor-pointer transition-colors hover:bg-[#fafbfc]"
-              >
-                <td
-                  className={`${dataTd} font-semibold text-navy ${dataTdTruncate}`}
-                  title={row.no}
+            {visibles.map((row) => {
+              const registradoPor = getRegistradoPorLabel(
+                row,
+                sessionEmpleadoId,
+              );
+              return (
+                <tr
+                  key={row.no}
+                  onClick={() => onOpenDetalle(row.no)}
+                  className="cursor-pointer transition-colors hover:bg-[#fafbfc]"
                 >
-                  {row.no}
-                </td>
-                <td className={`${dataTd} text-muted ${dataTdTruncate}`}>
-                  {row.fecha}
-                </td>
-                <td className={`${dataTd} ${dataTdTruncate}`}>{row.tipo}</td>
-                <td className={`${dataTd} ${dataTdTruncate}`} title={row.referencia}>
-                  {row.referencia}
-                </td>
-                <td
-                  className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
-                  title={row.descripcion}
-                >
-                  {row.descripcion}
-                </td>
-                <td className={`${dataTd} ${dataTdTruncate}`}>
-                  {row.adjunto ? (
-                    <span
-                      className="inline-flex items-center gap-1 text-[12px] text-navy"
-                      title={`${row.adjunto.nombre} · ${formatSizeKb(row.adjunto.sizeKb)}`}
+                  <td
+                    className={`${dataTd} font-semibold text-navy ${dataTdTruncate}`}
+                    title={row.no}
+                  >
+                    {row.no}
+                  </td>
+                  <td className={`${dataTd} text-muted ${dataTdTruncate}`}>
+                    {row.fecha}
+                  </td>
+                  <td className={`${dataTd} ${dataTdTruncate}`}>{row.tipo}</td>
+                  <td className={`${dataTd} align-top`}>
+                    <div
+                      className="font-medium leading-snug text-[#374151] [overflow-wrap:anywhere]"
+                      title={row.solicitadoPorNombre}
                     >
-                      <Icon name="paperclip" size="xs" />
-                      <span className="truncate">{row.adjunto.nombre}</span>
-                    </span>
-                  ) : (
-                    <span className="text-[#d1d5db]">—</span>
-                  )}
-                </td>
-                <td className={dataTd}>
-                  <EstadoDocumentoSoportePill estado={row.estado} />
-                </td>
-              </tr>
-            ))}
+                      {row.solicitadoPorNombre}
+                    </div>
+                    {registradoPor ? (
+                      <div
+                        className="mt-1 inline-flex max-w-full flex-wrap items-baseline gap-x-1 rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug [overflow-wrap:anywhere]"
+                        title={`Registrado por ${registradoPor}`}
+                      >
+                        <span className="font-medium text-[#4b5563]">
+                          Registrado por
+                        </span>
+                        <span className="font-semibold text-navy">
+                          {registradoPor}
+                        </span>
+                      </div>
+                    ) : null}
+                  </td>
+                  <td
+                    className={`${dataTd} ${dataTdTruncate}`}
+                    title={row.nif}
+                  >
+                    {row.nif}
+                  </td>
+                  <td
+                    className={`${dataTd} ${dataTdTruncate}`}
+                    title={row.noDocumentoOriginal}
+                  >
+                    {row.noDocumentoOriginal}
+                  </td>
+                  <td
+                    className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
+                    title={row.concepto}
+                  >
+                    {row.concepto}
+                  </td>
+                  <td className={`${dataTd} text-right font-semibold`}>
+                    {formatMontoDs(row.monto, row.divisa)}
+                  </td>
+                  <td className={dataTd}>
+                    <EstadoDocumentoSoportePill estado={row.estado} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </DataTable>
       </div>

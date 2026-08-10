@@ -170,10 +170,10 @@ export function EstadoLegalizacionPill({
 }
 
 export const estadoDocumentoSoportePillVariant: Record<string, PillVariant> = {
-  Borrador: "borrador",
-  "En revisión": "revision",
+  Solicitado: "registrado",
   Aprobado: "aprobado",
   Rechazado: "rechazado",
+  Anulado: "cancelado",
 };
 
 export function EstadoDocumentoSoportePill({

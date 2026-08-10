@@ -10,14 +10,15 @@ export type DocumentoSoporteFilterColumn =
   | "codigo"
   | "fecha"
   | "tipo"
-  | "referencia"
-  | "descripcion"
+  | "nif"
+  | "documento"
+  | "concepto"
   | "estado";
 
 export type DocumentoSoporteFilterRule =
   | {
       id: string;
-      column: "codigo" | "referencia" | "descripcion";
+      column: "codigo" | "nif" | "documento" | "concepto";
       text: string;
     }
   | {
@@ -42,8 +43,9 @@ export const DS_FILTER_COLUMNS_BASE: DocumentoSoporteFilterColumnDef[] = [
   { id: "codigo", label: "Código", icon: "copy" },
   { id: "fecha", label: "Solicitado", icon: "calendar" },
   { id: "tipo", label: "Tipo", icon: "briefcase" },
-  { id: "referencia", label: "Referencia", icon: "paperclip" },
-  { id: "descripcion", label: "Descripción", icon: "pencil" },
+  { id: "nif", label: "NIF", icon: "userCircle" },
+  { id: "documento", label: "No. Documento", icon: "paperclip" },
+  { id: "concepto", label: "Concepto", icon: "pencil" },
 ];
 
 export const DS_FILTER_COLUMN_ESTADO: DocumentoSoporteFilterColumnDef = {
@@ -95,10 +97,12 @@ function getFieldValue(
       return s.fecha;
     case "tipo":
       return s.tipo;
-    case "referencia":
-      return s.referencia;
-    case "descripcion":
-      return s.descripcion;
+    case "nif":
+      return s.nif;
+    case "documento":
+      return s.noDocumentoOriginal;
+    case "concepto":
+      return s.concepto;
     case "estado":
       return s.estado;
     default:
@@ -137,8 +141,9 @@ function matchRule(
       return rule.values.includes(getFieldValue(s, rule.column));
     }
     case "codigo":
-    case "referencia":
-    case "descripcion": {
+    case "nif":
+    case "documento":
+    case "concepto": {
       const q = rule.text.trim().toLowerCase();
       if (!q) return true;
       return getFieldValue(s, rule.column).toLowerCase().includes(q);
@@ -166,9 +171,7 @@ export function upsertFilterRule(
   rule: DocumentoSoporteFilterRule,
 ): DocumentoSoporteFilterRule[] {
   const idx = rules.findIndex((r) => r.column === rule.column);
-  if (idx >= 0) {
-    return rules.map((r, i) => (i === idx ? rule : r));
-  }
+  if (idx >= 0) return rules.map((r, i) => (i === idx ? rule : r));
   return [...rules, rule];
 }
 
@@ -194,8 +197,9 @@ export function isRuleComplete(rule: DocumentoSoporteFilterRule): boolean {
     case "estado":
       return rule.values.length > 0;
     case "codigo":
-    case "referencia":
-    case "descripcion":
+    case "nif":
+    case "documento":
+    case "concepto":
       return !!rule.text.trim();
     default:
       return false;
@@ -213,8 +217,9 @@ export function createEmptyRule(
     case "estado":
       return { id, column, values: [] };
     case "codigo":
-    case "referencia":
-    case "descripcion":
+    case "nif":
+    case "documento":
+    case "concepto":
       return { id, column, text: "" };
     default:
       return { id, column: "codigo", text: "" };
