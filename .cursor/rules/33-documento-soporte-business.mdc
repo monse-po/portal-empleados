@@ -17,7 +17,7 @@ Fuente: `docs/documento-soporte/02-reglas-negocio-y-campos.md` y `03-referencia-
 
 | Estado | Quién | Notas |
 |--------|-------|-------|
-| Solicitado | Sistema al guardar | Estado inicial |
+| Lanzado | Sistema al guardar | Estado inicial (UI portal; Notion/IFS pueden seguir diciendo Solicitado) |
 | Aprobado | Contabilidad | No editable |
 | Rechazado | Contabilidad | Nota obligatoria; no reabrir |
 | Anulado | Contabilidad | No reabrir |
@@ -28,7 +28,7 @@ Fuente: `docs/documento-soporte/02-reglas-negocio-y-campos.md` y `03-referencia-
 
 | Tab | Estados |
 |-----|---------|
-| En proceso | Solicitado |
+| En proceso | Lanzado |
 | Historial | Aprobado, Rechazado, Anulado |
 
 ## Visibilidad (igual Anticipos)
@@ -44,7 +44,7 @@ Obligatorios al guardar: Solicitado Por (para mí / otro), NIF (sin espacios), N
 - **Tarjeta crédito corporativa**: solo últimos 4 dígitos (opcional).  
 - **Impuestos IVA/RIVA/RFTE/RICA**: **no** en portal.
 
-Automáticos: No. Solicitud (`DS####` mock / consecutivo IFS), Fecha Solicitud, Registrado por, Estado = Solicitado, Tipo = DSE.
+Automáticos: No. Solicitud (`DS####` mock / consecutivo IFS), Fecha Solicitud, Registrado por, Estado = Lanzado, Tipo = DSE.
 
 ## Anti-duplicados
 

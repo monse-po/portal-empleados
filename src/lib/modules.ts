@@ -83,6 +83,18 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
+    id: "documento-soporte",
+    label: "Documento de Soporte",
+    routes: [
+      {
+        path: "/documento-soporte",
+        rol: "empleado",
+        navLabel: "Mi DSE",
+        icon: "paperclip",
+      },
+    ],
+  },
+  {
     id: "historico",
     label: "Histórico",
     routes: [
@@ -91,18 +103,6 @@ export const MODULES: ModuleDef[] = [
         rol: "empleado",
         navLabel: "Mi Histórico",
         icon: "history",
-      },
-    ],
-  },
-  {
-    id: "documento-soporte",
-    label: "Documento de Soporte",
-    routes: [
-      {
-        path: "/documento-soporte",
-        rol: "empleado",
-        navLabel: "Documento de Soporte",
-        icon: "paperclip",
       },
     ],
   },

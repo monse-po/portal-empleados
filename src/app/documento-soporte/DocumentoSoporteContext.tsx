@@ -33,7 +33,7 @@ type DocumentoSoporteContextValue = {
   registrosActuales: DocumentoSoporte[];
   getDocumento: (no: string) => DocumentoSoporte | undefined;
   /**
-   * Guarda solicitud → estado Solicitado.
+   * Guarda solicitud → estado Lanzado.
    * Devuelve { ok, codigo?, error? }.
    */
   guardarDocumento: (
@@ -98,10 +98,10 @@ export function DocumentoSoporteProvider({
             result = { ok: false, error: "Solicitud no encontrada" };
             return prev;
           }
-          if (existing.estado !== "Solicitado") {
+          if (existing.estado !== "Lanzado") {
             result = {
               ok: false,
-              error: "Solo se pueden editar solicitudes en estado Solicitado",
+              error: "Solo se pueden editar solicitudes en estado Lanzado",
             };
             return prev;
           }
@@ -133,7 +133,7 @@ export function DocumentoSoporteProvider({
           no,
           fecha: existing?.fecha ?? hoyDMY(),
           tipo: input.tipo,
-          estado: "Solicitado",
+          estado: "Lanzado",
           empresaId: input.empresaId,
           empresaLabel: input.empresaLabel,
           registradoPorId: existing?.registradoPorId ?? sessionEmpleadoId,

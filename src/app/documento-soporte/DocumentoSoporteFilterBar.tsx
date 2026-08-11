@@ -50,7 +50,7 @@ function valueOptionIcon(
     if (val === "Aprobado") return "check";
     if (val === "Rechazado") return "x";
     if (val === "Anulado") return "x";
-    if (val === "Solicitado") return "hourglass";
+    if (val === "Lanzado") return "hourglass";
     return "clock";
   }
   return getFilterColumnDef(column).icon;

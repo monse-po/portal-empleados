@@ -170,7 +170,7 @@ export function EstadoLegalizacionPill({
 }
 
 export const estadoDocumentoSoportePillVariant: Record<string, PillVariant> = {
-  Solicitado: "registrado",
+  Lanzado: "lanzado",
   Aprobado: "aprobado",
   Rechazado: "rechazado",
   Anulado: "cancelado",

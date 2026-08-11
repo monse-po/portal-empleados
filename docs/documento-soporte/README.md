@@ -9,7 +9,7 @@ Regla operativa del agente: `.cursor/rules/33-documento-soporte-business.mdc`
 
 ## Alcance portal (Modo A)
 
-El Portal de Empleados captura la **solicitud** y la deja en estado **Solicitado**.  
+El Portal de Empleados captura la **solicitud** y la deja en estado **Lanzado** (UI alineada a Anticipos; en Notion el estado inicial puede figurar como Solicitado).  
 Aprobación, factura, series DIAN y envío PAC son Contabilidad / IFS (Modo B).
 
 ## Pendientes de negocio

@@ -27,7 +27,7 @@ Las solicitudes DSE y NA pueden generarse desde:
 
 | Estado | Descripción | Quién lo activa |
 | --- | --- | --- |
-| Solicitado | Estado inicial al guardar la solicitud. | Sistema |
+| Lanzado | Estado inicial al guardar la solicitud (UI portal; Notion: Solicitado). | Sistema |
 | Aprobado | Contabilidad verificó y aprobó. Se puede proceder a crear la factura. | Contabilidad |
 | Rechazado | Contabilidad rechazó. El flujo termina. Requiere Nota de Solicitud. | Contabilidad |
 | Anulado | La solicitud se cancela antes de tener Invoice ID o documento electrónico válido ante la DIAN. | Contabilidad |
@@ -47,7 +47,7 @@ Al guardar la solicitud:
 - Se asigna automáticamente un número consecutivo de solicitud.
 - Se registra la fecha de solicitud.
 - Se registra el empleado que crea la solicitud.
-- Se establece el estado inicial como Solicitado.
+- Se establece el estado inicial como Lanzado (UI portal).
 
 *(Mecanismo de asignación de fecha y consecutivo: ver Referencia Técnica → Consideraciones Técnicas Generales.)*
 

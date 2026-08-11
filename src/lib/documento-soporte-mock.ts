@@ -4,7 +4,7 @@
  */
 
 export type DocumentoSoporteEstado =
-  | "Solicitado"
+  | "Lanzado"
   | "Aprobado"
   | "Rechazado"
   | "Anulado";
@@ -100,7 +100,7 @@ export const ESTADOS_POR_TAB: Record<
   DocumentoSoporteTab,
   DocumentoSoporteEstado[]
 > = {
-  pendientes: ["Solicitado"],
+  pendientes: ["Lanzado"],
   historial: ["Aprobado", "Rechazado", "Anulado"],
 };
 
@@ -129,14 +129,98 @@ export function formatSizeKb(sizeKb: number): string {
   return `${sizeKb} KB`;
 }
 
+/** Formato numérico por divisa (locale + decimales + prefijo). */
+export const DIVISA_FORMAT_DS: Record<
+  string,
+  { locale: string; fractionDigits: number; prefix: string }
+> = {
+  COP: { locale: "es-CO", fractionDigits: 0, prefix: "$" },
+  USD: { locale: "en-US", fractionDigits: 2, prefix: "US$" },
+  MXN: { locale: "es-MX", fractionDigits: 2, prefix: "$" },
+};
+
+export function getDivisaFormatDs(divisa: string) {
+  return DIVISA_FORMAT_DS[divisa] ?? DIVISA_FORMAT_DS.COP;
+}
+
+/** Monto formateado para input (sin prefijo). */
+export function fmtMontoInputDs(monto: number, divisa: string): string {
+  if (!Number.isFinite(monto) || monto === 0) return "";
+  const { locale, fractionDigits } = getDivisaFormatDs(divisa);
+  return Math.abs(monto).toLocaleString(locale, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
+/**
+ * Parsea el texto del monto según la divisa.
+ * COP: 1.234.567 | 1.234,56 — USD/MXN: 1,234.56
+ */
+export function parseMontoInputDs(
+  raw: string,
+  divisa: string,
+): number | null {
+  const s = raw.trim().replace(/\s/g, "");
+  if (!s || s === "-" || s === "." || s === ",") return null;
+
+  const { locale } = getDivisaFormatDs(divisa);
+  let normalized: string;
+
+  if (locale === "es-CO") {
+    if (s.includes(",")) {
+      normalized = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      normalized = s.replace(/\./g, "");
+    }
+  } else {
+    normalized = s.replace(/,/g, "");
+  }
+
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
 export function formatMontoDs(monto: number, divisa: string): string {
   const sign = monto < 0 ? "-" : "";
-  const abs = Math.abs(monto).toLocaleString("es-CO");
-  return `${sign}${divisa} ${abs}`;
+  const { locale, fractionDigits, prefix } = getDivisaFormatDs(divisa);
+  const abs = Math.abs(monto).toLocaleString(locale, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+  return `${sign}${prefix} ${abs}`;
 }
 
 export function normalizeNif(raw: string): string {
   return raw.replace(/\s+/g, "").trim();
+}
+
+export type NifLookupStatus =
+  | "idle"
+  | "loading"
+  | "found"
+  | "not_found"
+  | "error";
+
+/** Catálogo mock IFS — NIFs ya tipificados en datos de ejemplo. */
+const PROVEEDORES_NIF_IFS: Record<string, string> = {
+  "900123456": "Hotel Parque Central S.A.S.",
+  "800987654": "Transportes Rápidos del Norte",
+  "901112233": "Equipos de Medición Beta Ltda.",
+};
+
+/**
+ * Consulta mock a IFS por NIF.
+ * Si no existe, el portal igual permite continuar (alta manual posterior en IFS).
+ */
+export function lookupNifIfs(nif: string): {
+  found: boolean;
+  nombre?: string;
+} {
+  const key = normalizeNif(nif).replace(/\D/g, "");
+  if (key.length < 6) return { found: false };
+  const nombre = PROVEEDORES_NIF_IFS[key];
+  return nombre ? { found: true, nombre } : { found: false };
 }
 
 export function normalizeId(id: string): string {
@@ -154,7 +238,7 @@ export function nuevoCodigoDocumento(
 }
 
 export function esHistorialEstado(estado: DocumentoSoporteEstado): boolean {
-  return estado !== "Solicitado";
+  return estado !== "Lanzado";
 }
 
 export function documentoVisibleParaEmpleado(
@@ -168,15 +252,24 @@ export function documentoVisibleParaEmpleado(
   );
 }
 
-/** Chip "Registrado por X" cuando ves una solicitud a tu nombre hecha por otro. */
-export function getRegistradoPorLabel(
+/** true si quien registra ≠ a nombre de (solicitud para otro). */
+export function esSolicitudParaOtro(d: DocumentoSoporte): boolean {
+  return normalizeId(d.solicitadoPorId) !== normalizeId(d.registradoPorId);
+}
+
+/**
+ * Chip bajo Beneficiario (mismo patrón Anticipos `getBeneficiarioSolicitante`):
+ * solo si otro empleado registró la solicitud (no el usuario en sesión).
+ */
+export function getRegistradoPorChip(
   d: DocumentoSoporte,
   sessionEmpleadoId: string,
 ): string | null {
   const sessionId = normalizeId(sessionEmpleadoId);
-  if (normalizeId(d.solicitadoPorId) !== sessionId) return null;
-  if (normalizeId(d.registradoPorId) === sessionId) return null;
-  return d.registradoPorNombre;
+  if (normalizeId(d.registradoPorId) !== sessionId) {
+    return d.registradoPorNombre;
+  }
+  return null;
 }
 
 export function validarSignoMonto(
@@ -218,7 +311,7 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     no: "DS0001",
     fecha: "28/07/2026",
     tipo: "DSE",
-    estado: "Solicitado",
+    estado: "Lanzado",
     empresaId: "HMVINGCO",
     empresaLabel: EMPRESAS_DS[0].label,
     registradoPorId: SESSION_DS.id,
@@ -243,7 +336,7 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     no: "DS0002",
     fecha: "30/07/2026",
     tipo: "DSE",
-    estado: "Solicitado",
+    estado: "Lanzado",
     empresaId: "HMVINGCO",
     empresaLabel: EMPRESAS_DS[0].label,
     registradoPorId: SESSION_DS.id,
@@ -377,15 +470,16 @@ export function dmyToIso(dmy: string): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Anchos fijos — Beneficiario alineado a Anticipos (~260px). */
 export const DS_COLS_PEND = [
-  "9%",
-  "10%",
-  "16%",
-  "11%",
-  "12%",
-  "20%",
-  "12%",
-  "10%",
+  "72px",
+  "88px",
+  "260px",
+  "100px",
+  "110px",
+  "200px",
+  "120px",
+  "100px",
 ] as const;
 
 export const DS_COLS_HIST = DS_COLS_PEND;

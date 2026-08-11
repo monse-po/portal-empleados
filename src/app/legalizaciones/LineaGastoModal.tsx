@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
-import { Icon } from "@/src/components/ui/Icon";
+import { FileAttachmentField } from "@/src/components/ui/FileAttachmentField";
 import { Modal } from "@/src/components/ui/Modal";
 import { SelectControl } from "@/src/components/ui/DropdownAffordance";
 import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
@@ -68,7 +68,6 @@ export function LineaGastoModal({
   const [draft, setDraft] = useState<LineaGastoDraft>(linea);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const voucherTypes = getVoucherTypes(companiaId);
   const costCategories = getCostCategories(companiaId);
@@ -84,7 +83,6 @@ export function LineaGastoModal({
       proyectoId: linea.proyectoId || defaultProyectoId || "",
     });
     setErrors({});
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }, [open, linea, lockedCurrency, defaultCurrency, defaultProyectoId]);
 
   const patch = (next: Partial<LineaGastoDraft>) => {
@@ -329,39 +327,18 @@ export function LineaGastoModal({
             required={adjuntoObligatorio}
             error={errors.documentAttachment}
           >
-            <div className="flex items-center gap-2">
-              <label className="flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-[5px] border border-dashed border-[#c7d9ed] bg-white px-3 text-[12px] hover:bg-[#f4f7fb]">
-                <Icon name="paperclip" size="xs" className="shrink-0 text-muted" />
-                <span
-                  className={`truncate ${draft.documentAttachment ? "font-medium text-navy" : "text-muted"}`}
-                >
-                  {draft.documentAttachment || "Adjuntar PDF o imagen"}
-                </span>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.jpg,.jpeg,.png,.xml"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    patch({ documentAttachment: file?.name ?? "" });
-                  }}
-                />
-              </label>
-              {draft.documentAttachment ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    patch({ documentAttachment: "" });
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                  className="inline-flex h-9 shrink-0 items-center gap-1 rounded-[5px] border border-[#e5e9f0] bg-white px-2.5 text-[12px] text-muted hover:bg-[#fee2e2] hover:text-[#b91c1c]"
-                >
-                  <Icon name="x" size="xs" />
-                  Quitar
-                </button>
-              ) : null}
-            </div>
+            <FileAttachmentField
+              value={
+                draft.documentAttachment.trim()
+                  ? { nombre: draft.documentAttachment.trim() }
+                  : null
+              }
+              accept=".pdf,.jpg,.jpeg,.png,.xml"
+              onSelect={(file) =>
+                patch({ documentAttachment: file.name })
+              }
+              onClear={() => patch({ documentAttachment: "" })}
+            />
           </Field>
         </div>
       </div>

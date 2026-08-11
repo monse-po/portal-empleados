@@ -17,7 +17,7 @@ function puedeEditar(
   sessionEmpleadoId: string,
 ): boolean {
   return (
-    estado === "Solicitado" &&
+    estado === "Lanzado" &&
     registradoPorId.replace(/\D/g, "") === sessionEmpleadoId.replace(/\D/g, "")
   );
 }

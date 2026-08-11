@@ -61,7 +61,7 @@ Ruta: Finanzas → Factura Manual de Proveedor → Documento Soporte
 | Monto | Numérico | Captura manual, incluyendo el signo. Aplica la regla de signo por Tipo de Documento (ver Reglas de Negocio y Campos → Regla de Signo del Monto). Sin validación de coincidencia contra la factura posterior (ver Reglas de Negocio y Campos → Reconciliación). |
 | Adjunto / Evidencia | Archivo | Obligatorio siempre, para todo tipo de solicitud (DSE y NA). |
 | No. Solicitud | Automático | Consecutivo único generado al guardar la solicitud, independiente de la empresa. |
-| Estado Solicitud | Automático | Valor inicial: Solicitado. |
+| Estado Solicitud | Automático | Valor inicial: Lanzado (UI portal; Notion: Solicitado). |
 | Aprobado por | Automático | Empleado que aprueba la solicitud. Puede coincidir con Registrado por, pero no puede coincidir con Solicitado Por (ver regla de autorización en Reglas de Negocio y Campos → Aprobación). |
 | Fecha de Aprobación | Automático | Fecha y hora del sistema (SYSDATE). |
 | Invoice ID Relacionado | Automático | Se asigna cuando la solicitud aprobada se selecciona en una factura de proveedor (ver Segunda Parte). Una solicitud con este campo lleno no aparece disponible para seleccionarse en otra factura. Se limpia si la factura relacionada se cancela y el Documento Electrónico DS no ha sido aceptado por la DIAN (ver Reglas de Negocio y Campos → Cancelación de Factura). |
@@ -89,7 +89,7 @@ Ruta: Finanzas → Factura Manual de Proveedor → Documento Soporte
 ## Creación de Factura de Proveedor
 
 - En el encabezado se selecciona mediante LOV el campo **No. Solicitud Documento Soporte**.
-- El LOV muestra únicamente solicitudes en estado Aprobado **sin Invoice ID relacionado**. Excluye: Solicitado, Rechazado, Anulado, y Aprobadas ya vinculadas a otra factura.
+- El LOV muestra únicamente solicitudes en estado Aprobado **sin Invoice ID relacionado**. Excluye: Lanzado, Rechazado, Anulado, y Aprobadas ya vinculadas a otra factura.
 - Al guardar: se registra el Invoice ID en la solicitud y se habilita pestaña de solo lectura con los datos de la solicitud en la Factura Manual Proveedor.
 
 ## Envío de DSE al PAC

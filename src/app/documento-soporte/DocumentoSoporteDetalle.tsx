@@ -102,7 +102,7 @@ export function DocumentoSoporteDetalle({
               <ReadOnlyField label="Empresa">
                 {documento.empresaLabel}
               </ReadOnlyField>
-              <ReadOnlyField label="A nombre de">
+              <ReadOnlyField label="Beneficiario">
                 {documento.solicitadoPorNombre}
               </ReadOnlyField>
             </DetailGrid>

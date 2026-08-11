@@ -16,7 +16,8 @@ import { TablePagination } from "@/src/components/ui/TablePagination";
 import {
   DS_COLS_HIST,
   DS_COLS_PEND,
-  getRegistradoPorLabel,
+  formatMontoDs,
+  getRegistradoPorChip,
   type DocumentoSoporte,
 } from "@/src/lib/documento-soporte-mock";
 
@@ -30,7 +31,7 @@ type DocumentoSoporteTablaProps = {
 const headerCols: [string, string][] = [
   ["Código", "text-left"],
   ["Solicitado", "text-left"],
-  ["A nombre de", "text-left"],
+  ["Beneficiario", "text-left"],
   ["NIF", "text-left"],
   ["Documento", "text-left"],
   ["Concepto", "text-left"],
@@ -80,7 +81,7 @@ export function DocumentoSoporteTabla({
     <div>
       <div className="overflow-x-auto">
         <DataTable
-          className="min-w-[1020px]"
+          className="min-w-[1280px]"
           colWidths={[...(esHistorial ? DS_COLS_HIST : DS_COLS_PEND)]}
         >
           <thead>
@@ -94,7 +95,7 @@ export function DocumentoSoporteTabla({
           </thead>
           <tbody>
             {visibles.map((row) => {
-              const registradoPor = getRegistradoPorLabel(
+              const registradoPor = getRegistradoPorChip(
                 row,
                 sessionEmpleadoId,
               );
@@ -154,7 +155,7 @@ export function DocumentoSoporteTabla({
                   </td>
                   <td className={`${dataTd} text-right`}>
                     <div className="font-semibold leading-snug">
-                      {`${row.monto < 0 ? "-" : ""}${Math.abs(row.monto).toLocaleString("es-CO")}`}
+                      {formatMontoDs(row.monto, row.divisa)}
                     </div>
                     <div className={dataTdResSecondary}>{row.divisa}</div>
                   </td>

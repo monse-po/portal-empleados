@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody } from "@/src/components/ui/Card";
 import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
+import { FileAttachmentField } from "@/src/components/ui/FileAttachmentField";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
@@ -17,12 +18,16 @@ import {
   dmyToIso,
   EMPLEADOS_DS,
   EMPRESAS_DS,
-  formatSizeKb,
+  fmtMontoInputDs,
+  getDivisaFormatDs,
   hoyDMY,
   hoyIso,
   isoToDmy,
+  lookupNifIfs,
+  parseMontoInputDs,
   SESSION_DS,
   type AdjuntoMock,
+  type NifLookupStatus,
 } from "@/src/lib/documento-soporte-mock";
 import type { LovItem } from "@/src/lib/mis-anticipos-mock";
 
@@ -78,13 +83,6 @@ function FormSection({
   );
 }
 
-function parseMontoInput(raw: string): number | null {
-  const cleaned = raw.replace(/\s/g, "").replace(",", ".");
-  if (!cleaned || cleaned === "-" || cleaned === ".") return null;
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : null;
-}
-
 export function DocumentoSoporteFormulario({
   onVolver,
   onGuardado,
@@ -93,7 +91,6 @@ export function DocumentoSoporteFormulario({
   const { getDocumento, guardarDocumento, sessionEmpleadoId, sessionNombre } =
     useDocumentoSoporte();
   const { toast } = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
   const existing = editNo ? getDocumento(editNo) : undefined;
 
   const [paraOtro, setParaOtro] = useState(() => {
@@ -120,6 +117,12 @@ export function DocumentoSoporteFormulario({
     );
   });
   const [nif, setNif] = useState(existing?.nif ?? "");
+  const [nifLookupStatus, setNifLookupStatus] =
+    useState<NifLookupStatus>("idle");
+  const [nifProveedorNombre, setNifProveedorNombre] = useState<string | null>(
+    null,
+  );
+  const nifDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [noDocumentoOriginal, setNoDocumentoOriginal] = useState(
     existing?.noDocumentoOriginal ?? "",
   );
@@ -135,8 +138,11 @@ export function DocumentoSoporteFormulario({
   const [concepto, setConcepto] = useState(existing?.concepto ?? "");
   const [divisa, setDivisa] = useState(existing?.divisa ?? "COP");
   const [montoRaw, setMontoRaw] = useState(
-    existing ? String(Math.abs(existing.monto)) : "",
+    existing
+      ? fmtMontoInputDs(Math.abs(existing.monto), existing.divisa)
+      : "",
   );
+  const divisaFmt = getDivisaFormatDs(divisa);
   const [adjunto, setAdjunto] = useState<AdjuntoMock | undefined>(
     existing?.adjunto,
   );
@@ -146,14 +152,33 @@ export function DocumentoSoporteFormulario({
     if (!next) setEmpOtro(null);
   };
 
-  const pickFile = (file: File | null) => {
-    if (!file) return;
-    setAdjunto({
-      nombre: file.name,
-      sizeKb: Math.max(1, Math.round(file.size / 1024)),
-      mime: file.type || "application/octet-stream",
-    });
-  };
+  useEffect(() => {
+    if (nifDebounceRef.current) clearTimeout(nifDebounceRef.current);
+
+    const digits = nif.replace(/\D/g, "");
+    if (!nif.trim() || digits.length < 6) {
+      setNifLookupStatus("idle");
+      setNifProveedorNombre(null);
+      return;
+    }
+
+    setNifLookupStatus("loading");
+    setNifProveedorNombre(null);
+    nifDebounceRef.current = setTimeout(() => {
+      const result = lookupNifIfs(nif);
+      if (result.found && result.nombre) {
+        setNifLookupStatus("found");
+        setNifProveedorNombre(result.nombre);
+      } else {
+        setNifLookupStatus("not_found");
+        setNifProveedorNombre(null);
+      }
+    }, 450);
+
+    return () => {
+      if (nifDebounceRef.current) clearTimeout(nifDebounceRef.current);
+    };
+  }, [nif]);
 
   const guardar = () => {
     let solicitadoPorId = SESSION_DS.id;
@@ -183,7 +208,7 @@ export function DocumentoSoporteFormulario({
       toast("El concepto debe tener al menos 5 caracteres", "danger");
       return;
     }
-    const abs = parseMontoInput(montoRaw);
+    const abs = parseMontoInputDs(montoRaw, divisa);
     if (abs === null || abs === 0) {
       toast("Ingresa un monto distinto de cero", "danger");
       return;
@@ -224,7 +249,7 @@ export function DocumentoSoporteFormulario({
     toast(
       editNo
         ? `Solicitud ${result.codigo} actualizada`
-        : `Solicitud ${result.codigo} creada (Solicitado)`,
+        : `Solicitud ${result.codigo} creada (Lanzado)`,
       "green",
     );
     onGuardado(result.codigo);
@@ -297,7 +322,28 @@ export function DocumentoSoporteFormulario({
                     onChange={(e) => setNif(e.target.value)}
                     placeholder="Sin espacios"
                     className="ant-field-input"
+                    autoComplete="off"
                   />
+                  {nifLookupStatus === "loading" ? (
+                    <p className="mt-1 text-[11px] text-muted">
+                      Buscando en IFS…
+                    </p>
+                  ) : nifLookupStatus === "found" ? (
+                    <p className="mt-1 text-[11px] text-green">
+                      Registrado en IFS
+                      {nifProveedorNombre
+                        ? ` · ${nifProveedorNombre}`
+                        : ""}
+                    </p>
+                  ) : nifLookupStatus === "not_found" ? (
+                    <p className="mt-1 text-[11px] text-muted">
+                      No registrado en IFS
+                    </p>
+                  ) : nifLookupStatus === "error" ? (
+                    <p className="mt-1 text-[11px] text-muted">
+                      Sin conexión con IFS — puedes continuar
+                    </p>
+                  ) : null}
                 </Field>
                 <Field label="No. Documento Original" required>
                   <input
@@ -321,7 +367,14 @@ export function DocumentoSoporteFormulario({
                 <Field label="Divisa" required>
                   <SelectControl
                     value={divisa}
-                    onChange={(e) => setDivisa(e.target.value)}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      const n = parseMontoInputDs(montoRaw, divisa);
+                      setDivisa(next);
+                      if (n !== null && n !== 0) {
+                        setMontoRaw(fmtMontoInputDs(n, next));
+                      }
+                    }}
                     className="ant-field-input"
                   >
                     {DIVISAS_DS.map((d) => (
@@ -332,119 +385,117 @@ export function DocumentoSoporteFormulario({
                   </SelectControl>
                 </Field>
                 <Field label="Monto" required>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={montoRaw}
-                    onChange={(e) => setMontoRaw(e.target.value)}
-                    placeholder="0"
-                    className="ant-field-input"
-                  />
-                </Field>
-              </FormGrid>
-
-              <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
-                <div className="w-fit max-w-full">
-                  <p className="mb-1.5 text-[12px] font-semibold text-[#374151]">
-                    Forma de pago
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = !pagoTarjetaCorp;
-                      setPagoTarjetaCorp(next);
-                      if (!next) setTarjetaUltimos4("");
-                    }}
-                    className={`inline-flex w-fit max-w-full cursor-pointer items-center gap-2.5 rounded-[8px] border px-3 py-2.5 text-left text-[13px] font-semibold transition-colors ${
-                      pagoTarjetaCorp
-                        ? "border-navy bg-[#eef3f9] text-navy"
-                        : "border-border bg-white text-[#374151] hover:border-[#c7d9ed] hover:bg-[#f8fafc]"
-                    }`}
-                  >
-                    <span
-                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border ${
-                        pagoTarjetaCorp
-                          ? "border-navy bg-navy text-white"
-                          : "border-[#c7d2e0] bg-white"
-                      }`}
-                      aria-hidden
-                    >
-                      {pagoTarjetaCorp ? (
-                        <Icon name="check" size="xs" className="text-white" />
-                      ) : null}
+                  <div className="flex h-9 w-full overflow-hidden rounded-[5px] border border-border bg-white focus-within:border-navy">
+                    <span className="flex min-w-[40px] items-center justify-center border-r border-border bg-[#f3f4f6] px-2 text-[13px] font-medium text-muted">
+                      {divisaFmt.prefix}
                     </span>
-                    Pagado con tarjeta corporativa
-                  </button>
-                </div>
-                {pagoTarjetaCorp ? (
-                  <Field label="Últimos 4 dígitos" required>
+                    <input
+                      type="text"
+                      inputMode={
+                        divisaFmt.fractionDigits > 0 ? "decimal" : "numeric"
+                      }
+                      value={montoRaw}
+                      onChange={(e) =>
+                        setMontoRaw(e.target.value.replace(/[^\d.,]/g, ""))
+                      }
+                      onBlur={() => {
+                        const n = parseMontoInputDs(montoRaw, divisa);
+                        if (n === null || n === 0) {
+                          setMontoRaw("");
+                          return;
+                        }
+                        setMontoRaw(fmtMontoInputDs(n, divisa));
+                      }}
+                      placeholder={
+                        divisaFmt.fractionDigits > 0 ? "0.00" : "0"
+                      }
+                      className="min-w-0 flex-1 border-0 px-2 text-[13px] outline-none"
+                    />
+                  </div>
+                </Field>
+                <Field
+                  label="Tarjeta corporativa"
+                  required={pagoTarjetaCorp}
+                >
+                  <div className="flex h-9 w-full overflow-hidden rounded-[5px] border border-border bg-white focus-within:border-navy">
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={pagoTarjetaCorp}
+                      onClick={() => {
+                        const next = !pagoTarjetaCorp;
+                        setPagoTarjetaCorp(next);
+                        if (!next) setTarjetaUltimos4("");
+                      }}
+                      className="flex min-w-[40px] items-center justify-center border-r border-border bg-[#f3f4f6] px-2"
+                      aria-label="Pagado con tarjeta corporativa"
+                    >
+                      <span
+                        className={`flex h-4 w-4 items-center justify-center rounded-[3px] border ${
+                          pagoTarjetaCorp
+                            ? "border-navy bg-navy text-white"
+                            : "border-[#c7d2e0] bg-white"
+                        }`}
+                        aria-hidden
+                      >
+                        {pagoTarjetaCorp ? (
+                          <Icon name="check" size="xs" className="text-white" />
+                        ) : null}
+                      </span>
+                    </button>
                     <input
                       type="text"
                       inputMode="numeric"
                       maxLength={4}
                       value={tarjetaUltimos4}
-                      onChange={(e) =>
-                        setTarjetaUltimos4(
-                          e.target.value.replace(/\D/g, "").slice(0, 4),
-                        )
-                      }
-                      placeholder="••••"
-                      className="ant-field-input w-[88px] text-center tracking-[0.2em]"
+                      onChange={(e) => {
+                        const digits = e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 4);
+                        setTarjetaUltimos4(digits);
+                        setPagoTarjetaCorp(digits.length > 0);
+                      }}
+                      onFocus={() => {
+                        if (!pagoTarjetaCorp) setPagoTarjetaCorp(true);
+                      }}
+                      placeholder="Últimos 4 dígitos de la tarjeta"
+                      aria-label="Últimos 4 dígitos de la tarjeta"
+                      className="min-w-0 flex-1 border-0 px-2 text-[13px] tracking-[0.15em] outline-none placeholder:tracking-normal"
                     />
-                  </Field>
-                ) : null}
-              </div>
+                  </div>
+                </Field>
+              </FormGrid>
 
               <div className="mt-3">
                 <Field label="Concepto" required>
-                  <textarea
+                  <input
+                    type="text"
                     value={concepto}
                     onChange={(e) => setConcepto(e.target.value)}
                     placeholder="Describe el gasto…"
-                    rows={3}
-                    className="ant-form-textarea w-full resize-none px-3 py-2 text-[13px] leading-relaxed focus:border-navy focus:outline-none"
+                    className="ant-field-input"
                   />
                 </Field>
               </div>
 
-              <div className="mt-3 max-w-md">
+              <div className="mt-3">
                 <Field label="Adjunto" required>
-                  <div className="flex items-center gap-1">
-                    <label className="flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-[5px] border border-dashed border-[#c7d9ed] bg-white px-3 text-[12px] hover:bg-[#f4f7fb]">
-                      <Icon
-                        name="paperclip"
-                        size="xs"
-                        className="shrink-0 text-muted"
-                      />
-                      <span
-                        className={`min-w-0 truncate ${adjunto ? "font-medium text-navy" : "text-muted"}`}
-                      >
-                        {adjunto
-                          ? `${adjunto.nombre} · ${formatSizeKb(adjunto.sizeKb)}`
-                          : "Adjuntar PDF o imagen"}
-                      </span>
-                      <input
-                        ref={fileRef}
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,image/*,.zip"
-                        onChange={(e) => {
-                          pickFile(e.target.files?.[0] ?? null);
-                          e.target.value = "";
-                        }}
-                      />
-                    </label>
-                    {adjunto ? (
-                      <button
-                        type="button"
-                        onClick={() => setAdjunto(undefined)}
-                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-[#fee2e2] hover:text-[#b91c1c]"
-                        title="Quitar"
-                      >
-                        <Icon name="x" size="xs" />
-                      </button>
-                    ) : null}
-                  </div>
+                  <FileAttachmentField
+                    value={
+                      adjunto
+                        ? { nombre: adjunto.nombre, sizeKb: adjunto.sizeKb }
+                        : null
+                    }
+                    accept=".pdf,image/*,.zip"
+                    onSelect={(file) =>
+                      setAdjunto({
+                        nombre: file.name,
+                        sizeKb: Math.max(1, Math.round(file.size / 1024)),
+                        mime: file.type || "application/octet-stream",
+                      })
+                    }
+                    onClear={() => setAdjunto(undefined)}
+                  />
                 </Field>
               </div>
             </FormSection>
@@ -478,11 +529,6 @@ export function DocumentoSoporteFormulario({
           padding: 0 10px;
           font-size: 13px;
         }
-        .ant-form-textarea {
-          width: 100%;
-          border-radius: 5px;
-          border: 1px solid #e5e9f0;
-        }
         .ant-ro-input {
           background: #f3f4f6;
           color: #374151;
@@ -492,8 +538,7 @@ export function DocumentoSoporteFormulario({
           outline: none;
           border-color: #e5e9f0;
         }
-        .ant-field-input:focus,
-        .ant-form-textarea:focus {
+        .ant-field-input:focus {
           outline: none;
           border-color: #014783;
         }
