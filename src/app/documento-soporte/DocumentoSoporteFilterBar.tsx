@@ -46,11 +46,6 @@ function valueOptionIcon(
   column: DocumentoSoporteFilterColumn,
   val: string,
 ): IconName {
-  if (column === "tipo") {
-    if (val === "DSE") return "paperclip";
-    if (val === "NA") return "pencil";
-    return "briefcase";
-  }
   if (column === "estado") {
     if (val === "Aprobado") return "check";
     if (val === "Rechazado") return "x";
@@ -62,7 +57,7 @@ function valueOptionIcon(
 }
 
 function multiOptions(
-  column: "tipo" | "estado",
+  column: "estado",
   registros: DocumentoSoporte[],
 ): FilterDropdownOption[] {
   return buildFilterMultiOptions(
@@ -95,20 +90,19 @@ function useColumnFilterActions(
   onChange: Dispatch<SetStateAction<DocumentoSoporteFilterRule[]>>,
 ) {
   const toggleMulti = (val: string) => {
-    const col = column as "tipo" | "estado";
     onChange((prev) => {
-      const rule = getFilterForColumn(prev, column);
-      const current = rule?.column === col ? rule.values : [];
+      const rule = getFilterForColumn(prev, "estado");
+      const current = rule?.column === "estado" ? rule.values : [];
       const nextValues = current.includes(val)
         ? current.filter((v) => v !== val)
         : [...current, val];
-      if (!nextValues.length) return removeFilterByColumn(prev, column);
-      const base: Extract<DocumentoSoporteFilterRule, { column: typeof col }> =
-        rule?.column === col
+      if (!nextValues.length) return removeFilterByColumn(prev, "estado");
+      const base: Extract<DocumentoSoporteFilterRule, { column: "estado" }> =
+        rule?.column === "estado"
           ? rule
-          : (createEmptyRule(col) as Extract<
+          : (createEmptyRule("estado") as Extract<
               DocumentoSoporteFilterRule,
-              { column: typeof col }
+              { column: "estado" }
             >);
       return upsertFilterRule(prev, { ...base, values: nextValues });
     });
@@ -174,15 +168,11 @@ function ColumnBarControl({
     onChange,
   );
 
-  if (column === "tipo" || column === "estado") {
-    const values =
-      existing &&
-      (existing.column === "tipo" || existing.column === "estado")
-        ? existing.values
-        : [];
+  if (column === "estado") {
+    const values = existing?.column === "estado" ? existing.values : [];
     return (
       <FilterBarMultiDropdown
-        options={multiOptions(column, registros)}
+        options={multiOptions("estado", registros)}
         selected={values}
         onToggle={toggleMulti}
         placeholder="elegir…"

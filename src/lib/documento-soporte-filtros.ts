@@ -9,7 +9,6 @@ import type {
 export type DocumentoSoporteFilterColumn =
   | "codigo"
   | "fecha"
-  | "tipo"
   | "nif"
   | "documento"
   | "concepto"
@@ -29,7 +28,7 @@ export type DocumentoSoporteFilterRule =
     }
   | {
       id: string;
-      column: "tipo" | "estado";
+      column: "estado";
       values: string[];
     };
 
@@ -42,7 +41,6 @@ export type DocumentoSoporteFilterColumnDef = {
 export const DS_FILTER_COLUMNS_BASE: DocumentoSoporteFilterColumnDef[] = [
   { id: "codigo", label: "Código", icon: "copy" },
   { id: "fecha", label: "Solicitado", icon: "calendar" },
-  { id: "tipo", label: "Tipo", icon: "briefcase" },
   { id: "nif", label: "NIF", icon: "userCircle" },
   { id: "documento", label: "No. Documento", icon: "paperclip" },
   { id: "concepto", label: "Concepto", icon: "pencil" },
@@ -95,8 +93,6 @@ function getFieldValue(
       return s.no;
     case "fecha":
       return s.fecha;
-    case "tipo":
-      return s.tipo;
     case "nif":
       return s.nif;
     case "documento":
@@ -112,7 +108,7 @@ function getFieldValue(
 
 export function getDistinctValues(
   registros: DocumentoSoporte[],
-  col: "tipo" | "estado",
+  col: "estado",
 ): string[] {
   const set = new Set<string>();
   registros.forEach((s) => {
@@ -135,7 +131,6 @@ function matchRule(
       if (toKey !== null && dKey > toKey) return false;
       return true;
     }
-    case "tipo":
     case "estado": {
       if (!rule.values.length) return true;
       return rule.values.includes(getFieldValue(s, rule.column));
@@ -193,7 +188,6 @@ export function isRuleComplete(rule: DocumentoSoporteFilterRule): boolean {
   switch (rule.column) {
     case "fecha":
       return !!(rule.from || rule.to);
-    case "tipo":
     case "estado":
       return rule.values.length > 0;
     case "codigo":
@@ -213,9 +207,8 @@ export function createEmptyRule(
   switch (column) {
     case "fecha":
       return { id, column: "fecha" };
-    case "tipo":
     case "estado":
-      return { id, column, values: [] };
+      return { id, column: "estado", values: [] };
     case "codigo":
     case "nif":
     case "documento":

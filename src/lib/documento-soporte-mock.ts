@@ -292,7 +292,7 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
   DS0004: {
     no: "DS0004",
     fecha: "10/07/2026",
-    tipo: "NA",
+    tipo: "DSE",
     estado: "Rechazado",
     empresaId: "HMVINGCO",
     empresaLabel: EMPRESAS_DS[0].label,
@@ -301,16 +301,13 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     solicitadoPorId: SESSION_DS.id,
     solicitadoPorNombre: SESSION_DS.nombre,
     nif: "900123456",
-    noDocumentoOriginal: "NA-003",
+    noDocumentoOriginal: "FV-44990",
     fechaDocumento: "09/07/2026",
-    concepto: "Anulación parcial hospedaje — imágenes ilegibles",
+    concepto: "Hospedaje — imágenes ilegibles",
     divisa: "COP",
-    monto: -200000,
-    tipoAjuste: "Corrección de valor",
-    documentoSoporteAnular: "DSE-2026-00112",
-    cudsAnular: "CUDS-DEMO-00112",
+    monto: 200000,
     adjunto: {
-      nombre: "soporte-na.pdf",
+      nombre: "factura-hospedaje.pdf",
       sizeKb: 210,
       mime: "application/pdf",
     },
@@ -381,15 +378,14 @@ export function dmyToIso(dmy: string): string {
 }
 
 export const DS_COLS_PEND = [
-  "8%",
   "9%",
-  "6%",
-  "14%",
   "10%",
+  "16%",
   "11%",
-  "18%",
   "12%",
+  "20%",
   "12%",
+  "10%",
 ] as const;
 
 export const DS_COLS_HIST = DS_COLS_PEND;

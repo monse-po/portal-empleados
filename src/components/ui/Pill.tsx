@@ -176,6 +176,15 @@ export const estadoDocumentoSoportePillVariant: Record<string, PillVariant> = {
   Anulado: "cancelado",
 };
 
+export function estadoDocumentoSoportePillProps(estado: string) {
+  return {
+    variant:
+      estadoDocumentoSoportePillVariant[estado] ??
+      ("registrado" as PillVariant),
+    label: estado,
+  };
+}
+
 export function EstadoDocumentoSoportePill({
   estado,
   className = "",
@@ -183,11 +192,10 @@ export function EstadoDocumentoSoportePill({
   estado: string;
   className?: string;
 }) {
-  const variant =
-    estadoDocumentoSoportePillVariant[estado] ?? ("registrado" as PillVariant);
+  const { variant, label } = estadoDocumentoSoportePillProps(estado);
   return (
     <Pill variant={variant} className={className}>
-      {estado}
+      {label}
     </Pill>
   );
 }

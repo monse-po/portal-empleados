@@ -10,8 +10,8 @@ Fuente: `docs/documento-soporte/02-reglas-negocio-y-campos.md` y `03-referencia-
 
 ## Tipos
 
-- **DSE** — Documento Soporte Electrónico  
-- **NA** — Nota de Ajuste  
+- Portal empleado (captura): solo **Documento Soporte Electrónico** (DSE).
+- **Nota de Ajuste (NA)**: existe en Notion/IFS para Contabilidad; **fuera del portal empleado** en este MVP.
 
 ## Estados
 
@@ -37,14 +37,14 @@ El empleado ve solicitudes donde es **Solicitado Por** o **Registrado por** (mis
 
 ## Formulario portal (captura)
 
-Obligatorios al guardar: Empresa, Tipo, Solicitado Por, NIF (sin espacios), No. Documento Original, Fecha Documento, Concepto, Divisa, Monto, Adjunto.
+Obligatorios al guardar: Solicitado Por (para mí / otro), NIF (sin espacios), No. Documento Original, Fecha Documento, Concepto, Divisa, Monto, Adjunto.
 
-- **Monto** > 0 si DSE; < 0 si NA (regla de signo).  
-- **Tarjeta corporativa**: solo últimos 4 dígitos (opcional).  
-- **NA**: Tipo Ajuste, Documento Soporte a Anular, CUDS a Anular — obligatorios en portal al guardar (para que Contabilidad pueda aprobar).  
-- **Impuestos IVA/RIVA/RFTE/RICA**: **no** en portal (Modelo Tributario; pendiente vs tabla Campos).
+- Tipo fijo: **DSE**. Empresa por defecto de sesión.  
+- **Monto** > 0.  
+- **Tarjeta crédito corporativa**: solo últimos 4 dígitos (opcional).  
+- **Impuestos IVA/RIVA/RFTE/RICA**: **no** en portal.
 
-Automáticos: No. Solicitud (`DS####` mock / consecutivo IFS), Fecha Solicitud, Registrado por, Estado = Solicitado.
+Automáticos: No. Solicitud (`DS####` mock / consecutivo IFS), Fecha Solicitud, Registrado por, Estado = Solicitado, Tipo = DSE.
 
 ## Anti-duplicados
 
@@ -52,7 +52,7 @@ Bloquear mismo **NIF + No. Documento Original** (cross-company según Reglas; pe
 
 ## Fuera del portal MVP
 
-Series DIAN, Factura Manual Proveedor, Invoice ID, botón Solicitar DSE, PAC/Carvajal, CUDS DIAN. Solo lectura de estado (y campos de seguimiento si existen).
+Nota de Ajuste (NA), Series DIAN, Factura Manual Proveedor, Invoice ID, PAC/Carvajal, CUDS DIAN. Solo lectura de estado (y campos de seguimiento si existen).
 
 ## Enfoque
 

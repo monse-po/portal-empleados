@@ -7,6 +7,7 @@ import { EstadoDocumentoSoportePill } from "@/src/components/ui/Pill";
 import {
   DataTable,
   dataTd,
+  dataTdResSecondary,
   dataTdTruncate,
   dataThWithAlign,
   TABLE_PAGE_SIZE,
@@ -15,7 +16,6 @@ import { TablePagination } from "@/src/components/ui/TablePagination";
 import {
   DS_COLS_HIST,
   DS_COLS_PEND,
-  formatMontoDs,
   getRegistradoPorLabel,
   type DocumentoSoporte,
 } from "@/src/lib/documento-soporte-mock";
@@ -30,8 +30,7 @@ type DocumentoSoporteTablaProps = {
 const headerCols: [string, string][] = [
   ["Código", "text-left"],
   ["Solicitado", "text-left"],
-  ["Tipo", "text-left"],
-  ["Solicitado Por", "text-left"],
+  ["A nombre de", "text-left"],
   ["NIF", "text-left"],
   ["Documento", "text-left"],
   ["Concepto", "text-left"],
@@ -52,7 +51,7 @@ export function DocumentoSoporteTabla({
   if (!totalBase) {
     return (
       <div className="px-5 py-12 text-center text-[13px] text-muted">
-        <Icon name="paperclip" size="xl" className="mx-auto mb-2 opacity-30" />
+        <Icon name="folderOpen" size="xl" className="mx-auto mb-2 opacity-30" />
         {esHistorial
           ? "Sin registros en el historial."
           : "Sin solicitudes en proceso."}
@@ -81,7 +80,7 @@ export function DocumentoSoporteTabla({
     <div>
       <div className="overflow-x-auto">
         <DataTable
-          className="min-w-[1100px]"
+          className="min-w-[1020px]"
           colWidths={[...(esHistorial ? DS_COLS_HIST : DS_COLS_PEND)]}
         >
           <thead>
@@ -114,7 +113,6 @@ export function DocumentoSoporteTabla({
                   <td className={`${dataTd} text-muted ${dataTdTruncate}`}>
                     {row.fecha}
                   </td>
-                  <td className={`${dataTd} ${dataTdTruncate}`}>{row.tipo}</td>
                   <td className={`${dataTd} align-top`}>
                     <div
                       className="font-medium leading-snug text-[#374151] [overflow-wrap:anywhere]"
@@ -154,8 +152,11 @@ export function DocumentoSoporteTabla({
                   >
                     {row.concepto}
                   </td>
-                  <td className={`${dataTd} text-right font-semibold`}>
-                    {formatMontoDs(row.monto, row.divisa)}
+                  <td className={`${dataTd} text-right`}>
+                    <div className="font-semibold leading-snug">
+                      {`${row.monto < 0 ? "-" : ""}${Math.abs(row.monto).toLocaleString("es-CO")}`}
+                    </div>
+                    <div className={dataTdResSecondary}>{row.divisa}</div>
                   </td>
                   <td className={dataTd}>
                     <EstadoDocumentoSoportePill estado={row.estado} />

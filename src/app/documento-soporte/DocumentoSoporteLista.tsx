@@ -44,12 +44,12 @@ export function DocumentoSoporteLista({
         <div>
           <h1 className="text-xl font-bold text-[#111]">Documento de Soporte</h1>
           <p className="mt-1 text-[13px] text-[#4b5563]">
-            Solicita DSE o NA y consulta el estado de tus solicitudes
+            Solicita y consulta tus documentos de soporte
           </p>
         </div>
         <Button variant="primary" onClick={onNuevo}>
           <Icon name="plus" size="xs" />
-          Nueva solicitud
+          Solicitar documento
         </Button>
       </div>
 
