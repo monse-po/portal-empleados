@@ -1,26 +1,28 @@
 import type { CSSProperties, ReactNode } from "react";
-import { Icon } from "@/src/components/ui/Icon";
+import { Icon, type IconName } from "@/src/components/ui/Icon";
 
 /** Base compartida — sin border en ninguna pill */
 export const pillBase =
   "inline-flex items-center gap-1 rounded-full px-2.5 py-[3px] text-[11px] font-semibold whitespace-nowrap";
 
+/**
+ * Variantes → tokens CSS (`globals.css`).
+ * No hardcodear hex aquí; cambiar color en tokens.
+ */
 const variants = {
-  /** Borrador — no enviado (familia neutra editable). */
-  borrador: "bg-[#f1f5f9] text-[#64748b]",
-  /** Registrado — enviado, pendiente de aprobador (tono parecido, un poco más frío). */
-  registrado: "bg-[#e8eef4] text-[#475569]",
-  /** Aprobado — cerrado OK (verde bosque pastel, más peso que borrador). */
-  aprobado: "bg-green-soft text-green",
-  rechazado: "bg-[#fee2e2] text-[#b91c1c]",
-  lanzado: "bg-[#dbeafe] text-[#1d4ed8]",
-  revision: "bg-[#fef9c3] text-[#854d0e]",
-  pagado: "bg-green-soft text-green",
-  enviado: "bg-[#dbeafe] text-[#1d4ed8]",
-  cancelado: "bg-[#f3f4f6] text-[#6b7280]",
-  gasto: "bg-[#f5f3ff] text-[#6d28d9]",
-  viaje: "bg-[#fdf2f8] text-[#9d174d]",
-  inactivo: "bg-[#f3f4f6] text-muted",
+  borrador: "bg-pill-borrador-bg text-pill-borrador-fg",
+  registrado: "bg-pill-registrado-bg text-pill-registrado-fg",
+  aprobado: "bg-pill-aprobado-bg text-pill-aprobado-fg",
+  rechazado: "bg-pill-rechazado-bg text-pill-rechazado-fg",
+  lanzado: "bg-pill-lanzado-bg text-pill-lanzado-fg",
+  revision: "bg-pill-revision-bg text-pill-revision-fg",
+  pagado: "bg-pill-pagado-bg text-pill-pagado-fg",
+  /** Alias de lanzado (legacy). */
+  enviado: "bg-pill-lanzado-bg text-pill-lanzado-fg",
+  cancelado: "bg-pill-cancelado-bg text-pill-cancelado-fg",
+  gasto: "bg-pill-gasto-bg text-pill-gasto-fg",
+  viaje: "bg-pill-viaje-bg text-pill-viaje-fg",
+  inactivo: "bg-pill-cancelado-bg text-muted",
 } as const;
 
 export type PillVariant = keyof typeof variants;
@@ -51,17 +53,65 @@ export function Pill({
   );
 }
 
+/** Labels de estado del portal (después de normalizar). */
+export type EstadoPortalLabel =
+  | "Borrador"
+  | "Lanzado"
+  | "Pendiente"
+  | "Aprobado"
+  | "Pagado"
+  | "Rechazado"
+  | "Cancelado";
+
+/** Icono Lucide homologado por estado (todos los módulos). */
+export function estadoPillIcon(estado: string): IconName | null {
+  const e = normalizeEstadoLabel(estado);
+  if (e === "Borrador") return "pencil";
+  if (e === "Lanzado" || e === "Pendiente") return "send";
+  if (e === "Aprobado") return "check";
+  if (e === "Pagado") return "wallet";
+  if (e === "Rechazado") return "x";
+  if (e === "Cancelado") return "ban";
+  return null;
+}
+
+/**
+ * Normaliza labels legacy / alias → label de producto.
+ * Anulado → Cancelado (nunca mostrar “Anulado” en chips).
+ */
+export function normalizeEstadoLabel(estado: string): string {
+  if (!estado) return "Pendiente";
+  if (estado === "En revisión" || estado === "Registrado") return "Lanzado";
+  if (estado === "Anulado") return "Cancelado";
+  return estado;
+}
+
+/** Mapa canónico estado → variant (compartido; módulos filtran los que usan). */
+export const estadoPortalPillVariant: Record<string, PillVariant> = {
+  Borrador: "borrador",
+  Pendiente: "lanzado",
+  Lanzado: "lanzado",
+  Registrado: "lanzado",
+  "En revisión": "lanzado",
+  Aprobado: "aprobado",
+  Pagado: "pagado",
+  Rechazado: "rechazado",
+  Cancelado: "cancelado",
+  Anulado: "cancelado",
+};
+
 export const estadoTiempoPillVariant: Record<string, PillVariant> = {
   Borrador: "borrador",
-  Registrado: "registrado",
-  /** Legacy — misma pill que Registrado. */
-  "En revisión": "registrado",
+  Pendiente: "lanzado",
+  Lanzado: "lanzado",
+  Registrado: "lanzado",
+  "En revisión": "lanzado",
   Aprobado: "aprobado",
   Rechazado: "rechazado",
 };
 
 export const estadoPillVariant: Record<string, PillVariant> = {
-  ...estadoTiempoPillVariant,
+  ...estadoPortalPillVariant,
 };
 
 export const estadoAnticipoPillVariant: Record<string, PillVariant> = {
@@ -79,34 +129,46 @@ export const tipoAnticipoPillVariant = {
 } as const satisfies Record<string, PillVariant>;
 
 export function estadoAnticipoPillProps(estado: string) {
+  const label = normalizeEstadoLabel(estado);
   return {
-    variant: estadoAnticipoPillVariant[estado] ?? ("registrado" as PillVariant),
-    label: estado,
+    variant: estadoAnticipoPillVariant[label] ?? ("registrado" as PillVariant),
+    label: label === "Pendiente" ? "Lanzado" : label,
   };
 }
 
-const ESTADO_TIEMPO_LABEL: Record<string, string> = {
-  "En revisión": "Registrado",
-};
-
-function estadoTiempoLabel(estado: string): string {
-  if (!estado) return "Pendiente";
-  return ESTADO_TIEMPO_LABEL[estado] ?? estado;
-}
-
 function estadoTiempoEditable(estado: string): boolean {
-  return (
-    estado === "Borrador" ||
-    estado === "Registrado" ||
-    estado === "En revisión"
-  );
+  const e = normalizeEstadoLabel(estado);
+  return e === "Borrador" || e === "Lanzado";
 }
 
 export function estadoTiempoPillProps(estado: string) {
-  const label = estadoTiempoLabel(estado);
-  const variant = estadoTiempoPillVariant[estado] ?? "borrador";
+  const label = normalizeEstadoLabel(estado);
+  const variant =
+    estadoTiempoPillVariant[label] ??
+    estadoTiempoPillVariant[estado] ??
+    "borrador";
   const editable = estadoTiempoEditable(estado);
   return { variant, label, editable };
+}
+
+function EstadoPillShell({
+  variant,
+  label,
+  className = "",
+  title,
+}: {
+  variant: PillVariant;
+  label: string;
+  className?: string;
+  title?: string;
+}) {
+  const icon = estadoPillIcon(label);
+  return (
+    <Pill variant={variant} className={className} title={title}>
+      {icon ? <Icon name={icon} size="xs" className="opacity-80" /> : null}
+      {label}
+    </Pill>
+  );
 }
 
 export function EstadoAnticipoPill({
@@ -118,9 +180,7 @@ export function EstadoAnticipoPill({
 }) {
   const { variant, label } = estadoAnticipoPillProps(estado);
   return (
-    <Pill variant={variant} className={className}>
-      {label}
-    </Pill>
+    <EstadoPillShell variant={variant} label={label} className={className} />
   );
 }
 
@@ -132,25 +192,36 @@ export function EstadoTiempoPill({
   className?: string;
 }) {
   const { variant, label, editable } = estadoTiempoPillProps(estado);
+  const isLanzado = label === "Lanzado" || label === "Pendiente";
   return (
-    <Pill variant={variant} className={className} title={editable ? "Editable" : undefined}>
-      {editable ? <Icon name="pencil" size="xs" className="opacity-80" /> : null}
-      {label}
-    </Pill>
+    <EstadoPillShell
+      variant={variant}
+      label={label === "Pendiente" ? "Lanzado" : label}
+      className={className}
+      title={
+        isLanzado ? "Enviado a aprobación" : editable ? "Editable" : undefined
+      }
+    />
   );
 }
 
 export const estadoLegalizacionPillVariant: Record<string, PillVariant> = {
-  Borrador: "borrador",
-  "En revisión": "revision",
+  Pendiente: "lanzado",
+  Lanzado: "lanzado",
+  "En revisión": "lanzado",
   Aprobado: "aprobado",
   Rechazado: "rechazado",
+  Cancelado: "cancelado",
 };
 
 export function estadoLegalizacionPillProps(estado: string) {
+  const label = normalizeEstadoLabel(estado);
   return {
-    variant: estadoLegalizacionPillVariant[estado] ?? ("registrado" as PillVariant),
-    label: estado,
+    variant:
+      estadoLegalizacionPillVariant[label] ??
+      estadoLegalizacionPillVariant[estado] ??
+      ("lanzado" as PillVariant),
+    label: label === "Pendiente" ? "Lanzado" : label,
   };
 }
 
@@ -163,25 +234,27 @@ export function EstadoLegalizacionPill({
 }) {
   const { variant, label } = estadoLegalizacionPillProps(estado);
   return (
-    <Pill variant={variant} className={className}>
-      {label}
-    </Pill>
+    <EstadoPillShell variant={variant} label={label} className={className} />
   );
 }
 
 export const estadoDocumentoSoportePillVariant: Record<string, PillVariant> = {
+  Pendiente: "lanzado",
   Lanzado: "lanzado",
   Aprobado: "aprobado",
   Rechazado: "rechazado",
+  Cancelado: "cancelado",
   Anulado: "cancelado",
 };
 
 export function estadoDocumentoSoportePillProps(estado: string) {
+  const label = normalizeEstadoLabel(estado);
   return {
     variant:
+      estadoDocumentoSoportePillVariant[label] ??
       estadoDocumentoSoportePillVariant[estado] ??
       ("registrado" as PillVariant),
-    label: estado,
+    label: label === "Pendiente" ? "Lanzado" : label,
   };
 }
 
@@ -194,8 +267,6 @@ export function EstadoDocumentoSoportePill({
 }) {
   const { variant, label } = estadoDocumentoSoportePillProps(estado);
   return (
-    <Pill variant={variant} className={className}>
-      {label}
-    </Pill>
+    <EstadoPillShell variant={variant} label={label} className={className} />
   );
 }

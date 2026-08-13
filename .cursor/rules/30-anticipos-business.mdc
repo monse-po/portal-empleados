@@ -15,6 +15,7 @@ alwaysApply: false
 
 - No hay borrador: enviar crea estado **Lanzado** directamente.
 - Códigos: **AG####** (Gasto), **AV####** (Viaje).
+- Sync mock E2E empleado↔gerente: `src/lib/anticipos-bridge.ts` + providers en `AppProviders` (igual patrón que Mi Tiempo). Lanzar → ingresa a cola gerente; cancelar Lanzado → retira de pendientes; **aprobar → Pagado + Historial** (Tesorería mock automática); rechazar → Historial. Deep-link gerente: `/aprobacion-anticipos?no=`.
 
 ## R-01 — Solicitud para otro empleado
 
@@ -33,7 +34,7 @@ alwaysApply: false
 
 ## Viaje
 
-- Fecha ida ≥ **2 días hábiles** desde hoy (`agregarDiasHabiles`, `fechaMinSalida`).
+- Fecha ida ≥ hoy. La recomendación de **2 días hábiles** es solo copy en `FormNote`; no bloquea ni muestra toast.
 - Regreso > ida; destino obligatorio.
 - `tipoViaje`: nacional si país CO, internacional si no.
 

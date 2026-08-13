@@ -30,7 +30,7 @@ Las solicitudes DSE y NA pueden generarse desde:
 | Lanzado | Estado inicial al guardar la solicitud (UI portal; Notion: Solicitado). | Sistema |
 | Aprobado | Contabilidad verificó y aprobó. Se puede proceder a crear la factura. | Contabilidad |
 | Rechazado | Contabilidad rechazó. El flujo termina. Requiere Nota de Solicitud. | Contabilidad |
-| Anulado | La solicitud se cancela antes de tener Invoice ID o documento electrónico válido ante la DIAN. | Contabilidad |
+| Cancelado | La solicitud se cancela antes de tener Invoice ID o documento electrónico válido ante la DIAN. | Contabilidad |
 
 > Una solicitud Rechazada o Anulada no se edita ni se reabre. Cualquier corrección implica crear una solicitud nueva.
 > 

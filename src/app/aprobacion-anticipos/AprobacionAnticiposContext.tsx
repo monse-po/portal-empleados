@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { hoyDMY } from "@/src/lib/mis-anticipos-mock";
+import type { SyncAnticipoHandler } from "@/src/lib/anticipos-bridge";
 import {
   cloneInitialAproAnticipos,
   countAproAnticiposTabs,
@@ -35,17 +36,23 @@ type AprobacionAnticiposContextValue = {
   registrosActuales: AnticipoAprobacion[];
   aprobar: (nos: string[], comentario?: string) => void;
   rechazar: (nos: string[], comentario: string) => void;
+  ingresarSolicitud: (s: AnticipoAprobacion) => void;
+  retirarSolicitud: (no: string) => void;
   getSolicitud: (no: string) => AnticipoAprobacion | undefined;
 };
 
 const AprobacionAnticiposContext =
   createContext<AprobacionAnticiposContextValue | null>(null);
 
+type AprobacionAnticiposProviderProps = {
+  children: ReactNode;
+  onSyncAnticipo?: SyncAnticipoHandler;
+};
+
 export function AprobacionAnticiposProvider({
   children,
-}: {
-  children: ReactNode;
-}) {
+  onSyncAnticipo,
+}: AprobacionAnticiposProviderProps) {
   const [solicitudes, setSolicitudes] = useState(cloneInitialAproAnticipos);
   const [tab, setTabState] = useState<AnticipoAprobacionTab>("pendientes");
   const {
@@ -83,8 +90,13 @@ export function AprobacionAnticiposProvider({
         });
         return next;
       });
+
+      if (estado === "Aprobado" || estado === "Rechazado") {
+        const accion = estado === "Aprobado" ? "aprobado" : "rechazado";
+        nos.forEach((no) => onSyncAnticipo?.(no, accion, comentario));
+      }
     },
-    [],
+    [onSyncAnticipo],
   );
 
   const aprobar = useCallback(
@@ -102,6 +114,23 @@ export function AprobacionAnticiposProvider({
     },
     [aplicarEstado, clearSeleccion],
   );
+
+  const ingresarSolicitud = useCallback((s: AnticipoAprobacion) => {
+    setSolicitudes((prev) => {
+      if (prev[s.no]) return prev;
+      return { ...prev, [s.no]: s };
+    });
+  }, []);
+
+  const retirarSolicitud = useCallback((no: string) => {
+    setSolicitudes((prev) => {
+      const item = prev[no];
+      if (!item || item.estadoApro !== "") return prev;
+      const next = { ...prev };
+      delete next[no];
+      return next;
+    });
+  }, []);
 
   const kpis = useMemo(() => getAproAnticiposKpis(solicitudes), [solicitudes]);
   const tabCounts = useMemo(
@@ -128,6 +157,8 @@ export function AprobacionAnticiposProvider({
       registrosActuales,
       aprobar,
       rechazar,
+      ingresarSolicitud,
+      retirarSolicitud,
       getSolicitud: (no: string) => solicitudes[no],
     }),
     [
@@ -142,6 +173,9 @@ export function AprobacionAnticiposProvider({
       registrosActuales,
       aprobar,
       rechazar,
+      ingresarSolicitud,
+      retirarSolicitud,
+      setTab,
     ],
   );
 

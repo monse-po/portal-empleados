@@ -69,9 +69,7 @@ export function LegalizacionesProvider({ children }: { children: ReactNode }) {
       const no = nuevoCodigoLegalizacion(prev);
       createdNo = no;
       const resumen = resumenLegalizacionDesdeLineas(input.lineas);
-      const lineas = input.enviar
-        ? finalizeLineasOnEnvio(input.lineas, prev)
-        : input.lineas;
+      const lineas = finalizeLineasOnEnvio(input.lineas, prev);
       return {
         ...prev,
         [no]: {
@@ -81,7 +79,7 @@ export function LegalizacionesProvider({ children }: { children: ReactNode }) {
           concepto: resumen.concepto,
           monto: resumen.monto,
           div: resumen.div,
-          estado: input.enviar ? "En revisión" : "Borrador",
+          estado: "Lanzado",
           motivo: input.comentario?.trim() || resumen.concepto,
           anticipoNo: input.anticipoNo,
           tarjetaRef: input.tarjetaRef,

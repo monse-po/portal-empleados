@@ -4,10 +4,7 @@ import { useState } from "react";
 import { DocumentoSoporteDetalle } from "@/src/app/documento-soporte/DocumentoSoporteDetalle";
 import { DocumentoSoporteFormulario } from "@/src/app/documento-soporte/DocumentoSoporteFormulario";
 import { DocumentoSoporteLista } from "@/src/app/documento-soporte/DocumentoSoporteLista";
-import {
-  DocumentoSoporteProvider,
-  useDocumentoSoporte,
-} from "@/src/app/documento-soporte/DocumentoSoporteContext";
+import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoporteContext";
 
 type Vista = "lista" | "detalle" | "form";
 
@@ -22,7 +19,7 @@ function puedeEditar(
   );
 }
 
-function DocumentoSoporteViewInner() {
+export function DocumentoSoporteView() {
   const { getDocumento, sessionEmpleadoId } = useDocumentoSoporte();
   const [vista, setVista] = useState<Vista>("lista");
   const [detalleNo, setDetalleNo] = useState<string | null>(null);
@@ -39,10 +36,9 @@ function DocumentoSoporteViewInner() {
       <DocumentoSoporteFormulario
         editNo={editNo}
         onVolver={volverLista}
-        onGuardado={(no) => {
-          setEditNo(null);
-          setDetalleNo(no);
-          setVista("detalle");
+        onGuardado={() => {
+          // Post-envío → inicio de la sección (lista).
+          volverLista();
         }}
       />
     );
@@ -75,15 +71,6 @@ function DocumentoSoporteViewInner() {
   return (
     <DocumentoSoporteLista
       onOpenDetalle={(no) => {
-        const doc = getDocumento(no);
-        if (
-          doc &&
-          puedeEditar(doc.estado, doc.registradoPorId, sessionEmpleadoId)
-        ) {
-          setEditNo(no);
-          setVista("form");
-          return;
-        }
         setDetalleNo(no);
         setVista("detalle");
       }}
@@ -92,13 +79,5 @@ function DocumentoSoporteViewInner() {
         setVista("form");
       }}
     />
-  );
-}
-
-export function DocumentoSoporteView() {
-  return (
-    <DocumentoSoporteProvider>
-      <DocumentoSoporteViewInner />
-    </DocumentoSoporteProvider>
   );
 }

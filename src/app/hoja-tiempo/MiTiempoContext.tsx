@@ -96,11 +96,13 @@ const MiTiempoContext = createContext<MiTiempoContextValue | null>(null);
 type MiTiempoProviderProps = {
   children: ReactNode;
   onIngresarHojas?: (hojas: HojaAprobacion[]) => void;
+  onRetirarHojas?: (registroIds: string[]) => void;
 };
 
 export function MiTiempoProvider({
   children,
   onIngresarHojas,
+  onRetirarHojas,
 }: MiTiempoProviderProps) {
   const [registros, setRegistros] = useState<Record<string, RegistroMock[]>>({});
   const [registrosLoaded, setRegistrosLoaded] = useState(false);
@@ -180,11 +182,17 @@ export function MiTiempoProvider({
     [],
   );
 
-  const upsertRegistro = useCallback(async (reg: RegistroMock) => {
-    const saved = await upsertRegistroAction(reg);
-    setRegistros((prev) => upsertIntoRegistros(prev, saved));
-    registroGuardadoHandler.current?.(saved.fecha);
-  }, []);
+  const upsertRegistro = useCallback(
+    async (reg: RegistroMock) => {
+      const saved = await upsertRegistroAction(reg);
+      setRegistros((prev) => upsertIntoRegistros(prev, saved));
+      if (saved.estado === "Lanzado") {
+        onIngresarHojas?.([registroToHoja(saved)]);
+      }
+      registroGuardadoHandler.current?.(saved.fecha);
+    },
+    [onIngresarHojas],
+  );
 
   const upsertRegistroYEnviarDia = useCallback(
     async (reg: RegistroMock) => {
@@ -202,10 +210,14 @@ export function MiTiempoProvider({
     [onIngresarHojas],
   );
 
-  const deleteRegistro = useCallback(async (id: string) => {
-    await deleteRegistroAction(id);
-    setRegistros((prev) => removeRegistroFromState(prev, id));
-  }, []);
+  const deleteRegistro = useCallback(
+    async (id: string) => {
+      await deleteRegistroAction(id);
+      setRegistros((prev) => removeRegistroFromState(prev, id));
+      onRetirarHojas?.([id]);
+    },
+    [onRetirarHojas],
+  );
 
   const sincronizarDesdeAprobacion = useCallback(
     async (id: string, accion: SyncRegistroAccion, comentario?: string) => {

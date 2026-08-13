@@ -1,0 +1,67 @@
+---
+description: Chips de estado transversales — labels, tokens, iconos Lucide (todos los módulos)
+globs: src/components/ui/Pill.tsx,src/app/globals.css,src/**/*FilterBar*,src/**/*Tabla*,src/**/*Detalle*
+alwaysApply: true
+---
+
+# Estados (chips) — reglas transversales
+
+Fuente de verdad: `src/components/ui/Pill.tsx` + tokens en `src/app/globals.css`.
+
+## Obligatorio
+
+- **Siempre** `EstadoTiempoPill` | `EstadoAnticipoPill` | `EstadoLegalizacionPill` | `EstadoDocumentoSoportePill`.
+- **Nunca** spans ad hoc, emojis, ni `Pill` crudo con texto de estado (salvo tipos: `TipoAnticipoPill`, `TipoHoraPill`, `TipoLegalizacionPill`).
+- Filtros multiselect `estado`/`tipo` → `buildFilterMultiOptions` + `FilterValuePill` (mismos chips que la tabla).
+
+## Labels de producto
+
+| Label | Uso |
+|-------|-----|
+| Borrador | Solo Mi Tiempo |
+| Lanzado | Enviado / en proceso (alias: Pendiente, En revisión, Registrado → Lanzado) |
+| Aprobado | Cerrado OK |
+| Pagado | Solo Anticipos (post-tesorería) |
+| Rechazado | Cerrado KO |
+| Cancelado | Único label de baja (DSE/Anticipos/Legaliz.). **No usar “Anulado”** en UI |
+
+`normalizeEstadoLabel`: `Anulado` → `Cancelado`. La acción gerente Tiempo “anular” (vuelve a Borrador) **no** es un chip Anulado.
+
+## Tokens CSS (`:root`)
+
+| Variant | Tokens | Notas |
+|---------|--------|-------|
+| borrador | `--pill-borrador-*` | Neutro editable |
+| lanzado | `--pill-lanzado-*` | Azul envío |
+| aprobado | `--pill-aprobado-*` → `green-soft` / `green` | Mint soft |
+| pagado | `--pill-pagado-*` → `green-pastel` `#c5ebd4` / `green-dark` | Pastel más lleno que Aprobado |
+| rechazado | `--pill-rechazado-*` | Rojo soft |
+| cancelado | `--pill-cancelado-*` | Gris |
+
+Cambiar color = editar token en `globals.css` (+ `@theme` / `tailwind.config.ts`). No hex sueltos en componentes.
+
+## Iconos (Lucide, misma familia `Icon.tsx`)
+
+| Estado | Icon |
+|--------|------|
+| Borrador | `pencil` |
+| Lanzado / Pendiente | `send` |
+| Aprobado | `check` |
+| Pagado | `wallet` |
+| Rechazado | `x` |
+| Cancelado | `ban` |
+
+Sin emojis.
+
+## Por módulo
+
+| Módulo | Estados en chip |
+|--------|-----------------|
+| Mi Tiempo | Borrador, Lanzado, Aprobado, Rechazado |
+| Anticipos | Lanzado, Aprobado, Pagado, Rechazado, Cancelado |
+| Legalizaciones | Lanzado, Aprobado, Rechazado, Cancelado |
+| DSE | Lanzado, Aprobado, Rechazado, Cancelado |
+
+## Geometría
+
+`pillBase`: `rounded-full px-2.5 py-[3px] text-[11px] font-semibold` — **sin border**.

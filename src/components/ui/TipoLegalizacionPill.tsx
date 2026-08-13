@@ -37,9 +37,10 @@ export function labelTipoLegalizacion(tipo: LegalizacionTipo): string {
 
 const tipoLegalizacionPillVariant: Record<LegalizacionTipo, PillVariant> = {
   "Con anticipo": "lanzado",
-  "Tarjeta corporativa": "pagado",
+  /** Verde soft — no reutilizar `pagado` (reservado a estado Pagado). */
+  "Tarjeta corporativa": "aprobado",
   "Sin anticipos": "gasto",
-};
+}
 
 const tipoLegalizacionIcon = {
   "Con anticipo": "wallet",

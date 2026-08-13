@@ -10,7 +10,7 @@ alwaysApply: false
 
 | Tab UI | Key interno | Estados |
 |--------|-------------|---------|
-| En proceso | `pendientes` | Borrador, En revisión |
+| En proceso | `pendientes` | Lanzado |
 | Historial | `historial` | Aprobado, Rechazado |
 
 - Códigos: **LG####**
@@ -31,7 +31,8 @@ alwaysApply: false
 ## Validación al enviar
 
 - Al menos una línea; montos > 0; campos obligatorios según tipo.
-- Enviar → estado **En revisión**; guardar borrador → **Borrador**.
+- Enviar → estado **Lanzado** (sin borrador; igual que Anticipos / DSE).
+- Descartar abandona el formulario sin persistir.
 
 ## Aprobación (gerente)
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AprobacionAnticiposDetalle } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposDetalle";
 import { AprobacionAnticiposLista } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposLista";
 import {
@@ -16,9 +17,9 @@ type Vista = "lista" | "detalle";
 
 function toastAprobados(nos: string[]) {
   if (nos.length === 1) {
-    return `Solicitud ${nos[0]} aprobada · IFS procesará el pago`;
+    return `Solicitud ${nos[0]} aprobada y pagada · Historial del empleado`;
   }
-  return `${nos.length} solicitudes aprobadas · IFS procesará los pagos`;
+  return `${nos.length} solicitudes aprobadas y pagadas`;
 }
 
 function toastRechazados(nos: string[]) {
@@ -29,7 +30,10 @@ function toastRechazados(nos: string[]) {
 }
 
 export function AprobacionAnticiposView() {
-  const { getSolicitud, aprobar, rechazar } = useAprobacionAnticipos();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { getSolicitud, aprobar, rechazar, solicitudes } =
+    useAprobacionAnticipos();
   const { toast } = useToast();
   const [vista, setVista] = useState<Vista>("lista");
   const [detalleNo, setDetalleNo] = useState<string | null>(null);
@@ -37,6 +41,16 @@ export function AprobacionAnticiposView() {
   const [rechazarTargets, setRechazarTargets] = useState<string[]>([]);
   const [comentarioAprobar, setComentarioAprobar] = useState("");
   const [comentarioRechazarDetalle, setComentarioRechazarDetalle] = useState("");
+  const deepLinkNo = searchParams.get("no");
+  const deepLinkHandled = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!deepLinkNo || deepLinkHandled.current === deepLinkNo) return;
+    if (!solicitudes[deepLinkNo]) return;
+    deepLinkHandled.current = deepLinkNo;
+    setDetalleNo(deepLinkNo);
+    setVista("detalle");
+  }, [deepLinkNo, solicitudes]);
 
   const solicitud = detalleNo ? getSolicitud(detalleNo) : undefined;
   const enDetalle = vista === "detalle" && !!solicitud;
@@ -87,6 +101,8 @@ export function AprobacionAnticiposView() {
     setRechazarTargets([]);
     setComentarioAprobar("");
     setComentarioRechazarDetalle("");
+    deepLinkHandled.current = deepLinkNo ?? "dismissed";
+    router.replace("/aprobacion-anticipos");
   };
 
   const solicitarAprobacion = (nos: string[]) => {

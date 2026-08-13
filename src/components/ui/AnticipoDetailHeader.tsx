@@ -18,7 +18,7 @@ export type AnticipoEventBanner = RecordEventBanner;
 
 const bannerToneByVariant: Partial<Record<PillVariant, string>> = {
   aprobado: "border-green-border bg-green-bg",
-  pagado: "border-green-border bg-green-bg",
+  pagado: "border-green-border bg-green-pastel/40",
   rechazado: "border-[#fecaca] bg-[#fef2f2]",
   cancelado: "border-[#e5e7eb] bg-[#f9fafb]",
   lanzado: "border-[#bfdbfe] bg-[#eff6ff]",

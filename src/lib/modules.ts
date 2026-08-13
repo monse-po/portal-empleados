@@ -89,7 +89,7 @@ export const MODULES: ModuleDef[] = [
       {
         path: "/documento-soporte",
         rol: "empleado",
-        navLabel: "Mi DSE",
+        navLabel: "Mis DSE",
         icon: "paperclip",
       },
     ],

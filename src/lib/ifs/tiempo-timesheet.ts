@@ -28,7 +28,7 @@ function mapIfsEstado(row: EmpReportItemRow): RegistroEstado {
   const status = `${row.CStatusDb ?? row.CStatus ?? ""}`.toLowerCase();
   if (status.includes("reject")) return "Rechazado";
   if (status.includes("confirm")) return "Aprobado";
-  if (status.includes("registered")) return "Registrado";
+  if (status.includes("registered")) return "Lanzado";
   return "Borrador";
 }
 

@@ -10,6 +10,14 @@ import {
 } from "react";
 import { getAnticiposRegistrosTab } from "@/src/lib/anticipos-filtros";
 import {
+  anticipoToAprobacion,
+  aplicarTimelineAprobacion,
+  estadoEmpleadoDesdeAccion,
+  type IngresarAnticipoHandler,
+  type RetirarAnticipoHandler,
+  type SyncAnticipoAccion,
+} from "@/src/lib/anticipos-bridge";
+import {
   cloneInitialAnticipos,
   cloneInitialExtras,
   countAnticiposTab,
@@ -51,23 +59,35 @@ type AnticiposContextValue = {
   registrosActuales: Anticipo[];
   lanzarAnticipo: (input: LanzarAnticipoInput) => string | null;
   cancelarAnticipo: (no: string) => void;
+  sincronizarDesdeAprobacion: (
+    no: string,
+    accion: SyncAnticipoAccion,
+    comentario?: string,
+  ) => void;
   getAnticipo: (no: string) => Anticipo | undefined;
   getExtra: (no: string) => AnticipoExtra | undefined;
 };
 
 const AnticiposContext = createContext<AnticiposContextValue | null>(null);
 
-export function AnticiposProvider({ children }: { children: ReactNode }) {
+type AnticiposProviderProps = {
+  children: ReactNode;
+  onIngresarSolicitud?: IngresarAnticipoHandler;
+  onRetirarSolicitud?: RetirarAnticipoHandler;
+};
+
+export function AnticiposProvider({
+  children,
+  onIngresarSolicitud,
+  onRetirarSolicitud,
+}: AnticiposProviderProps) {
   const [anticipos, setAnticipos] = useState(cloneInitialAnticipos);
   const [extras, setExtras] = useState(cloneInitialExtras);
   const [tab, setTab] = useState<AnticipoTab>("pendientes");
 
   const lanzarAnticipo = useCallback(
     (input: LanzarAnticipoInput): string | null => {
-      const no = nuevoCodigoAnticipo(
-        input.tipo,
-        Object.keys(anticipos).length,
-      );
+      const no = nuevoCodigoAnticipo(input.tipo, anticipos);
       const fecha = hoyDMY();
       const ahora = `${fecha} · ahora`;
       const sessionId = SESSION_EMPLEADO.cedula.replace(/\./g, "");
@@ -132,47 +152,87 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
 
       setAnticipos((prev) => ({ ...prev, [no]: registro }));
       setExtras((prev) => ({ ...prev, [no]: extra }));
+      onIngresarSolicitud?.(anticipoToAprobacion(registro, extra));
       return no;
     },
-    [anticipos],
+    [anticipos, onIngresarSolicitud],
   );
 
-  const cancelarAnticipo = useCallback((no: string) => {
-    setAnticipos((prev) => {
-      const item = prev[no];
-      if (!item || item.estado !== "Lanzado") return prev;
-      return {
-        ...prev,
-        [no]: {
-          ...item,
-          disponible: true,
-          estado: "Cancelado",
-          pago: "—",
-        },
-      };
-    });
-    setExtras((prev) => {
-      const ex = prev[no];
-      if (!ex) return prev;
-      const tl = ex.tl.filter((t) => !t.accion.startsWith("Esperando"));
-      return {
-        ...prev,
-        [no]: {
-          ...ex,
-          tl: [
-            ...tl,
-            {
-              accion: "Cancelado por el empleado",
-              usuario: SESSION_EMPLEADO.nombre,
-              fecha: hoyDMY(),
-              icon: "ban",
-              color: "#6b7280",
-            },
-          ],
-        },
-      };
-    });
-  }, []);
+  const cancelarAnticipo = useCallback(
+    (no: string) => {
+      let cancelled = false;
+      setAnticipos((prev) => {
+        const item = prev[no];
+        if (!item || item.estado !== "Lanzado") return prev;
+        cancelled = true;
+        return {
+          ...prev,
+          [no]: {
+            ...item,
+            disponible: true,
+            estado: "Cancelado",
+            pago: "—",
+          },
+        };
+      });
+      setExtras((prev) => {
+        const ex = prev[no];
+        if (!ex) return prev;
+        const tl = ex.tl.filter((t) => !t.accion.startsWith("Esperando"));
+        return {
+          ...prev,
+          [no]: {
+            ...ex,
+            tl: [
+              ...tl,
+              {
+                accion: "Cancelado por el empleado",
+                usuario: SESSION_EMPLEADO.nombre,
+                fecha: hoyDMY(),
+                icon: "ban",
+                color: "#6b7280",
+              },
+            ],
+          },
+        };
+      });
+      if (cancelled) onRetirarSolicitud?.(no);
+    },
+    [onRetirarSolicitud],
+  );
+
+  const sincronizarDesdeAprobacion = useCallback(
+    (no: string, accion: SyncAnticipoAccion, comentario?: string) => {
+      const estado = estadoEmpleadoDesdeAccion(accion);
+      const fecha = hoyDMY();
+
+      setAnticipos((prev) => {
+        const item = prev[no];
+        if (!item || item.estado !== "Lanzado") return prev;
+        return {
+          ...prev,
+          [no]: {
+            ...item,
+            estado,
+            fechaAprob: fecha,
+            // Aprobado demo → Pagado + Historial; rechazo → Historial.
+            disponible: true,
+            pago: accion === "aprobado" ? "Pagado" : "—",
+          },
+        };
+      });
+
+      setExtras((prev) => {
+        const ex = prev[no];
+        if (!ex) return prev;
+        return {
+          ...prev,
+          [no]: aplicarTimelineAprobacion(ex, accion, comentario ?? "", fecha),
+        };
+      });
+    },
+    [],
+  );
 
   const tabCounts = useMemo(() => countAnticiposTab(anticipos), [anticipos]);
   const registrosActuales = useMemo(
@@ -190,6 +250,7 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
       registrosActuales,
       lanzarAnticipo,
       cancelarAnticipo,
+      sincronizarDesdeAprobacion,
       getAnticipo: (no: string) => anticipos[no],
       getExtra: (no: string) => extras[no],
     }),
@@ -201,6 +262,7 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
       registrosActuales,
       lanzarAnticipo,
       cancelarAnticipo,
+      sincronizarDesdeAprobacion,
     ],
   );
 

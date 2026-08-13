@@ -12,7 +12,8 @@ export const TIEMPO_UI_COPY = {
   searchSubproject: "Buscar subproyecto...",
   searchActivity: "Buscar actividad...",
   estadoBorrador: "Borrador",
-  estadoRegistrado: "Registrado",
+  estadoRegistrado: "Lanzado",
+  estadoLanzado: "Lanzado",
   guardar: "Guardar",
   guardarCambios: "Guardar cambios",
   hintEnviarDesdeLista:

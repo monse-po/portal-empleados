@@ -24,8 +24,8 @@ Datos y filtros en `src/lib/{modulo}-mock.ts` y `src/lib/{modulo}-filtros.ts`.
 
 ## Providers
 
-- **Global** (`AppProviders`): módulos con badges en nav o sync cross-módulo (aprobación tiempo/anticipos, Mi Tiempo).
-- **Local** (en `{Modulo}View`): módulos autocontenidos del empleado (ej. `AnticiposProvider`).
+- **Global** (`AppProviders`): badges/sync — aprobación tiempo/anticipos, Mi Tiempo, `AnticiposProvider` + `anticipos-bridge`, `DocumentoSoporteProvider`.
+- **Local** (en `{Modulo}View`): módulos sin estado de sesión compartido (ej. Legalizaciones — hasta bridge).
 
 ## Roles y rutas
 

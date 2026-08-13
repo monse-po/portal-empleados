@@ -26,8 +26,8 @@ Implementación:
 
 | Estado UI | Significado | ¿Editable / eliminable? |
 |-----------|-------------|-------------------------|
-| **Borrador** | Guardado en el día, **no enviado** a aprobación | Sí |
-| **Registrado** | **Enviado** a aprobación; aprobador aún no confirma | Sí |
+| **Borrador** | Guardado en el día, **no enviado** a aprobación (solo Mi Tiempo; Anticipos/DSE/Legalizaciones no usan borrador) | Sí |
+| **Lanzado** | **Enviado** a aprobación; aprobador aún no confirma (antes: Registrado) | Sí |
 | **Rechazado** | Aprobador rechazó | Sí |
 | **Aprobado** | Aprobador confirmó | No |
 
@@ -35,13 +35,15 @@ Reglas:
 
 - `isRegistroEditable` / `isRegistroEliminable` en `src/lib/tiempo-registro-rules.ts` — bloqueo solo en **Aprobado**.
 - Al guardar edición, **preservar** el estado actual (no resetear a borrador salvo rechazo corregido → borrador).
-- **Enviar a Aprobación:** solo registros en **borrador** del día pasan a **Registrado**.
+- **Enviar a Aprobación:** solo registros en **borrador** del día pasan a **Lanzado**.
 - Tras enviar, **sí se pueden agregar** registros nuevos al mismo día (nuevos borradores).
+- **Sync gerente:** editar Lanzado refresca la fila en aprobación; borrar Lanzado lo retira de la cola (`retirarHojas`).
+- **Anular (gerente):** el ítem **sale** de la cola; empleado vuelve a **Borrador** y debe reenviar.
 
 ## UI — pills de estado
 
-- **Borrador** y **Registrado:** tonos neutros parecidos (gris / slate); **Registrado** ligeramente más frío.
-- **Icono lápiz** en pill de Borrador y Registrado → refuerza que el empleado puede editar.
+- **Borrador:** tono neutro editable; **Lanzado:** misma variante `lanzado` que Anticipos/DSE/Legalizaciones.
+- **Icono lápiz** en pill de Borrador (editable); **icono send** en Lanzado (enviado a aprobación).
 - **Aprobado** verde; **Rechazado** rojo (sin lápiz).
 
 ## Códigos HTREG
@@ -57,7 +59,7 @@ Reglas:
 
 ## UI — tab Lista
 
-- Muestra **todos** los estados: Borrador, Registrado, Rechazado y **Aprobado**.
+- Muestra **todos** los estados: Borrador, Lanzado, Rechazado y **Aprobado**.
 - Orden por día: borrador → registrado → rechazado → aprobado.
 
 ## UI — formularios y filtros

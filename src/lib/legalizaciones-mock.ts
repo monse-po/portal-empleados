@@ -186,8 +186,7 @@ export type PaymentReference = {
 };
 
 export type LegalizacionEstado =
-  | "Borrador"
-  | "En revisión"
+  | "Lanzado"
   | "Aprobado"
   | "Rechazado";
 
@@ -287,7 +286,6 @@ export type CrearLegalizacionInput = {
   destino: DestinoLegalizacion;
   lineas: LineaGasto[];
   comentario?: string;
-  enviar: boolean;
 };
 
 const LEGALIZACIONES_MOCK: Record<string, Legalizacion> = {
@@ -298,7 +296,7 @@ const LEGALIZACIONES_MOCK: Record<string, Legalizacion> = {
     concepto: "Viáticos proyecto Beta",
     monto: 450000,
     div: "COP",
-    estado: "En revisión",
+    estado: "Lanzado",
     motivo: "Legalización de gastos de campo",
     anticipoNo: "AG1006",
     destino: {

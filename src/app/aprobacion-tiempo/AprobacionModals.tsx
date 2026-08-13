@@ -129,8 +129,8 @@ export function AnularModal({
       }
     >
       <p className="mb-4 text-[13px] text-[#374151]">
-        Al anular, el registro queda sin efecto y regresa a la bandeja de
-        pendientes.
+        Al anular, el registro sale de la cola de aprobación y vuelve a
+        borrador en Mi Tiempo. El empleado debe reenviarlo si aplica.
       </p>
       <div className="space-y-2 rounded-lg border border-border bg-[#f8fafc] px-4 py-3 text-[12.5px]">
         <div className="flex justify-between gap-4">

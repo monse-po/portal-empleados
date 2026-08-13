@@ -64,7 +64,14 @@ export function LovPicker({
               : "border-border bg-white hover:border-[#c7d2e0]"
         } ${disabled ? "cursor-not-allowed opacity-55" : ""}`}
       >
-        <span className={value ? "font-medium text-navy" : "text-muted"}>
+        <span
+          className={`min-w-0 flex-1 truncate ${value ? "font-medium text-navy" : "text-muted"}`}
+          title={
+            value
+              ? (valueLabel?.(value) ?? `${value.id} · ${value.nombre}`)
+              : undefined
+          }
+        >
           {value
             ? (valueLabel?.(value) ?? `${value.id} · ${value.nombre}`)
             : placeholder}

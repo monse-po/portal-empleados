@@ -15,9 +15,33 @@
   --green-dark: #14532d;
   --green-text: #166534;
   --green-soft: #bbf7d0;
+  /** Pagado — pastel un tono más lleno que Aprobado (green-soft). */
+  --green-pastel: #c5ebd4;
   --green-bg: #ecf6ef;
   --green-border: #9fd4b0;
   --orange: #ea580c;
+
+  /* Pills de estado — tokens transversales (todos los módulos) */
+  --pill-borrador-bg: #f1f5f9;
+  --pill-borrador-fg: #64748b;
+  --pill-lanzado-bg: #dbeafe;
+  --pill-lanzado-fg: #1d4ed8;
+  --pill-aprobado-bg: var(--green-soft);
+  --pill-aprobado-fg: var(--green);
+  --pill-pagado-bg: var(--green-pastel);
+  --pill-pagado-fg: var(--green-dark);
+  --pill-rechazado-bg: #fee2e2;
+  --pill-rechazado-fg: #b91c1c;
+  --pill-cancelado-bg: #f3f4f6;
+  --pill-cancelado-fg: #6b7280;
+  --pill-revision-bg: #fef9c3;
+  --pill-revision-fg: #854d0e;
+  --pill-registrado-bg: #e8eef4;
+  --pill-registrado-fg: #475569;
+  --pill-gasto-bg: #f5f3ff;
+  --pill-gasto-fg: #6d28d9;
+  --pill-viaje-bg: #fdf2f8;
+  --pill-viaje-fg: #9d174d;
 
   --loading-violet: #7c3aed;
   --loading-violet-deep: #5b21b6;
@@ -56,9 +80,31 @@
   --color-green-dark: var(--green-dark);
   --color-green-text: var(--green-text);
   --color-green-soft: var(--green-soft);
+  --color-green-pastel: var(--green-pastel);
   --color-green-bg: var(--green-bg);
   --color-green-border: var(--green-border);
   --color-orange: var(--orange);
+
+  --color-pill-borrador-bg: var(--pill-borrador-bg);
+  --color-pill-borrador-fg: var(--pill-borrador-fg);
+  --color-pill-lanzado-bg: var(--pill-lanzado-bg);
+  --color-pill-lanzado-fg: var(--pill-lanzado-fg);
+  --color-pill-aprobado-bg: var(--pill-aprobado-bg);
+  --color-pill-aprobado-fg: var(--pill-aprobado-fg);
+  --color-pill-pagado-bg: var(--pill-pagado-bg);
+  --color-pill-pagado-fg: var(--pill-pagado-fg);
+  --color-pill-rechazado-bg: var(--pill-rechazado-bg);
+  --color-pill-rechazado-fg: var(--pill-rechazado-fg);
+  --color-pill-cancelado-bg: var(--pill-cancelado-bg);
+  --color-pill-cancelado-fg: var(--pill-cancelado-fg);
+  --color-pill-revision-bg: var(--pill-revision-bg);
+  --color-pill-revision-fg: var(--pill-revision-fg);
+  --color-pill-registrado-bg: var(--pill-registrado-bg);
+  --color-pill-registrado-fg: var(--pill-registrado-fg);
+  --color-pill-gasto-bg: var(--pill-gasto-bg);
+  --color-pill-gasto-fg: var(--pill-gasto-fg);
+  --color-pill-viaje-bg: var(--pill-viaje-bg);
+  --color-pill-viaje-fg: var(--pill-viaje-fg);
 
   --radius-sm: var(--radius-sm);
   --radius: var(--radius);

@@ -49,8 +49,8 @@ function valueOptionIcon(
   if (column === "estado") {
     if (val === "Aprobado") return "check";
     if (val === "Rechazado") return "x";
-    if (val === "Anulado") return "x";
-    if (val === "Lanzado") return "hourglass";
+    if (val === "Cancelado" || val === "Anulado") return "ban";
+    if (val === "Lanzado") return "send";
     return "clock";
   }
   return getFilterColumnDef(column).icon;

@@ -2,14 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
-import { Card, CardBody } from "@/src/components/ui/Card";
 import { Field } from "@/src/components/ui/Field";
-import { Icon, type IconName } from "@/src/components/ui/Icon";
+import { Icon } from "@/src/components/ui/Icon";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
+import {
+  FormGrid,
+  FormGridSpan,
+  FormNote,
+  FormSection,
+  FormStack,
+  SolicitudFormCard,
+  SolicitudFormFooter,
+} from "@/src/components/ui/SolicitudFormLayout";
 import { TIPO_LEGALIZACION_OPTIONS } from "@/src/components/ui/TipoLegalizacionPill";
 import { useToast } from "@/src/components/ui/Toast";
-import { useAsyncAction } from "@/src/lib/use-async-action";
 import { DestinoLegalizacionFields } from "@/src/app/legalizaciones/DestinoLegalizacionFields";
 import { AnticiposLegalizarPicker } from "@/src/app/legalizaciones/AnticiposLegalizarPicker";
 import { LineasGastoEditor } from "@/src/app/legalizaciones/LineasGastoEditor";
@@ -53,79 +60,6 @@ type FormState = {
   lineas: LineaGastoDraft[];
   comentario: string;
 };
-
-function FormGrid({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 ${className}`.trim()}
-    >
-      {children}
-    </div>
-  );
-}
-
-function FormGridSpan({
-  children,
-  span = 1,
-  className = "",
-}: {
-  children: React.ReactNode;
-  span?: 1 | 2 | 3;
-  className?: string;
-}) {
-  const spanClass =
-    span === 3 ? "md:col-span-3" : span === 2 ? "md:col-span-2" : "";
-  return (
-    <div className={`min-w-0 ${spanClass} ${className}`.trim()}>{children}</div>
-  );
-}
-
-function FormSection({
-  icon,
-  title,
-  hint,
-  children,
-}: {
-  icon: IconName;
-  title: string;
-  hint?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h2 className="mb-3 flex items-center gap-2 text-[13px] font-bold text-navy">
-        <Icon name={icon} size="sm" className="text-navy" />
-        {title}
-      </h2>
-      {hint ? <div className="mb-3">{hint}</div> : null}
-      {children}
-    </section>
-  );
-}
-
-function FormHint({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="inline-flex w-fit max-w-full items-start gap-2 rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-3 py-2 text-[12px] leading-snug text-[#1e40af]">
-      <Icon name="info" size="xs" className="mt-0.5 shrink-0 text-[#1e40af]" />
-      <span>{children}</span>
-    </div>
-  );
-}
-
-function FormNote({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="inline-flex w-fit max-w-full items-start gap-2 rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-3 py-2 text-[12px] leading-snug text-[#1e40af]">
-      <Icon name="info" size="xs" className="mt-0.5 shrink-0 text-[#1e40af]" />
-      <span>{children}</span>
-    </div>
-  );
-}
 
 function DestinoLegalizacionSection({
   destino,
@@ -260,7 +194,7 @@ export function LegalizacionesFormulario({
     [form.lineas, companiaId],
   );
 
-  const validar = (enviar: boolean): boolean => {
+  const validar = (): boolean => {
     if (form.tipo === "Con anticipo") {
       if (!form.anticipoNo || !paymentRef) {
         toast("Selecciona un anticipo pagado por Tesorería", "danger");
@@ -304,28 +238,26 @@ export function LegalizacionesFormulario({
       toast("La divisa de cada línea debe coincidir con la del anticipo", "danger");
       return false;
     }
-    if (enviar) {
-      for (const l of form.lineas) {
-        if (lineaRequiereAdjunto(l) && !l.documentAttachment.trim()) {
-          toast(
-            "Adjunto obligatorio cuando el proveedor no está registrado en IFS",
-            "danger",
-          );
-          return false;
-        }
-        if (
-          l.supplierLookupStatus === "not_found" &&
-          !l.supplierName.trim()
-        ) {
-          toast("Indica el nombre del proveedor cuando no está en IFS", "danger");
-          return false;
-        }
+    for (const l of form.lineas) {
+      if (lineaRequiereAdjunto(l) && !l.documentAttachment.trim()) {
+        toast(
+          "Adjunto obligatorio cuando el proveedor no está registrado en IFS",
+          "danger",
+        );
+        return false;
+      }
+      if (
+        l.supplierLookupStatus === "not_found" &&
+        !l.supplierName.trim()
+      ) {
+        toast("Indica el nombre del proveedor cuando no está en IFS", "danger");
+        return false;
       }
     }
     return true;
   };
 
-  const buildInput = (enviar: boolean) => {
+  const buildInput = () => {
     const proyMeta = PROYECTOS_ANT.find((p) => p.id === form.destino.proyectoId);
     const lineas = lineasValidas.map((l) => ({
       ...l,
@@ -341,23 +273,11 @@ export function LegalizacionesFormulario({
       destino: form.destino,
       lineas,
       comentario: form.comentario.trim() || undefined,
-      enviar,
     };
   };
 
-  const { loading: guardando, run: runGuardarBorrador } = useAsyncAction(async () => {
-    if (!validar(false)) return;
-    const no = crearLegalizacion(buildInput(false));
-    if (!no) {
-      toast("No se pudo guardar la legalización", "danger");
-      return;
-    }
-    toast(`Legalización ${no} guardada como borrador`, "navy");
-    onCreada(no);
-  });
-
   const validarYAbrirEnvio = () => {
-    if (!validar(true)) return;
+    if (!validar()) return;
 
     const lineasHtml = lineasValidas
       .map(
@@ -398,7 +318,7 @@ export function LegalizacionesFormulario({
 
   const ejecutarEnvio = () => {
     setEnvioOpen(false);
-    const no = crearLegalizacion(buildInput(true));
+    const no = crearLegalizacion(buildInput());
     if (!no) {
       toast("No se pudo enviar la legalización", "danger");
       return;
@@ -424,119 +344,109 @@ export function LegalizacionesFormulario({
         <PortalSubpageHeader
           parentLabel="Mis Legalizaciones"
           onVolver={onVolver}
-          title="Nueva legalización"
+          title="Nueva solicitud"
         />
 
-        <Card className="mb-3 overflow-visible">
-          <CardBody className="py-4">
-            <FormSection icon="send" title="Datos de la solicitud">
+        <SolicitudFormCard>
+          <FormSection icon="send" title="Tipo de legalización">
+            <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+              <div className="min-w-0 flex-1">
+                <SegmentedControl
+                  aria-label="Tipo de legalización"
+                  value={form.tipo}
+                  onChange={(tipo) =>
+                    patch({
+                      tipo,
+                      anticipoNo: "",
+                      tarjetaRef: "",
+                      destino: emptyDestinoLegalizacion(),
+                      lineas: [],
+                    })
+                  }
+                  options={TIPO_LEGALIZACION_OPTIONS}
+                />
+              </div>
+              <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
+                <span className="text-[12px] font-semibold text-[#374151]">
+                  Fecha de solicitud
+                </span>
+                <span className="flex h-9 items-center text-[13px] text-muted">
+                  {hoyDMY()}
+                </span>
+              </div>
+            </div>
+          </FormSection>
+        </SolicitudFormCard>
+
+        {form.tipo === "Con anticipo" ? (
+          <SolicitudFormCard>
+            <FormSection icon="wallet" title="Anticipo a legalizar">
               <FormGrid>
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <span className="text-[12px] font-semibold text-[#374151]">
-                    Fecha de solicitud
-                  </span>
-                  <span className="flex h-9 items-center text-[13px] text-muted">
-                    {hoyDMY()}
-                  </span>
-                </div>
-                <FormGridSpan span={2}>
-                  <p className="mb-1.5 text-[12px] font-semibold text-[#374151]">
-                    Tipo de legalización
-                  </p>
-                  <SegmentedControl
-                    aria-label="Tipo de legalización"
-                    value={form.tipo}
-                    onChange={(tipo) =>
-                      patch({
-                        tipo,
-                        anticipoNo: "",
-                        tarjetaRef: "",
-                        destino: emptyDestinoLegalizacion(),
-                        lineas: [],
-                      })
-                    }
-                    options={TIPO_LEGALIZACION_OPTIONS}
-                  />
-                </FormGridSpan>
-              </FormGrid>
-            </FormSection>
-          </CardBody>
-        </Card>
-
-        {form.tipo === "Con anticipo" && (
-          <Card className="mb-3 overflow-visible">
-            <CardBody className="py-4">
-              <FormSection icon="wallet" title="Anticipo a legalizar">
-                <FormGrid>
-                  <FormGridSpan span={3}>
-                    <Field label="Anticipo pagado" required>
-                      <AnticiposLegalizarPicker
-                        anticipos={anticipos}
-                        value={form.anticipoNo}
-                        onChange={handleSelectAnticipo}
-                      />
-                    </Field>
-                  </FormGridSpan>
-
-                  {paymentRef ? (
-                    <PaymentReferenceFormFields reference={paymentRef} />
-                  ) : null}
-                </FormGrid>
-              </FormSection>
-            </CardBody>
-          </Card>
-        )}
-
-        {form.tipo === "Tarjeta corporativa" && (
-          <Card className="mb-3 overflow-visible">
-            <CardBody className="py-4">
-              <FormSection icon="wallet" title="Tarjeta corporativa" hint={tipoHint}>
-                <FormGrid>
-                  <Field label="Referencia tarjeta corporativa" required>
-                    <input
-                      value={form.tarjetaRef}
-                      onChange={(e) => patch({ tarjetaRef: e.target.value })}
-                      placeholder="Ej. Visa corp. ·••• 4821"
-                      className="ant-field-input"
+                <FormGridSpan span={3}>
+                  <Field label="Anticipo pagado" required>
+                    <AnticiposLegalizarPicker
+                      anticipos={anticipos}
+                      value={form.anticipoNo}
+                      onChange={handleSelectAnticipo}
                     />
                   </Field>
-                </FormGrid>
-              </FormSection>
-            </CardBody>
-          </Card>
-        )}
+                </FormGridSpan>
 
-        {form.tipo === "Sin anticipos" && (
-          <Card className="mb-3 overflow-visible">
-            <CardBody className="py-4">
-              <FormSection icon="wallet" title="Sin anticipo previo" hint={tipoHint}>
-                <p className="text-[12px] text-muted">
-                  Registra cada gasto de bolsillo en las líneas de abajo.
-                </p>
-              </FormSection>
-            </CardBody>
-          </Card>
-        )}
-
-        {form.tipo === "Con anticipo" && paymentRef ? (
-          <Card className="mb-3 overflow-visible">
-            <CardBody className="py-4">
-              <DestinoLegalizacionSection
-                destino={form.destino}
-                onDestinoChange={handleDestinoChange}
-                comentario={form.comentario}
-                onComentarioChange={(value) => patch({ comentario: value })}
-              />
-            </CardBody>
-          </Card>
+                {paymentRef ? (
+                  <PaymentReferenceFormFields reference={paymentRef} />
+                ) : null}
+              </FormGrid>
+            </FormSection>
+          </SolicitudFormCard>
         ) : null}
 
-        {(paymentRef || form.tipo !== "Con anticipo") && (
-          <Card className="mb-3 overflow-visible">
-            <CardBody className="py-4">
-              <FormSection icon="folderOpen" title="Líneas de gasto">
-                <p className="mb-3 text-[12.5px] leading-snug text-muted">
-                  Agrega cada comprobante con el botón de abajo; puedes editarlo después en la tabla.
+        {form.tipo === "Tarjeta corporativa" ? (
+          <SolicitudFormCard>
+            <FormSection
+              icon="wallet"
+              title="Tarjeta corporativa"
+              hint={tipoHint}
+            >
+              <FormGrid>
+                <Field label="Referencia tarjeta corporativa" required>
+                  <input
+                    value={form.tarjetaRef}
+                    onChange={(e) => patch({ tarjetaRef: e.target.value })}
+                    placeholder="Ej. Visa corp. ·••• 4821"
+                    className="ant-field-input"
+                  />
+                </Field>
+              </FormGrid>
+            </FormSection>
+          </SolicitudFormCard>
+        ) : null}
+
+        {form.tipo === "Sin anticipos" && tipoHint ? (
+          <SolicitudFormCard>
+            <FormSection icon="wallet" title="Sin anticipo previo">
+              {tipoHint}
+            </FormSection>
+          </SolicitudFormCard>
+        ) : null}
+
+        {form.tipo === "Con anticipo" && paymentRef ? (
+          <SolicitudFormCard>
+            <DestinoLegalizacionSection
+              destino={form.destino}
+              onDestinoChange={handleDestinoChange}
+              comentario={form.comentario}
+              onComentarioChange={(value) => patch({ comentario: value })}
+            />
+          </SolicitudFormCard>
+        ) : null}
+
+        {paymentRef || form.tipo !== "Con anticipo" ? (
+          <SolicitudFormCard>
+            <FormSection icon="folderOpen" title="Líneas de gasto">
+              <FormStack>
+                <p className="text-[12.5px] leading-snug text-muted">
+                  Cada línea es un gasto de esta legalización; puedes editarlas
+                  después en la tabla.
                 </p>
                 <LineasGastoEditor
                   lineas={form.lineas}
@@ -556,48 +466,32 @@ export function LegalizacionesFormulario({
                     reference={paymentRef}
                   />
                 ) : null}
-              </FormSection>
-            </CardBody>
-          </Card>
-        )}
-
-        {form.tipo !== "Con anticipo" ? (
-          <Card className="mb-3 overflow-visible">
-            <CardBody className="py-4">
-              <DestinoLegalizacionSection
-                destino={form.destino}
-                onDestinoChange={handleDestinoChange}
-                comentario={form.comentario}
-                onComentarioChange={(value) => patch({ comentario: value })}
-                proyectoPendiente={proyectoLineaPendiente}
-              />
-            </CardBody>
-          </Card>
+              </FormStack>
+            </FormSection>
+          </SolicitudFormCard>
         ) : null}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white px-5 py-3.5">
-          <span className="flex items-center gap-1.5 text-[11.5px] text-muted">
-            <Icon name="info" size="xs" className="text-muted" />
-            El gerente aprueba esta legalización.
-          </span>
-          <div className="flex gap-2.5">
-            <Button variant="tertiary" onClick={onVolver}>
-              Descartar
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => void runGuardarBorrador()}
-              loading={guardando}
-              loadingLabel="Guardando…"
-            >
-              Guardar borrador
-            </Button>
-            <Button variant="success" onClick={validarYAbrirEnvio}>
-              <Icon name="send" size="xs" />
-              Enviar a Aprobación
-            </Button>
-          </div>
-        </div>
+        {form.tipo !== "Con anticipo" ? (
+          <SolicitudFormCard>
+            <DestinoLegalizacionSection
+              destino={form.destino}
+              onDestinoChange={handleDestinoChange}
+              comentario={form.comentario}
+              onComentarioChange={(value) => patch({ comentario: value })}
+              proyectoPendiente={proyectoLineaPendiente}
+            />
+          </SolicitudFormCard>
+        ) : null}
+
+        <SolicitudFormFooter note="El gerente aprueba esta legalización.">
+          <Button variant="tertiary" onClick={onVolver}>
+            Descartar
+          </Button>
+          <Button variant="success" onClick={validarYAbrirEnvio}>
+            <Icon name="send" size="xs" />
+            Enviar a Aprobación
+          </Button>
+        </SolicitudFormFooter>
       </div>
 
       <EnviarLegalizacionModal

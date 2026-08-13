@@ -49,7 +49,7 @@ export function LegalizacionesLista({
         </div>
         <Button variant="primary" onClick={onNueva}>
           <Icon name="plus" size="xs" />
-          Nueva legalización
+          Nueva solicitud
         </Button>
       </div>
 

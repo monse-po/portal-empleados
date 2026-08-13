@@ -143,6 +143,8 @@ export function toastRechazados(nos: string[], notificado = true) {
 }
 
 export function toastAnulados(nos: string[]) {
-  if (nos.length === 1) return "Registro anulado · regresa a Pendientes";
-  return `${nos.length} registro(s) anulado(s)`;
+  if (nos.length === 1) {
+    return "Registro anulado · vuelve a borrador del empleado";
+  }
+  return `${nos.length} registro(s) anulado(s) · vuelven a borrador`;
 }

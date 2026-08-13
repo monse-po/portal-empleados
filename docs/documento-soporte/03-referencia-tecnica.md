@@ -89,7 +89,7 @@ Ruta: Finanzas → Factura Manual de Proveedor → Documento Soporte
 ## Creación de Factura de Proveedor
 
 - En el encabezado se selecciona mediante LOV el campo **No. Solicitud Documento Soporte**.
-- El LOV muestra únicamente solicitudes en estado Aprobado **sin Invoice ID relacionado**. Excluye: Lanzado, Rechazado, Anulado, y Aprobadas ya vinculadas a otra factura.
+- El LOV muestra únicamente solicitudes en estado Aprobado **sin Invoice ID relacionado**. Excluye: Lanzado, Rechazado, Cancelado, y Aprobadas ya vinculadas a otra factura.
 - Al guardar: se registra el Invoice ID en la solicitud y se habilita pestaña de solo lectura con los datos de la solicitud en la Factura Manual Proveedor.
 
 ## Envío de DSE al PAC
@@ -156,4 +156,4 @@ Los impuestos se capturan en la Factura Manual Proveedor mediante mecanismos est
 - Base de datos del ERP: Oracle.
 - Fechas automáticas: obtener mediante `SYSDATE`.
 - Número de solicitud: consecutivo único global, independiente de la empresa.
-- Validaciones de obligatoriedad: ejecutar antes de permitir el cambio de estado a Aprobado, Rechazado o Anulado.
+- Validaciones de obligatoriedad: ejecutar antes de permitir el cambio de estado a Aprobado, Rechazado o Cancelado.

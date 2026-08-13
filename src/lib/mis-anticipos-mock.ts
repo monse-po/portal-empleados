@@ -227,7 +227,8 @@ export function searchDestinos(query: string): DestinoSel[] {
           dpto: dData.nombre,
           pais: pData.nombre,
           pCode,
-          label: `${ciudad}, ${dData.nombre}`,
+          /** Municipio, región, país — los 3 parámetros en un solo valor. */
+          label: `${ciudad}, ${dData.nombre}, ${pData.nombre}`,
         });
       }
     }
@@ -237,7 +238,8 @@ export function searchDestinos(query: string): DestinoSel[] {
       (r) =>
         r.ciudad.toLowerCase().includes(q) ||
         r.dpto.toLowerCase().includes(q) ||
-        r.pais.toLowerCase().includes(q),
+        r.pais.toLowerCase().includes(q) ||
+        r.label.toLowerCase().includes(q),
     );
   }
   return resultados.filter((r) => r.pCode === "CO").slice(0, 8);
@@ -1179,12 +1181,22 @@ export function hoyDMY(): string {
   return `${d}/${m}/${y}`;
 }
 
+/** Siguiente AG#### / AV#### según el máximo existente del prefijo. */
 export function nuevoCodigoAnticipo(
   tipo: AnticipoTipo,
-  total: number,
+  anticipos: Record<string, Anticipo> | number,
 ): string {
   const prefix = tipo === "Viaje" ? "AV" : "AG";
-  return `${prefix}${String(total + 1).padStart(4, "0")}`;
+  if (typeof anticipos === "number") {
+    return `${prefix}${String(anticipos + 1).padStart(4, "0")}`;
+  }
+  let max = 0;
+  for (const no of Object.keys(anticipos)) {
+    if (!no.startsWith(prefix)) continue;
+    const n = Number.parseInt(no.slice(prefix.length), 10);
+    if (!Number.isNaN(n)) max = Math.max(max, n);
+  }
+  return `${prefix}${String(max + 1).padStart(4, "0")}`;
 }
 
 export function filterAnticiposByTab(

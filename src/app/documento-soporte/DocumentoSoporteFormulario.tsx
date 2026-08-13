@@ -2,15 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
-import { Card, CardBody } from "@/src/components/ui/Card";
 import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
 import { FileAttachmentField } from "@/src/components/ui/FileAttachmentField";
-import { Icon, type IconName } from "@/src/components/ui/Icon";
+import { Icon } from "@/src/components/ui/Icon";
 import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SelectControl } from "@/src/components/ui/DropdownAffordance";
 import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
+import {
+  FormContextNote,
+  FormGrid,
+  FormSection,
+  FormStack,
+  SolicitudFormCard,
+  SolicitudFormFooter,
+} from "@/src/components/ui/SolicitudFormLayout";
 import { useToast } from "@/src/components/ui/Toast";
 import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoporteContext";
 import {
@@ -46,42 +53,6 @@ const EMPLEADOS_OTRO_LOV: LovItem[] = EMPLEADOS_DS.filter(
   nombre: e.nombre,
   sub: e.id,
 }));
-
-function FormGrid({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 ${className}`.trim()}
-    >
-      {children}
-    </div>
-  );
-}
-
-function FormSection({
-  icon,
-  title,
-  children,
-}: {
-  icon: IconName;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h2 className="mb-3 flex items-center gap-2 text-[13px] font-bold text-navy">
-        <Icon name={icon} size="sm" className="text-navy" />
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
 
 export function DocumentoSoporteFormulario({
   onVolver,
@@ -259,61 +230,55 @@ export function DocumentoSoporteFormulario({
     <>
       <div className="content-standard">
         <PortalSubpageHeader
-          parentLabel="Documento de Soporte"
+          parentLabel="Mis DSE"
           onVolver={onVolver}
-          title={
-            editNo ? `Editar ${editNo}` : "Solicitar documento de soporte"
-          }
+          title={editNo ? `Editar ${editNo}` : "Nueva solicitud"}
         />
+        <FormContextNote>
+          Solicitud a Contabilidad · documento de soporte electrónico (DSE).
+        </FormContextNote>
 
-        <Card className="mb-3 overflow-visible">
-          <CardBody className="py-4">
-            <FormSection icon="send" title="Datos de la solicitud">
-              <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-                <div className="w-fit min-w-0">
-                  <p className="mb-1.5 text-[12px] font-semibold text-[#374151]">
-                    Solicitud para
-                  </p>
-                  <SegmentedControl
-                    aria-label="Solicitud para"
-                    value={paraOtro ? "otro" : "mi"}
-                    onChange={(v) => handleParaOtroChange(v === "otro")}
-                    options={[
-                      { value: "mi", label: "Para mí" },
-                      { value: "otro", label: "Para otro empleado" },
-                    ]}
+        <SolicitudFormCard>
+          <FormSection icon="send" title="Solicitud para">
+            <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+              <div className="w-fit min-w-0">
+                <SegmentedControl
+                  aria-label="Solicitud para"
+                  value={paraOtro ? "otro" : "mi"}
+                  onChange={(v) => handleParaOtroChange(v === "otro")}
+                  options={[
+                    { value: "mi", label: "Para mí" },
+                    { value: "otro", label: "Para otro empleado" },
+                  ]}
+                />
+              </div>
+              {paraOtro ? (
+                <div className="min-w-[200px] max-w-xs flex-1">
+                  <LovPicker
+                    value={empOtro}
+                    onChange={setEmpOtro}
+                    items={EMPLEADOS_OTRO_LOV}
+                    placeholder="Seleccionar empleado"
+                    searchPlaceholder="Buscar por cédula o nombre…"
+                    valueLabel={(it) => it.nombre}
                   />
                 </div>
-                {paraOtro ? (
-                  <div className="min-w-[200px] max-w-xs flex-1">
-                    <Field label="Empleado" required>
-                      <LovPicker
-                        value={empOtro}
-                        onChange={setEmpOtro}
-                        items={EMPLEADOS_OTRO_LOV}
-                        placeholder="Seleccionar empleado"
-                        searchPlaceholder="Buscar por cédula o nombre…"
-                        valueLabel={(it) => it.nombre}
-                      />
-                    </Field>
-                  </div>
-                ) : null}
-                <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
-                  <span className="text-[12px] font-semibold text-[#374151]">
-                    Fecha de solicitud
-                  </span>
-                  <span className="flex h-9 items-center text-[13px] text-muted">
-                    {existing?.fecha ?? hoyDMY()}
-                  </span>
-                </div>
+              ) : null}
+              <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
+                <span className="text-[12px] font-semibold text-[#374151]">
+                  Fecha de solicitud
+                </span>
+                <span className="flex h-9 items-center text-[13px] text-muted">
+                  {existing?.fecha ?? hoyDMY()}
+                </span>
               </div>
-            </FormSection>
-          </CardBody>
-        </Card>
+            </div>
+          </FormSection>
+        </SolicitudFormCard>
 
-        <Card className="mb-3 overflow-visible">
-          <CardBody className="py-4">
-            <FormSection icon="pencil" title="Documento del proveedor">
+        <SolicitudFormCard>
+          <FormSection icon="pencil" title="Documento del proveedor">
+            <FormStack>
               <FormGrid>
                 <Field label="NIF" required>
                   <input
@@ -363,7 +328,7 @@ export function DocumentoSoporteFormulario({
                 </Field>
               </FormGrid>
 
-              <FormGrid className="mt-3">
+              <FormGrid>
                 <Field label="Divisa" required>
                   <SelectControl
                     value={divisa}
@@ -466,57 +431,47 @@ export function DocumentoSoporteFormulario({
                 </Field>
               </FormGrid>
 
-              <div className="mt-3">
-                <Field label="Concepto" required>
-                  <input
-                    type="text"
-                    value={concepto}
-                    onChange={(e) => setConcepto(e.target.value)}
-                    placeholder="Describe el gasto…"
-                    className="ant-field-input"
-                  />
-                </Field>
-              </div>
+              <Field label="Concepto" required>
+                <input
+                  type="text"
+                  value={concepto}
+                  onChange={(e) => setConcepto(e.target.value)}
+                  placeholder="Describe el gasto…"
+                  className="ant-field-input"
+                />
+              </Field>
 
-              <div className="mt-3">
-                <Field label="Adjunto" required>
-                  <FileAttachmentField
-                    value={
-                      adjunto
-                        ? { nombre: adjunto.nombre, sizeKb: adjunto.sizeKb }
-                        : null
-                    }
-                    accept=".pdf,image/*,.zip"
-                    onSelect={(file) =>
-                      setAdjunto({
-                        nombre: file.name,
-                        sizeKb: Math.max(1, Math.round(file.size / 1024)),
-                        mime: file.type || "application/octet-stream",
-                      })
-                    }
-                    onClear={() => setAdjunto(undefined)}
-                  />
-                </Field>
-              </div>
-            </FormSection>
-          </CardBody>
-        </Card>
+              <Field label="Adjunto" required>
+                <FileAttachmentField
+                  value={
+                    adjunto
+                      ? { nombre: adjunto.nombre, sizeKb: adjunto.sizeKb }
+                      : null
+                  }
+                  accept=".pdf,image/*,.zip"
+                  onSelect={(file) =>
+                    setAdjunto({
+                      nombre: file.name,
+                      sizeKb: Math.max(1, Math.round(file.size / 1024)),
+                      mime: file.type || "application/octet-stream",
+                    })
+                  }
+                  onClear={() => setAdjunto(undefined)}
+                />
+              </Field>
+            </FormStack>
+          </FormSection>
+        </SolicitudFormCard>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white px-5 py-3.5">
-          <span className="flex items-center gap-1.5 text-[11.5px] text-muted">
-            <Icon name="info" size="xs" className="text-muted" />
-            Contabilidad revisa y aprueba esta solicitud.
-          </span>
-          <div className="flex gap-2.5">
-            <Button variant="tertiary" onClick={onVolver}>
-              Descartar
-            </Button>
-            <Button variant="success" onClick={guardar}>
-              <Icon name="send" size="xs" />
-              {editNo ? "Guardar cambios" : "Enviar solicitud"}
-            </Button>
-          </div>
-        </div>
+        <SolicitudFormFooter note="Contabilidad revisa y aprueba esta solicitud.">
+          <Button variant="tertiary" onClick={onVolver}>
+            Descartar
+          </Button>
+          <Button variant="success" onClick={guardar}>
+            <Icon name="send" size="xs" />
+            {editNo ? "Guardar cambios" : "Enviar a Aprobación"}
+          </Button>
+        </SolicitudFormFooter>
       </div>
 
       <style jsx global>{`

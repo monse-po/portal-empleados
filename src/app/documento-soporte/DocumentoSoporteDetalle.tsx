@@ -41,11 +41,11 @@ function getDocumentoBanner(documento: DocumentoSoporte) {
       motivo: "—",
     };
   }
-  if (documento.estado === "Anulado") {
+  if (documento.estado === "Cancelado") {
     return {
       autor: documento.aprobadoPorNombre || "Contabilidad",
       fecha: documento.fechaAprobacion || documento.fecha,
-      motivo: documento.notaSolicitud || "Solicitud anulada",
+      motivo: documento.notaSolicitud || "Solicitud cancelada",
     };
   }
   return null;
@@ -61,7 +61,7 @@ export function DocumentoSoporteDetalle({
   return (
     <div className="content-standard">
       <RecordDetailHeader
-        parentLabel="Documento de Soporte"
+        parentLabel="Mis DSE"
         codigo={documento.no}
         nombre={documento.solicitadoPorNombre || documento.no}
         estado={documento.estado}

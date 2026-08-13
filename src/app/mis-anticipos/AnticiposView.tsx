@@ -6,10 +6,7 @@ import { AnticiposDetalle } from "@/src/app/mis-anticipos/AnticiposDetalle";
 import { AnticiposFormulario } from "@/src/app/mis-anticipos/AnticiposFormulario";
 import { AnticiposLista } from "@/src/app/mis-anticipos/AnticiposLista";
 import { CancelarAnticipoModal } from "@/src/app/mis-anticipos/AnticiposModals";
-import {
-  AnticiposProvider,
-  useAnticipos,
-} from "@/src/app/mis-anticipos/AnticiposContext";
+import { useAnticipos } from "@/src/app/mis-anticipos/AnticiposContext";
 
 type Vista = "lista" | "detalle" | "form";
 
@@ -91,9 +88,5 @@ function AnticiposViewInner() {
 }
 
 export function AnticiposView() {
-  return (
-    <AnticiposProvider>
-      <AnticiposViewInner />
-    </AnticiposProvider>
-  );
+  return <AnticiposViewInner />;
 }

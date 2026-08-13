@@ -7,7 +7,8 @@ alwaysApply: true
 
 ## Tokens (globals.css + tailwind.config.ts)
 
-- Colores: `navy` `#014783`, `gold` `#EBAB01`, `bg` `#f5f7fa`, `border` `#e5e9f0`, `text`, `muted`, `green`, `orange`
+- Colores: `navy` `#014783`, `gold` `#EBAB01`, `bg` `#f5f7fa`, `border` `#e5e9f0`, `text`, `muted`, `green` (+ soft/pastel/bg/border), `orange`
+- Pills de estado: tokens `--pill-*` y `--green-pastel` (Pagado) — ver regla `03-estado-pills.mdc`
 - Radio: `radius-sm` 6px, `radius` 8px, `radius-lg` 10px
 - Tipografía: Inter, base **13px** (`text-base`)
 
@@ -168,11 +169,13 @@ Trigger estándar: texto truncado + `DropdownChevron`; panel blanco, borde `bord
 
 ## Pills (estado, tipo, etc.)
 
-- **Siempre** vía `Pill`, `Estado*Pill`, `TipoAnticipoPill` o `TipoHoraPill` — nunca spans ad hoc en tablas **ni en chips de filtro tipo/estado**
-- En barras de filtros: `buildFilterMultiOptions` aplica pills automáticamente; no duplicar estilos a mano
-- **Sin border**; solo `background` + `color`
-- Geometría: `rounded-full px-2.5 py-[3px] text-[11px] font-semibold`
-- Inactivo (selector): `inactivo` (`bg-[#f3f4f6] text-muted`)
+- **Estados:** regla canónica `03-estado-pills.mdc` — `Estado*Pill` + tokens `--pill-*` / `--green-pastel`
+- **Tipos:** `TipoAnticipoPill`, `TipoHoraPill`, `TipoLegalizacionPill`
+- **Siempre** vía esos helpers — nunca spans ad hoc en tablas **ni en chips de filtro tipo/estado**
+- En barras de filtros: `buildFilterMultiOptions` + `FilterValuePill` (módulos: `tiempo` \| `anticipo` \| `legalizacion` \| `documento-soporte`)
+- **Sin border**; colores solo desde tokens (`globals.css`)
+- Geometría: `pillBase` en `Pill.tsx`
+- Inactivo (selector): variant `inactivo`
 
 ## Tabs
 

@@ -98,7 +98,7 @@ export function LineasGastoEditor({
       {!lineas.length ? (
         <div className="rounded-lg border border-dashed border-[#c7d9ed] bg-[#f8fafc] px-4 py-8 text-center">
           <p className="text-[13px] text-muted">
-            Agrega cada comprobante con el formulario de captura.
+            Cada línea es un gasto de esta legalización.
           </p>
           <Button
             type="button"
@@ -107,7 +107,7 @@ export function LineasGastoEditor({
             onClick={openCreate}
           >
             <Icon name="plus" size="xs" />
-            Agregar comprobante
+            Agregar línea de gasto
           </Button>
         </div>
       ) : (

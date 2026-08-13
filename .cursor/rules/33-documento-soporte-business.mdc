@@ -17,19 +17,26 @@ Fuente: `docs/documento-soporte/02-reglas-negocio-y-campos.md` y `03-referencia-
 
 | Estado | Quién | Notas |
 |--------|-------|-------|
-| Lanzado | Sistema al guardar | Estado inicial (UI portal; Notion/IFS pueden seguir diciendo Solicitado) |
-| Aprobado | Contabilidad | No editable |
-| Rechazado | Contabilidad | Nota obligatoria; no reabrir |
-| Anulado | Contabilidad | No reabrir |
+| Lanzado | Sistema al guardar | Estado inicial; sin borrador. Editable por quien registró. |
+| Aprobado | Contabilidad (IFS) | Historial solo consulta (seed/mock hoy) |
+| Rechazado | Contabilidad (IFS) | Historial; nota; no reabrir |
+| Cancelado | Contabilidad (IFS) | Historial; no reabrir. Label único (no “Anulado”). |
 
-- Rechazado / Anulado / Aprobado → no se editan. Corrección = **nueva** solicitud (NA si corrige DSE aprobado).
+- Sesión capturista mock = Carlos Rivas (`SESSION_DS`), alineada al shell.
+- Provider global en `AppProviders`. Post-guardar → lista. Abrir fila → detalle (editar Lanzado desde detalle).
+- Rechazado / Cancelado / Aprobado → no se editan. Corrección = **nueva** solicitud.
+
+```bash
+FOCUS=documento-soporte npm run dev
+# o: npm run dev:documento-soporte
+```
 
 ## Tabs empleado
 
 | Tab | Estados |
 |-----|---------|
 | En proceso | Lanzado |
-| Historial | Aprobado, Rechazado, Anulado |
+| Historial | Aprobado, Rechazado, Cancelado |
 
 ## Visibilidad (igual Anticipos)
 
@@ -53,11 +60,5 @@ Bloquear mismo **NIF + No. Documento Original** (cross-company según Reglas; pe
 ## Fuera del portal MVP
 
 Nota de Ajuste (NA), Series DIAN, Factura Manual Proveedor, Invoice ID, PAC/Carvajal, CUDS DIAN. Solo lectura de estado (y campos de seguimiento si existen).
-
-## Enfoque
-
-```bash
-FOCUS=documento-soporte npm run dev
-```
 
 Branch: `cursor/modulo-documento-soporte`.

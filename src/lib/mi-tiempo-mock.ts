@@ -1,6 +1,6 @@
 export type RegistroEstado =
   | "Borrador"
-  | "Registrado"
+  | "Lanzado"
   | "Aprobado"
   | "Rechazado";
 
@@ -163,11 +163,11 @@ function mockEstado(monthOffset: number, seed: number): RegistroEstado {
   const roll = seed % 20;
   if (monthOffset <= -1) {
     if (roll === 0) return "Rechazado";
-    if (roll < 3) return "Registrado";
+    if (roll < 3) return "Lanzado";
     return "Aprobado";
   }
   if (roll < 5) return "Borrador";
-  if (roll < 10) return "Registrado";
+  if (roll < 10) return "Lanzado";
   if (roll === 10) return "Rechazado";
   return "Aprobado";
 }
@@ -200,7 +200,7 @@ function isDiaLaborable(fecha: string, y: number, m: number, d: number): boolean
 function mockEstadoMesActual(d: number, hoyDia: number, seed: number): RegistroEstado {
   if (d === hoyDia) return "Borrador";
   const diasAtras = hoyDia - d;
-  if (diasAtras <= 2) return "Registrado";
+  if (diasAtras <= 2) return "Lanzado";
   if (diasAtras === 4 && mod(seed, 7) === 0) return "Rechazado";
   return "Aprobado";
 }
@@ -259,7 +259,7 @@ function buildRegistroRow(
     estado,
   };
 
-  if (estado === "Aprobado" || estado === "Registrado") {
+  if (estado === "Aprobado" || estado === "Lanzado") {
     row.aprobador = jer?.aprobador;
   }
   if (estado === "Rechazado") {
@@ -355,7 +355,7 @@ function applySemanaVariada(
       ],
     },
     {
-      estado: "Registrado",
+      estado: "Lanzado",
       entries: [
         {
           proy: "PRY-2024-003",
@@ -612,7 +612,7 @@ export function getResumenHoras(
     .forEach((r) => {
       const h = r.horas || 0;
       if (r.estado === "Aprobado") aprob += h;
-      else if (r.estado === "Borrador" || r.estado === "Registrado") rev += h;
+      else if (r.estado === "Borrador" || r.estado === "Lanzado") rev += h;
       else if (r.estado === "Rechazado") rech += h;
     });
 
@@ -769,7 +769,7 @@ export function getEstadoDia(diaRegs: RegistroMock[]): RegistroEstado {
   if (estados.includes("Rechazado")) return "Rechazado";
   if (estados.some((e) => e === "Borrador")) return "Borrador";
   if (estados.every((e) => e === "Aprobado")) return "Aprobado";
-  if (estados.includes("Registrado")) return "Registrado";
+  if (estados.includes("Lanzado")) return "Lanzado";
   return "Borrador";
 }
 

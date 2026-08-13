@@ -42,7 +42,7 @@ const CAL_DIA_CELL = `${CAL_DIA_MIN_H} ${CAL_DIA_MAX_H} overflow-hidden`;
 const ESTADOS_CAL_DESTACADOS = new Set<RegistroEstado>([
   "Aprobado",
   "Borrador",
-  "Registrado",
+  "Lanzado",
   "Rechazado",
 ]);
 

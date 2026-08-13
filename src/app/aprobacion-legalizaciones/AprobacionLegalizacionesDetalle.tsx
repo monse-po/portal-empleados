@@ -2,7 +2,7 @@
 
 import { Card, CardBody } from "@/src/components/ui/Card";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
-import { Pill } from "@/src/components/ui/Pill";
+import { EstadoLegalizacionPill } from "@/src/components/ui/Pill";
 import type { LegalizacionApro } from "@/src/lib/aprobacion-legalizaciones-mock";
 import { formatMontoLegal } from "@/src/lib/legalizaciones-mock";
 
@@ -36,9 +36,9 @@ export function AprobacionLegalizacionesDetalle({
                 Estado
               </div>
               <div className="mt-1">
-                <Pill variant={solicitud.estadoApro ? "aprobado" : "revision"}>
-                  {solicitud.estadoApro || "Pendiente"}
-                </Pill>
+                <EstadoLegalizacionPill
+                  estado={solicitud.estadoApro || "Lanzado"}
+                />
               </div>
             </div>
           </div>

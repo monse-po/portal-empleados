@@ -7,7 +7,7 @@ export type DocumentoSoporteEstado =
   | "Lanzado"
   | "Aprobado"
   | "Rechazado"
-  | "Anulado";
+  | "Cancelado";
 
 export type DocumentoSoporteTipo = "DSE" | "NA";
 
@@ -83,10 +83,10 @@ export const EMPRESAS_DS = [
 
 export const DIVISAS_DS = ["COP", "USD", "MXN"] as const;
 
-/** Sesión mock del capturista (Registrado por). */
+/** Sesión mock del capturista — alineada con shell (Carlos Rivas). */
 export const SESSION_DS = {
-  id: "1001138468",
-  nombre: "Cristian Santiago Ruiz",
+  id: "1023456789",
+  nombre: "Carlos Rivas Mora",
 };
 
 export const EMPLEADOS_DS = [
@@ -101,7 +101,7 @@ export const ESTADOS_POR_TAB: Record<
   DocumentoSoporteEstado[]
 > = {
   pendientes: ["Lanzado"],
-  historial: ["Aprobado", "Rechazado", "Anulado"],
+  historial: ["Aprobado", "Rechazado", "Cancelado"],
 };
 
 export function hoyDMY(fecha = new Date()): string {
@@ -301,7 +301,7 @@ export function findDuplicado(
       d.no !== excludeNo &&
       normalizeNif(d.nif).toLowerCase() === n &&
       d.noDocumentoOriginal.trim().toLowerCase() === doc &&
-      d.estado !== "Anulado" &&
+      d.estado !== "Cancelado" &&
       d.estado !== "Rechazado",
   );
 }
@@ -341,12 +341,12 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     empresaLabel: EMPRESAS_DS[0].label,
     registradoPorId: SESSION_DS.id,
     registradoPorNombre: SESSION_DS.nombre,
-    solicitadoPorId: "1023456789",
-    solicitadoPorNombre: "Carlos Rivas Mora",
+    solicitadoPorId: "52874391",
+    solicitadoPorNombre: "María Fernanda López Torres",
     nif: "800987654",
     noDocumentoOriginal: "RC-99102",
     fechaDocumento: "29/07/2026",
-    concepto: "Taxi aeropuerto — cliente Norte (a nombre de Carlos)",
+    concepto: "Taxi aeropuerto — cliente Norte (a nombre de María)",
     divisa: "COP",
     monto: 120000,
     adjunto: {
@@ -396,7 +396,7 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     nif: "900123456",
     noDocumentoOriginal: "FV-44990",
     fechaDocumento: "09/07/2026",
-    concepto: "Hospedaje — imágenes ilegibles",
+    concepto: "Hospedaje — imágenes ilegibles (registrado por María)",
     divisa: "COP",
     monto: 200000,
     adjunto: {
@@ -411,7 +411,7 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     no: "DS0005",
     fecha: "02/08/2026",
     tipo: "DSE",
-    estado: "Anulado",
+    estado: "Cancelado",
     empresaId: "HMVINGCO",
     empresaLabel: EMPRESAS_DS[0].label,
     registradoPorId: SESSION_DS.id,
@@ -421,7 +421,7 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     nif: "860555444",
     noDocumentoOriginal: "FV-46001",
     fechaDocumento: "01/08/2026",
-    concepto: "Licencias software — anulado antes de factura",
+    concepto: "Licencias software — cancelado antes de factura",
     divisa: "COP",
     monto: 3500000,
     adjunto: {

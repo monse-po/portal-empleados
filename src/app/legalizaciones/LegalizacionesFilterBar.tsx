@@ -48,7 +48,7 @@ function valueOptionIcon(column: LegalizacionFilterColumn, val: string): IconNam
   if (column === "estado") {
     if (val === "Aprobado") return "check";
     if (val === "Rechazado") return "x";
-    if (val === "Borrador") return "pencil";
+    if (val === "Lanzado" || val === "En revisión") return "hourglass";
     return "clock";
   }
   return getFilterColumnDef(column).icon;

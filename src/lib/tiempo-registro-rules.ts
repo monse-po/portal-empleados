@@ -5,9 +5,9 @@ export function isRegistroBorrador(estado: RegistroEstado): boolean {
   return estado === "Borrador";
 }
 
-/** Registrado: enviado a aprobación; el aprobador aún no confirma. */
+/** Lanzado: enviado a aprobación; el aprobador aún no confirma. */
 export function isRegistroEnviado(estado: RegistroEstado): boolean {
-  return estado === "Registrado";
+  return estado === "Lanzado";
 }
 
 /** Editable mientras el aprobador no haya aprobado. */
@@ -30,11 +30,11 @@ export function labelEstadoRegistro(estado: RegistroEstado): string {
 
 /** Normaliza etiquetas legacy antes del rename de estados. */
 export function normalizeRegistroEstado(estado: string): RegistroEstado {
-  if (estado === "En revisión") return "Registrado";
+  if (estado === "En revisión" || estado === "Registrado") return "Lanzado";
   if (estado === "Nuevo") return "Borrador";
   if (
     estado === "Borrador" ||
-    estado === "Registrado" ||
+    estado === "Lanzado" ||
     estado === "Aprobado" ||
     estado === "Rechazado"
   ) {
@@ -45,7 +45,7 @@ export function normalizeRegistroEstado(estado: string): RegistroEstado {
 
 const ORDEN_ESTADO_LISTA: Record<RegistroEstado, number> = {
   Borrador: 0,
-  Registrado: 1,
+  Lanzado: 1,
   Rechazado: 2,
   Aprobado: 3,
 };

@@ -2,13 +2,21 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
-import { Card, CardBody } from "@/src/components/ui/Card";
 import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
-import { Icon, type IconName } from "@/src/components/ui/Icon";
+import { Icon } from "@/src/components/ui/Icon";
 import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SelectControl } from "@/src/components/ui/DropdownAffordance";
+import {
+  FormGrid,
+  FormHint,
+  FormNote,
+  FormSection,
+  FormStack,
+  SolicitudFormCard,
+  SolicitudFormFooter,
+} from "@/src/components/ui/SolicitudFormLayout";
 import {
   TIPO_ANTICIPO_SEGMENTED_OPTIONS,
 } from "@/src/components/ui/TipoAnticipoPill";
@@ -24,7 +32,6 @@ import {
   EMPLEADOS_ANT,
   fmtMontoInput,
   getDirectorProyecto,
-  getEmpleadosPorEmpresa,
   hoyDMY,
   hoyIso,
   isoToDmy,
@@ -33,7 +40,6 @@ import {
   PROYECTOS_ANT,
   searchDestinos,
   SESSION_EMPLEADO,
-  validarFechaIdaViaje,
   type AnticipoTipo,
   type DestinoSel,
   type EmpleadoAnticipo,
@@ -52,8 +58,25 @@ const PROYECTOS_LOV: LovItem[] = PROYECTOS_ANT.map((p) => ({
   sub: p.sub,
 }));
 
+const SESSION_EMP_ID = SESSION_EMPLEADO.cedula.replace(/\./g, "");
+
+const EMPLEADOS_OTRO_LOV: LovItem[] = EMPLEADOS_ANT.filter(
+  (e) => e.id.replace(/\./g, "") !== SESSION_EMP_ID,
+).map((e) => ({
+  id: e.id,
+  nombre: e.nombre,
+  sub: e.id,
+}));
+
 function RoInput({ value }: { value: string }) {
-  return <input readOnly value={value} className="ant-ro-input" />;
+  return (
+    <input
+      readOnly
+      value={value}
+      title={value || undefined}
+      className="ant-ro-input truncate"
+    />
+  );
 }
 
 function fmtCedulaSinPuntos(cedula: string): string {
@@ -78,88 +101,6 @@ function getCompaniaGastoLabel(
   const fromBenef = COMPANIAS_HMV.find((c) => c.id === id);
   if (fromBenef) return `${fromBenef.id} – ${fromBenef.nombre} (${fromBenef.sub})`;
   return id;
-}
-
-function FormGrid({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 ${className}`.trim()}
-    >
-      {children}
-    </div>
-  );
-}
-
-function FormGridSpan({
-  children,
-  span = 1,
-  className = "",
-}: {
-  children: React.ReactNode;
-  span?: 1 | 2 | 3;
-  className?: string;
-}) {
-  const spanClass =
-    span === 3 ? "md:col-span-3" : span === 2 ? "md:col-span-2" : "";
-  return (
-    <div className={`min-w-0 ${spanClass} ${className}`.trim()}>{children}</div>
-  );
-}
-
-function FormSection({
-  icon,
-  title,
-  hint,
-  children,
-}: {
-  icon: IconName;
-  title: string;
-  hint?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h2 className="mb-3 flex items-center gap-2 text-[13px] font-bold text-navy">
-        <Icon name={icon} size="sm" className="text-navy" />
-        {title}
-      </h2>
-      {hint ? <div className="mb-3">{hint}</div> : null}
-      {children}
-    </section>
-  );
-}
-
-function FormHint({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="inline-flex w-fit max-w-full items-start gap-2 rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-3 py-2 text-[12px] leading-snug text-[#1e40af]">
-      <Icon name="info" size="xs" className="mt-0.5 shrink-0 text-[#1e40af]" />
-      <span>{children}</span>
-    </div>
-  );
-}
-
-/** Hint operativo / regla de negocio — misma familia visual que FormHint */
-function FormNote({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`inline-flex w-fit max-w-full items-start gap-2 rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-3 py-2 text-[12px] leading-snug text-[#1e40af] ${className}`.trim()}
-    >
-      <Icon name="info" size="xs" className="mt-0.5 shrink-0 text-[#1e40af]" />
-      <span>{children}</span>
-    </div>
-  );
 }
 
 function DestinoPicker({
@@ -211,9 +152,10 @@ function DestinoPicker({
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Ej: Medellín, Bogotá, Miami..."
+          placeholder="Municipio, región o país…"
+          title={q || undefined}
           autoComplete="off"
-          className={`ant-field-input !pl-[30px] ${error ? "!border-red" : ""}`}
+          className={`ant-field-input truncate !pl-[30px] ${error ? "!border-red" : ""}`}
         />
       </div>
       {open && (
@@ -230,20 +172,28 @@ function DestinoPicker({
                 </div>
                 {items.map((r) => (
                   <button
-                    key={`${r.pCode}-${r.ciudad}`}
+                    key={`${r.pCode}-${r.dpto}-${r.ciudad}`}
                     type="button"
                     onClick={() => {
                       onChange(r);
                       setQ(r.label);
                       setOpen(false);
                     }}
-                    className="flex w-full cursor-pointer items-center gap-2 px-3.5 py-[7px] text-left hover:bg-[#f5f7fa]"
+                    className="flex w-full cursor-pointer items-start gap-2 px-3.5 py-[7px] text-left hover:bg-[#f5f7fa]"
                   >
-                    <Icon name="mapPin" size="xs" className="text-navy" />
-                    <span className="text-[12.5px] font-medium text-[#1a1a2e]">
-                      {r.ciudad}
+                    <Icon
+                      name="mapPin"
+                      size="xs"
+                      className="mt-0.5 shrink-0 text-navy"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12.5px] font-medium text-[#1a1a2e]">
+                        {r.ciudad}
+                      </span>
+                      <span className="block truncate text-[11px] text-[#9ca3af]">
+                        {r.dpto} · {r.pais}
+                      </span>
                     </span>
-                    <span className="text-[11px] text-[#9ca3af]">· {r.dpto}</span>
                   </button>
                 ))}
               </div>
@@ -306,9 +256,7 @@ export function AnticiposFormulario({
     () => getDirectorProyecto(proySel?.id),
     [proySel],
   );
-  const empleadosOtro = compBenef ? getEmpleadosPorEmpresa(compBenef.id) : [];
   const showEmpOtroBenefRows = paraOtro && !!compBenef;
-  const showEmpOtroDatos = showEmpOtroBenefRows && !!empOtro;
   const companiaGastoOtroOpciones = useMemo(() => {
     if (empOtro) return empOtro.companias;
     if (compBenef) {
@@ -343,28 +291,49 @@ export function AnticiposFormulario({
   const handleCompBenefChange = (item: LovItem | null) => {
     setCompBenef(item);
     setProySel(null);
-    setEmpOtro(null);
     const compId = item?.id ?? "";
     setCompaniaGastoOtro(compId);
     if (item) {
       setDivisa(DIVISAS_POR_COMPANIA[item.id]?.[0]?.code || "COP");
+      setEmpOtro((prev) => {
+        if (!prev) return null;
+        const ok =
+          prev.empresa === item.id ||
+          prev.companias.some((c) => c.id === item.id);
+        return ok ? prev : null;
+      });
+    } else {
+      setEmpOtro(null);
     }
   };
 
   const handleProyOtroChange = (item: LovItem | null) => {
     setProySel(item);
-    setEmpOtro(null);
-    setCompaniaGastoOtro(compBenef?.id ?? "");
+    // No limpiar empOtro: el proyecto no invalida al beneficiario ya elegido.
+    if (!companiaGastoOtro && compBenef?.id) {
+      setCompaniaGastoOtro(compBenef.id);
+    }
   };
 
   const handleEmpOtroChange = (item: LovItem | null) => {
     const emp = EMPLEADOS_ANT.find((e) => e.id === item?.id) || null;
     setEmpOtro(emp);
-    const compId = emp?.empresa ?? compBenef?.id ?? "";
-    setCompaniaGastoOtro(compId);
-    if (compId) {
-      setDivisa(DIVISAS_POR_COMPANIA[compId]?.[0]?.code || "COP");
+    if (!emp) {
+      setCompaniaGastoOtro(compBenef?.id ?? "");
+      return;
     }
+    const empresaItem =
+      COMPANIAS_HMV.find((c) => c.id === emp.empresa) ??
+      ({
+        id: emp.empresa,
+        nombre: getCompaniaGastoLabel(emp.empresa, emp),
+        sub: emp.empresa,
+      } satisfies LovItem);
+    setCompBenef(empresaItem);
+    setCompaniaGastoOtro(emp.empresa);
+    setDivisa(DIVISAS_POR_COMPANIA[emp.empresa]?.[0]?.code || "COP");
+    // Solo resetear proyecto si cambia el beneficiario (no al re-seleccionar el mismo).
+    setProySel((prev) => (prev && empOtro?.id === emp.id ? prev : null));
   };
 
   const handleCompaniaPropiaChange = (id: string) => {
@@ -421,11 +390,12 @@ export function AnticiposFormulario({
       return;
     }
     if (tipo === "Viaje") {
-      if (!fechaIda || !validarFechaIdaViaje(fechaIda)) {
-        toast(
-          "La fecha de salida requiere al menos 2 días hábiles de anticipación",
-          "danger",
-        );
+      if (!fechaIda) {
+        toast("Indica la fecha de salida", "danger");
+        return;
+      }
+      if (fechaIda < hoy) {
+        toast("La fecha de salida no puede ser anterior a hoy", "danger");
         return;
       }
       if (!fechaRegreso || fechaRegreso < fechaIda) {
@@ -535,142 +505,98 @@ export function AnticiposFormulario({
     <>
       <div className="content-standard">
         <PortalSubpageHeader
-          parentLabel="Anticipos"
+          parentLabel="Mis Anticipos"
           onVolver={onVolver}
-          title="Solicitar anticipo"
+          title="Nueva solicitud"
         />
 
-        <Card className="mb-3 overflow-visible">
-          <CardBody className="py-4">
-            <FormSection icon="send" title="Solicitud para">
-              <FormGrid>
-                <div className="flex w-fit min-w-0 flex-col gap-1.5">
-                  <span
-                    className="text-[12px] font-semibold text-transparent select-none"
-                    aria-hidden
-                  >
-                    &nbsp;
-                  </span>
-                  <SegmentedControl
-                    aria-label="Solicitud para"
-                    value={paraOtro ? "otro" : "mi"}
-                    onChange={(v) => handleParaOtroChange(v === "otro")}
-                    options={[
-                      { value: "mi", label: "Para mí" },
-                      { value: "otro", label: "Para otro empleado" },
-                    ]}
+        <SolicitudFormCard>
+          <FormSection icon="send" title="Solicitud para">
+            <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+              <div className="w-fit min-w-0">
+                <SegmentedControl
+                  aria-label="Solicitud para"
+                  value={paraOtro ? "otro" : "mi"}
+                  onChange={(v) => handleParaOtroChange(v === "otro")}
+                  options={[
+                    { value: "mi", label: "Para mí" },
+                    { value: "otro", label: "Para otro empleado" },
+                  ]}
+                />
+              </div>
+              {paraOtro ? (
+                <div className="min-w-[200px] max-w-xs flex-1">
+                  <LovPicker
+                    value={
+                      empOtro
+                        ? {
+                            id: empOtro.id,
+                            nombre: empOtro.nombre,
+                            sub: empOtro.sub,
+                          }
+                        : null
+                    }
+                    onChange={handleEmpOtroChange}
+                    items={EMPLEADOS_OTRO_LOV}
+                    placeholder="Seleccionar empleado"
+                    searchPlaceholder="Buscar por cédula o nombre…"
+                    valueLabel={(it) => it.nombre}
                   />
                 </div>
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <span className="text-[12px] font-semibold text-[#374151]">
-                    Fecha de solicitud
-                  </span>
-                  <span className="flex h-9 items-center text-[13px] text-muted">
-                    {hoyDMY()}
-                  </span>
-                </div>
-              </FormGrid>
-            </FormSection>
-          </CardBody>
-        </Card>
+              ) : null}
+              <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
+                <span className="text-[12px] font-semibold text-[#374151]">
+                  Fecha de solicitud
+                </span>
+                <span className="flex h-9 items-center text-[13px] text-muted">
+                  {hoyDMY()}
+                </span>
+              </div>
+            </div>
+          </FormSection>
+        </SolicitudFormCard>
 
-        <Card className="mb-3 overflow-visible">
-          <CardBody className="py-4">
-            <FormSection icon="userCircle" title="Empleado beneficiario">
-              {paraOtro ? (
-                <>
-                  <FormHint>
-                    <strong>
-                      Estás solicitando este anticipo a nombre de otra persona.
-                    </strong>{" "}
-                    Tú figurarás como solicitante; el dinero se acreditará a la
-                    cuenta del empleado destinatario.
-                  </FormHint>
-                  <FormGrid className="mt-3">
-                    <Field label="Empresa del empleado beneficiario">
-                      <LovPicker
-                        value={compBenef}
-                        onChange={handleCompBenefChange}
-                        items={COMPANIAS_HMV}
-                        placeholder="Seleccionar empresa"
-                        searchPlaceholder="Buscar empresa o país..."
-                      />
+        <SolicitudFormCard>
+          <FormSection icon="userCircle" title="Empleado beneficiario">
+            {paraOtro ? (
+              <FormStack>
+                <FormHint>
+                  <strong>
+                    Estás solicitando este anticipo a nombre de otra persona.
+                  </strong>{" "}
+                  Tú figurarás como solicitante; el dinero se acreditará a la
+                  cuenta del empleado destinatario.
+                </FormHint>
+                <FormGrid>
+                  <Field label="Empresa del empleado beneficiario">
+                    <LovPicker
+                      value={compBenef}
+                      onChange={handleCompBenefChange}
+                      items={COMPANIAS_HMV}
+                      placeholder="Seleccionar empresa"
+                      searchPlaceholder="Buscar empresa o país..."
+                    />
+                  </Field>
+                </FormGrid>
+                {empOtro ? (
+                  <FormGrid>
+                    <Field label="Cédula">
+                      <RoInput value={fmtCedulaSinPuntos(empOtro.id)} />
+                    </Field>
+                    <Field label="Nombre">
+                      <RoInput value={empOtro.nombre} />
+                    </Field>
+                    <Field label="Cuenta">
+                      <RoInput value={maskCuenta(empOtro.cuenta)} />
                     </Field>
                   </FormGrid>
-                  {showEmpOtroBenefRows && (
-                    <>
-                      <FormGrid className="mt-3">
-                        <Field label="Proyecto asociado" required>
-                          <LovPicker
-                            value={proySel}
-                            onChange={handleProyOtroChange}
-                            items={PROYECTOS_LOV}
-                            placeholder="Seleccionar proyecto"
-                          />
-                        </Field>
-                        <Field label="Aprobador">
-                          <RoInput
-                            value={
-                              directorProyecto
-                                ? `${directorProyecto.nombre} (${directorProyecto.codigo})`
-                                : ""
-                            }
-                          />
-                        </Field>
-                        <Field label="Compañía que asume el gasto">
-                          <SelectControl
-                            value={companiaGastoOtro}
-                            onChange={(e) =>
-                              handleCompaniaGastoOtroChange(e.target.value)
-                            }
-                            className="ant-field-input"
-                          >
-                            {companiaGastoOtroOpciones.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.label}
-                              </option>
-                            ))}
-                          </SelectControl>
-                        </Field>
-                      </FormGrid>
-                      <FormGrid className="mt-3">
-                        <Field label="Cédula">
-                          <LovPicker
-                            value={
-                              empOtro
-                                ? {
-                                    id: empOtro.id,
-                                    nombre: empOtro.nombre,
-                                    sub: empOtro.sub,
-                                  }
-                                : null
-                            }
-                            onChange={handleEmpOtroChange}
-                            items={empleadosOtro}
-                            placeholder="Seleccionar"
-                            searchPlaceholder="Buscar por cédula o nombre..."
-                            valueLabel={(it) => fmtCedulaSinPuntos(it.id)}
-                          />
-                        </Field>
-                        <Field label="Nombre">
-                          <RoInput value={empOtro?.nombre || ""} />
-                        </Field>
-                        <Field label="Cuenta">
-                          <RoInput
-                            value={empOtro ? maskCuenta(empOtro.cuenta) : ""}
-                          />
-                        </Field>
-                      </FormGrid>
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
+                ) : null}
+                {showEmpOtroBenefRows ? (
                   <FormGrid>
                     <Field label="Proyecto asociado" required>
                       <LovPicker
                         value={proySel}
-                        onChange={setProySel}
+                        onChange={handleProyOtroChange}
                         items={PROYECTOS_LOV}
                         placeholder="Seleccionar proyecto"
                       />
@@ -686,13 +612,13 @@ export function AnticiposFormulario({
                     </Field>
                     <Field label="Compañía que asume el gasto">
                       <SelectControl
-                        value={companiaId}
+                        value={companiaGastoOtro}
                         onChange={(e) =>
-                          handleCompaniaPropiaChange(e.target.value)
+                          handleCompaniaGastoOtroChange(e.target.value)
                         }
                         className="ant-field-input"
                       >
-                        {companiasPropias.map((c) => (
+                        {companiaGastoOtroOpciones.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.label}
                           </option>
@@ -700,42 +626,80 @@ export function AnticiposFormulario({
                       </SelectControl>
                     </Field>
                   </FormGrid>
-                  <FormGrid className="mt-3">
-                    <Field label="Cédula">
-                      <RoInput value={fmtCedulaSinPuntos(EMP_DET.cedula)} />
-                    </Field>
-                    <Field label="Nombre">
-                      <RoInput value={EMP_DET.nombre} />
-                    </Field>
-                    <Field label="Cuenta">
-                      <RoInput value={maskCuenta(EMP_DET.cuenta)} />
-                    </Field>
-                  </FormGrid>
-                </>
-              )}
-            </FormSection>
-          </CardBody>
-        </Card>
+                ) : null}
+              </FormStack>
+            ) : (
+              <FormStack>
+                <FormGrid>
+                  <Field label="Proyecto asociado" required>
+                    <LovPicker
+                      value={proySel}
+                      onChange={setProySel}
+                      items={PROYECTOS_LOV}
+                      placeholder="Seleccionar proyecto"
+                    />
+                  </Field>
+                  <Field label="Aprobador">
+                    <RoInput
+                      value={
+                        directorProyecto
+                          ? `${directorProyecto.nombre} (${directorProyecto.codigo})`
+                          : ""
+                      }
+                    />
+                  </Field>
+                  <Field label="Compañía que asume el gasto">
+                    <SelectControl
+                      value={companiaId}
+                      onChange={(e) =>
+                        handleCompaniaPropiaChange(e.target.value)
+                      }
+                      className="ant-field-input"
+                    >
+                      {companiasPropias.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </SelectControl>
+                  </Field>
+                </FormGrid>
+                <FormGrid>
+                  <Field label="Cédula">
+                    <RoInput value={fmtCedulaSinPuntos(EMP_DET.cedula)} />
+                  </Field>
+                  <Field label="Nombre">
+                    <RoInput value={EMP_DET.nombre} />
+                  </Field>
+                  <Field label="Cuenta">
+                    <RoInput value={maskCuenta(EMP_DET.cuenta)} />
+                  </Field>
+                </FormGrid>
+              </FormStack>
+            )}
+          </FormSection>
+        </SolicitudFormCard>
 
-        <Card className="mb-3 overflow-visible">
-          <CardBody className="py-4">
-            <FormSection
-              icon="wallet"
-              title="Tipo y monto de la solicitud"
-              hint={
-                tipo === "Gasto" ? (
-                  <FormNote>
-                    Las solicitudes se procesan en{" "}
-                    <strong>2 días hábiles</strong> desde su aprobación.
-                  </FormNote>
-                ) : tipo === "Viaje" ? (
-                  <FormNote>
-                    Solicita con al menos <strong>2 días hábiles</strong> antes de
-                    la fecha de inicio del viaje.
-                  </FormNote>
-                ) : undefined
-              }
-            >
+        <SolicitudFormCard>
+          <FormSection
+            icon="wallet"
+            title="Tipo y monto de la solicitud"
+            hint={
+              tipo === "Gasto" ? (
+                <FormNote>
+                  Las solicitudes se procesan en{" "}
+                  <strong>2 días hábiles</strong> desde su aprobación.
+                </FormNote>
+              ) : tipo === "Viaje" ? (
+                <FormNote>
+                  Se recomienda solicitar con al menos{" "}
+                  <strong>2 días hábiles</strong> antes del viaje; también
+                  puedes registrar salidas el mismo día.
+                </FormNote>
+              ) : undefined
+            }
+          >
+            <FormStack>
               <FormGrid>
                 <div className="w-fit min-w-0">
                   <p className="mb-1.5 text-[12px] font-semibold text-[#374151]">
@@ -782,8 +746,8 @@ export function AnticiposFormulario({
                 </Field>
               </FormGrid>
 
-              {tipo === "Viaje" && (
-                <FormGrid className="mt-3">
+              {tipo === "Viaje" ? (
+                <FormGrid>
                   <Field label="Fecha salida" required>
                     <DateInput
                       min={hoy}
@@ -822,9 +786,9 @@ export function AnticiposFormulario({
                     />
                   </Field>
                 </FormGrid>
-              )}
+              ) : null}
 
-              <FormGrid className="mt-3">
+              <FormGrid>
                 <Field label="Motivo" required>
                   <textarea
                     value={motivo}
@@ -835,25 +799,19 @@ export function AnticiposFormulario({
                   />
                 </Field>
               </FormGrid>
-            </FormSection>
-          </CardBody>
-        </Card>
+            </FormStack>
+          </FormSection>
+        </SolicitudFormCard>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white px-5 py-3.5">
-            <span className="flex items-center gap-1.5 text-[11.5px] text-muted">
-              <Icon name="info" size="xs" className="text-muted" />
-              El director de proyecto aprueba esta solicitud.
-            </span>
-            <div className="flex gap-2.5">
-              <Button variant="tertiary" onClick={onVolver}>
-                Descartar
-              </Button>
-              <Button variant="success" onClick={validarYAbrirEnvio}>
-                <Icon name="send" size="xs" />
-                Enviar a Aprobación
-              </Button>
-            </div>
-          </div>
+        <SolicitudFormFooter note="El director de proyecto aprueba esta solicitud.">
+          <Button variant="tertiary" onClick={onVolver}>
+            Descartar
+          </Button>
+          <Button variant="success" onClick={validarYAbrirEnvio}>
+            <Icon name="send" size="xs" />
+            Enviar a Aprobación
+          </Button>
+        </SolicitudFormFooter>
       </div>
 
       <EnviarAnticipoModal
@@ -871,6 +829,11 @@ export function AnticiposFormulario({
           border: 1px solid #e5e9f0;
           padding: 0 10px;
           font-size: 13px;
+        }
+        .ant-ro-input {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .ant-form-textarea {
           width: 100%;

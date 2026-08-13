@@ -153,6 +153,14 @@ export function AprobacionView() {
     if (enDetalle) volverLista();
   };
 
+  if (!pendientesLoaded) {
+    return (
+      <div className="content-standard flex min-h-[240px] items-center justify-center">
+        <p className="text-[13px] text-muted">Cargando bandeja de aprobación…</p>
+      </div>
+    );
+  }
+
   if (enDetalle && hojaDetalle) {
     return (
       <>

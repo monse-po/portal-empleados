@@ -151,7 +151,7 @@ export function LineaGastoModal({
       open={open}
       onClose={onClose}
       busy={guardando}
-      title={mode === "create" ? "Agregar comprobante" : "Editar comprobante"}
+      title={mode === "create" ? "Agregar línea de gasto" : "Editar línea de gasto"}
       icon="folderOpen"
       widthClass="max-w-[680px]"
       footer={
@@ -165,11 +165,14 @@ export function LineaGastoModal({
             loading={guardando}
             loadingLabel="Guardando…"
           >
-            Guardar comprobante
+            Guardar línea
           </Button>
         </div>
       }
     >
+      <p className="mb-4 text-[12.5px] text-muted">
+        Este gasto se suma a la legalización actual.
+      </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Tipo de documento" required error={errors.voucherType}>
           <SelectControl

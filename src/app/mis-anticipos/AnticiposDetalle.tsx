@@ -56,7 +56,7 @@ export function AnticiposDetalle({
   return (
     <div className="content-standard">
       <AnticipoDetailHeader
-        parentLabel="Anticipos"
+        parentLabel="Mis Anticipos"
         codigo={anticipo.no}
         nombre={beneficiario.nombre}
         estado={anticipo.estado}

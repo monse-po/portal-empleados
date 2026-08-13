@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import {
   AprobacionAnticiposProvider,
+  useAprobacionAnticipos,
 } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposContext";
 import {
   AprobacionLegalizacionesProvider,
@@ -12,10 +13,17 @@ import {
   useAprobacion,
 } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import {
+  AnticiposProvider,
+  useAnticipos,
+} from "@/src/app/mis-anticipos/AnticiposContext";
+import { DocumentoSoporteProvider } from "@/src/app/documento-soporte/DocumentoSoporteContext";
+import {
   MiTiempoProvider,
   useMiTiempo,
 } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import { NotificationProvider } from "@/src/components/notifications/NotificationContext";
+import { anticipoToAprobacion } from "@/src/lib/anticipos-bridge";
+import type { SyncAnticipoHandler } from "@/src/lib/anticipos-bridge";
 import type { SyncRegistroHandler } from "@/src/lib/tiempo-bridge";
 
 function MiTiempoBridge({
@@ -25,10 +33,13 @@ function MiTiempoBridge({
   children: ReactNode;
   syncRef: React.MutableRefObject<SyncRegistroHandler | undefined>;
 }) {
-  const { ingresarHojas } = useAprobacion();
+  const { ingresarHojas, retirarHojas } = useAprobacion();
 
   return (
-    <MiTiempoProvider onIngresarHojas={ingresarHojas}>
+    <MiTiempoProvider
+      onIngresarHojas={ingresarHojas}
+      onRetirarHojas={retirarHojas}
+    >
       <RegistroSyncEffect syncRef={syncRef} />
       {children}
     </MiTiempoProvider>
@@ -54,8 +65,69 @@ function RegistroSyncEffect({
   return null;
 }
 
+function AnticiposBridge({
+  children,
+  syncRef,
+}: {
+  children: ReactNode;
+  syncRef: React.MutableRefObject<SyncAnticipoHandler | undefined>;
+}) {
+  const { ingresarSolicitud, retirarSolicitud } = useAprobacionAnticipos();
+
+  return (
+    <AnticiposProvider
+      onIngresarSolicitud={ingresarSolicitud}
+      onRetirarSolicitud={retirarSolicitud}
+    >
+      <AnticipoSyncEffect syncRef={syncRef} />
+      <AnticipoSeedHydration />
+      {children}
+    </AnticiposProvider>
+  );
+}
+
+function AnticipoSyncEffect({
+  syncRef,
+}: {
+  syncRef: React.MutableRefObject<SyncAnticipoHandler | undefined>;
+}) {
+  const { sincronizarDesdeAprobacion } = useAnticipos();
+
+  useEffect(() => {
+    syncRef.current = (no, accion, comentario) => {
+      sincronizarDesdeAprobacion(no, accion, comentario);
+    };
+    return () => {
+      syncRef.current = undefined;
+    };
+  }, [sincronizarDesdeAprobacion, syncRef]);
+
+  return null;
+}
+
+/** Inyecta anticipos Lanzado del empleado en la cola del gerente (demo E2E). */
+function AnticipoSeedHydration() {
+  const { anticipos, extras } = useAnticipos();
+  const { ingresarSolicitud } = useAprobacionAnticipos();
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    Object.values(anticipos)
+      .filter((a) => a.estado === "Lanzado")
+      .forEach((a) => {
+        ingresarSolicitud(anticipoToAprobacion(a, extras[a.no]));
+      });
+  }, [anticipos, extras, ingresarSolicitud]);
+
+  return null;
+}
+
 export function AppProviders({ children }: { children: ReactNode }) {
   const syncRef = useRef<SyncRegistroHandler | undefined>(undefined);
+  const anticiposSyncRef = useRef<SyncAnticipoHandler | undefined>(undefined);
+
   const onSyncRegistro = useCallback<SyncRegistroHandler>(
     (registroId, accion, comentario) => {
       syncRef.current?.(registroId, accion, comentario);
@@ -63,12 +135,23 @@ export function AppProviders({ children }: { children: ReactNode }) {
     [],
   );
 
+  const onSyncAnticipo = useCallback<SyncAnticipoHandler>(
+    (no, accion, comentario) => {
+      anticiposSyncRef.current?.(no, accion, comentario);
+    },
+    [],
+  );
+
   return (
     <NotificationProvider>
       <AprobacionProvider onSyncRegistro={onSyncRegistro}>
-        <AprobacionAnticiposProvider>
+        <AprobacionAnticiposProvider onSyncAnticipo={onSyncAnticipo}>
           <AprobacionLegalizacionesProvider>
-            <MiTiempoBridge syncRef={syncRef}>{children}</MiTiempoBridge>
+            <DocumentoSoporteProvider>
+              <AnticiposBridge syncRef={anticiposSyncRef}>
+                <MiTiempoBridge syncRef={syncRef}>{children}</MiTiempoBridge>
+              </AnticiposBridge>
+            </DocumentoSoporteProvider>
           </AprobacionLegalizacionesProvider>
         </AprobacionAnticiposProvider>
       </AprobacionProvider>

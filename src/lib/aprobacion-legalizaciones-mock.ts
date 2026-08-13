@@ -37,7 +37,7 @@ const SOLICITANTE = {
 };
 
 function toApro(reg: Legalizacion): LegalizacionApro {
-  const pendiente = reg.estado === "En revisión";
+  const pendiente = reg.estado === "Lanzado";
   return {
     ...reg,
     solicitante: SOLICITANTE.nombre,
@@ -61,7 +61,7 @@ export function cloneInitialLegalizacionesApro(): Record<string, LegalizacionApr
     concepto: "Alimentación visita cliente",
     monto: 85000,
     div: "COP",
-    estado: "En revisión",
+    estado: "Lanzado",
     motivo: "Comidas durante desplazamiento",
     disponible: false,
     lineas: [

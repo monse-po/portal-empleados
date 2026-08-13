@@ -25,7 +25,7 @@ export function estadoDbToUi(estado: RegistroEstadoDb): RegistroEstado {
     case RegistroEstadoDb.REGISTRADO:
       return "Borrador";
     case RegistroEstadoDb.EN_REVISION:
-      return "Registrado";
+      return "Lanzado";
     case RegistroEstadoDb.APROBADO:
       return "Aprobado";
     case RegistroEstadoDb.RECHAZADO:
@@ -39,7 +39,7 @@ export function estadoUiToDb(estado: RegistroEstado): RegistroEstadoDb {
   switch (estado) {
     case "Borrador":
       return RegistroEstadoDb.REGISTRADO;
-    case "Registrado":
+    case "Lanzado":
       return RegistroEstadoDb.EN_REVISION;
     case "Aprobado":
       return RegistroEstadoDb.APROBADO;

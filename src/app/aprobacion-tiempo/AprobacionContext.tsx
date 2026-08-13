@@ -36,6 +36,8 @@ type AprobacionContextValue = {
   clearSeleccion: () => void;
   registrosActuales: HojaAprobacion[];
   ingresarHojas: (hojas: HojaAprobacion[]) => void;
+  /** Retira de la cola por registroId (empleado borró o anulación). */
+  retirarHojas: (registroIds: string[]) => void;
   syncPendientesDesdeDb: (hojas: HojaAprobacion[]) => void;
   aprobar: (nos: string[], comentario?: string) => void;
   rechazar: (nos: string[], comentario: string) => void;
@@ -80,9 +82,34 @@ export function AprobacionProvider({
     setHojas((prev) => {
       const next = { ...prev };
       nuevas.forEach((hoja) => {
-        if (!next[hoja.no]) next[hoja.no] = hoja;
+        const existing = next[hoja.no];
+        // Upsert: refresca datos si el empleado editó un Lanzado aún pendiente.
+        if (existing?.estadoApro) {
+          return;
+        }
+        next[hoja.no] = {
+          ...hoja,
+          estadoApro: existing?.estadoApro ?? "",
+          comentarioApro: existing?.comentarioApro ?? "",
+          fechaApro: existing?.fechaApro ?? "",
+          aprobador: existing?.aprobador ?? "",
+        };
       });
       setProySelState((sel) => sel || getProyConMasPendientes(next));
+      return next;
+    });
+  }, []);
+
+  const retirarHojas = useCallback((registroIds: string[]) => {
+    if (!registroIds.length) return;
+    const idSet = new Set(registroIds);
+    setHojas((prev) => {
+      const next = { ...prev };
+      Object.values(prev).forEach((h) => {
+        if (h.registroId && idSet.has(h.registroId) && !h.estadoApro) {
+          delete next[h.no];
+        }
+      });
       return next;
     });
   }, []);
@@ -168,33 +195,22 @@ export function AprobacionProvider({
 
   const anular = useCallback(
     (nos: string[]) => {
-      const toSync: Array<{
-        id: string;
-        accion: SyncRegistroAccion;
-        comentario: string;
-      }> = [];
+      const toSync: string[] = [];
 
       setHojas((prev) => {
         const next = { ...prev };
         nos.forEach((no) => {
           if (!next[no]) return;
           const registroId = next[no].registroId;
-          next[no] = {
-            ...next[no],
-            estadoApro: "",
-            comentarioApro: "",
-            fechaApro: "",
-            aprobador: "",
-          };
-          if (registroId) {
-            toSync.push({ id: registroId, accion: "anulado", comentario: "" });
-          }
+          if (registroId) toSync.push(registroId);
+          // Sale de la cola; el empleado vuelve a Borrador vía sync (debe reenviar).
+          delete next[no];
         });
         return next;
       });
 
-      toSync.forEach(({ id, accion, comentario }) => {
-        syncRegistro(id, accion, comentario);
+      toSync.forEach((id) => {
+        syncRegistro(id, "anulado", "");
       });
       clearSeleccion();
     },
@@ -232,6 +248,7 @@ export function AprobacionProvider({
       clearSeleccion,
       registrosActuales,
       ingresarHojas,
+      retirarHojas,
       syncPendientesDesdeDb,
       aprobar,
       rechazar,
@@ -252,6 +269,7 @@ export function AprobacionProvider({
       clearSeleccion,
       registrosActuales,
       ingresarHojas,
+      retirarHojas,
       syncPendientesDesdeDb,
       aprobar,
       rechazar,
