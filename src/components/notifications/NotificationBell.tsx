@@ -39,9 +39,12 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  if (!roleReady || !isGerente || !ctx) return null;
+  if (!roleReady || !ctx) return null;
 
   const { items, unreadCount, loading, markRead, markAllRead } = ctx;
+  const subtitle = isGerente
+    ? "Tiempo · envíos a aprobación"
+    : "Tiempo · aprobaciones y rechazos";
 
   const handleOpenItem = async (id: string, href: string) => {
     await markRead(id);
@@ -76,7 +79,7 @@ export function NotificationBell() {
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
               <p className="text-[13px] font-bold text-navy">Notificaciones</p>
-              <p className="text-[11px] text-muted">Tiempo · envíos a aprobación</p>
+              <p className="text-[11px] text-muted">{subtitle}</p>
             </div>
             {unreadCount > 0 && (
               <button

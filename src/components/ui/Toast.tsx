@@ -28,6 +28,7 @@ type ToastContextValue = {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const TOAST_DURATION_MS = 3500;
+const TOAST_EXIT_MS = 250;
 
 const variantStyles: Record<ToastVariant, string> = {
   green: "bg-green-bg text-green border-green-border",
@@ -43,31 +44,93 @@ const variantIcons: Record<ToastVariant, IconName> = {
   warn: "triangleAlert",
 };
 
-function ToastBubble({ item, onDone }: { item: ToastItem; onDone: () => void }) {
+function ToastBubble({
+  item,
+  onDone,
+}: {
+  item: ToastItem;
+  onDone: () => void;
+}) {
   const [visible, setVisible] = useState(false);
+  const remainingRef = useRef(TOAST_DURATION_MS);
+  const hideAtRef = useRef(0);
+  const hideTimerRef = useRef<number | null>(null);
+  const removeTimerRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
+  const dismissedRef = useRef(false);
+
+  const clearTimers = useCallback(() => {
+    if (hideTimerRef.current != null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+    if (removeTimerRef.current != null) {
+      window.clearTimeout(removeTimerRef.current);
+      removeTimerRef.current = null;
+    }
+  }, []);
+
+  const finish = useCallback(() => {
+    if (dismissedRef.current) return;
+    dismissedRef.current = true;
+    clearTimers();
+    setVisible(false);
+    removeTimerRef.current = window.setTimeout(onDone, TOAST_EXIT_MS);
+  }, [clearTimers, onDone]);
+
+  const scheduleHide = useCallback(
+    (ms: number) => {
+      clearTimers();
+      remainingRef.current = ms;
+      hideAtRef.current = Date.now() + ms;
+      hideTimerRef.current = window.setTimeout(finish, ms);
+    },
+    [clearTimers, finish],
+  );
 
   useEffect(() => {
     const showTimer = window.setTimeout(() => setVisible(true), 10);
-    const hideTimer = window.setTimeout(() => setVisible(false), TOAST_DURATION_MS);
-    const removeTimer = window.setTimeout(onDone, TOAST_DURATION_MS + 250);
-
+    scheduleHide(TOAST_DURATION_MS);
     return () => {
       window.clearTimeout(showTimer);
-      window.clearTimeout(hideTimer);
-      window.clearTimeout(removeTimer);
+      clearTimers();
     };
-  }, [onDone]);
+  }, [clearTimers, scheduleHide]);
+
+  const onMouseEnter = () => {
+    if (dismissedRef.current || pausedRef.current) return;
+    pausedRef.current = true;
+    remainingRef.current = Math.max(0, hideAtRef.current - Date.now());
+    clearTimers();
+  };
+
+  const onMouseLeave = () => {
+    if (dismissedRef.current || !pausedRef.current) return;
+    pausedRef.current = false;
+    scheduleHide(remainingRef.current || TOAST_DURATION_MS);
+  };
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className={`pointer-events-none flex items-center gap-2 rounded-[6px] border-[1.5px] px-4 py-2.5 text-[12px] font-medium shadow-[0_4px_12px_rgba(15,23,42,0.08)] transition-all duration-200 ${variantStyles[item.variant]} ${
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`pointer-events-auto flex items-start gap-2 rounded-[6px] border-[1.5px] px-3 py-2.5 text-[12px] font-medium shadow-[0_4px_12px_rgba(15,23,42,0.08)] transition-all duration-200 ${variantStyles[item.variant]} ${
         visible ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
       }`}
     >
-      <Icon name={variantIcons[item.variant]} size="sm" className="shrink-0" />
-      <span>{item.message}</span>
+      <Icon name={variantIcons[item.variant]} size="sm" className="mt-0.5 shrink-0" />
+      <span className="min-w-0 flex-1 leading-snug">{item.message}</span>
+      <button
+        type="button"
+        aria-label="Cerrar notificación"
+        title="Cerrar"
+        onClick={finish}
+        className="mt-0.5 inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-current opacity-60 transition-opacity hover:opacity-100"
+      >
+        <Icon name="x" size="xs" />
+      </button>
     </div>
   );
 }

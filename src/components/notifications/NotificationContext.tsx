@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  getNotificacionesEmpleadoAction,
   getNotificacionesGerenteAction,
   marcarNotificacionLeidaAction,
   marcarTodasNotificacionesLeidasAction,
@@ -32,19 +33,25 @@ const NotificationContext = createContext<NotificationContextValue | null>(null)
 const POLL_MS = 20_000;
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { isGerente, roleReady } = useRole();
+  const { isGerente, roleReady, rol } = useRole();
   const [items, setItems] = useState<NotificacionUi[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const inFlight = useRef(false);
 
+  const fetchForRole = useCallback(async () => {
+    return isGerente
+      ? getNotificacionesGerenteAction()
+      : getNotificacionesEmpleadoAction();
+  }, [isGerente]);
+
   const refresh = useCallback(async () => {
-    if (!roleReady || !isGerente) return;
+    if (!roleReady) return;
     if (inFlight.current) return;
     inFlight.current = true;
     setLoading(true);
     try {
-      const data = await getNotificacionesGerenteAction();
+      const data = await fetchForRole();
       setItems(data.items);
       setUnreadCount(data.unreadCount);
     } catch (error) {
@@ -55,10 +62,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       inFlight.current = false;
       setLoading(false);
     }
-  }, [isGerente, roleReady]);
+  }, [roleReady, fetchForRole]);
 
   useEffect(() => {
-    if (!roleReady || !isGerente) return;
+    if (!roleReady) return;
 
     let cancelled = false;
 
@@ -67,7 +74,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       inFlight.current = true;
       setLoading(true);
       try {
-        const data = await getNotificacionesGerenteAction();
+        const data = await fetchForRole();
         if (!cancelled) {
           setItems(data.items);
           setUnreadCount(data.unreadCount);
@@ -84,6 +91,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    setItems([]);
+    setUnreadCount(0);
     void load();
     const timer = window.setInterval(() => void load(), POLL_MS);
     const onFocus = () => void load();
@@ -95,7 +104,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [isGerente, roleReady]);
+  }, [roleReady, fetchForRole, rol]);
 
   const markRead = useCallback(async (id: string) => {
     await marcarNotificacionLeidaAction(id);
@@ -106,23 +115,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markAllRead = useCallback(async () => {
-    await marcarTodasNotificacionesLeidasAction();
+    await marcarTodasNotificacionesLeidasAction(
+      isGerente ? "gerente" : "empleado",
+    );
     setItems((prev) => prev.map((item) => ({ ...item, leida: true })));
     setUnreadCount(0);
-  }, []);
+  }, [isGerente]);
 
-  const value = useMemo(() => {
-    const visibleItems = roleReady && isGerente ? items : [];
-    const visibleUnread = roleReady && isGerente ? unreadCount : 0;
-    return {
-      items: visibleItems,
-      unreadCount: visibleUnread,
-      loading: roleReady && isGerente ? loading : false,
+  const value = useMemo(
+    () => ({
+      items: roleReady ? items : [],
+      unreadCount: roleReady ? unreadCount : 0,
+      loading: roleReady ? loading : false,
       refresh,
       markRead,
       markAllRead,
-    };
-  }, [items, unreadCount, loading, roleReady, isGerente, refresh, markRead, markAllRead]);
+    }),
+    [items, unreadCount, loading, roleReady, refresh, markRead, markAllRead],
+  );
 
   return (
     <NotificationContext.Provider value={value}>

@@ -18,6 +18,18 @@ import {
 import type { SyncRegistroAccion, SyncRegistroHandler } from "@/src/lib/tiempo-bridge";
 import { useTableSelection } from "@/src/lib/use-table-selection";
 import { resolverAprobacionTiempoAction } from "@/src/server/mi-tiempo-actions";
+import { createNotificacionesTiempoDecisionAction } from "@/src/server/notificacion-actions";
+import type { HojaNotificacionInput } from "@/src/lib/notificacion-tiempo";
+
+function toHojaNotifInput(hoja: HojaAprobacion): HojaNotificacionInput {
+  return {
+    no: hoja.no,
+    fecha: hoja.fecha,
+    cedula: hoja.cedula,
+    nombre: hoja.nombre,
+    proy: hoja.proy,
+  };
+}
 
 export type AprobacionDecisionResult = {
   ok: boolean;
@@ -186,6 +198,10 @@ export function AprobacionProvider({
         };
       }
 
+      const hojasDecision = nos
+        .map((no) => hojasRef.current[no])
+        .filter((h): h is HojaAprobacion => !!h);
+
       const result = await resolverAprobacionTiempoAction({
         registroIds,
         decision,
@@ -207,6 +223,15 @@ export function AprobacionProvider({
         comentario,
       );
       clearSeleccion();
+
+      void createNotificacionesTiempoDecisionAction({
+        decision,
+        hojas: hojasDecision.map(toHojaNotifInput),
+        comentario,
+      }).catch((error) => {
+        console.error("[notificaciones] no se pudo notificar al empleado", error);
+      });
+
       return { ok: true, sentToIfs: result.sentToIfs };
     },
     [aplicarEstado, clearSeleccion],
@@ -227,6 +252,9 @@ export function AprobacionProvider({
   const anular = useCallback(
     (nos: string[]) => {
       const toSync: string[] = [];
+      const hojasAnuladas = nos
+        .map((no) => hojasRef.current[no])
+        .filter((h): h is HojaAprobacion => !!h);
 
       setHojas((prev) => {
         const next = { ...prev };
@@ -244,6 +272,13 @@ export function AprobacionProvider({
         syncRegistro(id, "anulado", "");
       });
       clearSeleccion();
+
+      void createNotificacionesTiempoDecisionAction({
+        decision: "anulado",
+        hojas: hojasAnuladas.map(toHojaNotifInput),
+      }).catch((error) => {
+        console.error("[notificaciones] no se pudo notificar anulación", error);
+      });
     },
     [syncRegistro, clearSeleccion],
   );
