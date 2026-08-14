@@ -34,8 +34,9 @@ Implementación:
 Reglas:
 
 - `isRegistroEditable` / `isRegistroEliminable` en `src/lib/tiempo-registro-rules.ts` — bloqueo solo en **Aprobado**.
+- Filas IFS (`ifs-pt-*`) en Lanzado/Rechazado: editar → `EmpPortalTimeUpdateList`; eliminar → `EmpPortalTimeDeleteList` (requiere sesión IFS + Objid/Objversion).
 - Al guardar edición, **preservar** el estado actual (no resetear a borrador salvo rechazo corregido → borrador).
-- **Enviar a Aprobación:** solo registros en **borrador** del día pasan a **Lanzado**.
+- **Enviar a Aprobación:** solo registros en **borrador** del día pasan a **Lanzado** (`EmpPortalTimeRegList` si hay sesión IFS).
 - Tras enviar, **sí se pueden agregar** registros nuevos al mismo día (nuevos borradores).
 - **Sync gerente:** editar Lanzado refresca la fila en aprobación; borrar Lanzado lo retira de la cola (`retirarHojas`).
 - **Anular (gerente):** el ítem **sale** de la cola; empleado vuelve a **Borrador** y debe reenviar.

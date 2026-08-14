@@ -50,7 +50,7 @@ import { LOADING_COPY, loadingPlaceholder } from "@/src/lib/copy/loading";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 import { scheduleSourceLabel as formatScheduleSource } from "@/src/lib/tiempo-config";
 import { getJornadaLimiteFromSistema } from "@/src/lib/tiempo-config";
-import { labelEstadoRegistro, hayRegistrosBorrador } from "@/src/lib/tiempo-registro-rules";
+import { labelEstadoRegistro, hayBorradoresEnviables } from "@/src/lib/tiempo-registro-rules";
 import {
   exceedsNormalLimit,
   formatScheduleHoursLabel,
@@ -417,6 +417,7 @@ function RegistroHorasForm({
         estado: registroExistente?.estado ?? "Borrador",
         aprobador: aprobador ?? undefined,
         comentarioRechazo: registroExistente?.comentarioRechazo ?? "",
+        ifs: registroExistente?.ifs,
       },
     );
   };
@@ -600,7 +601,20 @@ function RegistroHorasForm({
                   }`}
                 >
                   {form.tipo ? (
-                    <TipoHoraPill tipo={form.tipo} />
+                    <TipoHoraPill
+                      tipo={form.tipo}
+                      label={
+                        useIfsCatalogLive
+                          ? tipos.find((t) => t.code === form.tipo)?.label
+                          : undefined
+                      }
+                      title={
+                        useIfsCatalogLive
+                          ? tipos.find((t) => t.code === form.tipo)?.fullLabel
+                          : undefined
+                      }
+                      className="max-w-[min(100%,14rem)]"
+                    />
                   ) : useIfsCatalogLive && tiposLoading ? (
                     <LoadingNotice
                       variant="inline"
@@ -623,22 +637,32 @@ function RegistroHorasForm({
                 ? tipos
                 : Object.keys(TIPO_HORA).map((code) => ({
                     code,
-                    label: TIPO_HORA[code].n,
+                    label: TIPO_HORA[code].s,
+                    fullLabel: TIPO_HORA[code].n,
                     cat: TIPO_HORA[code].cat,
                   }))
               ).map((tipo) => (
                 <button
                   key={tipo.code}
                   type="button"
+                  title={`${tipo.code} · ${"fullLabel" in tipo && tipo.fullLabel ? tipo.fullLabel : tipo.label}`}
                   onClick={() => {
                     patch({ tipo: tipo.code });
                     setTipoOpen(false);
                     clearError("tipo");
                   }}
-                  className="flex w-full cursor-pointer items-center gap-2 rounded-[7px] px-2 py-1.5 hover:bg-[#f4f7fb]"
+                  className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-[7px] px-2 py-1.5 hover:bg-[#f4f7fb]"
                 >
-                  <TipoHoraPill tipo={tipo.code} />
-                  <span className="text-xs text-muted">{tipo.label}</span>
+                  <TipoHoraPill
+                    tipo={tipo.code}
+                    label={tipo.label}
+                    title={
+                      "fullLabel" in tipo && tipo.fullLabel
+                        ? `${tipo.code} · ${tipo.fullLabel}`
+                        : undefined
+                    }
+                    className="max-w-full"
+                  />
                 </button>
               ))}
             </Dropdown>
@@ -751,7 +775,7 @@ export function RegistrarHorasModal() {
         : undefined)
     : undefined;
   const hayBorradoresEnDia = fechaModal
-    ? hayRegistrosBorrador(getRegistrosDia(registros, fechaModal))
+    ? hayBorradoresEnviables(getRegistrosDia(registros, fechaModal))
     : false;
   const hintEnvio =
     modal?.origen === "lista" && hayBorradoresEnDia
@@ -780,8 +804,13 @@ export function RegistrarHorasModal() {
           : TIEMPO_UI_COPY.toastRegistroNuevo,
         "navy",
       );
-    } catch {
-      toast("No se pudo guardar el registro. Intenta de nuevo.", "danger");
+    } catch (err) {
+      toast(
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar el registro. Intenta de nuevo.",
+        "danger",
+      );
     } finally {
       setSaving(false);
     }

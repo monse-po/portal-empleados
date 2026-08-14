@@ -31,6 +31,8 @@ import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import { getSelectionState } from "@/src/lib/use-table-selection";
 import {
   horasNum,
+  proyKey,
+  proyNombre,
   splitSubproy,
   type HojaAprobacion,
 } from "@/src/lib/aprobacion-tiempo-mock";
@@ -53,42 +55,23 @@ export function AprobacionTabla({
   onRechazar,
   onAprobar,
 }: AprobacionTablaProps) {
-  const {
-    proySel,
-    tab,
-    seleccion,
-    toggleSeleccion,
-    toggleSeleccionLote,
-    anular,
-  } = useAprobacion();
+  const { tab, seleccion, toggleSeleccion, toggleSeleccionLote, anular } =
+    useAprobacion();
   const { toast } = useToast();
 
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     setPage(1);
-  }, [registros, proySel, tab]);
-
-  if (!proySel) {
-    return (
-      <div className="px-5 py-14 text-center text-[13px] text-muted">
-        <Icon
-          name="folderOpen"
-          size="xl"
-          className="mx-auto mb-2.5 opacity-25"
-        />
-        Selecciona un proyecto para ver las horas pendientes.
-      </div>
-    );
-  }
+  }, [registros, tab]);
 
   if (!totalBase) {
     return (
       <div className="px-5 py-12 text-center text-[13px] text-muted">
         <Icon name="check" size="xl" className="mx-auto mb-2 opacity-30" />
         {tab === "pend"
-          ? "Sin registros pendientes en este proyecto."
-          : "Sin registros resueltos en este proyecto."}
+          ? "Sin registros pendientes."
+          : "Sin registros resueltos."}
       </div>
     );
   }
@@ -111,6 +94,21 @@ export function AprobacionTabla({
   const visibles = registros.slice(start, start + TABLE_PAGE_SIZE);
   const idsFiltrados = registros.map((r) => r.no);
   const { allSelected, someSelected } = getSelectionState(seleccion, idsFiltrados);
+
+  const renderProy = (proy: string) => {
+    const code = proyKey(proy);
+    const name = proyNombre(proy);
+    return (
+      <>
+        <div className={dataTdTruncate}>{code || proy || "—"}</div>
+        {name && (
+          <div className={`text-[11px] text-[#9ca3af] ${dataTdTruncate}`}>
+            {name}
+          </div>
+        )}
+      </>
+    );
+  };
 
   const renderSubproy = (subproy: string) => {
     const sp = splitSubproy(subproy);
@@ -147,6 +145,7 @@ export function AprobacionTabla({
         <TipoHoraPill tipo={s.tipo} />
       </td>
       <td className={dataTdNumeric}>{horasNum(s.horas)}</td>
+      <td className={dataTd}>{renderProy(s.proy)}</td>
       <td className={dataTd}>{renderSubproy(s.subproy)}</td>
       <td className={`${dataTd} text-[#374151] ${dataTdTruncate}`}>
         {s.actividad}
@@ -192,6 +191,7 @@ export function AprobacionTabla({
         <TipoHoraPill tipo={s.tipo} />
       </td>
       <td className={dataTdNumeric}>{horasNum(s.horas)}</td>
+      <td className={dataTd}>{renderProy(s.proy)}</td>
       <td className={dataTd}>{renderSubproy(s.subproy)}</td>
       <td className={`${dataTd} text-[#374151] ${dataTdTruncate}`}>
         {s.actividad}
@@ -225,6 +225,7 @@ export function AprobacionTabla({
     ["Empleado", "text-left"],
     ["Tipo hora", "text-left"],
     ["Horas", "text-center"],
+    ["Proyecto", "text-left"],
     ["Subproyecto", "text-left"],
     ["Actividad", "text-left"],
     ["Comentario", "text-left"],
@@ -235,6 +236,7 @@ export function AprobacionTabla({
     ["Empleado", "text-left"],
     ["Tipo hora", "text-left"],
     ["Horas", "text-center"],
+    ["Proyecto", "text-left"],
     ["Subproyecto", "text-left"],
     ["Actividad", "text-left"],
     ["Estado", "text-left"],

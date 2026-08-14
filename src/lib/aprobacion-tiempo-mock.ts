@@ -451,15 +451,23 @@ export function getAprobacionKpis(
   };
 }
 
+export function filterHojasByTab(
+  hojas: Record<string, HojaAprobacion>,
+  tab: "pend" | "res",
+): HojaAprobacion[] {
+  return Object.values(hojas)
+    .filter((s) => (tab === "pend" ? !s.estadoApro : !!s.estadoApro))
+    .sort((a, b) => dmyToSortKey(b.fecha) - dmyToSortKey(a.fecha));
+}
+
 export function filterHojasByProyTab(
   hojas: Record<string, HojaAprobacion>,
   proyCod: string,
   tab: "pend" | "res",
 ): HojaAprobacion[] {
-  return Object.values(hojas)
-    .filter((s) => proyKey(s.proy) === proyCod)
-    .filter((s) => (tab === "pend" ? !s.estadoApro : !!s.estadoApro))
-    .sort((a, b) => dmyToSortKey(b.fecha) - dmyToSortKey(a.fecha));
+  return filterHojasByTab(hojas, tab).filter(
+    (s) => proyKey(s.proy) === proyCod,
+  );
 }
 
 export const APRO_PAGE_SIZE = 50;

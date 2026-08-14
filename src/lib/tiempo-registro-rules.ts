@@ -1,8 +1,17 @@
 import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";
 
 /** Borrador: guardado en el día, aún no enviado a aprobación. */
 export function isRegistroBorrador(estado: RegistroEstado): boolean {
   return estado === "Borrador";
+}
+
+/**
+ * Borrador local enviable con EmpPortalTimeRegList.
+ * Filas ifs-pt-* ya viven en IFS (no se reenvían como borrador Neon).
+ */
+export function isBorradorEnviable(reg: RegistroMock): boolean {
+  return isRegistroBorrador(reg.estado) && !isIfsRegistroId(reg.id);
 }
 
 /** Lanzado: enviado a aprobación; el aprobador aún no confirma. */
@@ -22,6 +31,11 @@ export function isRegistroEliminable(estado: RegistroEstado): boolean {
 
 export function hayRegistrosBorrador(registros: RegistroMock[]): boolean {
   return registros.some((r) => isRegistroBorrador(r.estado));
+}
+
+/** Hay al menos un borrador local que se puede enviar a IFS/aprobación. */
+export function hayBorradoresEnviables(registros: RegistroMock[]): boolean {
+  return registros.some(isBorradorEnviable);
 }
 
 export function labelEstadoRegistro(estado: RegistroEstado): string {

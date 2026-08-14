@@ -131,13 +131,14 @@ export const MI_TIEMPO_DIA_COLS = [...MI_TIEMPO_COLS, "5%"] as const;
 /** Aprobación — pendientes */
 export const APRO_PEND_COLS = [
   CHECKBOX_COL_WIDTH,
-  "8%",
-  "11%",
+  "7%",
   "10%",
+  "9%",
   "5%",
-  "13%",
-  "13%",
-  "26%",
+  "12%",
+  "11%",
+  "12%",
+  "20%",
   ACTION_COL_WIDTH,
 ] as const;
 
@@ -180,16 +181,17 @@ export const APRO_LEG_COLS_RES = [
   "28%",  // Motivo decisión
 ] as const;
 
-/** Tiempo resueltas — mismas proporciones que pendientes (comentario→motivo 26%, +estado 8%) */
+/** Tiempo resueltas — mismas proporciones que pendientes (comentario→motivo, +estado) */
 export const APRO_RES_COLS = [
   RES_TAB_SPACER_COL,
-  "8%",   // Fecha (igual pendientes)
-  "11%",  // Empleado
-  "9%",   // Tipo hora pill
+  "7%",   // Fecha
+  "10%",  // Empleado
+  "8%",   // Tipo hora pill
   "5%",   // Horas
-  "13%",  // Subproyecto (2 líneas, igual pendientes)
-  "13%",  // Actividad
+  "12%",  // Proyecto
+  "11%",  // Subproyecto
+  "11%",  // Actividad
   "8%",   // Estado pill
-  "26%",  // Motivo decisión (igual comentario en pendientes)
+  "21%",  // Motivo decisión
   RES_TAB_ACTION_COL,
 ] as const;

@@ -19,7 +19,7 @@ type Vista = "lista" | "detalle";
 export function AprobacionView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { getHoja, aprobar, rechazar, anular, setProySel, syncPendientesDesdeDb, hojas, proySel } =
+  const { getHoja, aprobar, rechazar, anular, syncPendientesDesdeDb, hojas, retirarHojas } =
     useAprobacion();
   const { toast } = useToast();
   const [vista, setVista] = useState<Vista>("lista");
@@ -29,19 +29,29 @@ export function AprobacionView() {
   const [anularTargets, setAnularTargets] = useState<string[]>([]);
   const [aprobarComentario, setAprobarComentario] = useState("");
   const [pendientesLoaded, setPendientesLoaded] = useState(false);
-  const proyParam = searchParams.get("proy");
   const deepLinkNo = searchParams.get("no");
   const deepLinkHandled = useRef<string | null>(null);
-  const pendientesFetchStarted = useRef(false);
+
+  const refrescarBandeja = async () => {
+    const result = await getHojasPendientesAprobacionAction();
+    syncPendientesDesdeDb(result.hojas);
+    if (result.warning) toast(result.warning, "warn");
+  };
 
   useEffect(() => {
-    if (pendientesFetchStarted.current) return;
-    pendientesFetchStarted.current = true;
     let cancelled = false;
     void getHojasPendientesAprobacionAction()
-      .then((hojasPendientes) => {
+      .then((result) => {
         if (cancelled) return;
-        syncPendientesDesdeDb(hojasPendientes);
+        syncPendientesDesdeDb(result.hojas);
+        if (result.warning) {
+          toast(result.warning, "warn");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          toast("No se pudo cargar la bandeja de aprobación.", "danger");
+        }
       })
       .finally(() => {
         if (!cancelled) setPendientesLoaded(true);
@@ -49,13 +59,7 @@ export function AprobacionView() {
     return () => {
       cancelled = true;
     };
-  }, [syncPendientesDesdeDb]);
-
-  useEffect(() => {
-    if (proyParam && proyParam !== proySel) {
-      setProySel(proyParam);
-    }
-  }, [proyParam, proySel, setProySel]);
+  }, [syncPendientesDesdeDb, toast]);
 
   useEffect(() => {
     if (!pendientesLoaded || !deepLinkNo || deepLinkHandled.current === deepLinkNo) {
@@ -116,10 +120,7 @@ export function AprobacionView() {
     setVista("lista");
     setDetalleNo(null);
     deepLinkHandled.current = deepLinkNo ?? "dismissed";
-    const href = proyParam
-      ? `/aprobacion-tiempo?proy=${encodeURIComponent(proyParam)}`
-      : "/aprobacion-tiempo";
-    router.replace(href);
+    router.replace("/aprobacion-tiempo");
   };
 
   const solicitarAprobacion = (nos: string[]) => {
@@ -131,16 +132,54 @@ export function AprobacionView() {
     setAprobarComentario("");
   };
 
-  const confirmarRechazo = (motivo: string) => {
-    rechazar(rechazarTargets, motivo);
-    toast(toastRechazados(rechazarTargets), "danger");
+  const handleDecisionError = async (
+    result: { error?: string; stale?: boolean },
+    targets: string[],
+    verb: "aprobar" | "rechazar",
+  ) => {
+    if (result.stale) {
+      const ids = targets
+        .map((no) => getHoja(no)?.registroId)
+        .filter((id): id is string => !!id);
+      if (ids.length) retirarHojas(ids);
+      toast(
+        "Ese registro ya no está pendiente en IFS (fue resuelto o eliminado). Actualizamos la bandeja.",
+        "warn",
+      );
+      await refrescarBandeja();
+      if (enDetalle) volverLista();
+      return;
+    }
+    toast(result.error || `No se pudo ${verb} en IFS.`, "danger");
+  };
+
+  const confirmarRechazo = async (motivo: string) => {
+    const targets = [...rechazarTargets];
+    const result = await rechazar(targets, motivo);
+    if (!result.ok) {
+      await handleDecisionError(result, targets, "rechazar");
+      return;
+    }
+    toast(toastRechazados(targets), "danger");
     setRechazarTargets([]);
     if (enDetalle) volverLista();
   };
 
-  const confirmarAprobacion = () => {
-    aprobar(aprobarTargets, aprobarComentario);
-    toast(toastAprobados(aprobarTargets), "green");
+  const confirmarAprobacion = async () => {
+    const targets = [...aprobarTargets];
+    const result = await aprobar(targets, aprobarComentario);
+    if (!result.ok) {
+      await handleDecisionError(result, targets, "aprobar");
+      setAprobarTargets([]);
+      setAprobarComentario("");
+      return;
+    }
+    toast(
+      result.sentToIfs
+        ? `${toastAprobados(targets)} (IFS)`
+        : toastAprobados(targets),
+      "green",
+    );
     setAprobarTargets([]);
     setAprobarComentario("");
     if (enDetalle) volverLista();
@@ -171,8 +210,12 @@ export function AprobacionView() {
             setAprobarTargets([hojaDetalle.no]);
             setAprobarComentario(comentario || "");
           }}
-          onRechazar={(comentario) => {
-            rechazar([hojaDetalle.no], comentario);
+          onRechazar={async (comentario) => {
+            const result = await rechazar([hojaDetalle.no], comentario);
+            if (!result.ok) {
+              await handleDecisionError(result, [hojaDetalle.no], "rechazar");
+              return;
+            }
             toast(toastRechazados([hojaDetalle.no]), "danger");
             volverLista();
           }}

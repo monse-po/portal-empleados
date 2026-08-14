@@ -4,30 +4,32 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import {
-  filterHojasByProyTab,
+  filterHojasByTab,
   getAprobacionKpis,
-  getProyConMasPendientes,
-  getProyectosList,
   hoyDMY,
   type HojaAprobacion,
 } from "@/src/lib/aprobacion-tiempo-mock";
 import type { SyncRegistroAccion, SyncRegistroHandler } from "@/src/lib/tiempo-bridge";
 import { useTableSelection } from "@/src/lib/use-table-selection";
+import { resolverAprobacionTiempoAction } from "@/src/server/mi-tiempo-actions";
+
+export type AprobacionDecisionResult = {
+  ok: boolean;
+  error?: string;
+  sentToIfs?: boolean;
+  stale?: boolean;
+};
 
 type AprobacionContextValue = {
   hojas: Record<string, HojaAprobacion>;
   kpis: ReturnType<typeof getAprobacionKpis>;
   pendientesCount: number;
-  proyectos: ReturnType<typeof getProyectosList>;
-  proySel: string;
-  setProySel: (cod: string) => void;
   tab: "pend" | "res";
   setTab: (tab: "pend" | "res") => void;
   seleccion: Set<string>;
@@ -39,8 +41,14 @@ type AprobacionContextValue = {
   /** Retira de la cola por registroId (empleado borró o anulación). */
   retirarHojas: (registroIds: string[]) => void;
   syncPendientesDesdeDb: (hojas: HojaAprobacion[]) => void;
-  aprobar: (nos: string[], comentario?: string) => void;
-  rechazar: (nos: string[], comentario: string) => void;
+  aprobar: (
+    nos: string[],
+    comentario?: string,
+  ) => Promise<AprobacionDecisionResult>;
+  rechazar: (
+    nos: string[],
+    comentario: string,
+  ) => Promise<AprobacionDecisionResult>;
   anular: (nos: string[]) => void;
   getHoja: (no: string) => HojaAprobacion | undefined;
   tabCounts: { pend: number; res: number };
@@ -58,7 +66,8 @@ export function AprobacionProvider({
   onSyncRegistro,
 }: AprobacionProviderProps) {
   const [hojas, setHojas] = useState<Record<string, HojaAprobacion>>(() => ({}));
-  const [proySel, setProySelState] = useState("");
+  const hojasRef = useRef(hojas);
+  hojasRef.current = hojas;
   const [tab, setTab] = useState<"pend" | "res">("pend");
   const {
     seleccion,
@@ -66,17 +75,6 @@ export function AprobacionProvider({
     toggleSeleccionLote,
     clearSeleccion,
   } = useTableSelection();
-
-  const setProySel = useCallback((cod: string) => {
-    setProySelState((prev) => (prev === cod ? prev : cod));
-  }, []);
-
-  const prevProySelRef = useRef(proySel);
-  useEffect(() => {
-    if (prevProySelRef.current === proySel) return;
-    prevProySelRef.current = proySel;
-    clearSeleccion();
-  }, [proySel, clearSeleccion]);
 
   const ingresarHojas = useCallback((nuevas: HojaAprobacion[]) => {
     setHojas((prev) => {
@@ -95,7 +93,6 @@ export function AprobacionProvider({
           aprobador: existing?.aprobador ?? "",
         };
       });
-      setProySelState((sel) => sel || getProyConMasPendientes(next));
       return next;
     });
   }, []);
@@ -121,11 +118,6 @@ export function AprobacionProvider({
       );
       const pend = Object.fromEntries(pendientes.map((h) => [h.no, h]));
       return { ...resueltas, ...pend };
-    });
-    setProySelState((prev) => {
-      if (prev) return prev;
-      const pendMap = Object.fromEntries(pendientes.map((h) => [h.no, h]));
-      return getProyConMasPendientes(pendMap);
     });
   }, []);
 
@@ -177,20 +169,59 @@ export function AprobacionProvider({
     [syncRegistro],
   );
 
-  const aprobar = useCallback(
-    (nos: string[], comentario = "") => {
-      aplicarEstado(nos, "Aprobado", comentario);
+  const resolverDecision = useCallback(
+    async (
+      nos: string[],
+      decision: "aprobado" | "rechazado",
+      comentario: string,
+    ): Promise<AprobacionDecisionResult> => {
+      const registroIds = nos
+        .map((no) => hojasRef.current[no]?.registroId)
+        .filter((id): id is string => !!id);
+
+      if (!registroIds.length) {
+        return {
+          ok: false,
+          error: "No hay registros válidos para resolver.",
+        };
+      }
+
+      const result = await resolverAprobacionTiempoAction({
+        registroIds,
+        decision,
+        comentario,
+      });
+
+      if (!result.ok) {
+        return {
+          ok: false,
+          error: result.error,
+          sentToIfs: result.sentToIfs,
+          stale: result.stale,
+        };
+      }
+
+      aplicarEstado(
+        nos,
+        decision === "aprobado" ? "Aprobado" : "Rechazado",
+        comentario,
+      );
       clearSeleccion();
+      return { ok: true, sentToIfs: result.sentToIfs };
     },
     [aplicarEstado, clearSeleccion],
   );
 
+  const aprobar = useCallback(
+    (nos: string[], comentario = "") =>
+      resolverDecision(nos, "aprobado", comentario),
+    [resolverDecision],
+  );
+
   const rechazar = useCallback(
-    (nos: string[], comentario: string) => {
-      aplicarEstado(nos, "Rechazado", comentario);
-      clearSeleccion();
-    },
-    [aplicarEstado, clearSeleccion],
+    (nos: string[], comentario: string) =>
+      resolverDecision(nos, "rechazado", comentario),
+    [resolverDecision],
   );
 
   const anular = useCallback(
@@ -218,28 +249,24 @@ export function AprobacionProvider({
   );
 
   const kpis = useMemo(() => getAprobacionKpis(hojas), [hojas]);
-  const proyectos = useMemo(() => getProyectosList(hojas), [hojas]);
   const registrosActuales = useMemo(
-    () => (proySel ? filterHojasByProyTab(hojas, proySel, tab) : []),
-    [hojas, proySel, tab],
+    () => filterHojasByTab(hojas, tab),
+    [hojas, tab],
   );
 
-  const tabCounts = useMemo(() => {
-    if (!proySel) return { pend: 0, res: 0 };
-    return {
-      pend: filterHojasByProyTab(hojas, proySel, "pend").length,
-      res: filterHojasByProyTab(hojas, proySel, "res").length,
-    };
-  }, [hojas, proySel]);
+  const tabCounts = useMemo(
+    () => ({
+      pend: filterHojasByTab(hojas, "pend").length,
+      res: filterHojasByTab(hojas, "res").length,
+    }),
+    [hojas],
+  );
 
   const value = useMemo(
     () => ({
       hojas,
       kpis,
       pendientesCount: kpis.pendientes,
-      proyectos,
-      proySel,
-      setProySel,
       tab,
       setTab,
       seleccion,
@@ -259,9 +286,6 @@ export function AprobacionProvider({
     [
       hojas,
       kpis,
-      proyectos,
-      proySel,
-      setProySel,
       tab,
       seleccion,
       toggleSeleccion,

@@ -29,7 +29,6 @@ import {
 } from "@/src/lib/mi-tiempo-mock";
 import { getListaRegistrosPorDia, isRegistroEditable } from "@/src/lib/tiempo-registro-rules";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
-import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -268,9 +267,7 @@ function ListaTab({
   const { registros, openRegistrarModal } = useMiTiempo();
   const dias = getListaRegistrosPorDia(registros);
   const hayFilasEditables = dias.some((dia) =>
-    dia.registros.some(
-      (r) => !isIfsRegistroId(r.id) && isRegistroEditable(r.estado),
-    ),
+    dia.registros.some((r) => isRegistroEditable(r.estado)),
   );
 
   const columnas: { label: string; align: string }[] = [
@@ -355,8 +352,7 @@ function ListaTab({
                       </td>
                     </tr>
                     {dia.registros.map((r) => {
-                      const esEditable =
-                        !isIfsRegistroId(r.id) && isRegistroEditable(r.estado);
+                      const esEditable = isRegistroEditable(r.estado);
                       return (
                       <tr
                         key={r.id}

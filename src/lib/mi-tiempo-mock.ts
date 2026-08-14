@@ -4,6 +4,14 @@ export type RegistroEstado =
   | "Aprobado"
   | "Rechazado";
 
+/** Metadatos IFS para EmpPortalTimeUpdateList / EmpPortalTimeDeleteList. */
+export type RegistroIfsMeta = {
+  module: string;
+  objid: string;
+  objversion: string;
+  projectTransactionSeq?: number;
+};
+
 export type RegistroMock = {
   id: string;
   codigo?: string;
@@ -17,6 +25,8 @@ export type RegistroMock = {
   comentarioRechazo?: string;
   aprobador?: string;
   estado: RegistroEstado;
+  /** Presente en filas leídas de GetEmployeeTimesheet. */
+  ifs?: RegistroIfsMeta;
 };
 
 export type ProyectoMock = {
@@ -741,7 +751,15 @@ const TIPO_HORA_DEFAULT: TipoHoraMeta = {
 };
 
 export function getTipoHoraMeta(tipo: string): TipoHoraMeta {
-  return TIPO_HORA[tipo] ?? TIPO_HORA_DEFAULT;
+  if (TIPO_HORA[tipo]) return TIPO_HORA[tipo];
+  const short =
+    tipo.length > 14 ? `${tipo.slice(0, 13).trimEnd()}…` : tipo || "—";
+  return {
+    ...TIPO_HORA_DEFAULT,
+    /** Vacío: el pill puede usar `label` IFS corto; si no, cae al code. */
+    s: "",
+    n: tipo || short,
+  };
 }
 
 export function tipoCat(tipo: string): TipoHoraMeta["cat"] {

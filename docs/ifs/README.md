@@ -26,9 +26,9 @@ Contrato OpenAPI versionado en este repo para el módulo **Mi Tiempo** y **Aprob
 | Leer empleado | `GetEmployeeTimesheet()` | Vista día / historial |
 | Pendientes gerente | `GetApprovalTimesheets()` | Bandeja de aprobación |
 | Alta | `POST EmpPortalTimeRegList` | Consolidar registros limpios |
-| Edición | `POST EmpPortalTimeUpdateList` | Correcciones |
-| Baja | `POST EmpPortalTimeDeleteList` | Eliminar en IFS |
-| Aprobar/rechazar | `POST EmpPortalTimeApprovalList` | Gerente confirma |
+| Edición | `POST EmpPortalTimeUpdateList` | Empleado edita Lanzado/Rechazado (Objid + Objversion) |
+| Baja | `POST EmpPortalTimeDeleteList` | Empleado elimina Lanzado/Rechazado antes de aprobar |
+| Aprobar/rechazar | `POST EmpPortalTimeApprovalList` | Event `Confirm` / `Reject` (ajustable en `IFS_APPROVAL_EVENT`) |
 
 Todas las acciones POST requieren header **`If-Match`** con el `@odata.etag` de `CEmpPortalUserSet`.
 
@@ -66,7 +66,7 @@ sequenceDiagram
   P->>I: EmpPortalTimeApprovalList (gerente)
 ```
 
-**Pendiente confirmar con IFS:** ¿POST al **Enviar a aprobación** del empleado o solo cuando el **gerente aprueba**? Valores válidos de `Event` en `EmpPortalTimeApprovalList`.
+**Decisión portal:** `EmpPortalTimeRegList` se invoca al **Enviar a aprobación** del empleado (`enviarDiaAction`), solo si hay sesión IFS. Sin sesión → solo Neon. Valores válidos de `Event` en `EmpPortalTimeApprovalList` siguen pendientes para la bandeja gerente.
 
 ## Actualizar el OpenAPI
 

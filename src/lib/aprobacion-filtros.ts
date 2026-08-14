@@ -9,6 +9,7 @@ export type AproFilterColumn =
   | "empleado"
   | "tipo"
   | "horas"
+  | "proyecto"
   | "subproy"
   | "actividad"
   | "comentario"
@@ -25,7 +26,13 @@ export type AproFilterRule =
     }
   | {
       id: string;
-      column: "empleado" | "tipo" | "subproy" | "actividad" | "estado";
+      column:
+        | "empleado"
+        | "tipo"
+        | "proyecto"
+        | "subproy"
+        | "actividad"
+        | "estado";
       values: string[];
     }
   | {
@@ -52,7 +59,8 @@ export const APRO_FILTER_COLUMNS_BASE: AproFilterColumnDef[] = [
   { id: "empleado", label: "Empleado", icon: "user" },
   { id: "tipo", label: "Tipo Hora", icon: "clock" },
   { id: "horas", label: "Horas", icon: "hourglass" },
-  { id: "subproy", label: "Subproyecto", icon: "folderOpen" },
+  { id: "proyecto", label: "Proyecto", icon: "folderOpen" },
+  { id: "subproy", label: "Subproyecto", icon: "list" },
   { id: "actividad", label: "Actividad", icon: "flag" },
   { id: "comentario", label: "Comentario", icon: "pencil" },
 ];
@@ -101,6 +109,8 @@ function getFieldValue(h: HojaAprobacion, col: AproFilterColumn): string {
       return h.solicitante || h.nombre || "";
     case "tipo":
       return h.tipo;
+    case "proyecto":
+      return h.proy;
     case "subproy":
       return h.subproy;
     case "actividad":
@@ -116,7 +126,7 @@ function getFieldValue(h: HojaAprobacion, col: AproFilterColumn): string {
 
 export function getDistinctValues(
   hojas: HojaAprobacion[],
-  col: "empleado" | "tipo" | "subproy" | "actividad" | "estado",
+  col: "empleado" | "tipo" | "proyecto" | "subproy" | "actividad" | "estado",
 ): string[] {
   const set = new Set<string>();
   hojas.forEach((h) => {
@@ -138,6 +148,7 @@ function matchRule(h: HojaAprobacion, rule: AproFilterRule): boolean {
     }
     case "empleado":
     case "tipo":
+    case "proyecto":
     case "subproy":
     case "actividad":
     case "estado": {
@@ -224,6 +235,7 @@ const COLUMN_LABEL: Record<AproFilterColumn, string> = {
   empleado: "Empleado",
   tipo: "Tipo Hora",
   horas: "Horas",
+  proyecto: "Proyecto",
   subproy: "Subproyecto",
   actividad: "Actividad",
   comentario: "Comentario",
@@ -251,6 +263,7 @@ export function formatFilterChip(rule: AproFilterRule): string {
     }
     case "empleado":
     case "tipo":
+    case "proyecto":
     case "subproy":
     case "actividad":
     case "estado":
@@ -275,6 +288,7 @@ export function isRuleComplete(rule: AproFilterRule): boolean {
       return !!(rule.from || rule.to);
     case "empleado":
     case "tipo":
+    case "proyecto":
     case "subproy":
     case "actividad":
     case "estado":
@@ -303,6 +317,7 @@ export function createEmptyRule(column: AproFilterColumn): AproFilterRule {
       return { id, column: "fecha" };
     case "empleado":
     case "tipo":
+    case "proyecto":
     case "subproy":
     case "actividad":
     case "estado":

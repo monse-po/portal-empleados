@@ -47,12 +47,26 @@ export type EmpTimeReg = {
   Status?: string;
 };
 
-export type EmpTimeUpdate = EmpTimeReg & {
-  ProjectTransactionSeq?: number;
+/** Payload EmpPortalTimeUpdateList (OpenAPI EmpTimeUpdateStructure). */
+export type EmpTimeUpdate = {
+  Module: string;
+  AccountDate: string;
+  ShortName: string;
+  ReportCostCode: string;
+  DayHours: number;
+  Objid: string;
+  Objversion: string;
+  Comments?: string;
+  ErrorMsg?: string;
+  Status?: string;
 };
 
+/** Payload EmpPortalTimeDeleteList (OpenAPI EmpTimeDeleteStructure). */
 export type EmpTimeDelete = {
-  ProjectTransactionSeq: number;
+  AccountDate: string;
+  Module: string;
+  Objid: string;
+  Objversion: string;
   ErrorMsg?: string;
   Status?: string;
 };
@@ -118,6 +132,7 @@ export type EmpReportItemRow = {
   Module?: string;
   ModuleDecoded?: string;
   Hours?: string | number;
+  EmployeeName?: string;
   InternalComments?: string;
   CStatus?: string;
   CStatusDb?: string;
@@ -131,8 +146,10 @@ export type EmpReportItemRow = {
   ActivityNo?: string;
   ActDescription?: string;
   ShortName?: string;
+  ProjectName?: string;
   ReportCostCode?: string;
   Objid?: string;
+  Objversion?: string;
 };
 
 /** Fila de GetValidActReportCode (tipo de hora / report cost code). */

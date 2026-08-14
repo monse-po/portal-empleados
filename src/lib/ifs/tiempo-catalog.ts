@@ -44,9 +44,39 @@ export type TiempoCatalog = {
 
 export type TiempoTipoHoraOption = {
   code: string;
+  /** Texto corto para UI (pill / lista). */
   label: string;
+  /** Nombre completo IFS — solo tooltip. */
+  fullLabel: string;
   cat: TipoHoraMeta["cat"];
 };
+
+/** Recorta ReportCostName de IFS para el modal (sin perder el code). */
+export function shortenReportCostLabel(
+  name: string | undefined,
+  code: string,
+): string {
+  const raw = (name ?? "").trim();
+  if (!raw) return code;
+
+  let s = raw;
+  const prefixes = [
+    `${code} - `,
+    `${code} – `,
+    `${code}: `,
+    `${code} `,
+  ];
+  for (const p of prefixes) {
+    if (s.toLowerCase().startsWith(p.toLowerCase())) {
+      s = s.slice(p.length).trim();
+      break;
+    }
+  }
+
+  s = s.split(/\s*[|/]\s*/)[0]?.trim() || s;
+  if (s.length > 36) s = `${s.slice(0, 34).trimEnd()}…`;
+  return s || code;
+}
 
 export function buildTiempoCatalogFromIfs(
   rows: ValidEmpPrjActRow[],
@@ -126,9 +156,11 @@ export function mapReportCodesToTipos(
     seen.add(code);
 
     const known = TIPO_HORA[code];
+    const fullLabel = row.ReportCostName?.trim() || known?.n || code;
     tipos.push({
       code,
-      label: row.ReportCostName?.trim() || known?.n || code,
+      label: known?.s || shortenReportCostLabel(row.ReportCostName, code),
+      fullLabel,
       cat: known?.cat ?? (code === "DN" ? "normal" : "otro"),
     });
   }

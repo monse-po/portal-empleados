@@ -18,14 +18,18 @@ import {
 } from "@/src/lib/tiempo-bridge";
 import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
+import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";
 import {
   deleteRegistroAction,
   enviarDiaAction,
   getRegistrosGroupedAction,
   updateRegistroEstadoAction,
   upsertRegistroAction,
+  type EnviarDiaResult,
 } from "@/src/server/mi-tiempo-actions";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
+
+export type { EnviarDiaResult };
 
 export type RegistrarModalState = {
   editId?: string;
@@ -73,9 +77,9 @@ type MiTiempoContextValue = {
   ifsEmail: string | null;
   reloadRegistros: () => Promise<void>;
   upsertRegistro: (reg: RegistroMock) => Promise<void>;
-  upsertRegistroYEnviarDia: (reg: RegistroMock) => Promise<RegistroMock[]>;
+  upsertRegistroYEnviarDia: (reg: RegistroMock) => Promise<EnviarDiaResult>;
   deleteRegistro: (id: string) => Promise<void>;
-  enviarDia: (fecha: string) => Promise<RegistroMock[]>;
+  enviarDia: (fecha: string) => Promise<EnviarDiaResult>;
   sincronizarDesdeAprobacion: (
     id: string,
     accion: SyncRegistroAccion,
@@ -185,7 +189,14 @@ export function MiTiempoProvider({
   const upsertRegistro = useCallback(
     async (reg: RegistroMock) => {
       const saved = await upsertRegistroAction(reg);
-      setRegistros((prev) => upsertIntoRegistros(prev, saved));
+      if (isIfsRegistroId(saved.id)) {
+        // Objversion IFS cambia tras update — refrescar timesheet.
+        const fresh = await getRegistrosGroupedAction();
+        setRegistros(fresh.registros);
+        setRegistrosFromIfs(fresh.fromIfs);
+      } else {
+        setRegistros((prev) => upsertIntoRegistros(prev, saved));
+      }
       if (saved.estado === "Lanzado") {
         onIngresarHojas?.([registroToHoja(saved)]);
       }
@@ -197,15 +208,15 @@ export function MiTiempoProvider({
   const upsertRegistroYEnviarDia = useCallback(
     async (reg: RegistroMock) => {
       await upsertRegistroAction(reg);
-      const enviados = await enviarDiaAction(reg.fecha);
-      if (enviados.length) {
-        onIngresarHojas?.(enviados.map((r) => registroToHoja(r)));
+      const result = await enviarDiaAction(reg.fecha);
+      if (result.enviados.length) {
+        onIngresarHojas?.(result.enviados.map((r) => registroToHoja(r)));
       }
       const fresh = await getRegistrosGroupedAction();
       setRegistros(fresh.registros);
       setRegistrosFromIfs(fresh.fromIfs);
       registroGuardadoHandler.current?.(reg.fecha);
-      return enviados;
+      return result;
     },
     [onIngresarHojas],
   );
@@ -213,7 +224,13 @@ export function MiTiempoProvider({
   const deleteRegistro = useCallback(
     async (id: string) => {
       await deleteRegistroAction(id);
-      setRegistros((prev) => removeRegistroFromState(prev, id));
+      if (isIfsRegistroId(id)) {
+        const fresh = await getRegistrosGroupedAction();
+        setRegistros(fresh.registros);
+        setRegistrosFromIfs(fresh.fromIfs);
+      } else {
+        setRegistros((prev) => removeRegistroFromState(prev, id));
+      }
       onRetirarHojas?.([id]);
     },
     [onRetirarHojas],
@@ -221,6 +238,13 @@ export function MiTiempoProvider({
 
   const sincronizarDesdeAprobacion = useCallback(
     async (id: string, accion: SyncRegistroAccion, comentario?: string) => {
+      // Registros IFS: el estado vive en IFS; refrescar timesheet en vez de Neon.
+      if (isIfsRegistroId(id)) {
+        const fresh = await getRegistrosGroupedAction();
+        setRegistros(fresh.registros);
+        setRegistrosFromIfs(fresh.fromIfs);
+        return;
+      }
       const updated = await updateRegistroEstadoAction(
         id,
         estadoDesdeAccionAprobacion(accion),
@@ -234,14 +258,14 @@ export function MiTiempoProvider({
 
   const enviarDia = useCallback(
     async (fecha: string) => {
-      const enviados = await enviarDiaAction(fecha);
-      if (enviados.length) {
-        onIngresarHojas?.(enviados.map((reg) => registroToHoja(reg)));
+      const result = await enviarDiaAction(fecha);
+      if (result.enviados.length) {
+        onIngresarHojas?.(result.enviados.map((reg) => registroToHoja(reg)));
       }
       const fresh = await getRegistrosGroupedAction();
       setRegistros(fresh.registros);
       setRegistrosFromIfs(fresh.fromIfs);
-      return enviados;
+      return result;
     },
     [onIngresarHojas],
   );

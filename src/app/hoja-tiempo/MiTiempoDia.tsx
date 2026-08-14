@@ -20,7 +20,6 @@ import {
 import { useToast } from "@/src/components/ui/Toast";
 import { useAsyncAction } from "@/src/lib/use-async-action";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
-import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";
 import {
   formatFechaLegible,
   getHorasNormales,
@@ -37,7 +36,7 @@ import {
   scheduleSourceLabel as formatScheduleSource,
 } from "@/src/lib/tiempo-config";
 import {
-  hayRegistrosBorrador,
+  hayBorradoresEnviables,
   isRegistroEditable,
   isRegistroEliminable,
 } from "@/src/lib/tiempo-registro-rules";
@@ -112,14 +111,37 @@ export function MiTiempoDia({
   }, [fecha]);
   const { loading: enviando, run: runEnviar } = useAsyncAction(async () => {
     try {
-      const enviados = await enviarDia(fecha);
-      if (!enviados.length) {
-        toast("No hay borradores para enviar", "warn");
+      const result = await enviarDia(fecha);
+      if (result.error) {
+        toast(result.error, "danger");
         return;
       }
-      toast("Registros enviados a aprobación", "green");
-    } catch {
-      toast("No se pudo enviar a aprobación. Intenta de nuevo.", "danger");
+      if (!result.enviados.length) {
+        toast(
+          "No hay borradores locales para enviar. Guarda un registro nuevo (Borrador) y luego envía.",
+          "warn",
+        );
+        return;
+      }
+      if (result.warning) {
+        toast(result.warning, "warn");
+        return;
+      }
+      toast(
+        result.sentToIfs
+          ? result.inApprovalQueue
+            ? "Enviado a IFS · Ya está en tu bandeja de aprobación"
+            : "Registros enviados a aprobación (IFS)"
+          : "Registros enviados a aprobación",
+        "green",
+      );
+    } catch (err) {
+      toast(
+        err instanceof Error
+          ? err.message
+          : "No se pudo enviar a aprobación. Intenta de nuevo.",
+        "danger",
+      );
     }
   });
   const diaRegsAll = getRegistrosDia(registros, fecha);
@@ -132,12 +154,10 @@ export function MiTiempoDia({
   const normales = getHorasNormales(registros, fecha);
   const contador = getContadorStyle(normales, maxScheduleHours);
   const sobreTope = exceedsNormalLimit(normales, maxScheduleHours);
-  const hayBorradores = hayRegistrosBorrador(diaRegsAll);
+  const hayBorradores = hayBorradoresEnviables(diaRegsAll);
   const hayFilasEditables =
     !esHistorial &&
-    diaRegs.some(
-      (r) => !isIfsRegistroId(r.id) && isRegistroEditable(r.estado),
-    );
+    diaRegs.some((r) => isRegistroEditable(r.estado));
   const fechaLabel = formatFechaLegible(fecha);
   const mesBounds = getMesActualBounds();
   const fechaAnterior = shiftFechaMes(fecha, -1, mesBounds);
@@ -250,10 +270,8 @@ export function MiTiempoDia({
             </thead>
             <tbody>
               {diaRegs.map((r: RegistroMock) => {
-                const esEditable =
-                  !isIfsRegistroId(r.id) && isRegistroEditable(r.estado);
-                const puedeEliminar =
-                  !isIfsRegistroId(r.id) && isRegistroEliminable(r.estado);
+                const esEditable = isRegistroEditable(r.estado);
+                const puedeEliminar = isRegistroEliminable(r.estado);
                 return (
                   <tr
                     key={r.id}
@@ -343,9 +361,11 @@ export function MiTiempoDia({
             await deleteRegistro(registroAEliminar.id);
             setRegistroAEliminar(null);
             toast("Registro eliminado", "navy");
-          } catch {
+          } catch (err) {
             toast(
-              "No se pudo eliminar el registro. Intenta de nuevo.",
+              err instanceof Error
+                ? err.message
+                : "No se pudo eliminar el registro. Intenta de nuevo.",
               "danger",
             );
           }

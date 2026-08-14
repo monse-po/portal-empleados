@@ -45,3 +45,26 @@ export type {
   UserInfo,
   ValidActReportCodeParams,
 } from "@/src/lib/ifs/types";
+export {
+  approvalEventsForDecision,
+  buildEmpTimeApproval,
+  extractEmpTimeApprovalErrors,
+  IFS_APPROVAL_EVENT,
+  isStaleApprovalError,
+  mapApprovalTimesheetToHojas,
+} from "@/src/lib/ifs/tiempo-approval";
+export type { IfsApprovalEvent } from "@/src/lib/ifs/tiempo-approval";
+export {
+  extractEmpTimeDeleteErrors,
+  extractEmpTimeRegErrors,
+  extractEmpTimeUpdateErrors,
+  findIfsMatchesForLocal,
+  findIfsMetaInTimesheet,
+  mapRegistroToEmpTimeDelete,
+  mapRegistroToEmpTimeReg,
+  mapRegistroToEmpTimeUpdate,
+  mapRegistrosToEmpTimeReg,
+  parseIfsProjectTransactionSeq,
+  registroFingerprint,
+  registroFingerprintLoose,
+} from "@/src/lib/ifs/tiempo-timesheet";

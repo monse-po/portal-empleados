@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { Card } from "@/src/components/ui/Card";
 import { BulkSelectionBar } from "@/src/components/ui/BulkSelectionBar";
 import { Icon } from "@/src/components/ui/Icon";
-import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
 import { AprobacionFilterBar } from "@/src/app/aprobacion-tiempo/AprobacionFilterBar";
 import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import { AprobacionTabla } from "@/src/app/aprobacion-tiempo/AprobacionTabla";
@@ -14,10 +13,6 @@ import {
   removeFilterByColumn,
   type AproFilterRule,
 } from "@/src/lib/aprobacion-filtros";
-import {
-  getPendientesStatsPorProy,
-  getResueltasStatsPorProy,
-} from "@/src/lib/aprobacion-tiempo-mock";
 
 function KpiCard({
   label,
@@ -73,11 +68,7 @@ export function AprobacionLista({
   onAprobar,
 }: AprobacionListaProps) {
   const {
-    hojas,
     kpis,
-    proyectos,
-    proySel,
-    setProySel,
     tab,
     setTab,
     tabCounts,
@@ -87,18 +78,6 @@ export function AprobacionLista({
   } = useAprobacion();
 
   const [filters, setFilters] = useState<AproFilterRule[]>([]);
-
-  const pendientesPorProy = useMemo(
-    () => getPendientesStatsPorProy(hojas),
-    [hojas],
-  );
-  const resueltasPorProy = useMemo(
-    () => getResueltasStatsPorProy(hojas),
-    [hojas],
-  );
-
-  const proyPendientes = proySel ? pendientesPorProy[proySel] : null;
-  const proyResueltas = proySel ? resueltasPorProy[proySel] : null;
 
   const filtrados = useMemo(
     () => applyAproFilters(registrosActuales, filters),
@@ -111,11 +90,6 @@ export function AprobacionLista({
     if (next === "pend") {
       setFilters((prev) => removeFilterByColumn(prev, "estado"));
     }
-  };
-
-  const handleProyChange = (cod: string) => {
-    setProySel(cod);
-    setFilters([]);
   };
 
   return (
@@ -154,62 +128,6 @@ export function AprobacionLista({
         />
       </div>
 
-      <div className="mb-3.5 rounded-xl border border-border bg-white px-[18px] py-3">
-        <p className="mb-2.5 text-[12px] leading-snug text-[#6b7280]">
-          Selecciona el proyecto que quieres revisar.
-        </p>
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <Icon name="folderOpen" size="sm" className="shrink-0 text-navy" />
-            <span className="shrink-0 text-[12px] font-semibold text-muted">
-              Proyecto
-            </span>
-            <SearchableSelect
-              value={proySel}
-              onChange={handleProyChange}
-              options={proyectos.map((p) => {
-                const pend = pendientesPorProy[p.cod]?.count ?? 0;
-                return {
-                  value: p.cod,
-                  label: `${p.cod} · ${p.nombre}`,
-                  hint: pend > 0 ? `${pend} pend.` : undefined,
-                };
-              })}
-              placeholder="Selecciona un proyecto…"
-              searchPlaceholder="Buscar proyecto…"
-              wrapperClassName="min-w-[220px]"
-            />
-          </div>
-
-          {proySel && tab === "pend" && (
-            <span className="text-[13px] text-[#475569]">
-              <span className="font-bold text-navy">{proyPendientes?.count ?? 0}</span>
-              {" pendiente"}
-              {(proyPendientes?.count ?? 0) === 1 ? "" : "s"}
-              <span className="mx-1.5 text-[#cbd5e1]">·</span>
-              <span className="font-bold text-navy">{proyPendientes?.horas ?? 0}h</span>
-              {" por aprobar"}
-            </span>
-          )}
-
-          {proySel && tab === "res" && (
-            <span className="text-[13px] text-[#475569]">
-              <span className="font-bold text-green">
-                {proyResueltas?.aprobadas ?? 0}
-              </span>
-              {" aprobada"}
-              {(proyResueltas?.aprobadas ?? 0) === 1 ? "" : "s"}
-              <span className="mx-1.5 text-[#cbd5e1]">·</span>
-              <span className="font-bold text-[#dc2626]">
-                {proyResueltas?.rechazadas ?? 0}
-              </span>
-              {" rechazada"}
-              {(proyResueltas?.rechazadas ?? 0) === 1 ? "" : "s"}
-            </span>
-          )}
-        </div>
-      </div>
-
       {tab === "pend" && seleccion.size > 0 && (
         <BulkSelectionBar
           className="mb-3.5"
@@ -224,7 +142,8 @@ export function AprobacionLista({
         filters={filters}
         onChange={setFilters}
         tab={tab}
-        disabled={!proySel}
+        shown={filtrados.length}
+        total={registrosActuales.length}
       />
 
       <Card className="overflow-hidden p-0">
@@ -262,7 +181,7 @@ export function AprobacionLista({
         </div>
 
         <AprobacionTabla
-          key={`${proySel}-${tab}`}
+          key={tab}
           registros={filtrados}
           totalBase={registrosActuales.length}
           hasFilters={hayFiltrosActivos(filters)}
