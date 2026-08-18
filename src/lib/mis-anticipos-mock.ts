@@ -54,6 +54,9 @@ export type AnticipoExtra = {
   fechaRegreso?: string;
   destino?: string;
   tipoViaje?: "nacional" | "internacional";
+  cuenta?: string;
+  banco?: string;
+  tipoCuenta?: string;
   tl: TimelineItem[];
 };
 
@@ -134,6 +137,10 @@ export type EmpleadoAnticipo = LovItem & {
   cuenta: string;
   empresa: string;
   companias: { id: string; label: string }[];
+  /** Número de empleado IFS — GetBankDetails. */
+  empNo?: string;
+  /** Identity / SupplierId del proveedor vinculado. */
+  supplierId?: string;
 };
 
 export const EMPLEADOS_ANT: EmpleadoAnticipo[] = [
@@ -172,6 +179,18 @@ export const EMPLEADOS_ANT: EmpleadoAnticipo[] = [
     cuenta: "891-234567-8",
     empresa: "HMVMEX",
     companias: [{ id: "HMVMEX", label: "HMV Ingenieros México S.A. de C.V." }],
+  },
+  {
+    id: "1001138468",
+    nombre: "Cristian Santiago Ruiz",
+    sub: "EMP-004",
+    banco: "Bancolombia",
+    tipo: "Ahorros",
+    cuenta: "9988776655",
+    empresa: "HMVINGCO",
+    companias: [
+      { id: "HMVINGCO", label: "HMV Ingenieros Ltda. (Colombia)" },
+    ],
   },
 ];
 
@@ -214,6 +233,17 @@ export const DEST_CATALOG: Record<
 
 export function getEmpleadosPorEmpresa(empresaId: string): EmpleadoAnticipo[] {
   return EMPLEADOS_ANT.filter((e) => e.empresa === empresaId);
+}
+
+/** Empleados de la empresa, sin el usuario de sesión (flujo «para otro»). */
+export function getEmpleadosOtroPorEmpresa(
+  empresaId: string,
+  sessionId: string,
+): LovItem[] {
+  const sid = normalizeAnticipoId(sessionId);
+  return getEmpleadosPorEmpresa(empresaId)
+    .filter((e) => normalizeAnticipoId(e.id) !== sid)
+    .map((e) => ({ id: e.id, nombre: e.nombre, sub: e.id }));
 }
 
 export function searchDestinos(query: string): DestinoSel[] {
@@ -335,12 +365,19 @@ export function getAnticipoSolicitanteId(a: Anticipo): string {
   return a.solicitanteId ?? getAnticipoBeneficiarioId(a);
 }
 
-export function anticipoVisibleParaSession(a: Anticipo): boolean {
-  const sessionId = normalizeAnticipoId(SESSION_EMPLEADO.cedula);
-  return (
-    getAnticipoBeneficiarioId(a) === sessionId ||
-    getAnticipoSolicitanteId(a) === sessionId
-  );
+export function sessionIdCandidates(raw: string | string[] | undefined): string[] {
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [SESSION_EMPLEADO.cedula];
+  return [...new Set(values.map(normalizeAnticipoId).filter(Boolean))];
+}
+
+export function anticipoVisibleParaSession(
+  a: Anticipo,
+  sessionIds?: string | string[],
+): boolean {
+  const ids = sessionIdCandidates(sessionIds);
+  const benef = normalizeAnticipoId(getAnticipoBeneficiarioId(a));
+  const sol = normalizeAnticipoId(getAnticipoSolicitanteId(a));
+  return ids.includes(benef) || ids.includes(sol);
 }
 
 export function getBeneficiarioNombre(a: Anticipo): string {
@@ -348,25 +385,37 @@ export function getBeneficiarioNombre(a: Anticipo): string {
 }
 
 /** Solo cuando otro empleado registró la solicitud a nombre del usuario */
-export function getBeneficiarioSolicitante(a: Anticipo): string | null {
-  const sessionId = normalizeAnticipoId(SESSION_EMPLEADO.cedula);
-  const solId = getAnticipoSolicitanteId(a);
-  if (solId !== sessionId && a.solicitante) {
+export function getBeneficiarioSolicitante(
+  a: Anticipo,
+  sessionIds?: string | string[],
+): string | null {
+  const ids = sessionIdCandidates(sessionIds);
+  const solId = normalizeAnticipoId(getAnticipoSolicitanteId(a));
+  if (!ids.includes(solId) && a.solicitante) {
     return a.solicitante;
   }
   return null;
 }
 
-export function getBeneficiarioDetalle(a: Anticipo) {
+export function getBeneficiarioDetalle(a: Anticipo, extra?: AnticipoExtra) {
   const id = getAnticipoBeneficiarioId(a);
   const emp = EMPLEADOS_ANT.find((e) => e.id === id);
   if (emp) {
     return {
-      cedula: emp.id,
-      nombre: emp.nombre,
-      cuenta: emp.cuenta,
-      banco: emp.banco,
-      tipoCuenta: emp.tipo,
+      cedula: a.cedula || emp.id,
+      nombre: a.beneficiarioNombre || emp.nombre,
+      cuenta: extra?.cuenta || emp.cuenta,
+      banco: extra?.banco || emp.banco,
+      tipoCuenta: extra?.tipoCuenta || emp.tipo,
+    };
+  }
+  if (extra?.cuenta || a.beneficiarioNombre) {
+    return {
+      cedula: a.cedula ?? id,
+      nombre: a.beneficiarioNombre ?? "—",
+      cuenta: extra?.cuenta || "—",
+      banco: extra?.banco || "—",
+      tipoCuenta: extra?.tipoCuenta || "—",
     };
   }
   if (id === normalizeAnticipoId(SESSION_EMPLEADO.cedula)) {
@@ -381,9 +430,9 @@ export function getBeneficiarioDetalle(a: Anticipo) {
   return {
     cedula: a.cedula ?? "—",
     nombre: a.beneficiarioNombre ?? "—",
-    cuenta: "—",
-    banco: "—",
-    tipoCuenta: "—",
+    cuenta: extra?.cuenta || "—",
+    banco: extra?.banco || "—",
+    tipoCuenta: extra?.tipoCuenta || "—",
   };
 }
 
@@ -1202,17 +1251,21 @@ export function nuevoCodigoAnticipo(
 export function filterAnticiposByTab(
   anticipos: Record<string, Anticipo>,
   tab: AnticipoTab,
+  sessionIds?: string | string[],
 ): Anticipo[] {
   return Object.values(anticipos)
-    .filter((a) => anticipoVisibleParaSession(a))
+    .filter((a) => anticipoVisibleParaSession(a, sessionIds))
     .filter((a) => (tab === "disponibles" ? a.disponible : !a.disponible))
     .sort((a, b) => dmyToSortKey(b.fecha) - dmyToSortKey(a.fecha));
 }
 
 export function countAnticiposTab(
   anticipos: Record<string, Anticipo>,
+  sessionIds?: string | string[],
 ): { pendientes: number; disponibles: number } {
-  const all = Object.values(anticipos).filter((a) => anticipoVisibleParaSession(a));
+  const all = Object.values(anticipos).filter((a) =>
+    anticipoVisibleParaSession(a, sessionIds),
+  );
   return {
     pendientes: all.filter((a) => !a.disponible).length,
     disponibles: all.filter((a) => a.disponible).length,
@@ -1220,10 +1273,13 @@ export function countAnticiposTab(
 }
 
 /** Solo Lanzado y si el usuario es quien registró la solicitud */
-export function puedeCancelarEmpleado(anticipo: Anticipo): boolean {
+export function puedeCancelarEmpleado(
+  anticipo: Anticipo,
+  sessionIds?: string | string[],
+): boolean {
   if (anticipo.estado !== "Lanzado") return false;
-  const sessionId = normalizeAnticipoId(SESSION_EMPLEADO.cedula);
-  return getAnticipoSolicitanteId(anticipo) === sessionId;
+  const ids = sessionIdCandidates(sessionIds);
+  return ids.includes(normalizeAnticipoId(getAnticipoSolicitanteId(anticipo)));
 }
 
 export function agregarDiasHabiles(fecha: Date, dias: number): Date {

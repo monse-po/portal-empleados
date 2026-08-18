@@ -102,7 +102,9 @@ export function mapEmpReportItemToRegistro(
         ? `IFS-${row.ProjectTransactionSeq}`
         : undefined,
     proy,
-    subproy: row.SubProjectId?.trim() || row.SubProjectDesc?.trim() || undefined,
+    proyNombre: row.ProjectName?.trim() || undefined,
+    subproy: row.SubProjectDesc?.trim() || row.SubProjectId?.trim() || undefined,
+    subproyId: row.SubProjectId?.trim() || undefined,
     act: row.ActDescription?.trim() || row.ActivityNo?.trim() || "—",
     tipo: row.ReportCostCode?.trim() || "DN",
     horas,

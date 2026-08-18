@@ -3,20 +3,9 @@ import type { IconName } from "@/src/components/ui/Icon";
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
 
-export type HistoricoFilterColumn =
-  | "proyecto"
-  | "fecha"
-  | "actividad"
-  | "tipo"
-  | "subproyecto"
-  | "comentario";
+export type HistoricoFilterColumn = "proyecto" | "fecha" | "subproyecto";
 
 export type HistoricoFilterRule =
-  | {
-      id: string;
-      column: "actividad" | "comentario";
-      text: string;
-    }
   | {
       id: string;
       column: "fecha";
@@ -25,7 +14,7 @@ export type HistoricoFilterRule =
     }
   | {
       id: string;
-      column: "proyecto" | "tipo" | "subproyecto";
+      column: "proyecto" | "subproyecto";
       values: string[];
     };
 
@@ -37,11 +26,8 @@ export type HistoricoFilterColumnDef = {
 
 export const HISTORICO_FILTER_COLUMNS: HistoricoFilterColumnDef[] = [
   { id: "proyecto", label: "Proyecto", icon: "folderOpen" },
-  { id: "fecha", label: "Fecha", icon: "calendar" },
-  { id: "actividad", label: "Actividad", icon: "briefcase" },
-  { id: "tipo", label: "Tipo", icon: "clock" },
   { id: "subproyecto", label: "Subproyecto", icon: "flag" },
-  { id: "comentario", label: "Comentario", icon: "pencil" },
+  { id: "fecha", label: "Periodo", icon: "calendar" },
 ];
 
 export function getFilterColumnDef(
@@ -72,14 +58,8 @@ function getFieldValue(r: RegistroMock, col: HistoricoFilterColumn): string {
       return r.proy;
     case "fecha":
       return r.fecha;
-    case "actividad":
-      return r.act;
-    case "tipo":
-      return r.tipo;
     case "subproyecto":
       return r.subproy ?? "";
-    case "comentario":
-      return r.comentario;
     default:
       return "";
   }
@@ -87,7 +67,7 @@ function getFieldValue(r: RegistroMock, col: HistoricoFilterColumn): string {
 
 export function getDistinctValues(
   registros: RegistroMock[],
-  col: "proyecto" | "tipo" | "subproyecto",
+  col: "proyecto" | "subproyecto",
 ): string[] {
   const set = new Set<string>();
   registros.forEach((r) => {
@@ -114,16 +94,9 @@ function matchRule(r: RegistroMock, rule: HistoricoFilterRule): boolean {
       return true;
     }
     case "proyecto":
-    case "tipo":
     case "subproyecto": {
       if (!rule.values.length) return true;
       return rule.values.includes(getFieldValue(r, rule.column));
-    }
-    case "actividad":
-    case "comentario": {
-      const q = rule.text.trim().toLowerCase();
-      if (!q) return true;
-      return getFieldValue(r, rule.column).toLowerCase().includes(q);
     }
     default:
       return true;
@@ -182,32 +155,21 @@ export function getSingleProyectoFilterId(
 export function isRuleComplete(rule: HistoricoFilterRule): boolean {
   switch (rule.column) {
     case "fecha":
-      return !!(rule.from || rule.to);
+      return Boolean(rule.from || rule.to);
     case "proyecto":
-    case "tipo":
     case "subproyecto":
       return rule.values.length > 0;
-    case "actividad":
-    case "comentario":
-      return !!rule.text.trim();
     default:
       return false;
   }
 }
 
 export function createEmptyRule(column: HistoricoFilterColumn): HistoricoFilterRule {
-  const id = newFilterId();
   switch (column) {
     case "fecha":
-      return { id, column: "fecha" };
+      return { id: newFilterId(), column: "fecha" };
     case "proyecto":
-    case "tipo":
     case "subproyecto":
-      return { id, column, values: [] };
-    case "actividad":
-    case "comentario":
-      return { id, column, text: "" };
-    default:
-      return { id, column: "actividad", text: "" };
+      return { id: newFilterId(), column, values: [] };
   }
 }

@@ -27,6 +27,7 @@ function defaultIfsTokenUrl(): string {
 
 export type IfsConfig = {
   cempPortalBaseUrl: string;
+  cempAdvanceBaseUrl: string;
   openIdConfigUrl: string;
   oauthClientId: string;
   oauthClientSecret: string;
@@ -63,6 +64,9 @@ export function getIfsConfig(): IfsConfig {
 
   return {
     cempPortalBaseUrl: envFirst("IFS_CEMP_PORTAL_BASE_URL") || DEFAULT_BASE,
+    cempAdvanceBaseUrl:
+      envFirst("IFS_CEMP_ADVANCE_BASE_URL") ||
+      `${DEFAULT_SYSTEM}/main/ifsapplications/projection/v1/CEmpAdvanceHandling.svc`,
     openIdConfigUrl: envFirst("IFS_OPENID_CONFIG_URL") || DEFAULT_OPENID,
     oauthClientId: portalClientId,
     oauthClientSecret: envFirst(

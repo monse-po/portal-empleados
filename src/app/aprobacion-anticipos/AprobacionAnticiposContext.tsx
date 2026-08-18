@@ -4,14 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-import { hoyDMY } from "@/src/lib/mis-anticipos-mock";
 import type { SyncAnticipoHandler } from "@/src/lib/anticipos-bridge";
 import {
-  cloneInitialAproAnticipos,
   countAproAnticiposTabs,
   filterAproAnticiposByTab,
   GERENTE_APROBADOR,
@@ -21,9 +20,24 @@ import {
   type AnticipoAprobacionTab,
 } from "@/src/lib/aprobacion-anticipos-mock";
 import { useTableSelection } from "@/src/lib/use-table-selection";
+import {
+  decidirAnticiposAction,
+  listAprobacionAnticiposAction,
+} from "@/src/server/anticipos-actions";
+
+function fechaHoyLocal(): string {
+  const fecha = new Date();
+  const d = String(fecha.getDate()).padStart(2, "0");
+  const m = String(fecha.getMonth() + 1).padStart(2, "0");
+  const y = fecha.getFullYear();
+  return `${d}/${m}/${y}`;
+}
 
 type AprobacionAnticiposContextValue = {
   solicitudes: Record<string, AnticipoAprobacion>;
+  loaded: boolean;
+  fromIfs: boolean;
+  fromDb: boolean;
   kpis: ReturnType<typeof getAproAnticiposKpis>;
   pendientesCount: number;
   tab: AnticipoAprobacionTab;
@@ -34,8 +48,15 @@ type AprobacionAnticiposContextValue = {
   toggleSeleccionLote: (nos: string[]) => void;
   clearSeleccion: () => void;
   registrosActuales: AnticipoAprobacion[];
-  aprobar: (nos: string[], comentario?: string) => void;
-  rechazar: (nos: string[], comentario: string) => void;
+  reloadSolicitudes: () => Promise<void>;
+  aprobar: (
+    nos: string[],
+    comentario?: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  rechazar: (
+    nos: string[],
+    comentario: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
   ingresarSolicitud: (s: AnticipoAprobacion) => void;
   retirarSolicitud: (no: string) => void;
   getSolicitud: (no: string) => AnticipoAprobacion | undefined;
@@ -53,7 +74,13 @@ export function AprobacionAnticiposProvider({
   children,
   onSyncAnticipo,
 }: AprobacionAnticiposProviderProps) {
-  const [solicitudes, setSolicitudes] = useState(cloneInitialAproAnticipos);
+  const [solicitudes, setSolicitudes] = useState<
+    Record<string, AnticipoAprobacion>
+  >({});
+  const [loaded, setLoaded] = useState(false);
+  const [fromIfs, setFromIfs] = useState(false);
+  const [fromDb, setFromDb] = useState(false);
+  const [sessionNombre, setSessionNombre] = useState(GERENTE_APROBADOR);
   const [tab, setTabState] = useState<AnticipoAprobacionTab>("pendientes");
   const {
     seleccion,
@@ -61,6 +88,38 @@ export function AprobacionAnticiposProvider({
     toggleSeleccionLote,
     clearSeleccion,
   } = useTableSelection();
+
+  const reloadSolicitudes = useCallback(async () => {
+    const result = await listAprobacionAnticiposAction();
+    setSolicitudes(result.solicitudes);
+    setSessionNombre(result.sessionNombre || GERENTE_APROBADOR);
+    setFromIfs(result.fromIfs);
+    setFromDb(result.fromDb);
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listAprobacionAnticiposAction()
+      .then((result) => {
+        if (cancelled) return;
+        setSolicitudes(result.solicitudes);
+        setSessionNombre(result.sessionNombre || GERENTE_APROBADOR);
+        setFromIfs(result.fromIfs);
+        setFromDb(result.fromDb);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFromIfs(false);
+        setFromDb(false);
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setTab = useCallback(
     (next: AnticipoAprobacionTab) => {
@@ -70,12 +129,10 @@ export function AprobacionAnticiposProvider({
     [clearSeleccion],
   );
 
-  const aplicarEstado = useCallback(
-    (
-      nos: string[],
-      estado: AnticipoAprobacionEstado,
-      comentario: string,
-    ) => {
+  const aplicarEstadoLocal = useCallback(
+    (nos: string[], estado: AnticipoAprobacionEstado, comentario: string) => {
+      const fecha = fechaHoyLocal();
+      const aprobador = fromIfs ? sessionNombre : GERENTE_APROBADOR;
       setSolicitudes((prev) => {
         const next = { ...prev };
         nos.forEach((no) => {
@@ -84,8 +141,8 @@ export function AprobacionAnticiposProvider({
             ...next[no],
             estadoApro: estado,
             comentarioApro: comentario,
-            fechaApro: estado ? hoyDMY() : "",
-            aprobador: estado ? GERENTE_APROBADOR : "",
+            fechaApro: estado ? fecha : "",
+            aprobador: estado ? aprobador : "",
           };
         });
         return next;
@@ -96,23 +153,53 @@ export function AprobacionAnticiposProvider({
         nos.forEach((no) => onSyncAnticipo?.(no, accion, comentario));
       }
     },
-    [onSyncAnticipo],
+    [fromIfs, onSyncAnticipo, sessionNombre],
+  );
+
+  const decidir = useCallback(
+    async (
+      nos: string[],
+      estado: AnticipoAprobacionEstado,
+      comentario: string,
+    ): Promise<{ ok: boolean; error?: string }> => {
+      aplicarEstadoLocal(nos, estado, comentario);
+      clearSeleccion();
+      const result = await decidirAnticiposAction({
+        nos,
+        accion: estado === "Aprobado" ? "aprobado" : "rechazado",
+        comentario,
+        aprobadorNombre: fromIfs ? sessionNombre : undefined,
+      });
+      if (result.persisted.length || fromDb || fromIfs || result.error) {
+        await reloadSolicitudes();
+      }
+      return {
+        ok: result.ok && !result.error,
+        error: result.error,
+      };
+    },
+    [
+      aplicarEstadoLocal,
+      clearSeleccion,
+      fromDb,
+      fromIfs,
+      reloadSolicitudes,
+      sessionNombre,
+    ],
   );
 
   const aprobar = useCallback(
-    (nos: string[], comentario = "") => {
-      aplicarEstado(nos, "Aprobado", comentario);
-      clearSeleccion();
+    async (nos: string[], comentario = "") => {
+      return decidir(nos, "Aprobado", comentario);
     },
-    [aplicarEstado, clearSeleccion],
+    [decidir],
   );
 
   const rechazar = useCallback(
-    (nos: string[], comentario: string) => {
-      aplicarEstado(nos, "Rechazado", comentario);
-      clearSeleccion();
+    async (nos: string[], comentario: string) => {
+      return decidir(nos, "Rechazado", comentario);
     },
-    [aplicarEstado, clearSeleccion],
+    [decidir],
   );
 
   const ingresarSolicitud = useCallback((s: AnticipoAprobacion) => {
@@ -145,6 +232,9 @@ export function AprobacionAnticiposProvider({
   const value = useMemo(
     () => ({
       solicitudes,
+      loaded,
+      fromIfs,
+      fromDb,
       kpis,
       pendientesCount: kpis.pendientes,
       tab,
@@ -155,6 +245,7 @@ export function AprobacionAnticiposProvider({
       toggleSeleccionLote,
       clearSeleccion,
       registrosActuales,
+      reloadSolicitudes,
       aprobar,
       rechazar,
       ingresarSolicitud,
@@ -163,6 +254,9 @@ export function AprobacionAnticiposProvider({
     }),
     [
       solicitudes,
+      loaded,
+      fromIfs,
+      fromDb,
       kpis,
       tab,
       tabCounts,
@@ -171,6 +265,7 @@ export function AprobacionAnticiposProvider({
       toggleSeleccionLote,
       clearSeleccion,
       registrosActuales,
+      reloadSolicitudes,
       aprobar,
       rechazar,
       ingresarSolicitud,

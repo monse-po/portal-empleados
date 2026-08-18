@@ -14,3 +14,21 @@ export function dateToIso(d?: Date): string | undefined {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+/** Días ISO inclusivos entre `from` y `to` (ordena si vienen invertidos). */
+export function eachIsoDateInclusive(from?: string, to?: string): string[] {
+  const start = isoToDate(from);
+  const end = isoToDate(to ?? from);
+  if (!start) return [];
+  const a = end && end < start ? end : start;
+  const b = end && end < start ? start : (end ?? start);
+  const out: string[] = [];
+  const cur = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const last = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  while (cur <= last) {
+    const iso = dateToIso(cur);
+    if (iso) out.push(iso);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}

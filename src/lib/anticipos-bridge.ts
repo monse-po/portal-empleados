@@ -36,7 +36,7 @@ export function anticipoToAprobacion(
   a: Anticipo,
   extra?: AnticipoExtra,
 ): AnticipoAprobacion {
-  const benef = getBeneficiarioDetalle(a);
+  const benef = getBeneficiarioDetalle(a, extra);
   return {
     no: a.no,
     fecha: a.fecha,
@@ -45,7 +45,7 @@ export function anticipoToAprobacion(
     proy: a.proy,
     proyN: a.proyN,
     tipo: a.tipo,
-    solicitante: a.solicitante || "Carlos Rivas Mora",
+    solicitante: a.solicitante || "—",
     cedula: benef.cedula,
     nombre: benef.nombre,
     cuenta: benef.cuenta,

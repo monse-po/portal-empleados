@@ -103,6 +103,16 @@ export function LegalizacionesDetalle({
                 {formatMontoLegal(legalizacion.monto, legalizacion.div)}
               </div>
             </div>
+            {legalizacion.paraOtro && legalizacion.beneficiarioNombre ? (
+              <div>
+                <div className="text-[11px] font-semibold uppercase text-muted">
+                  Empleado beneficiario
+                </div>
+                <div className="mt-1 text-[14px]">
+                  {legalizacion.beneficiarioNombre}
+                </div>
+              </div>
+            ) : null}
           </div>
           {legalizacion.comentario ? (
             <div>

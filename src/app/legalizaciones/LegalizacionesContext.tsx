@@ -87,6 +87,9 @@ export function LegalizacionesProvider({ children }: { children: ReactNode }) {
           lineas,
           comentario: input.comentario,
           disponible: false,
+          paraOtro: input.paraOtro,
+          beneficiarioId: input.beneficiarioId,
+          beneficiarioNombre: input.beneficiarioNombre,
         },
       };
     });

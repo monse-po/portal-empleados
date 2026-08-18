@@ -79,3 +79,57 @@ model Notificacion {
 
   @@index([destinatarioRol, leida, createdAt])
 }
+
+enum AnticipoEstadoDb {
+  BORRADOR
+  LANZADO
+  APROBADO
+  PAGADO
+  RECHAZADO
+  CANCELADO
+}
+
+enum AnticipoTipoDb {
+  GASTO
+  VIAJE
+}
+
+model Anticipo {
+  id                   String           @id @default(cuid())
+  codigo               String           @unique
+  empleadoId           String
+  solicitanteId        String
+  solicitanteNombre    String
+  beneficiarioNombre   String
+  beneficiarioCedula   String?
+  paraOtro             Boolean          @default(false)
+  proyectoId           String
+  proyectoNombre       String
+  tipo                 AnticipoTipoDb
+  estado               AnticipoEstadoDb @default(LANZADO)
+  monto                Float
+  divisa               String
+  motivo               String
+  compania             String
+  empCompania          String
+  aprobador            String?
+  fechaSolicitud       String
+  fechaAprob           String?
+  pago                 String           @default("Pendiente")
+  comentarioAprobacion String           @default("")
+  aprobadorNombre      String?
+  fechaIda             String?
+  fechaRegreso         String?
+  destino              String?
+  tipoViaje            String?
+  cuenta               String?
+  banco                String?
+  tipoCuenta           String?
+  timelineJson         Json             @default("[]")
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([empleadoId, estado])
+  @@index([estado])
+  @@index([solicitanteId])
+}

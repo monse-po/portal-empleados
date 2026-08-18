@@ -10,6 +10,7 @@ type AnticiposLegalizarPickerProps = {
   anticipos: AnticipoLegalizable[];
   value: string;
   onChange: (no: string) => void;
+  emptyMessage?: string;
 };
 
 function AnticipoOption({
@@ -54,6 +55,7 @@ export function AnticiposLegalizarPicker({
   anticipos,
   value,
   onChange,
+  emptyMessage = "No tienes anticipos pagados por Tesorería pendientes de legalizar.",
 }: AnticiposLegalizarPickerProps) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -92,7 +94,7 @@ export function AnticiposLegalizarPicker({
     return (
       <div className="rounded-lg border border-dashed border-[#c7d9ed] bg-[#f8fafc] px-4 py-6 text-center text-[13px] text-muted">
         <Icon name="wallet" size="lg" className="mx-auto mb-2 opacity-30" />
-        No tienes anticipos pagados por Tesorería pendientes de legalizar.
+        {emptyMessage}
       </div>
     );
   }

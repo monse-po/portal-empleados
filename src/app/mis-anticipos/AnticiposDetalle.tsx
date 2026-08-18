@@ -27,6 +27,7 @@ import {
 type AnticiposDetalleProps = {
   anticipo: Anticipo;
   extra?: AnticipoExtra;
+  sessionIds?: string[];
   onVolver: () => void;
   onCancelar?: () => void;
 };
@@ -34,13 +35,14 @@ type AnticiposDetalleProps = {
 export function AnticiposDetalle({
   anticipo,
   extra,
+  sessionIds,
   onVolver,
   onCancelar,
 }: AnticiposDetalleProps) {
-  const puedeCancelar = puedeCancelarEmpleado(anticipo);
+  const puedeCancelar = puedeCancelarEmpleado(anticipo, sessionIds);
   const solicitanteNombre =
     anticipo.solicitante || SESSION_EMPLEADO.nombre;
-  const beneficiario = getBeneficiarioDetalle(anticipo);
+  const beneficiario = getBeneficiarioDetalle(anticipo, extra);
   const director = getDirectorProyecto(anticipo.proy);
   const aprobadorLabel = director
     ? `${director.nombre} (${director.codigo})`

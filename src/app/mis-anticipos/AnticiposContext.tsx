@@ -4,9 +4,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import { getAnticiposRegistrosTab } from "@/src/lib/anticipos-filtros";
 import {
@@ -17,48 +20,39 @@ import {
   type RetirarAnticipoHandler,
   type SyncAnticipoAccion,
 } from "@/src/lib/anticipos-bridge";
+import type { LanzarAnticipoInput } from "@/src/lib/anticipos-db";
 import {
-  cloneInitialAnticipos,
-  cloneInitialExtras,
   countAnticiposTab,
-  getDirectorProyecto,
-  hoyDMY,
-  nuevoCodigoAnticipo,
   SESSION_EMPLEADO,
   type Anticipo,
   type AnticipoExtra,
   type AnticipoTab,
-  type AnticipoTipo,
 } from "@/src/lib/mis-anticipos-mock";
+import {
+  cancelarAnticipoAction,
+  lanzarAnticipoAction,
+  listMisAnticiposAction,
+} from "@/src/server/anticipos-actions";
 
-export type LanzarAnticipoInput = {
-  tipo: AnticipoTipo;
-  proyId: string;
-  proyN: string;
-  monto: number;
-  div: string;
-  motivo: string;
-  compania: string;
-  empCompania: string;
-  paraOtro: boolean;
-  beneficiarioId?: string;
-  beneficiarioNombre?: string;
-  beneficiarioCedula?: string;
-  fechaIda?: string;
-  fechaRegreso?: string;
-  destino?: string;
-  tipoViaje?: "nacional" | "internacional";
-};
+export type { LanzarAnticipoInput };
 
 type AnticiposContextValue = {
   anticipos: Record<string, Anticipo>;
   extras: Record<string, AnticipoExtra>;
+  loaded: boolean;
+  fromIfs: boolean;
+  fromDb: boolean;
+  sessionIds: string[];
+  sessionNombre: string;
   tab: AnticipoTab;
   setTab: (tab: AnticipoTab) => void;
   tabCounts: { pendientes: number; disponibles: number };
   registrosActuales: Anticipo[];
-  lanzarAnticipo: (input: LanzarAnticipoInput) => string | null;
-  cancelarAnticipo: (no: string) => void;
+  reloadAnticipos: () => Promise<void>;
+  lanzarAnticipo: (
+    input: LanzarAnticipoInput,
+  ) => Promise<{ no: string | null; error?: string }>;
+  cancelarAnticipo: (no: string) => Promise<boolean>;
   sincronizarDesdeAprobacion: (
     no: string,
     accion: SyncAnticipoAccion,
@@ -76,135 +70,167 @@ type AnticiposProviderProps = {
   onRetirarSolicitud?: RetirarAnticipoHandler;
 };
 
+function applyLocalCancel(
+  no: string,
+  nombre: string,
+  fecha: string,
+  setAnticipos: Dispatch<SetStateAction<Record<string, Anticipo>>>,
+  setExtras: Dispatch<SetStateAction<Record<string, AnticipoExtra>>>,
+): boolean {
+  let cancelled = false;
+  setAnticipos((prev) => {
+    const item = prev[no];
+    if (!item || item.estado !== "Lanzado") return prev;
+    cancelled = true;
+    return {
+      ...prev,
+      [no]: {
+        ...item,
+        disponible: true,
+        estado: "Cancelado",
+        pago: "—",
+      },
+    };
+  });
+  setExtras((prev) => {
+    const ex = prev[no];
+    if (!ex) return prev;
+    const tl = ex.tl.filter((t) => !t.accion.startsWith("Esperando"));
+    return {
+      ...prev,
+      [no]: {
+        ...ex,
+        tl: [
+          ...tl,
+          {
+            accion: "Cancelado por el empleado",
+            usuario: nombre,
+            fecha,
+            icon: "ban",
+            color: "#6b7280",
+          },
+        ],
+      },
+    };
+  });
+  return cancelled;
+}
+
 export function AnticiposProvider({
   children,
   onIngresarSolicitud,
   onRetirarSolicitud,
 }: AnticiposProviderProps) {
-  const [anticipos, setAnticipos] = useState(cloneInitialAnticipos);
-  const [extras, setExtras] = useState(cloneInitialExtras);
+  const [anticipos, setAnticipos] = useState<Record<string, Anticipo>>({});
+  const [extras, setExtras] = useState<Record<string, AnticipoExtra>>({});
+  const [loaded, setLoaded] = useState(false);
+  const [fromIfs, setFromIfs] = useState(false);
+  const [fromDb, setFromDb] = useState(false);
+  const [sessionIds, setSessionIds] = useState<string[]>([
+    SESSION_EMPLEADO.cedula.replace(/\./g, ""),
+  ]);
+  const [sessionNombre, setSessionNombre] = useState(SESSION_EMPLEADO.nombre);
   const [tab, setTab] = useState<AnticipoTab>("pendientes");
 
+  const reloadAnticipos = useCallback(async () => {
+    const result = await listMisAnticiposAction();
+    setAnticipos(result.anticipos);
+    setExtras(result.extras);
+    setSessionIds(result.sessionIds);
+    setSessionNombre(result.sessionNombre);
+    setFromIfs(result.fromIfs);
+    setFromDb(result.fromDb);
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listMisAnticiposAction()
+      .then((result) => {
+        if (cancelled) return;
+        setAnticipos(result.anticipos);
+        setExtras(result.extras);
+        setSessionIds(result.sessionIds);
+        setSessionNombre(result.sessionNombre);
+        setFromIfs(result.fromIfs);
+        setFromDb(result.fromDb);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFromIfs(false);
+        setFromDb(false);
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const lanzarAnticipo = useCallback(
-    (input: LanzarAnticipoInput): string | null => {
-      const no = nuevoCodigoAnticipo(input.tipo, anticipos);
-      const fecha = hoyDMY();
-      const ahora = `${fecha} · ahora`;
-      const sessionId = SESSION_EMPLEADO.cedula.replace(/\./g, "");
-      const benefId = input.paraOtro
-        ? (input.beneficiarioId ?? "").replace(/\./g, "")
-        : sessionId;
-
-      const registro: Anticipo = {
-        no,
-        fecha,
-        proy: input.proyId,
-        proyN: input.proyN,
-        tipo: input.tipo,
-        div: input.div,
-        monto: input.monto,
-        motivo: input.motivo,
-        estado: "Lanzado",
-        disponible: false,
-        aprobador: getDirectorProyecto(input.proyId)?.codigo ?? null,
-        fechaAprob: null,
-        pago: "Pendiente",
-        solicitante: SESSION_EMPLEADO.nombre,
-        solicitanteId: sessionId,
-        beneficiarioId: benefId,
-        beneficiarioNombre: input.paraOtro
-          ? input.beneficiarioNombre
-          : SESSION_EMPLEADO.nombre,
-        cedula: input.paraOtro
-          ? input.beneficiarioCedula ?? input.beneficiarioId
-          : SESSION_EMPLEADO.cedula,
-        paraOtro: input.paraOtro,
-      };
-
-      const extra: AnticipoExtra = {
-        compania: input.compania,
-        empCompania: input.empCompania,
-        empId: benefId,
-        tl: [
-          {
-            accion: "Solicitud lanzada",
-            usuario: SESSION_EMPLEADO.nombre,
-            fecha: ahora,
-            icon: "send",
-            color: "#1e40af",
-          },
-          {
-            accion: "Esperando aprobación",
-            usuario: "Sistema",
-            fecha: "Pendiente",
-            icon: "clock",
-            color: "#854d0e",
-          },
-        ],
-      };
-
-      if (input.tipo === "Viaje" && input.fechaIda) {
-        extra.fechaIda = input.fechaIda;
-        extra.fechaRegreso = input.fechaRegreso;
-        extra.destino = input.destino;
-        extra.tipoViaje = input.tipoViaje;
+    async (
+      input: LanzarAnticipoInput,
+    ): Promise<{ no: string | null; error?: string }> => {
+      const result = await lanzarAnticipoAction(input);
+      if (result.error || !result.no) {
+        return { no: null, error: result.error || "No se pudo crear el anticipo" };
       }
-
-      setAnticipos((prev) => ({ ...prev, [no]: registro }));
-      setExtras((prev) => ({ ...prev, [no]: extra }));
-      onIngresarSolicitud?.(anticipoToAprobacion(registro, extra));
-      return no;
+      const fresh = await listMisAnticiposAction();
+      setAnticipos(fresh.anticipos);
+      setExtras(fresh.extras);
+      setSessionIds(fresh.sessionIds);
+      setSessionNombre(fresh.sessionNombre);
+      setFromIfs(fresh.fromIfs);
+      setFromDb(fresh.fromDb);
+      setLoaded(true);
+      const registro = fresh.anticipos[result.no];
+      if (registro) {
+        onIngresarSolicitud?.(
+          anticipoToAprobacion(registro, fresh.extras[result.no]),
+        );
+      }
+      return { no: result.no };
     },
-    [anticipos, onIngresarSolicitud],
+    [onIngresarSolicitud],
   );
 
   const cancelarAnticipo = useCallback(
-    (no: string) => {
-      let cancelled = false;
-      setAnticipos((prev) => {
-        const item = prev[no];
-        if (!item || item.estado !== "Lanzado") return prev;
-        cancelled = true;
-        return {
-          ...prev,
-          [no]: {
-            ...item,
-            disponible: true,
-            estado: "Cancelado",
-            pago: "—",
-          },
-        };
-      });
-      setExtras((prev) => {
-        const ex = prev[no];
-        if (!ex) return prev;
-        const tl = ex.tl.filter((t) => !t.accion.startsWith("Esperando"));
-        return {
-          ...prev,
-          [no]: {
-            ...ex,
-            tl: [
-              ...tl,
-              {
-                accion: "Cancelado por el empleado",
-                usuario: SESSION_EMPLEADO.nombre,
-                fecha: hoyDMY(),
-                icon: "ban",
-                color: "#6b7280",
-              },
-            ],
-          },
-        };
-      });
-      if (cancelled) onRetirarSolicitud?.(no);
+    async (no: string): Promise<boolean> => {
+      const result = await cancelarAnticipoAction(no);
+      if (result.ok) {
+        await reloadAnticipos();
+        onRetirarSolicitud?.(no);
+        return true;
+      }
+      if (result.missing && !fromIfs) {
+        const fecha = new Date();
+        const d = String(fecha.getDate()).padStart(2, "0");
+        const m = String(fecha.getMonth() + 1).padStart(2, "0");
+        const y = fecha.getFullYear();
+        const cancelled = applyLocalCancel(
+          no,
+          sessionNombre,
+          `${d}/${m}/${y}`,
+          setAnticipos,
+          setExtras,
+        );
+        if (cancelled) onRetirarSolicitud?.(no);
+        return cancelled;
+      }
+      return false;
     },
-    [onRetirarSolicitud],
+    [fromIfs, onRetirarSolicitud, reloadAnticipos, sessionNombre],
   );
 
   const sincronizarDesdeAprobacion = useCallback(
     (no: string, accion: SyncAnticipoAccion, comentario?: string) => {
       const estado = estadoEmpleadoDesdeAccion(accion);
-      const fecha = hoyDMY();
+      const fecha = new Date();
+      const d = String(fecha.getDate()).padStart(2, "0");
+      const m = String(fecha.getMonth() + 1).padStart(2, "0");
+      const y = fecha.getFullYear();
+      const fechaStr = `${d}/${m}/${y}`;
 
       setAnticipos((prev) => {
         const item = prev[no];
@@ -214,8 +240,7 @@ export function AnticiposProvider({
           [no]: {
             ...item,
             estado,
-            fechaAprob: fecha,
-            // Aprobado demo → Pagado + Historial; rechazo → Historial.
+            fechaAprob: fechaStr,
             disponible: true,
             pago: accion === "aprobado" ? "Pagado" : "—",
           },
@@ -227,27 +252,38 @@ export function AnticiposProvider({
         if (!ex) return prev;
         return {
           ...prev,
-          [no]: aplicarTimelineAprobacion(ex, accion, comentario ?? "", fecha),
+          [no]: aplicarTimelineAprobacion(ex, accion, comentario ?? "", fechaStr),
         };
       });
+
+      void reloadAnticipos();
     },
-    [],
+    [reloadAnticipos],
   );
 
-  const tabCounts = useMemo(() => countAnticiposTab(anticipos), [anticipos]);
+  const tabCounts = useMemo(
+    () => countAnticiposTab(anticipos, sessionIds),
+    [anticipos, sessionIds],
+  );
   const registrosActuales = useMemo(
-    () => getAnticiposRegistrosTab(anticipos, tab),
-    [anticipos, tab],
+    () => getAnticiposRegistrosTab(anticipos, tab, sessionIds),
+    [anticipos, sessionIds, tab],
   );
 
   const value = useMemo(
     () => ({
       anticipos,
       extras,
+      loaded,
+      fromIfs,
+      fromDb,
+      sessionIds,
+      sessionNombre,
       tab,
       setTab,
       tabCounts,
       registrosActuales,
+      reloadAnticipos,
       lanzarAnticipo,
       cancelarAnticipo,
       sincronizarDesdeAprobacion,
@@ -257,9 +293,15 @@ export function AnticiposProvider({
     [
       anticipos,
       extras,
+      loaded,
+      fromIfs,
+      fromDb,
+      sessionIds,
+      sessionNombre,
       tab,
       tabCounts,
       registrosActuales,
+      reloadAnticipos,
       lanzarAnticipo,
       cancelarAnticipo,
       sincronizarDesdeAprobacion,

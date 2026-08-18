@@ -8,6 +8,7 @@ export const TIEMPO_UI_COPY = {
   selectSubprojectFirst: "Selecciona un subproyecto primero",
   selectActivityFirst: "Elige actividad primero",
   selectHourType: "Seleccionar...",
+  tipoHoraProgramaHint: "Los tipos disponibles dependen de tu programa de trabajo.",
   searchProject: "Buscar proyecto...",
   searchSubproject: "Buscar subproyecto...",
   searchActivity: "Buscar actividad...",
@@ -17,9 +18,9 @@ export const TIEMPO_UI_COPY = {
   guardar: "Guardar",
   guardarCambios: "Guardar cambios",
   hintEnviarDesdeLista:
-    "Para enviar al gerente, abre el detalle del día y usa el botón verde de envío.",
+    "Con un solo proyecto estable: registra el rango y usa «Guardar y enviar». Si cambias de proyecto por día, envía desde el detalle del día.",
   hintEnviarEnVistaDia:
-    "Después de guardar, usa Enviar a aprobación en la barra verde al final de la página.",
+    "Después de guardar, envía este día aquí o usa «Guardar y enviar» en el modal para varios días.",
   listaAyuda: "Clic en la fecha → ver detalle del día · Clic en fila → editar",
   verDia: "Ver día",
   verDetalleDia: "Ver detalle del día",
@@ -28,7 +29,17 @@ export const TIEMPO_UI_COPY = {
     "Cuando termines de registrar, envía a Aprobación.",
   toastRegistroGuardado: "Registro guardado",
   toastRegistroNuevo:
-    "Registro guardado como borrador. Ábrelo desde el día para enviar a aprobación.",
+    "Registro guardado como borrador. Usa Guardar y enviar si quieres mandarlo ya a aprobación.",
+  toastRegistrosRango: (count: number) =>
+    `${count} borradores guardados. Usa «Guardar y enviar» la próxima vez para mandarlos todos a aprobación de una vez.`,
+  toastRegistrosEnviados: (count: number) =>
+    count <= 1
+      ? "Registro enviado a aprobación"
+      : `${count} días enviados a aprobación`,
+  guardarRango: (count: number) =>
+    count <= 1 ? "Guardar" : `Guardar ${count} días`,
+  guardarYEnviar: (count: number) =>
+    count <= 1 ? "Guardar y enviar" : `Guardar y enviar ${count} días`,
   ifsCatalogError: {
     sessionExpired: (detail: string) =>
       `Tu sesión con IFS expiró (${detail}).`,

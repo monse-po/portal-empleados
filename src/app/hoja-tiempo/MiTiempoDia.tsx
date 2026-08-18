@@ -44,6 +44,9 @@ import {
   atNormalLimit,
   exceedsNormalLimit,
   formatScheduleHoursLabel,
+  getDiaSinJornadaKind,
+  isDiaConJornadaNormal,
+  type DiaCalendarioKind,
 } from "@/src/lib/tiempo-schedule";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 
@@ -95,6 +98,9 @@ export function MiTiempoDia({
     () => getJornadaLimiteFromSistema().maxNormalHours,
   );
   const [jornadaSourceLabel, setJornadaSourceLabel] = useState("config.");
+  const [hoursByDate, setHoursByDate] = useState<Record<string, number> | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +109,10 @@ export function MiTiempoDia({
       if (cancelled) return;
       setMaxScheduleHours(result.scheduleHours);
       setJornadaSourceLabel(formatScheduleSource(result.source));
+      // Solo confiar en mapa IFS; con "sistema" usar festivo/fin del calendario.
+      setHoursByDate(
+        result.source === "ifs" ? { [fecha]: result.scheduleHours } : null,
+      );
     });
 
     return () => {
@@ -162,6 +172,13 @@ export function MiTiempoDia({
   const mesBounds = getMesActualBounds();
   const fechaAnterior = shiftFechaMes(fecha, -1, mesBounds);
   const fechaSiguiente = shiftFechaMes(fecha, 1, mesBounds);
+  const calendarKind = getDiaSinJornadaKind(fecha);
+  const diaKind: DiaCalendarioKind | null =
+    calendarKind === "festivo" || calendarKind === "fin_semana"
+      ? calendarKind
+      : !isDiaConJornadaNormal(fecha, hoursByDate)
+        ? "sin_jornada"
+        : null;
 
   return (
     <div className="view-wide">
@@ -169,6 +186,19 @@ export function MiTiempoDia({
         parentLabel="Mi Tiempo"
         onVolver={onVolver}
         title={fechaLabel}
+        titleAddon={
+          diaKind === "festivo" ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-1 text-[11px] font-semibold text-[#c2410c]">
+              <Icon name="star" size="xs" className="text-[#f59e0b]" />
+              Festivo
+            </span>
+          ) : diaKind === "fin_semana" ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#2563eb]">
+              <Icon name="moon" size="xs" />
+              Fin de semana
+            </span>
+          ) : null
+        }
         onDiaAnterior={
           !esHistorial && onCambiarDia
             ? () => {

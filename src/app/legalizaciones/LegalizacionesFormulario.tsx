@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Field } from "@/src/components/ui/Field";
 import { Icon } from "@/src/components/ui/Icon";
+import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
 import {
   FormGrid,
   FormGridSpan,
+  FormHint,
   FormNote,
   FormSection,
   FormStack,
@@ -41,10 +43,14 @@ import {
   type LineaGastoDraft,
 } from "@/src/lib/legalizaciones-mock";
 import {
+  COMPANIAS_HMV,
   EMP_DET,
   formatMonto,
+  getEmpleadosOtroPorEmpresa,
   parseMontoInput,
   PROYECTOS_ANT,
+  SESSION_EMPLEADO,
+  type LovItem,
 } from "@/src/lib/mis-anticipos-mock";
 
 type LegalizacionesFormularioProps = {
@@ -104,9 +110,24 @@ export function LegalizacionesFormulario({
 }: LegalizacionesFormularioProps) {
   const { crearLegalizacion, legalizaciones } = useLegalizaciones();
   const { toast } = useToast();
-  const anticipos = useMemo(
-    () => getAnticiposParaLegalizar(legalizaciones),
-    [legalizaciones],
+  const [paraOtro, setParaOtro] = useState(false);
+  const [compBenef, setCompBenef] = useState<LovItem | null>(null);
+  const [empOtro, setEmpOtro] = useState<LovItem | null>(null);
+
+  const anticipos = useMemo(() => {
+    if (paraOtro && !empOtro) return [];
+    return getAnticiposParaLegalizar(
+      legalizaciones,
+      paraOtro ? empOtro!.id : SESSION_EMPLEADO.cedula,
+    );
+  }, [legalizaciones, paraOtro, empOtro]);
+
+  const empleadosOtroLov = useMemo(
+    () =>
+      compBenef
+        ? getEmpleadosOtroPorEmpresa(compBenef.id, SESSION_EMPLEADO.cedula)
+        : [],
+    [compBenef],
   );
 
   const [form, setForm] = useState<FormState>({
@@ -128,7 +149,9 @@ export function LegalizacionesFormulario({
   const defaultDiv = paymentRef?.moneda ?? "COP";
   const companiaId = paymentRef
     ? paymentRef.companiaId
-    : resolveCompaniaId(EMP_DET.empresa);
+    : paraOtro && compBenef
+      ? compBenef.id
+      : resolveCompaniaId(EMP_DET.empresa);
   const defaultProyectoId = form.destino.proyectoId || paymentRef?.proyectoId || "";
   const proyectoLineaPendiente =
     form.tipo !== "Con anticipo" && !form.lineas[0]?.proyectoId;
@@ -141,6 +164,40 @@ export function LegalizacionesFormulario({
 
   const patch = (next: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...next }));
+  };
+
+  const resetAnticipoYLineas = () => {
+    patch({
+      anticipoNo: "",
+      tarjetaRef: "",
+      lineas: [],
+      destino: emptyDestinoLegalizacion(),
+    });
+  };
+
+  const handleParaOtroChange = (otro: boolean) => {
+    setParaOtro(otro);
+    setCompBenef(null);
+    setEmpOtro(null);
+    resetAnticipoYLineas();
+  };
+
+  const handleCompBenefChange = (item: LovItem | null) => {
+    setCompBenef(item);
+    setEmpOtro((prev) => {
+      if (!prev || !item) return null;
+      const stillInEmpresa = getEmpleadosOtroPorEmpresa(
+        item.id,
+        SESSION_EMPLEADO.cedula,
+      ).some((e) => e.id === prev.id);
+      return stillInEmpresa ? prev : null;
+    });
+    resetAnticipoYLineas();
+  };
+
+  const handleEmpOtroChange = (item: LovItem | null) => {
+    setEmpOtro(item);
+    resetAnticipoYLineas();
   };
 
   const handleSelectAnticipo = (no: string) => {
@@ -195,6 +252,16 @@ export function LegalizacionesFormulario({
   );
 
   const validar = (): boolean => {
+    if (paraOtro) {
+      if (!compBenef) {
+        toast("Selecciona la empresa del empleado beneficiario", "danger");
+        return false;
+      }
+      if (!empOtro) {
+        toast("Selecciona el empleado beneficiario", "danger");
+        return false;
+      }
+    }
     if (form.tipo === "Con anticipo") {
       if (!form.anticipoNo || !paymentRef) {
         toast("Selecciona un anticipo pagado por Tesorería", "danger");
@@ -273,6 +340,9 @@ export function LegalizacionesFormulario({
       destino: form.destino,
       lineas,
       comentario: form.comentario.trim() || undefined,
+      paraOtro,
+      beneficiarioId: paraOtro ? empOtro?.id : undefined,
+      beneficiarioNombre: paraOtro ? empOtro?.nombre : undefined,
     };
   };
 
@@ -348,6 +418,68 @@ export function LegalizacionesFormulario({
         />
 
         <SolicitudFormCard>
+          <FormSection icon="send" title="Solicitud para">
+            <FormStack>
+              <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+                <div className="w-fit min-w-0">
+                  <SegmentedControl
+                    aria-label="Solicitud para"
+                    value={paraOtro ? "otro" : "mi"}
+                    onChange={(v) => handleParaOtroChange(v === "otro")}
+                    options={[
+                      { value: "mi", label: "Para mí" },
+                      { value: "otro", label: "Para otro empleado" },
+                    ]}
+                  />
+                </div>
+                <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
+                  <span className="text-[12px] font-semibold text-[#374151]">
+                    Fecha de solicitud
+                  </span>
+                  <span className="flex h-9 items-center text-[13px] text-muted">
+                    {hoyDMY()}
+                  </span>
+                </div>
+              </div>
+              {paraOtro ? (
+                <>
+                  <FormHint>
+                    <strong>
+                      Estás legalizando a nombre de otra persona.
+                    </strong>{" "}
+                    Tú figurarás como solicitante; los gastos quedan a nombre
+                    del empleado beneficiario.
+                  </FormHint>
+                  <FormGrid>
+                    <Field label="Empresa del empleado beneficiario" required>
+                      <LovPicker
+                        value={compBenef}
+                        onChange={handleCompBenefChange}
+                        items={COMPANIAS_HMV}
+                        placeholder="Seleccionar empresa"
+                        searchPlaceholder="Buscar empresa o país..."
+                      />
+                    </Field>
+                    {compBenef ? (
+                      <Field label="Empleado beneficiario" required>
+                        <LovPicker
+                          value={empOtro}
+                          onChange={handleEmpOtroChange}
+                          items={empleadosOtroLov}
+                          placeholder="Seleccionar empleado"
+                          searchPlaceholder="Buscar por cédula o nombre…"
+                          valueLabel={(it) => it.nombre}
+                        />
+                      </Field>
+                    ) : null}
+                  </FormGrid>
+                </>
+              ) : null}
+            </FormStack>
+          </FormSection>
+        </SolicitudFormCard>
+
+        <SolicitudFormCard>
           <FormSection icon="send" title="Tipo de legalización">
             <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
               <div className="min-w-0 flex-1">
@@ -366,14 +498,6 @@ export function LegalizacionesFormulario({
                   options={TIPO_LEGALIZACION_OPTIONS}
                 />
               </div>
-              <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
-                <span className="text-[12px] font-semibold text-[#374151]">
-                  Fecha de solicitud
-                </span>
-                <span className="flex h-9 items-center text-[13px] text-muted">
-                  {hoyDMY()}
-                </span>
-              </div>
             </div>
           </FormSection>
         </SolicitudFormCard>
@@ -388,6 +512,13 @@ export function LegalizacionesFormulario({
                       anticipos={anticipos}
                       value={form.anticipoNo}
                       onChange={handleSelectAnticipo}
+                      emptyMessage={
+                        paraOtro && !empOtro
+                          ? "Selecciona primero la empresa y el empleado beneficiario."
+                          : paraOtro
+                            ? "Este empleado no tiene anticipos pagados pendientes de legalizar."
+                            : "No tienes anticipos pagados por Tesorería pendientes de legalizar."
+                      }
                     />
                   </Field>
                 </FormGridSpan>

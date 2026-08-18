@@ -90,10 +90,10 @@ export const SESSION_DS = {
 };
 
 export const EMPLEADOS_DS = [
-  { id: "1001138468", nombre: "Cristian Santiago Ruiz" },
-  { id: "1023456789", nombre: "Carlos Rivas Mora" },
-  { id: "52874391", nombre: "María Fernanda López Torres" },
-  { id: "80341256", nombre: "Carlos Andrés Martínez Ruiz" },
+  { id: "1001138468", nombre: "Cristian Santiago Ruiz", empresa: "HMVINGCO" },
+  { id: "1023456789", nombre: "Carlos Rivas Mora", empresa: "HMVINGCO" },
+  { id: "52874391", nombre: "María Fernanda López Torres", empresa: "HMVINGCO" },
+  { id: "80341256", nombre: "Carlos Andrés Martínez Ruiz", empresa: "HMVMEX" },
 ] as const;
 
 export const ESTADOS_POR_TAB: Record<

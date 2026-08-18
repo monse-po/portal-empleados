@@ -3,6 +3,7 @@
 import {
   getProjectInfo,
   getScheduleHoursForDate,
+  getEmployeeScheduleHoursByDate,
   getValidActReportCode,
   getValidEmpPrjAct,
   openCempPortalSession,
@@ -216,6 +217,55 @@ export async function fetchScheduleHoursAction(accountDate: string): Promise<{
     return {
       scheduleHours: sistema.maxNormalHours,
       source: "sistema",
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
+  }
+}
+
+/** Programa del empleado (días con ScheduleHours) para filtrar rangos. */
+export async function fetchEmployeeScheduleAction(): Promise<{
+  hoursByDate: Record<string, number>;
+  fromIfs: boolean;
+  error?: string;
+  sessionExpired?: boolean;
+}> {
+  const session = await getServerIfsSession();
+  if (!session) {
+    return { hoursByDate: {}, fromIfs: false };
+  }
+
+  try {
+    return await withValidIfsSession(async (liveSession) => {
+      try {
+        const ifs = await openCempPortalSession(
+          liveSession.email,
+          liveSession.accessToken,
+        );
+        const hoursByDate = await getEmployeeScheduleHoursByDate(ifs);
+        return {
+          hoursByDate,
+          fromIfs: Object.keys(hoursByDate).length > 0,
+        };
+      } catch (err) {
+        return {
+          hoursByDate: {},
+          fromIfs: false,
+          error: formatIfsError(err),
+        };
+      }
+    });
+  } catch (err) {
+    if (err instanceof IfsSessionExpiredError) {
+      return {
+        hoursByDate: {},
+        fromIfs: false,
+        sessionExpired: true,
+        error: err.message,
+      };
+    }
+    return {
+      hoursByDate: {},
       fromIfs: false,
       error: formatIfsError(err),
     };

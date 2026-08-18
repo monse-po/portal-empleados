@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
@@ -13,6 +13,7 @@ import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
 import {
   FormContextNote,
   FormGrid,
+  FormHint,
   FormSection,
   FormStack,
   SolicitudFormCard,
@@ -23,7 +24,6 @@ import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoport
 import {
   DIVISAS_DS,
   dmyToIso,
-  EMPLEADOS_DS,
   EMPRESAS_DS,
   fmtMontoInputDs,
   getDivisaFormatDs,
@@ -36,7 +36,11 @@ import {
   type AdjuntoMock,
   type NifLookupStatus,
 } from "@/src/lib/documento-soporte-mock";
-import type { LovItem } from "@/src/lib/mis-anticipos-mock";
+import {
+  COMPANIAS_HMV,
+  getEmpleadosOtroPorEmpresa,
+  type LovItem,
+} from "@/src/lib/mis-anticipos-mock";
 
 type DocumentoSoporteFormularioProps = {
   onVolver: () => void;
@@ -46,13 +50,9 @@ type DocumentoSoporteFormularioProps = {
 
 const EMPRESA_DEFAULT = EMPRESAS_DS[0];
 
-const EMPLEADOS_OTRO_LOV: LovItem[] = EMPLEADOS_DS.filter(
-  (e) => e.id !== SESSION_DS.id,
-).map((e) => ({
-  id: e.id,
-  nombre: e.nombre,
-  sub: e.id,
-}));
+function empresaLovLabel(item: LovItem): string {
+  return `${item.id} – ${item.nombre} (${item.sub})`;
+}
 
 export function DocumentoSoporteFormulario({
   onVolver,
@@ -79,12 +79,22 @@ export function DocumentoSoporteFormulario({
     ) {
       return null;
     }
+    return {
+      id: existing.solicitadoPorId,
+      nombre: existing.solicitadoPorNombre,
+      sub: existing.solicitadoPorId,
+    };
+  });
+  const [compBenef, setCompBenef] = useState<LovItem | null>(() => {
+    if (!existing) return null;
+    if (
+      existing.solicitadoPorId.replace(/\D/g, "") ===
+      sessionEmpleadoId.replace(/\D/g, "")
+    ) {
+      return null;
+    }
     return (
-      EMPLEADOS_OTRO_LOV.find((x) => x.id === existing.solicitadoPorId) ?? {
-        id: existing.solicitadoPorId,
-        nombre: existing.solicitadoPorNombre,
-        sub: existing.solicitadoPorId,
-      }
+      COMPANIAS_HMV.find((c) => c.id === existing.empresaId) ?? null
     );
   });
   const [nif, setNif] = useState(existing?.nif ?? "");
@@ -120,8 +130,31 @@ export function DocumentoSoporteFormulario({
 
   const handleParaOtroChange = (next: boolean) => {
     setParaOtro(next);
-    if (!next) setEmpOtro(null);
+    if (!next) {
+      setEmpOtro(null);
+      setCompBenef(null);
+    }
   };
+
+  const handleCompBenefChange = (item: LovItem | null) => {
+    setCompBenef(item);
+    setEmpOtro((prev) => {
+      if (!prev || !item) return null;
+      const stillInEmpresa = getEmpleadosOtroPorEmpresa(
+        item.id,
+        SESSION_DS.id,
+      ).some((e) => e.id === prev.id);
+      return stillInEmpresa ? prev : null;
+    });
+  };
+
+  const empleadosOtroLov = useMemo(
+    () =>
+      compBenef
+        ? getEmpleadosOtroPorEmpresa(compBenef.id, SESSION_DS.id)
+        : [],
+    [compBenef],
+  );
 
   useEffect(() => {
     if (nifDebounceRef.current) clearTimeout(nifDebounceRef.current);
@@ -155,8 +188,12 @@ export function DocumentoSoporteFormulario({
     let solicitadoPorId = SESSION_DS.id;
     let solicitadoPorNombre = sessionNombre;
     if (paraOtro) {
+      if (!compBenef) {
+        toast("Selecciona la empresa del empleado beneficiario", "danger");
+        return;
+      }
       if (!empOtro) {
-        toast("Selecciona el empleado", "danger");
+        toast("Selecciona el empleado beneficiario", "danger");
         return;
       }
       solicitadoPorId = empOtro.id;
@@ -197,8 +234,11 @@ export function DocumentoSoporteFormulario({
     const result = guardarDocumento(
       {
         tipo: "DSE",
-        empresaId: EMPRESA_DEFAULT.id,
-        empresaLabel: EMPRESA_DEFAULT.label,
+        empresaId: paraOtro && compBenef ? compBenef.id : EMPRESA_DEFAULT.id,
+        empresaLabel:
+          paraOtro && compBenef
+            ? empresaLovLabel(compBenef)
+            : EMPRESA_DEFAULT.label,
         solicitadoPorId,
         solicitadoPorNombre,
         nif,
@@ -240,39 +280,63 @@ export function DocumentoSoporteFormulario({
 
         <SolicitudFormCard>
           <FormSection icon="send" title="Solicitud para">
-            <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-              <div className="w-fit min-w-0">
-                <SegmentedControl
-                  aria-label="Solicitud para"
-                  value={paraOtro ? "otro" : "mi"}
-                  onChange={(v) => handleParaOtroChange(v === "otro")}
-                  options={[
-                    { value: "mi", label: "Para mí" },
-                    { value: "otro", label: "Para otro empleado" },
-                  ]}
-                />
-              </div>
-              {paraOtro ? (
-                <div className="min-w-[200px] max-w-xs flex-1">
-                  <LovPicker
-                    value={empOtro}
-                    onChange={setEmpOtro}
-                    items={EMPLEADOS_OTRO_LOV}
-                    placeholder="Seleccionar empleado"
-                    searchPlaceholder="Buscar por cédula o nombre…"
-                    valueLabel={(it) => it.nombre}
+            <FormStack>
+              <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+                <div className="w-fit min-w-0">
+                  <SegmentedControl
+                    aria-label="Solicitud para"
+                    value={paraOtro ? "otro" : "mi"}
+                    onChange={(v) => handleParaOtroChange(v === "otro")}
+                    options={[
+                      { value: "mi", label: "Para mí" },
+                      { value: "otro", label: "Para otro empleado" },
+                    ]}
                   />
                 </div>
-              ) : null}
-              <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
-                <span className="text-[12px] font-semibold text-[#374151]">
-                  Fecha de solicitud
-                </span>
-                <span className="flex h-9 items-center text-[13px] text-muted">
-                  {existing?.fecha ?? hoyDMY()}
-                </span>
+                <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
+                  <span className="text-[12px] font-semibold text-[#374151]">
+                    Fecha de solicitud
+                  </span>
+                  <span className="flex h-9 items-center text-[13px] text-muted">
+                    {existing?.fecha ?? hoyDMY()}
+                  </span>
+                </div>
               </div>
-            </div>
+              {paraOtro ? (
+                <>
+                  <FormHint>
+                    <strong>
+                      Estás registrando este DSE a nombre de otra persona.
+                    </strong>{" "}
+                    Tú figurarás como quien registra; el empleado seleccionado
+                    queda como solicitado por.
+                  </FormHint>
+                  <FormGrid>
+                    <Field label="Empresa del empleado beneficiario" required>
+                      <LovPicker
+                        value={compBenef}
+                        onChange={handleCompBenefChange}
+                        items={COMPANIAS_HMV}
+                        placeholder="Seleccionar empresa"
+                        searchPlaceholder="Buscar empresa o país..."
+                      />
+                    </Field>
+                    {compBenef ? (
+                      <Field label="Empleado beneficiario" required>
+                        <LovPicker
+                          value={empOtro}
+                          onChange={setEmpOtro}
+                          items={empleadosOtroLov}
+                          placeholder="Seleccionar empleado"
+                          searchPlaceholder="Buscar por cédula o nombre…"
+                          valueLabel={(it) => it.nombre}
+                        />
+                      </Field>
+                    ) : null}
+                  </FormGrid>
+                </>
+              ) : null}
+            </FormStack>
           </FormSection>
         </SolicitudFormCard>
 

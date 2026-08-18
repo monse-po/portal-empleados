@@ -224,6 +224,7 @@ export function createEmptyRule(column: AnticipoFilterColumn): AnticipoFilterRul
 export function getAnticiposRegistrosTab(
   anticipos: Record<string, Anticipo>,
   tab: AnticipoTab,
+  sessionIds?: string | string[],
 ): Anticipo[] {
-  return filterAnticiposByTab(anticipos, tab);
+  return filterAnticiposByTab(anticipos, tab, sessionIds);
 }

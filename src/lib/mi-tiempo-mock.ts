@@ -16,7 +16,10 @@ export type RegistroMock = {
   id: string;
   codigo?: string;
   proy: string;
+  /** Nombre IFS (ProjectName / GetValidEmpPrjAct.Name). */
+  proyNombre?: string;
   subproy?: string;
+  subproyId?: string;
   act: string;
   tipo: string;
   horas: number;
@@ -956,9 +959,10 @@ export function buildCalendarioGrid(
     const resumen = getResumenDia(registros, fechaStr);
 
     let bg = "white";
-    if (esHoy) bg = "#eef3fb";
-    else if (esFestivo) bg = "#fff7ed";
+    // Identidad del día primero (festivo/fin); "hoy" no pisa el color base.
+    if (esFestivo) bg = "#fff7ed";
     else if (esFinSemana) bg = "#f8fafc";
+    else if (esHoy) bg = "#eef3fb";
 
     celdas.push({
       tipo: "dia",
@@ -968,7 +972,8 @@ export function buildCalendarioGrid(
       esHoy,
       esFestivo,
       esFinSemana,
-      bloqueado: esFestivo,
+      // Clickeable: en festivo/fin el modal limita a horas extras.
+      bloqueado: false,
       resumen,
     });
   }

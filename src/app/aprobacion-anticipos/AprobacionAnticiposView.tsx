@@ -113,24 +113,38 @@ export function AprobacionAnticiposView() {
     setAprobarTargets(nos);
   };
 
-  const confirmarAprobacion = () => {
-    aprobar(aprobarTargets, comentarioAprobar);
-    toast(toastAprobados(aprobarTargets), "green");
+  const confirmarAprobacion = async () => {
+    const nos = [...aprobarTargets];
+    const result = await aprobar(nos, comentarioAprobar);
+    if (!result.ok) {
+      toast(result.error || "No se pudo aprobar en IFS", "danger");
+      return;
+    }
+    toast(toastAprobados(nos), "green");
     setAprobarTargets([]);
     setComentarioAprobar("");
     if (enDetalle) volverLista();
   };
 
-  const confirmarRechazoLote = (motivo: string) => {
-    rechazar(rechazarTargets, motivo);
-    toast(toastRechazados(rechazarTargets), "danger");
+  const confirmarRechazoLote = async (motivo: string) => {
+    const nos = [...rechazarTargets];
+    const result = await rechazar(nos, motivo);
+    if (!result.ok) {
+      toast(result.error || "No se pudo rechazar en IFS", "danger");
+      return;
+    }
+    toast(toastRechazados(nos), "danger");
     setRechazarTargets([]);
     if (enDetalle) volverLista();
   };
 
-  const confirmarRechazoDetalle = () => {
+  const confirmarRechazoDetalle = async () => {
     if (!solicitud) return;
-    rechazar([solicitud.no], comentarioRechazarDetalle);
+    const result = await rechazar([solicitud.no], comentarioRechazarDetalle);
+    if (!result.ok) {
+      toast(result.error || "No se pudo rechazar en IFS", "danger");
+      return;
+    }
     toast(toastRechazados([solicitud.no]), "danger");
     volverLista();
   };

@@ -6,9 +6,7 @@ import { Dropdown } from "@/src/components/ui/Dropdown";
 import { FilterChainRow } from "@/src/components/ui/FilterChainRow";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 import {
-  buildFilterMultiOptions,
   FilterBarMultiDropdown,
-  FilterBarTextInput,
   FilterBarTrigger,
   TableFilterSection,
   type FilterDropdownOption,
@@ -31,13 +29,6 @@ import {
 } from "@/src/lib/historico-tiempo-filtros";
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 
-/** Siempre visible en la barra de Histórico; no se puede quitar. */
-const PINNED_FILTER_COLUMN = "proyecto" as const;
-
-const OPTIONAL_FILTER_COLUMNS = HISTORICO_FILTER_COLUMNS.filter(
-  (c) => c.id !== PINNED_FILTER_COLUMN,
-);
-
 type HistoricoTiempoFilterBarProps = {
   registros: RegistroMock[];
   filters: HistoricoFilterRule[];
@@ -47,37 +38,21 @@ type HistoricoTiempoFilterBarProps = {
 };
 
 function filterOperatorLabel(column: HistoricoFilterColumn): string {
-  switch (column) {
-    case "actividad":
-    case "comentario":
-      return "contiene";
-    case "fecha":
-      return "entre";
-    default:
-      return "es";
-  }
+  if (column === "fecha") return "entre";
+  return "es";
 }
 
 function multiOptions(
-  column: "proyecto" | "tipo" | "subproyecto",
+  column: "proyecto" | "subproyecto",
   registros: RegistroMock[],
 ): FilterDropdownOption[] {
   if (column === "proyecto") {
     return getDistinctValues(registros, "proyecto").map((proyId) => ({
       value: proyId,
-      label: proyectoFilterLabel(proyId),
-      title: proyectoFilterTitle(proyId),
+      label: proyectoFilterTitle(proyId),
+      title: `${proyectoFilterLabel(proyId)} · ${proyectoFilterTitle(proyId)}`,
       icon: "folderOpen" as IconName,
     }));
-  }
-
-  if (column === "tipo") {
-    return buildFilterMultiOptions(
-      "tiempo",
-      "tipo",
-      getDistinctValues(registros, "tipo"),
-      (val) => ({ label: val, icon: "clock" }),
-    );
   }
 
   return getDistinctValues(registros, column).map((val) => ({
@@ -92,7 +67,7 @@ function useColumnFilterActions(
   onChange: Dispatch<SetStateAction<HistoricoFilterRule[]>>,
 ) {
   const toggleMulti = (val: string) => {
-    const col = column as "proyecto" | "tipo" | "subproyecto";
+    const col = column as "proyecto" | "subproyecto";
     onChange((prev) => {
       const rule = getFilterForColumn(prev, column);
       const current = rule?.column === col ? rule.values : [];
@@ -129,26 +104,7 @@ function useColumnFilterActions(
     });
   };
 
-  const setText = (text: string) => {
-    const col = column as "actividad" | "comentario";
-    if (!text.trim()) {
-      onChange((prev) => removeFilterByColumn(prev, column));
-      return;
-    }
-    onChange((prev) => {
-      const rule = getFilterForColumn(prev, column);
-      const base: Extract<HistoricoFilterRule, { column: typeof col }> =
-        rule?.column === col
-          ? rule
-          : (createEmptyRule(col) as Extract<
-              HistoricoFilterRule,
-              { column: typeof col }
-            >);
-      return upsertFilterRule(prev, { ...base, text });
-    });
-  };
-
-  return { toggleMulti, setFecha, setText };
+  return { toggleMulti, setFecha };
 }
 
 function ColumnBarControl({
@@ -166,17 +122,12 @@ function ColumnBarControl({
 }) {
   const [open, setOpen] = useState(autoOpen);
   const existing = getFilterForColumn(filters, column);
-  const { toggleMulti, setFecha, setText } = useColumnFilterActions(
-    column,
-    onChange,
-  );
+  const { toggleMulti, setFecha } = useColumnFilterActions(column, onChange);
 
-  if (column === "proyecto" || column === "tipo" || column === "subproyecto") {
+  if (column === "proyecto" || column === "subproyecto") {
     const values =
       existing &&
-      (existing.column === "proyecto" ||
-        existing.column === "tipo" ||
-        existing.column === "subproyecto")
+      (existing.column === "proyecto" || existing.column === "subproyecto")
         ? existing.values
         : [];
     return (
@@ -193,58 +144,43 @@ function ColumnBarControl({
     );
   }
 
-  if (column === "fecha") {
-    const f = existing?.column === "fecha" ? existing : undefined;
-    const from = f?.from ? isoToDmy(f.from) : "";
-    const to = f?.to ? isoToDmy(f.to) : "";
-    const display =
-      from && to
-        ? `${from} – ${to}`
-        : from
-          ? `desde ${from}`
-          : to
-            ? `hasta ${to}`
-            : undefined;
-    return (
-      <Dropdown
-        open={open}
-        onOpenChange={setOpen}
-        portal
-        fitContent
-        menuClassName="w-[252px] overflow-hidden border-border p-0 shadow-[0_4px_16px_rgba(0,0,0,0.10)]"
-        trigger={
-          <FilterBarTrigger
-            active={!!display}
-            isOpen={open}
-            displayValue={display}
-            placeholder="elegir…"
-            embedded
-            onClick={() => setOpen((o) => !o)}
-          />
-        }
-      >
-        <DateRangePicker
-          from={f?.from}
-          to={f?.to}
-          onChange={setFecha}
-          onRangeComplete={() => setOpen(false)}
-          compact
-        />
-      </Dropdown>
-    );
-  }
-
-  const text =
-    existing?.column === "actividad" || existing?.column === "comentario"
-      ? existing.text
-      : "";
+  const f = existing?.column === "fecha" ? existing : undefined;
+  const from = f?.from ? isoToDmy(f.from) : "";
+  const to = f?.to ? isoToDmy(f.to) : "";
+  const display =
+    from && to
+      ? `${from} – ${to}`
+      : from
+        ? `desde ${from}`
+        : to
+          ? `hasta ${to}`
+          : undefined;
   return (
-    <FilterBarTextInput
-      value={text}
-      placeholder="texto…"
-      onChange={setText}
-      embedded
-    />
+    <Dropdown
+      open={open}
+      onOpenChange={setOpen}
+      portal
+      fitContent
+      menuClassName="w-[252px] overflow-hidden border-border p-0 shadow-[0_4px_16px_rgba(0,0,0,0.10)]"
+      trigger={
+        <FilterBarTrigger
+          active={!!display}
+          isOpen={open}
+          displayValue={display}
+          placeholder="elegir…"
+          embedded
+          onClick={() => setOpen((o) => !o)}
+        />
+      }
+    >
+      <DateRangePicker
+        from={f?.from}
+        to={f?.to}
+        onChange={setFecha}
+        onRangeComplete={() => setOpen(false)}
+        compact
+      />
+    </Dropdown>
   );
 }
 
@@ -256,16 +192,9 @@ export function HistoricoTiempoFilterBar({
   total,
 }: HistoricoTiempoFilterBarProps) {
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
-  const [extraBarColumns, setExtraBarColumns] = useState<HistoricoFilterColumn[]>(
-    [],
-  );
+  const [barColumns, setBarColumns] = useState<HistoricoFilterColumn[]>([]);
   const [autoOpenColumn, setAutoOpenColumn] =
     useState<HistoricoFilterColumn | null>(null);
-
-  const barColumns: HistoricoFilterColumn[] = [
-    PINNED_FILTER_COLUMN,
-    ...extraBarColumns,
-  ];
 
   const usedColumns = new Set(
     filters.filter(isRuleComplete).map((f) => f.column),
@@ -273,21 +202,19 @@ export function HistoricoTiempoFilterBar({
   const hasFilters = hayFiltrosActivos(filters);
 
   const pickColumn = (col: HistoricoFilterColumn) => {
-    if (col === PINNED_FILTER_COLUMN) return;
     setColumnMenuOpen(false);
-    setExtraBarColumns((prev) => (prev.includes(col) ? prev : [...prev, col]));
+    setBarColumns((prev) => (prev.includes(col) ? prev : [...prev, col]));
     setAutoOpenColumn(col);
   };
 
   const removeBarColumn = (col: HistoricoFilterColumn) => {
-    if (col === PINNED_FILTER_COLUMN) return;
-    setExtraBarColumns((prev) => prev.filter((c) => c !== col));
+    setBarColumns((prev) => prev.filter((c) => c !== col));
     onChange((prev) => removeFilterByColumn(prev, col));
     if (autoOpenColumn === col) setAutoOpenColumn(null);
   };
 
   const clearAll = () => {
-    setExtraBarColumns([]);
+    setBarColumns([]);
     onChange([]);
     setAutoOpenColumn(null);
   };
@@ -303,7 +230,6 @@ export function HistoricoTiempoFilterBar({
           const def = getFilterColumnDef(col);
           const active =
             !!getFilterForColumn(filters, col) && usedColumns.has(col);
-          const pinned = col === PINNED_FILTER_COLUMN;
           return (
             <FilterChainRow
               key={col}
@@ -311,8 +237,7 @@ export function HistoricoTiempoFilterBar({
               icon={def.icon}
               operator={filterOperatorLabel(col)}
               active={active || !!getFilterForColumn(filters, col)}
-              removable={!pinned}
-              onRemove={pinned ? undefined : () => removeBarColumn(col)}
+              onRemove={() => removeBarColumn(col)}
             >
               <ColumnBarControl
                 column={col}
@@ -342,7 +267,7 @@ export function HistoricoTiempoFilterBar({
           }
         >
           <div className="py-0">
-            {OPTIONAL_FILTER_COLUMNS.map((col) => (
+            {HISTORICO_FILTER_COLUMNS.map((col) => (
               <button
                 key={col.id}
                 type="button"

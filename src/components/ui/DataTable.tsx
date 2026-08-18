@@ -114,15 +114,16 @@ export const MI_TIEMPO_COLS = [
   "10%",
 ] as const;
 
-/** Mi Tiempo — tab Lista (proyecto apilado + comentarios con más aire) */
+/** Mi Tiempo — tab Lista (proyecto apilado + comentarios + acciones) */
 export const MI_TIEMPO_LISTA_COLS = [
-  "17%",
-  "14%",
-  "10%",
+  "16%",
+  "13%",
+  "9%",
   "5%",
-  "21%",
-  "19%",
+  "20%",
+  "18%",
   "8%",
+  "5%",
 ] as const;
 
 /** Mi Tiempo — vista día con columna de acciones */

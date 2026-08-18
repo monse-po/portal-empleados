@@ -5,6 +5,8 @@ export type IfsRequestInit = Omit<RequestInit, "headers"> & {
   headers?: Record<string, string>;
   accessToken: string;
   ifMatch?: string;
+  /** Si se omite, usa CEmpPortalServices (`int`). */
+  baseUrl?: string;
 };
 
 export async function ifsFetch<T>(
@@ -12,9 +14,10 @@ export async function ifsFetch<T>(
   init: IfsRequestInit,
 ): Promise<T> {
   const { cempPortalBaseUrl } = getIfsConfig();
+  const root = (init.baseUrl || cempPortalBaseUrl).replace(/\/$/, "");
   const url = path.startsWith("http")
     ? path
-    : `${cempPortalBaseUrl.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+    : `${root}${path.startsWith("/") ? path : `/${path}`}`;
 
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -26,7 +29,8 @@ export async function ifsFetch<T>(
     headers["If-Match"] = init.ifMatch;
   }
 
-  const { accessToken: _token, ifMatch: _etag, ...rest } = init;
+  const { accessToken: _token, ifMatch: _etag, baseUrl: _base, ...rest } =
+    init;
 
   const res = await fetch(url, { ...rest, headers });
   const text = await res.text();

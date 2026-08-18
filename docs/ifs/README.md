@@ -97,6 +97,14 @@ Variables en `.env.local` (ver `.env.example`).
 | `TimeClockService` | Reloj checador |
 | `EmployeeAbsenceDataService` | Ausencias (fase posterior) |
 
+## Anticipos
+
+El CRUD de solicitudes **no** está en `CEmpPortalServices`. Módulo IFS: **Employee Advances**, proyección **`CEmpAdvanceHandling`**:
+
+`https://hmvdev.ifs360.cloud/main/ifsapplications/projection/v1/CEmpAdvanceHandling.svc`
+
+OpenAPI local: [`CEmpAdvanceHandling.openapi.json`](./CEmpAdvanceHandling.openapi.json). Spec de negocio: [`docs/anticipos/`](../anticipos/README.md).
+
 ---
 
 ## Autenticación — lo que probamos en DEV

@@ -23,7 +23,9 @@ import {
 import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
 import { useToast } from "@/src/components/ui/Toast";
 import { EnviarAnticipoModal } from "@/src/app/mis-anticipos/AnticiposModals";
+import { useAnticiposIfsCatalog } from "@/src/app/mis-anticipos/useAnticiposIfsCatalog";
 import type { LanzarAnticipoInput } from "@/src/app/mis-anticipos/AnticiposContext";
+import type { AnticiposDivisaOption } from "@/src/lib/ifs/anticipos-catalog";
 import {
   COMPANIAS,
   COMPANIAS_HMV,
@@ -32,6 +34,7 @@ import {
   EMPLEADOS_ANT,
   fmtMontoInput,
   getDirectorProyecto,
+  getEmpleadosOtroPorEmpresa,
   hoyDMY,
   hoyIso,
   isoToDmy,
@@ -48,7 +51,9 @@ import {
 
 type AnticiposFormularioProps = {
   onVolver: () => void;
-  onLanzar: (input: LanzarAnticipoInput) => string | null;
+  onLanzar: (
+    input: LanzarAnticipoInput,
+  ) => Promise<{ no: string | null; error?: string }>;
   onLanzarOtro: (beneficiario: string) => void;
 };
 
@@ -59,14 +64,6 @@ const PROYECTOS_LOV: LovItem[] = PROYECTOS_ANT.map((p) => ({
 }));
 
 const SESSION_EMP_ID = SESSION_EMPLEADO.cedula.replace(/\./g, "");
-
-const EMPLEADOS_OTRO_LOV: LovItem[] = EMPLEADOS_ANT.filter(
-  (e) => e.id.replace(/\./g, "") !== SESSION_EMP_ID,
-).map((e) => ({
-  id: e.id,
-  nombre: e.nombre,
-  sub: e.id,
-}));
 
 function RoInput({ value }: { value: string }) {
   return (
@@ -211,6 +208,7 @@ export function AnticiposFormulario({
   onLanzarOtro,
 }: AnticiposFormularioProps) {
   const { toast } = useToast();
+  const ifsCat = useAnticiposIfsCatalog();
   const [paraOtro, setParaOtro] = useState(false);
   const [tipo, setTipo] = useState<AnticipoTipo | "">("");
   const [companiaId, setCompaniaId] = useState(SESSION_EMPLEADO.companiaDefault);
@@ -229,18 +227,40 @@ export function AnticiposFormulario({
   );
   const [envioOpen, setEnvioOpen] = useState(false);
   const [resumenHtml, setResumenHtml] = useState("");
+  const [ifsEmployees, setIfsEmployees] = useState<EmpleadoAnticipo[]>([]);
+  const [ifsProjects, setIfsProjects] = useState<LovItem[]>([]);
+  const [ifsDivisas, setIfsDivisas] = useState<AnticiposDivisaOption[]>([]);
+  const [ifsDirector, setIfsDirector] = useState<{
+    codigo: string;
+    nombre: string;
+  } | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  const empresasLov =
+    ifsCat.connected && ifsCat.companies.length > 0
+      ? ifsCat.companies
+      : COMPANIAS_HMV;
+
+  const sessionEmpId = fmtCedulaSinPuntos(
+    ifsCat.profile?.personId || SESSION_EMPLEADO.cedula,
+  );
+  const sessionEmpNo = ifsCat.profile?.empNo || "";
 
   const companiaDivisa = paraOtro ? companiaGastoOtro || companiaId : companiaId;
-  const divisas =
+  const divisasMock =
     DIVISAS_POR_COMPANIA[companiaDivisa] || DIVISAS_POR_COMPANIA.HMVINGCO;
+  const divisas = ifsDivisas.length > 0 ? ifsDivisas : divisasMock;
   const hoy = hoyIso();
   const empLogueado = useMemo(
     () =>
       EMPLEADOS_ANT.find((e) => e.id === fmtCedulaSinPuntos(EMP_DET.cedula)),
     [],
   );
-  const companiasPropias = useMemo(
-    () =>
+  const companiasPropias = useMemo(() => {
+    if (ifsCat.profile?.companiasGasto.length) {
+      return ifsCat.profile.companiasGasto;
+    }
+    return (
       empLogueado?.companias ?? [
         {
           id: SESSION_EMPLEADO.companiaDefault,
@@ -248,15 +268,40 @@ export function AnticiposFormulario({
             COMPANIAS.find((c) => c.id === SESSION_EMPLEADO.companiaDefault)
               ?.label ?? SESSION_EMPLEADO.companiaDefault,
         },
-      ],
-    [empLogueado],
-  );
+      ]
+    );
+  }, [empLogueado, ifsCat.profile]);
   const montoNum = useMemo(() => parseMontoInput(monto), [monto]);
-  const directorProyecto = useMemo(
+  const directorMock = useMemo(
     () => getDirectorProyecto(proySel?.id),
     [proySel],
   );
+  const directorProyecto = ifsDirector ?? directorMock;
   const showEmpOtroBenefRows = paraOtro && !!compBenef;
+  const empleadosOtroLov = useMemo(() => {
+    if (ifsCat.connected) {
+      return ifsEmployees
+        .filter((e) => {
+          const id = fmtCedulaSinPuntos(e.id);
+          const empNo = (e.empNo || "").replace(/\D/g, "");
+          if (sessionEmpId && id === sessionEmpId) return false;
+          if (sessionEmpNo && (empNo === sessionEmpNo.replace(/\D/g, "") || e.empNo === sessionEmpNo)) {
+            return false;
+          }
+          return true;
+        })
+        .map((e) => ({ id: e.id, nombre: e.nombre, sub: e.sub }));
+    }
+    return compBenef
+      ? getEmpleadosOtroPorEmpresa(compBenef.id, SESSION_EMP_ID)
+      : [];
+  }, [compBenef, ifsCat.connected, ifsEmployees, sessionEmpId, sessionEmpNo]);
+  const proyectosLov = ifsCat.connected ? ifsProjects : PROYECTOS_LOV;
+  const sessionCedula = ifsCat.profile?.personId
+    ? fmtCedulaSinPuntos(ifsCat.profile.personId)
+    : fmtCedulaSinPuntos(EMP_DET.cedula);
+  const sessionNombre = ifsCat.profile?.empName || EMP_DET.nombre;
+  const sessionCuenta = ifsCat.profile?.cuenta || EMP_DET.cuenta;
   const companiaGastoOtroOpciones = useMemo(() => {
     if (empOtro) return empOtro.companias;
     if (compBenef) {
@@ -269,6 +314,80 @@ export function AnticiposFormulario({
     }
     return [];
   }, [empOtro, compBenef]);
+
+  useEffect(() => {
+    if (!ifsCat.profile?.companyId) return;
+    setCompaniaId((prev) => prev || ifsCat.profile!.companyId);
+  }, [ifsCat.profile]);
+
+  useEffect(() => {
+    if (!ifsCat.connected) {
+      setIfsProjects([]);
+      setIfsDivisas([]);
+      return;
+    }
+    const company = paraOtro
+      ? compBenef?.id || companiaGastoOtro
+      : companiaId;
+    if (!company) {
+      setIfsProjects([]);
+      setIfsDivisas([]);
+      return;
+    }
+    let cancelled = false;
+    void Promise.all([
+      ifsCat.loadProjects(company),
+      ifsCat.loadCurrencies(company),
+    ]).then(([projects, currencies]) => {
+      if (cancelled) return;
+      setIfsProjects(projects);
+      setIfsDivisas(currencies);
+      if (currencies.length) {
+        setDivisa((prev) =>
+          currencies.some((c) => c.code === prev) ? prev : currencies[0].code,
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    ifsCat.connected,
+    ifsCat.loadProjects,
+    ifsCat.loadCurrencies,
+    paraOtro,
+    compBenef?.id,
+    companiaGastoOtro,
+    companiaId,
+  ]);
+
+  useEffect(() => {
+    if (!ifsCat.connected || !compBenef?.id) {
+      setIfsEmployees([]);
+      return;
+    }
+    let cancelled = false;
+    void ifsCat.loadEmployees(compBenef.id).then((employees) => {
+      if (!cancelled) setIfsEmployees(employees);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ifsCat.connected, ifsCat.loadEmployees, compBenef?.id]);
+
+  useEffect(() => {
+    if (!proySel?.id || !ifsCat.connected) {
+      setIfsDirector(null);
+      return;
+    }
+    let cancelled = false;
+    void ifsCat.loadAprobador(proySel.id).then((dir) => {
+      if (!cancelled) setIfsDirector(dir);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ifsCat.connected, ifsCat.loadAprobador, proySel?.id]);
 
   const setTipoSol = (val: AnticipoTipo) => {
     setTipo(val);
@@ -316,24 +435,33 @@ export function AnticiposFormulario({
   };
 
   const handleEmpOtroChange = (item: LovItem | null) => {
-    const emp = EMPLEADOS_ANT.find((e) => e.id === item?.id) || null;
+    const emp =
+      ifsEmployees.find((e) => e.id === item?.id) ||
+      EMPLEADOS_ANT.find((e) => e.id === item?.id) ||
+      null;
     setEmpOtro(emp);
     if (!emp) {
       setCompaniaGastoOtro(compBenef?.id ?? "");
       return;
     }
-    const empresaItem =
-      COMPANIAS_HMV.find((c) => c.id === emp.empresa) ??
-      ({
-        id: emp.empresa,
-        nombre: getCompaniaGastoLabel(emp.empresa, emp),
-        sub: emp.empresa,
-      } satisfies LovItem);
-    setCompBenef(empresaItem);
-    setCompaniaGastoOtro(emp.empresa);
-    setDivisa(DIVISAS_POR_COMPANIA[emp.empresa]?.[0]?.code || "COP");
-    // Solo resetear proyecto si cambia el beneficiario (no al re-seleccionar el mismo).
+    const gastoId = emp.companias.some((c) => c.id === compBenef?.id)
+      ? (compBenef?.id ?? emp.empresa)
+      : emp.empresa;
+    setCompaniaGastoOtro(gastoId);
+    setDivisa(DIVISAS_POR_COMPANIA[gastoId]?.[0]?.code || "COP");
     setProySel((prev) => (prev && empOtro?.id === emp.id ? prev : null));
+
+    const empNo = emp.empNo || emp.sub;
+    const company = emp.empresa || compBenef?.id || "";
+    if (ifsCat.connected && empNo && company) {
+      void ifsCat.loadBank(company, empNo).then((bank) => {
+        setEmpOtro((prev) =>
+          prev && prev.id === emp.id
+            ? { ...prev, banco: bank.banco, tipo: bank.tipo, cuenta: bank.cuenta }
+            : prev,
+        );
+      });
+    }
   };
 
   const handleCompaniaPropiaChange = (id: string) => {
@@ -429,7 +557,8 @@ export function AnticiposFormulario({
       : "mí";
     const empCoLabel = paraOtro
       ? `${compBenef!.id} – ${compBenef!.nombre}`
-      : EMP_DET.empresa.split("–")[0].trim();
+      : ifsCat.profile?.companyName ||
+        EMP_DET.empresa.split("–")[0].trim();
 
     setResumenHtml(`
       <div class="mb-4 rounded-lg border border-border bg-[#f8fafc] p-4">
@@ -455,50 +584,86 @@ export function AnticiposFormulario({
     setEnvioOpen(true);
   };
 
-  const ejecutarEnvio = () => {
+  const ejecutarEnvio = async () => {
+    if (enviando) return;
+    setEnviando(true);
     setEnvioOpen(false);
     const compLabel = paraOtro
       ? empOtro!.companias.find((c) => c.id === companiaGastoOtro)?.label ||
         companiaGastoOtro
       : companiasPropias.find((c) => c.id === companiaId)?.label || companiaId;
-    const proy = PROYECTOS_ANT.find((p) => p.id === proySel!.id)!;
+    const proyNombre =
+      proySel!.nombre ||
+      PROYECTOS_ANT.find((p) => p.id === proySel!.id)?.nombre ||
+      proySel!.id;
 
+    const companyId = paraOtro ? companiaGastoOtro : companiaId;
+    const invCompanyId = paraOtro
+      ? compBenef?.id
+      : ifsCat.profile?.companyId || companyId;
     const input: LanzarAnticipoInput = {
       tipo: tipo as AnticipoTipo,
-      proyId: proy.id,
-      proyN: proy.nombre,
+      proyId: proySel!.id,
+      proyN: proyNombre,
       monto: montoNum,
       div: divisa,
       motivo: motivo.trim(),
       compania: compLabel,
       empCompania: paraOtro
         ? `${compBenef!.id} – ${compBenef!.nombre}`
-        : EMP_DET.empresa,
+        : ifsCat.profile
+          ? `${ifsCat.profile.companyId} – ${ifsCat.profile.companyName}`
+          : EMP_DET.empresa,
+      companyId,
+      invCompanyId,
+      createdBy: ifsCat.profile?.personId,
+      beneficiarioEmpNo: paraOtro
+        ? empOtro?.empNo
+        : ifsCat.profile?.empNo,
+      beneficiarioSupplierId: paraOtro
+        ? empOtro?.supplierId
+        : ifsCat.profile?.supplierId,
       paraOtro,
       beneficiarioId: paraOtro ? empOtro!.id : undefined,
       beneficiarioNombre: paraOtro ? empOtro!.nombre : undefined,
       beneficiarioCedula: paraOtro ? empOtro!.id : undefined,
-      fechaIda: tipo === "Viaje" ? isoToDmy(fechaIda) : undefined,
-      fechaRegreso: tipo === "Viaje" ? isoToDmy(fechaRegreso) : undefined,
+      beneficiarioCuenta: paraOtro ? empOtro?.cuenta : sessionCuenta,
+      beneficiarioBanco: paraOtro
+        ? empOtro?.banco
+        : ifsCat.profile?.banco || EMP_DET.banco,
+      beneficiarioTipoCuenta: paraOtro
+        ? empOtro?.tipo
+        : ifsCat.profile?.tipoCuenta || EMP_DET.tipoCuenta,
+      aprobador: directorProyecto?.codigo || directorProyecto?.nombre,
+      fechaIda: tipo === "Viaje" ? fechaIda : undefined,
+      fechaRegreso: tipo === "Viaje" ? fechaRegreso : undefined,
       destino: tipo === "Viaje" ? selDest?.label : undefined,
+      destinoCodigo:
+        tipo === "Viaje" && selDest && selDest.ciudad.length <= 20
+          ? selDest.ciudad
+          : undefined,
       tipoViaje,
     };
 
-    if (paraOtro) {
-      onLanzar(input);
-      onLanzarOtro(empOtro!.nombre);
+    try {
+      const result = await onLanzar(input);
+      if (!result.no) {
+        toast(result.error || "No se pudo registrar la solicitud en IFS", "danger");
+        return;
+      }
+      if (paraOtro) {
+        onLanzarOtro(empOtro!.nombre);
+        onVolver();
+        return;
+      }
+      toast(
+        `Solicitud ${result.no} enviada — notificamos al director de proyecto`,
+        "green",
+      );
       onVolver();
-      return;
+    } finally {
+      setEnviando(false);
     }
-
-    const no = onLanzar(input);
-    if (!no) return;
-
-    toast(
-      `Solicitud ${no} enviada — notificamos al director de proyecto`,
-      "green",
-    );
-    onVolver();
   };
 
   return (
@@ -509,6 +674,11 @@ export function AnticiposFormulario({
           onVolver={onVolver}
           title="Nueva solicitud"
         />
+        {ifsCat.connected ? (
+          <p className="mb-3 text-[11px] font-medium text-muted">
+            Catálogos IFS · {ifsCat.profile?.empName || ifsCat.profile?.companyId}
+          </p>
+        ) : null}
 
         <SolicitudFormCard>
           <FormSection icon="send" title="Solicitud para">
@@ -524,26 +694,6 @@ export function AnticiposFormulario({
                   ]}
                 />
               </div>
-              {paraOtro ? (
-                <div className="min-w-[200px] max-w-xs flex-1">
-                  <LovPicker
-                    value={
-                      empOtro
-                        ? {
-                            id: empOtro.id,
-                            nombre: empOtro.nombre,
-                            sub: empOtro.sub,
-                          }
-                        : null
-                    }
-                    onChange={handleEmpOtroChange}
-                    items={EMPLEADOS_OTRO_LOV}
-                    placeholder="Seleccionar empleado"
-                    searchPlaceholder="Buscar por cédula o nombre…"
-                    valueLabel={(it) => it.nombre}
-                  />
-                </div>
-              ) : null}
               <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
                 <span className="text-[12px] font-semibold text-[#374151]">
                   Fecha de solicitud
@@ -568,15 +718,35 @@ export function AnticiposFormulario({
                   cuenta del empleado destinatario.
                 </FormHint>
                 <FormGrid>
-                  <Field label="Empresa del empleado beneficiario">
+                  <Field label="Empresa del empleado beneficiario" required>
                     <LovPicker
                       value={compBenef}
                       onChange={handleCompBenefChange}
-                      items={COMPANIAS_HMV}
+                      items={empresasLov}
                       placeholder="Seleccionar empresa"
                       searchPlaceholder="Buscar empresa o país..."
                     />
                   </Field>
+                  {compBenef ? (
+                    <Field label="Empleado beneficiario" required>
+                      <LovPicker
+                        value={
+                          empOtro
+                            ? {
+                                id: empOtro.id,
+                                nombre: empOtro.nombre,
+                                sub: empOtro.sub,
+                              }
+                            : null
+                        }
+                        onChange={handleEmpOtroChange}
+                        items={empleadosOtroLov}
+                        placeholder="Seleccionar empleado"
+                        searchPlaceholder="Buscar por cédula o nombre…"
+                        valueLabel={(it) => it.nombre}
+                      />
+                    </Field>
+                  ) : null}
                 </FormGrid>
                 {empOtro ? (
                   <FormGrid>
@@ -597,7 +767,7 @@ export function AnticiposFormulario({
                       <LovPicker
                         value={proySel}
                         onChange={handleProyOtroChange}
-                        items={PROYECTOS_LOV}
+                        items={proyectosLov}
                         placeholder="Seleccionar proyecto"
                       />
                     </Field>
@@ -635,7 +805,7 @@ export function AnticiposFormulario({
                     <LovPicker
                       value={proySel}
                       onChange={setProySel}
-                      items={PROYECTOS_LOV}
+                      items={proyectosLov}
                       placeholder="Seleccionar proyecto"
                     />
                   </Field>
@@ -666,13 +836,13 @@ export function AnticiposFormulario({
                 </FormGrid>
                 <FormGrid>
                   <Field label="Cédula">
-                    <RoInput value={fmtCedulaSinPuntos(EMP_DET.cedula)} />
+                    <RoInput value={sessionCedula} />
                   </Field>
                   <Field label="Nombre">
-                    <RoInput value={EMP_DET.nombre} />
+                    <RoInput value={sessionNombre} />
                   </Field>
                   <Field label="Cuenta">
-                    <RoInput value={maskCuenta(EMP_DET.cuenta)} />
+                    <RoInput value={maskCuenta(sessionCuenta)} />
                   </Field>
                 </FormGrid>
               </FormStack>

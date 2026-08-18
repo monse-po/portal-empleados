@@ -1,6 +1,143 @@
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { TiempoCatalog } from "@/src/lib/ifs/tiempo-catalog";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
 import { normalizeRegistroEstado } from "@/src/lib/tiempo-registro-rules";
+
+/** Demo para ver la interfaz cuando aún no hay horas reales. */
+export const HISTORICO_DUMMY_REGISTROS: RegistroMock[] = [
+  {
+    id: "hist-demo-1",
+    proy: "PRY-2024-001",
+    subproy: "SUB-101 · Obra civil y estructuras",
+    act: "Supervisión en campo",
+    tipo: "DN",
+    horas: 248,
+    fecha: "2025-03-12",
+    comentario: "",
+    estado: "Aprobado",
+  },
+  {
+    id: "hist-demo-2",
+    proy: "PRY-2024-001",
+    subproy: "SUB-101 · Obra civil y estructuras",
+    act: "Diseño estructural",
+    tipo: "DN",
+    horas: 96,
+    fecha: "2026-01-20",
+    comentario: "",
+    estado: "Aprobado",
+  },
+  {
+    id: "hist-demo-3",
+    proy: "PRY-2024-001",
+    subproy: "SUB-102 · Ingeniería y documentación",
+    act: "Informes técnicos",
+    tipo: "DN",
+    horas: 96,
+    fecha: "2025-08-11",
+    comentario: "",
+    estado: "Aprobado",
+  },
+  {
+    id: "hist-demo-3b",
+    proy: "PRY-2024-001",
+    subproy: "SUB-102 · Ingeniería y documentación",
+    act: "Reuniones cliente",
+    tipo: "DN",
+    horas: 68,
+    fecha: "2026-03-06",
+    comentario: "",
+    estado: "Aprobado",
+  },
+  {
+    id: "hist-demo-4",
+    proy: "PRY-2024-003",
+    subproy: "SUB-201 · Equipos de potencia",
+    act: "Inspección eléctrica",
+    tipo: "DN",
+    horas: 180,
+    fecha: "2025-02-10",
+    comentario: "",
+    estado: "Aprobado",
+  },
+  {
+    id: "hist-demo-4b",
+    proy: "PRY-2024-003",
+    subproy: "SUB-201 · Equipos de potencia",
+    act: "Pruebas de equipos",
+    tipo: "DN",
+    horas: 132,
+    fecha: "2025-12-16",
+    comentario: "",
+    estado: "Aprobado",
+  },
+  {
+    id: "hist-demo-5",
+    proy: "PRY-2024-003",
+    subproy: "SUB-202 · Protecciones y control",
+    act: "Documentación",
+    tipo: "DN",
+    horas: 40,
+    fecha: "2025-09-01",
+    comentario: "",
+    estado: "Aprobado",
+  },
+  {
+    id: "hist-demo-5b",
+    proy: "PRY-2024-003",
+    subproy: "SUB-202 · Protecciones y control",
+    act: "Coordinación",
+    tipo: "DN",
+    horas: 48,
+    fecha: "2026-04-09",
+    comentario: "",
+    estado: "Lanzado",
+  },
+  {
+    id: "hist-demo-6",
+    proy: "PRY-2025-002",
+    subproy: "SUB-301 · Movimiento de tierras",
+    act: "Ingeniería de proceso",
+    tipo: "DN",
+    horas: 88,
+    fecha: "2025-11-17",
+    comentario: "",
+    estado: "Aprobado",
+  },
+  {
+    id: "hist-demo-6b",
+    proy: "PRY-2025-002",
+    subproy: "SUB-301 · Movimiento de tierras",
+    act: "Modelado 3D",
+    tipo: "DN",
+    horas: 88,
+    fecha: "2026-06-02",
+    comentario: "",
+    estado: "Aprobado",
+  },
+  {
+    id: "hist-demo-7",
+    proy: "PRY-2025-002",
+    subproy: "SUB-302 · Infraestructura vial mina",
+    act: "Revisión planos",
+    tipo: "DN",
+    horas: 120,
+    fecha: "2025-09-22",
+    comentario: "",
+    estado: "Aprobado",
+  },
+  {
+    id: "hist-demo-8",
+    proy: "PRY-2025-002",
+    subproy: "SUB-302 · Infraestructura vial mina",
+    act: "Gestión cambios",
+    tipo: "DN",
+    horas: 64,
+    fecha: "2026-08-10",
+    comentario: "",
+    estado: "Lanzado",
+  },
+];
 
 export type HistoricoProyectoResumen = {
   proyId: string;
@@ -12,13 +149,33 @@ export type HistoricoProyectoResumen = {
   hasta: string;
 };
 
-/** Solo registros aprobados, más recientes primero. */
+export type HistoricoProyectoSubResumen = {
+  proyId: string;
+  codigo: string;
+  nombre: string;
+  subproy: string;
+  subproyId?: string;
+  totalHoras: number;
+  registros: number;
+  desde: string;
+  hasta: string;
+  /** Sigue asignado hoy (GetValidEmpPrjAct) o última hora del mes actual. */
+  abierto: boolean;
+};
+
+/** Horas que cuentan para hoja de vida: enviadas o ya aprobadas (no borrador ni rechazo). */
+export function isRegistroHistorico(estado: RegistroMock["estado"]): boolean {
+  const normalized = normalizeRegistroEstado(estado);
+  return normalized === "Aprobado" || normalized === "Lanzado";
+}
+
+/** Registros de histórico, más recientes primero. */
 export function getRegistrosHistoricoAprobados(
   registros: Record<string, RegistroMock[]>,
 ): RegistroMock[] {
   return Object.values(registros)
     .flat()
-    .filter((r) => normalizeRegistroEstado(r.estado) === "Aprobado")
+    .filter((r) => isRegistroHistorico(r.estado))
     .sort((a, b) => {
       const byFecha = b.fecha.localeCompare(a.fecha);
       if (byFecha !== 0) return byFecha;
@@ -52,17 +209,119 @@ export function getHistoricoResumenPorProyecto(
   return [...map.values()].sort((a, b) => b.totalHoras - a.totalHoras);
 }
 
-export function getHistoricoMesKey(fecha: string): string {
-  return fecha.slice(0, 7);
+/** Claves `shortName` y `shortName::sub` vigentes hoy (GetValidEmpPrjAct). */
+export function openKeysFromCatalog(catalog: TiempoCatalog | null): Set<string> {
+  const keys = new Set<string>();
+  if (!catalog) return keys;
+  for (const p of catalog.proyectos) {
+    keys.add(p.id);
+    const entry = catalog.porProyecto[p.id];
+    for (const sub of entry?.subs ?? []) {
+      keys.add(`${p.id}::${sub.id}`);
+      if (sub.label) keys.add(`${p.id}::${sub.label}`);
+    }
+  }
+  return keys;
 }
 
-export function formatHistoricoMesLabel(mesKey: string): string {
-  const [y, m] = mesKey.split("-").map(Number);
-  const label = new Date(y, m - 1, 1).toLocaleDateString("es-ES", {
-    month: "long",
-    year: "numeric",
+export function nombresProyectoFromCatalog(
+  catalog: TiempoCatalog | null,
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  if (!catalog) return map;
+  for (const p of catalog.proyectos) {
+    if (p.nombre) map[p.id] = p.nombre;
+  }
+  return map;
+}
+
+type HistoricoResumenOptions = {
+  openKeys?: Set<string>;
+  nombresPorProy?: Record<string, string>;
+};
+
+function resolveAbierto(
+  proyId: string,
+  subproy: string,
+  subproyId: string | undefined,
+  hasta: string,
+  openKeys?: Set<string>,
+): boolean {
+  if (openKeys && openKeys.size > 0) {
+    if (subproyId && openKeys.has(`${proyId}::${subproyId}`)) return true;
+    if (openKeys.has(`${proyId}::${subproy}`)) return true;
+    return false;
+  }
+  return isTrayectoriaAbierta(hasta);
+}
+
+function mesActualIsoPrefix(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${d.getFullYear()}-${m}`;
+}
+
+function isTrayectoriaAbierta(hasta: string): boolean {
+  return hasta.startsWith(mesActualIsoPrefix());
+}
+
+export function getHistoricoResumenPorProyectoSub(
+  rows: RegistroMock[],
+  options: HistoricoResumenOptions = {},
+): HistoricoProyectoSubResumen[] {
+  const map = new Map<string, HistoricoProyectoSubResumen>();
+  const { openKeys, nombresPorProy } = options;
+
+  for (const r of rows) {
+    const subproy = r.subproy?.trim() || "—";
+    const subproyId = r.subproyId?.trim();
+    const key = `${r.proy}::${subproyId || subproy}`;
+    const parts = getProyectoListaParts(r.proy);
+    const nombre =
+      r.proyNombre?.trim() ||
+      nombresPorProy?.[r.proy] ||
+      (parts.nombreFull !== parts.codigo ? parts.nombreFull : parts.codigo);
+    const cur = map.get(key) ?? {
+      proyId: r.proy,
+      codigo: parts.codigo,
+      nombre,
+      subproy,
+      subproyId,
+      totalHoras: 0,
+      registros: 0,
+      desde: r.fecha,
+      hasta: r.fecha,
+      abierto: false,
+    };
+    if (r.proyNombre?.trim() && (cur.nombre === cur.codigo || !cur.nombre)) {
+      cur.nombre = r.proyNombre.trim();
+    }
+    cur.totalHoras += r.horas;
+    cur.registros += 1;
+    if (r.fecha < cur.desde) cur.desde = r.fecha;
+    if (r.fecha > cur.hasta) cur.hasta = r.fecha;
+    map.set(key, cur);
+  }
+
+  for (const cur of map.values()) {
+    cur.abierto = resolveAbierto(
+      cur.proyId,
+      cur.subproy,
+      cur.subproyId,
+      cur.hasta,
+      openKeys,
+    );
+  }
+
+  return [...map.values()].sort((a, b) => {
+    const byDesde = a.desde.localeCompare(b.desde);
+    if (byDesde !== 0) return byDesde;
+    const byHasta = a.hasta.localeCompare(b.hasta);
+    if (byHasta !== 0) return byHasta;
+    const byNombre = a.nombre.localeCompare(b.nombre, "es");
+    if (byNombre !== 0) return byNombre;
+    return a.subproy.localeCompare(b.subproy, "es");
   });
-  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 export function formatHistoricoFechaCorta(fecha: string): string {
@@ -74,7 +333,22 @@ export function formatHistoricoFechaCorta(fecha: string): string {
   });
 }
 
-export function formatHistoricoRango(desde: string, hasta: string): string {
-  if (desde === hasta) return formatHistoricoFechaCorta(desde);
-  return `${formatHistoricoFechaCorta(desde)} – ${formatHistoricoFechaCorta(hasta)}`;
+export function formatHistoricoMesCorto(fecha: string): string {
+  const [y, m] = fecha.split("-").map(Number);
+  const label = new Date(y, m - 1, 1).toLocaleDateString("es-ES", {
+    month: "short",
+    year: "numeric",
+  });
+  return label.replace(/\./g, "");
+}
+
+/** Periodo de trayectoria: cerrado = mes–mes; abierto = mes – actual. */
+export function formatHistoricoRango(
+  desde: string,
+  hasta: string,
+  abierto = false,
+): string {
+  const inicio = formatHistoricoMesCorto(desde);
+  if (abierto) return `${inicio} – actual`;
+  return `${inicio} – ${formatHistoricoMesCorto(hasta)}`;
 }

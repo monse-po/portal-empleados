@@ -159,3 +159,36 @@ export type LovReportCostCodeRow = {
   ReportCostType?: "Time" | "Cost" | "Material" | string;
   ReportCode?: string;
 };
+
+/** CompanySet / GetExpenseCompany. */
+export type IfsCompany = {
+  Company?: string;
+  Name?: string;
+};
+
+/** GetEmployees(Company). */
+export type EmployeeInfoQuery = {
+  Company?: string;
+  Identity?: string;
+  SupplierName?: string;
+  CEmpNo?: string;
+  EmpName?: string;
+  PersonId?: string;
+};
+
+/** GetBankDetails(CompanyId, EmpNo). */
+export type PaymentAddress = {
+  Company?: string;
+  Identity?: string;
+  Account?: string;
+  Bank?: string;
+  AccountType?: string;
+  AccountTypeDb?: string;
+};
+
+/** GetCurrencyCodes(Company). */
+export type CurrencyCodesQuery = {
+  Company?: string;
+  CurrencyCode?: string;
+  Description?: string;
+};

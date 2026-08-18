@@ -49,7 +49,7 @@ export function AnticiposTabla({
   hasFilters,
   onOpenDetalle,
 }: AnticiposTablaProps) {
-  const { tab } = useAnticipos();
+  const { tab, sessionIds } = useAnticipos();
   const esHistorial = tab === "disponibles";
 
   const [page, setPage] = useState(1);
@@ -159,7 +159,7 @@ export function AnticiposTabla({
         </thead>
         <tbody>
           {visibles.map((s) => {
-            const solicitanteBenef = getBeneficiarioSolicitante(s);
+            const solicitanteBenef = getBeneficiarioSolicitante(s, sessionIds);
             const nombreBenef = getBeneficiarioNombre(s);
             return (
               <tr

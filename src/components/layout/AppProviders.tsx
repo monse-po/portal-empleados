@@ -105,21 +105,22 @@ function AnticipoSyncEffect({
   return null;
 }
 
-/** Inyecta anticipos Lanzado del empleado en la cola del gerente (demo E2E). */
+/** Inyecta anticipos Lanzado del empleado en la cola del gerente. */
 function AnticipoSeedHydration() {
-  const { anticipos, extras } = useAnticipos();
+  const { anticipos, extras, loaded } = useAnticipos();
   const { ingresarSolicitud } = useAprobacionAnticipos();
-  const doneRef = useRef(false);
+  const hydrated = useRef(new Set<string>());
 
   useEffect(() => {
-    if (doneRef.current) return;
-    doneRef.current = true;
+    if (!loaded) return;
     Object.values(anticipos)
       .filter((a) => a.estado === "Lanzado")
       .forEach((a) => {
+        if (hydrated.current.has(a.no)) return;
+        hydrated.current.add(a.no);
         ingresarSolicitud(anticipoToAprobacion(a, extras[a.no]));
       });
-  }, [anticipos, extras, ingresarSolicitud]);
+  }, [anticipos, extras, ingresarSolicitud, loaded]);
 
   return null;
 }

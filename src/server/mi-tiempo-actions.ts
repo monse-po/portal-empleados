@@ -278,14 +278,34 @@ export async function deleteRegistroAction(id: string): Promise<void> {
 }
 
 export async function enviarDiaAction(fecha: string): Promise<EnviarDiaResult> {
-  const rows = await prisma.registroTiempo.findMany({
+  return enviarFechasAction([fecha]);
+}
+
+/** Envía borradores locales de uno o varios días en un solo paso (rango estable 8–5). */
+export async function enviarFechasAction(
+  fechas: string[],
+): Promise<EnviarDiaResult> {
+  const fechasUnicas = [...new Set(fechas.filter(Boolean))].sort();
+  if (!fechasUnicas.length) {
+    return { enviados: [], sentToIfs: false };
+  }
+
+  const min = fechasUnicas[0];
+  const max = fechasUnicas[fechasUnicas.length - 1];
+  const fechaSet = new Set(fechasUnicas);
+
+  const allRows = await prisma.registroTiempo.findMany({
     where: {
       empleadoId: SESSION_EMPLEADO_ID,
       estado: RegistroEstadoDb.REGISTRADO,
-      fecha: dayRange(fecha),
+      fecha: {
+        gte: new Date(`${min}T00:00:00.000Z`),
+        lte: new Date(`${max}T23:59:59.999Z`),
+      },
     },
   });
 
+  const rows = allRows.filter((row) => fechaSet.has(toRegistroMock(row).fecha));
   if (!rows.length) {
     return { enviados: [], sentToIfs: false };
   }
@@ -313,7 +333,6 @@ export async function enviarDiaAction(fecha: string): Promise<EnviarDiaResult> {
       }
       sentToIfs = true;
 
-      // 1) Localizar en timesheet del empleado → ids ifs-pt-*
       try {
         const sheet = await withIfsPortalSession((ifs) =>
           getEmployeeTimesheet(ifs),
@@ -326,7 +345,6 @@ export async function enviarDiaAction(fecha: string): Promise<EnviarDiaResult> {
         ifsMatches = [];
       }
 
-      // 2) Verificar que entren a la bandeja del aprobador (mismo login IFS)
       if (ifsMatches.length) {
         try {
           const approvalRaw = await withIfsPortalSession((ifs) =>
@@ -357,10 +375,6 @@ export async function enviarDiaAction(fecha: string): Promise<EnviarDiaResult> {
   const ids = rows.map((row) => row.id);
   const ifsVisible = ifsMatches.length > 0;
 
-  /**
-   * Preferimos devolver filas IFS (ifs-pt-*) para que la bandeja/approve
-   * usen el mismo id que EmpPortalTimeApprovalList.
-   */
   const enviadosBase: RegistroMock[] = ifsVisible
     ? ifsMatches.map((r) => ({ ...r, estado: "Lanzado" as const }))
     : borradores.map((reg) => ({ ...reg, estado: "Lanzado" as const }));
@@ -378,7 +392,9 @@ export async function enviarDiaAction(fecha: string): Promise<EnviarDiaResult> {
       inApprovalQueue,
       warning: inApprovalQueue
         ? undefined
-        : "Enviado a IFS, pero aún no aparece en tu bandeja de aprobación. Revisa que CSRUIZ sea el aprobador de esa actividad, o recarga la bandeja en unos segundos.",
+        : fechasUnicas.length > 1
+          ? "Enviado a IFS, pero aún no aparece completo en tu bandeja. Recarga en unos segundos."
+          : "Enviado a IFS, pero aún no aparece en tu bandeja de aprobación. Revisa que CSRUIZ sea el aprobador de esa actividad, o recarga la bandeja en unos segundos.",
     };
   }
 

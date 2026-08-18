@@ -1,13 +1,11 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/Card";
 import { Icon } from "@/src/components/ui/Icon";
-import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import {
   DataTable,
   dataTd,
-  dataTdClamp,
   dataTdNumeric,
   dataTdResPrimary,
   dataTdResSecondary,
@@ -18,19 +16,22 @@ import { MiTiempoLoading } from "@/src/app/hoja-tiempo/MiTiempoLoading";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import { HistoricoTiempoFilterBar } from "@/src/app/historico-tiempo/HistoricoTiempoFilterBar";
 import { HISTORICO_UI_COPY } from "@/src/lib/copy/historico";
-import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
+import { dateToIso } from "@/src/lib/date-picker-utils";
 import {
   applyHistoricoFilters,
   type HistoricoFilterRule,
 } from "@/src/lib/historico-tiempo-filtros";
 import {
-  formatHistoricoFechaCorta,
-  formatHistoricoMesLabel,
-  getHistoricoMesKey,
+  formatHistoricoRango,
+  getHistoricoResumenPorProyectoSub,
   getRegistrosHistoricoAprobados,
+  HISTORICO_DUMMY_REGISTROS,
+  nombresProyectoFromCatalog,
+  openKeysFromCatalog,
 } from "@/src/lib/historico-tiempo";
+import { fetchTiempoCatalogAction } from "@/src/server/mi-tiempo-catalog-actions";
 
-const HISTORICO_COLS = ["10%", "18%", "16%", "11%", "6%", "22%", "17%"] as const;
+const HISTORICO_COLS = ["40%", "26%", "12%", "22%"] as const;
 
 function formatHorasTotal(horas: number): string {
   return Number.isInteger(horas) ? String(horas) : horas.toFixed(1);
@@ -46,9 +47,9 @@ function HistoricoTimelineStats({
   return (
     <div className="flex items-center gap-2.5">
       <span className="inline-flex items-center gap-1.5 rounded-full border border-[#c7d9ed] bg-white px-2.5 py-1 text-[11px] font-medium text-muted">
-        <Icon name="list" size="xs" className="text-navy" />
+        <Icon name="folderOpen" size="xs" className="text-navy" />
         <span className="font-bold text-navy">{count}</span>
-        registro{count !== 1 ? "s" : ""}
+        línea{count !== 1 ? "s" : ""}
       </span>
       <span aria-hidden className="h-4 w-px bg-[#d1d9e6]" />
       <span className="inline-flex items-baseline gap-0.5 rounded-full bg-[#eef3f9] px-3 py-1">
@@ -62,19 +63,45 @@ function HistoricoTimelineStats({
 }
 
 export function HistoricoTiempoView() {
-  const { registros, registrosLoaded, registrosError } = useMiTiempo();
+  const { registros, registrosLoaded, registrosError, registrosFromIfs, ifsConnected } =
+    useMiTiempo();
   const [filters, setFilters] = useState<HistoricoFilterRule[]>([]);
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
+  const [nombresPorProy, setNombresPorProy] = useState<Record<string, string>>(
+    {},
+  );
 
-  const aprobados = useMemo(
+  useEffect(() => {
+    const hoy = dateToIso(new Date());
+    if (!hoy) return;
+    void fetchTiempoCatalogAction(hoy).then((result) => {
+      if (!result.catalog) return;
+      setOpenKeys(openKeysFromCatalog(result.catalog));
+      setNombresPorProy(nombresProyectoFromCatalog(result.catalog));
+    });
+  }, []);
+
+  const reales = useMemo(
     () => getRegistrosHistoricoAprobados(registros),
     [registros],
   );
-  const filas = useMemo(
+  const usandoDummy =
+    reales.length === 0 && !ifsConnected && !registrosFromIfs;
+  const aprobados = usandoDummy ? HISTORICO_DUMMY_REGISTROS : reales;
+  const filtrados = useMemo(
     () => applyHistoricoFilters(aprobados, filters),
     [aprobados, filters],
   );
+  const filas = useMemo(
+    () =>
+      getHistoricoResumenPorProyectoSub(filtrados, {
+        openKeys: usandoDummy ? undefined : openKeys,
+        nombresPorProy,
+      }),
+    [filtrados, openKeys, nombresPorProy, usandoDummy],
+  );
   const totalHoras = useMemo(
-    () => filas.reduce((s, r) => s + r.horas, 0),
+    () => filas.reduce((s, r) => s + r.totalHoras, 0),
     [filas],
   );
 
@@ -97,6 +124,22 @@ export function HistoricoTiempoView() {
         <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">
           {HISTORICO_UI_COPY.subtitle}
         </p>
+        {usandoDummy && (
+          <p className="mt-2 inline-flex rounded-md border border-[#fde68a] bg-[#fffbeb] px-2.5 py-1 text-[11px] font-medium text-[#92400e]">
+            Datos de ejemplo — entra con IFS para ver tu hoja real
+            (GetEmployeeTimesheet)
+          </p>
+        )}
+        {ifsConnected && reales.length === 0 && (
+          <p className="mt-2 inline-flex rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-2.5 py-1 text-[11px] font-medium text-navy">
+            Hoja IFS conectada · aún no hay horas enviadas o aprobadas
+          </p>
+        )}
+        {registrosFromIfs && reales.length > 0 && (
+          <p className="mt-2 inline-flex rounded-md border border-[#bbf7d0] bg-[#f0fdf4] px-2.5 py-1 text-[11px] font-medium text-[#15803d]">
+            Datos de tu hoja IFS (GetEmployeeTimesheet)
+          </p>
+        )}
       </div>
 
       {aprobados.length > 0 && (
@@ -105,7 +148,10 @@ export function HistoricoTiempoView() {
           filters={filters}
           onChange={setFilters}
           shown={filas.length}
-          total={aprobados.length}
+          total={getHistoricoResumenPorProyectoSub(aprobados, {
+            openKeys: usandoDummy ? undefined : openKeys,
+            nombresPorProy,
+          }).length}
         />
       )}
 
@@ -119,7 +165,7 @@ export function HistoricoTiempoView() {
         >
           <span className="flex flex-row items-center gap-1.5">
             <Icon name="history" size="sm" />
-            <span>Línea de tiempo</span>
+            <span>Proyectos y horas</span>
           </span>
         </CardHeader>
 
@@ -128,10 +174,13 @@ export function HistoricoTiempoView() {
             <div className="px-6 py-10 text-center text-[13px] text-muted">
               {aprobados.length === 0 ? (
                 <>
-                  Aún no hay horas aprobadas en el histórico.
+                  {ifsConnected
+                    ? "Tu hoja IFS no tiene horas enviadas o aprobadas todavía."
+                    : "Aún no hay horas reportadas en el histórico."}
                   <br />
                   <span className="mt-1 inline-block text-[12px]">
-                    Los registros aparecerán aquí cuando el gerente los apruebe.
+                    Aparecen aquí cuando envías registros (Lanzado) o cuando ya
+                    están aprobados. Los borradores no entran.
                   </span>
                 </>
               ) : (
@@ -143,13 +192,10 @@ export function HistoricoTiempoView() {
               <thead>
                 <tr>
                   {[
-                    ["Fecha", "text-left"],
                     ["Proyecto", "text-left"],
-                    ["Actividad", "text-left"],
-                    ["Tipo", "text-left"],
-                    ["Horas", "text-center"],
-                    ["Comentario", "text-left"],
                     ["Subproyecto", "text-left"],
+                    ["Horas", "text-center"],
+                    ["Periodo", "text-left"],
                   ].map(([col, align]) => (
                     <th key={col} className={dataThWithAlign(align)}>
                       {col}
@@ -158,52 +204,39 @@ export function HistoricoTiempoView() {
                 </tr>
               </thead>
               <tbody>
-                {filas.map((r, index) => {
-                  const mesKey = getHistoricoMesKey(r.fecha);
-                  const mostrarMes =
-                    index === 0 ||
-                    mesKey !== getHistoricoMesKey(filas[index - 1].fecha);
-                  const proy = getProyectoListaParts(r.proy);
-
-                  return (
-                    <Fragment key={r.id}>
-                      {mostrarMes && (
-                        <tr style={{ background: "#f8fafc" }}>
-                          <td
-                            colSpan={7}
-                            className="border-t-2 border-border px-3 py-2 text-[12px] font-semibold text-navy"
-                          >
-                            {formatHistoricoMesLabel(mesKey)}
-                          </td>
-                        </tr>
-                      )}
-                      <tr className="transition-colors hover:bg-[#fafbfc]">
-                        <td className={`${dataTd} text-muted ${dataTdTruncate}`}>
-                          {formatHistoricoFechaCorta(r.fecha)}
-                        </td>
-                        <td className={dataTd}>
-                          <div className="min-w-0">
-                            <div className={dataTdResPrimary}>{proy.codigo}</div>
-                            <div className={dataTdResSecondary} title={proy.nombreFull}>
-                              {proy.nombre}
-                            </div>
-                          </div>
-                        </td>
-                        <td className={`${dataTd} ${dataTdTruncate}`}>{r.act}</td>
-                        <td className={dataTd}>
-                          <TipoHoraPill tipo={r.tipo} />
-                        </td>
-                        <td className={dataTdNumeric}>{r.horas}h</td>
-                        <td className={`${dataTd} text-[#374151]`}>
-                          <div className={dataTdClamp}>{r.comentario || "—"}</div>
-                        </td>
-                        <td className={`${dataTd} text-muted ${dataTdTruncate}`}>
-                          {r.subproy || "—"}
-                        </td>
-                      </tr>
-                    </Fragment>
-                  );
-                })}
+                {filas.map((r) => (
+                  <tr
+                    key={`${r.proyId}::${r.subproy}`}
+                    className="transition-colors hover:bg-[#fafbfc]"
+                  >
+                    <td className={dataTd}>
+                      <div className="min-w-0">
+                        <div className={dataTdResPrimary} title={r.nombre}>
+                          {r.nombre}
+                        </div>
+                        <div className={dataTdResSecondary}>{r.codigo}</div>
+                      </div>
+                    </td>
+                    <td className={`${dataTd} ${dataTdTruncate}`}>{r.subproy}</td>
+                    <td className={dataTdNumeric}>
+                      <span className="font-semibold text-navy">
+                        {formatHorasTotal(r.totalHoras)}h
+                      </span>
+                    </td>
+                    <td className={`${dataTd} text-muted`}>
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <span className="truncate">
+                          {formatHistoricoRango(r.desde, r.hasta, r.abierto)}
+                        </span>
+                        {r.abierto && (
+                          <span className="shrink-0 rounded-full border border-[#bbf7d0] bg-[#f0fdf4] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-[#15803d]">
+                            Abierto
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </DataTable>
           )}

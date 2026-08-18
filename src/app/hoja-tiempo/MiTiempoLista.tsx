@@ -1,11 +1,12 @@
 "use client";
 
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/Card";
 import { Icon } from "@/src/components/ui/Icon";
 import { EstadoTiempoPill } from "@/src/components/ui/Pill";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
+import { useToast } from "@/src/components/ui/Toast";
 import {
   DataTable,
   dataTd,
@@ -18,6 +19,7 @@ import {
   dataTdResSecondary,
   MI_TIEMPO_LISTA_COLS,
 } from "@/src/components/ui/DataTable";
+import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import {
   buildCalendarioGrid,
@@ -26,8 +28,13 @@ import {
   getResumenHoras,
   getTipoHoraMeta,
   type RegistroEstado,
+  type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
-import { getListaRegistrosPorDia, isRegistroEditable } from "@/src/lib/tiempo-registro-rules";
+import {
+  getListaRegistrosPorDia,
+  isRegistroEditable,
+  isRegistroEliminable,
+} from "@/src/lib/tiempo-registro-rules";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 
@@ -186,13 +193,26 @@ function CalendarioTab({
                 );
               }
 
+              const dayNumberClass = celda.esFestivo
+                ? "font-semibold text-orange"
+                : celda.esHoy
+                  ? "font-extrabold text-navy"
+                  : celda.esFinSemana
+                    ? "font-semibold text-[#60a5fa]"
+                    : "font-semibold text-[#374151]";
+
               return (
                 <button
                   key={celda.fechaStr}
                   type="button"
-                  disabled={celda.bloqueado}
                   onClick={() => onSelectDia(celda.fechaStr, false)}
-                  className={`relative flex ${CAL_DIA_CELL} flex-col items-start p-2.5 text-left transition-[filter,box-shadow] duration-100 ${celda.bloqueado ? "cursor-default opacity-70" : "cursor-pointer hover:brightness-[0.96]"} ${celda.esHoy ? "z-[1] ring-2 ring-inset ring-navy shadow-[0_0_0_1px_var(--navy)]" : ""}`}
+                  className={`relative flex ${CAL_DIA_CELL} flex-col items-start p-2.5 text-left transition-[filter,box-shadow] duration-100 cursor-pointer hover:brightness-[0.96] ${
+                    celda.esHoy
+                      ? celda.esFestivo
+                        ? "z-[1] ring-2 ring-inset ring-orange/70"
+                        : "z-[1] ring-2 ring-inset ring-navy shadow-[0_0_0_1px_var(--navy)]"
+                      : ""
+                  }`}
                   style={{
                     background: celda.bg,
                   }}
@@ -201,12 +221,25 @@ function CalendarioTab({
                     <div className="flex w-full items-center justify-between gap-1">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span
-                          className={`text-[13px] leading-none ${celda.esHoy ? "font-extrabold text-navy" : celda.esFestivo ? "font-semibold text-orange" : celda.esFinSemana ? "font-semibold text-[#60a5fa]" : "font-semibold text-[#374151]"}`}
+                          className={`text-[13px] leading-none ${dayNumberClass}`}
                         >
                           {celda.dia}
                         </span>
+                        {celda.esFestivo && (
+                          <Icon
+                            name="star"
+                            size="xs"
+                            className="shrink-0 text-[#f59e0b]"
+                          />
+                        )}
                         {celda.esHoy && (
-                          <span className="rounded-full bg-navy px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+                          <span
+                            className={`rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wide ${
+                              celda.esFestivo
+                                ? "border border-orange/40 bg-white/80 text-orange"
+                                : "bg-navy text-white"
+                            }`}
+                          >
                             Hoy
                           </span>
                         )}
@@ -228,9 +261,11 @@ function CalendarioTab({
                     </div>
 
                     {celda.esFestivo && (
-                      <span className="mt-1 text-[10px] font-semibold leading-none text-orange">
-                        Festivo
-                      </span>
+                      <div className="mt-1.5">
+                        <span className="text-[10px] font-semibold leading-none text-orange">
+                          Festivo
+                        </span>
+                      </div>
                     )}
                   </div>
 
@@ -264,7 +299,10 @@ function CalendarioTab({
 function ListaTab({
   onSelectDia,
 }: Pick<MiTiempoListaProps, "onSelectDia">) {
-  const { registros, openRegistrarModal } = useMiTiempo();
+  const { registros, openRegistrarModal, deleteRegistro } = useMiTiempo();
+  const { toast } = useToast();
+  const [registroAEliminar, setRegistroAEliminar] =
+    useState<RegistroMock | null>(null);
   const dias = getListaRegistrosPorDia(registros);
   const hayFilasEditables = dias.some((dia) =>
     dia.registros.some((r) => isRegistroEditable(r.estado)),
@@ -278,6 +316,7 @@ function ListaTab({
     { label: "Coment. empleado", align: "text-left" },
     { label: "Coment. rechazo", align: "text-left" },
     { label: "Estado", align: "text-center" },
+    { label: "", align: "text-center" },
   ];
 
   return (
@@ -313,7 +352,10 @@ function ListaTab({
             <thead>
               <tr>
                 {columnas.map((col) => (
-                  <th key={col.label} className={dataThWithAlign(col.align)}>
+                  <th
+                    key={col.label || "actions"}
+                    className={dataThWithAlign(col.align)}
+                  >
                     {col.label}
                   </th>
                 ))}
@@ -353,6 +395,7 @@ function ListaTab({
                     </tr>
                     {dia.registros.map((r) => {
                       const esEditable = isRegistroEditable(r.estado);
+                      const puedeEliminar = isRegistroEliminable(r.estado);
                       return (
                       <tr
                         key={r.id}
@@ -402,6 +445,22 @@ function ListaTab({
                         <td className={`${dataTd} text-center`}>
                           <EstadoTiempoPill estado={r.estado} />
                         </td>
+                        <td className={`${dataTd} text-center`}>
+                          {puedeEliminar && (
+                            <Button
+                              variant="danger"
+                              className="!px-2 !py-1 text-[11px]"
+                              title="Eliminar"
+                              disabled={!!registroAEliminar}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRegistroAEliminar(r);
+                              }}
+                            >
+                              ✕
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                       );
                     })}
@@ -412,6 +471,27 @@ function ListaTab({
           </DataTable>
         )}
       </div>
+
+      <EliminarRegistroModal
+        open={!!registroAEliminar}
+        registro={registroAEliminar}
+        onClose={() => setRegistroAEliminar(null)}
+        onConfirm={async () => {
+          if (!registroAEliminar) return;
+          try {
+            await deleteRegistro(registroAEliminar.id);
+            setRegistroAEliminar(null);
+            toast("Registro eliminado", "navy");
+          } catch (err) {
+            toast(
+              err instanceof Error
+                ? err.message
+                : "No se pudo eliminar el registro. Intenta de nuevo.",
+              "danger",
+            );
+          }
+        }}
+      />
     </Card>
   );
 }

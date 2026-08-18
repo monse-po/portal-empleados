@@ -30,7 +30,15 @@ export function DatePickerShell({
 export function DatePickerClearFooter({ onClear }: { onClear: () => void }) {
   return (
     <div className="ds-date-picker-footer">
-      <button type="button" onClick={onClear} className="ds-date-picker-clear">
+      <button
+        type="button"
+        className="ds-date-picker-clear"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onClear();
+        }}
+      >
         Limpiar
       </button>
     </div>

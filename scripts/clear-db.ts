@@ -23,8 +23,7 @@ async function main() {
 
   await prisma.notificacion.deleteMany();
   await prisma.registroTiempo.deleteMany();
-  await prisma.proyecto.deleteMany();
-  await prisma.empleado.deleteMany();
+  // No borrar Empleado/Proyecto: otras tablas (anticipos, etc.) pueden referenciarlos.
 
   console.log(
     `Neon limpio: ${beforeReg} registros y ${beforeNotif} notificaciones eliminados.`,

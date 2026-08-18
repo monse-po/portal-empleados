@@ -7,12 +7,16 @@ import {
 import { IfsApiError } from "@/src/lib/ifs/errors";
 import type {
   CempPortalUser,
+  CurrencyCodesQuery,
   CutOffDateParams,
+  EmployeeInfoQuery,
   EmpTimeApproval,
   EmpTimeDelete,
   EmpTimeReg,
   EmpTimeUpdate,
   HoursSummary,
+  IfsCompany,
+  PaymentAddress,
   ProjectInfoQuery,
   UserInfo,
   ValidActReportCodeParams,
@@ -243,12 +247,25 @@ export async function getScheduleHoursForDate(
   session: CempPortalSession,
   accountDate: string,
 ): Promise<number | undefined> {
+  const map = await getEmployeeScheduleHoursByDate(session);
+  return map[accountDate.slice(0, 10)];
+}
+
+/** Mapa AccountDate → ScheduleHours del programa del empleado (GetHoursSummary). */
+export async function getEmployeeScheduleHoursByDate(
+  session: CempPortalSession,
+): Promise<Record<string, number>> {
   const summary = await getHoursSummary(session);
-  const target = accountDate.slice(0, 10);
-  const day = summary.EmployeeSchedule?.find(
-    (d) => (d.AccountDate ?? "").slice(0, 10) === target,
-  );
-  return day?.ScheduleHours;
+  const map: Record<string, number> = {};
+  for (const day of summary.EmployeeSchedule ?? []) {
+    const iso = (day.AccountDate ?? "").slice(0, 10);
+    if (!iso) continue;
+    const hours = day.ScheduleHours;
+    if (typeof hours === "number" && Number.isFinite(hours)) {
+      map[iso] = hours;
+    }
+  }
+  return map;
 }
 
 export async function listPortalUsers(
@@ -270,4 +287,82 @@ export async function getProjectInfo(
     `/Reference_ProjectInfoQuery(ProjectId='${odataStringKey(projectId)}')?$select=ProjectId,Manager,Name`,
     { accessToken },
   );
+}
+
+function odataCollection<T>(raw: unknown): T[] {
+  if (Array.isArray(raw)) return raw as T[];
+  const value = (raw as { value?: T[] } | null)?.value;
+  return Array.isArray(value) ? value : [];
+}
+
+/** Compañías del portal (CompanySet). */
+export async function getCompanies(
+  accessToken: string,
+): Promise<IfsCompany[]> {
+  const data = await ifsFetch<ODataCollection<IfsCompany>>(
+    "/CompanySet?$select=Company,Name&$top=200",
+    { accessToken },
+  );
+  return odataCollection<IfsCompany>(data);
+}
+
+/** Empleados de una compañía (GetEmployees). */
+export async function getEmployeesByCompany(
+  accessToken: string,
+  company: string,
+): Promise<EmployeeInfoQuery[]> {
+  const data = await ifsFetch<ODataCollection<EmployeeInfoQuery>>(
+    `/GetEmployees(Company='${odataStringKey(company)}')?$top=500`,
+    { accessToken },
+  );
+  return odataCollection<EmployeeInfoQuery>(data);
+}
+
+/** Proyectos de una compañía (GetProjects). */
+export async function getProjectsByCompany(
+  accessToken: string,
+  company: string,
+): Promise<ProjectInfoQuery[]> {
+  const data = await ifsFetch<ODataCollection<ProjectInfoQuery>>(
+    `/GetProjects(Company='${odataStringKey(company)}')?$select=ProjectId,Name,Description,Manager,Company&$top=500`,
+    { accessToken },
+  );
+  return odataCollection<ProjectInfoQuery>(data);
+}
+
+/** Cuenta bancaria del empleado (GetBankDetails). */
+export async function getBankDetails(
+  accessToken: string,
+  companyId: string,
+  empNo: string,
+): Promise<PaymentAddress[]> {
+  const data = await ifsFetch<ODataCollection<PaymentAddress>>(
+    `/GetBankDetails(CompanyId='${odataStringKey(companyId)}',EmpNo='${odataStringKey(empNo)}')`,
+    { accessToken },
+  );
+  return odataCollection<PaymentAddress>(data);
+}
+
+/** Divisas de la compañía (GetCurrencyCodes). */
+export async function getCurrencyCodes(
+  accessToken: string,
+  company: string,
+): Promise<CurrencyCodesQuery[]> {
+  const data = await ifsFetch<ODataCollection<CurrencyCodesQuery>>(
+    `/GetCurrencyCodes(Company='${odataStringKey(company)}')`,
+    { accessToken },
+  );
+  return odataCollection<CurrencyCodesQuery>(data);
+}
+
+/** Compañías de gasto del proveedor/empleado (GetExpenseCompany). */
+export async function getExpenseCompanies(
+  accessToken: string,
+  supplierId: string,
+): Promise<IfsCompany[]> {
+  const data = await ifsFetch<ODataCollection<IfsCompany>>(
+    `/GetExpenseCompany(SupplierId='${odataStringKey(supplierId)}')`,
+    { accessToken },
+  );
+  return odataCollection<IfsCompany>(data);
 }

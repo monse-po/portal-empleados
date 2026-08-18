@@ -76,16 +76,31 @@ export function Dropdown({
   useEffect(() => {
     if (!open) return;
 
+    const isInside = (target: EventTarget | null) => {
+      if (!(target instanceof Node)) return false;
+      return Boolean(
+        rootRef.current?.contains(target) || menuRef.current?.contains(target),
+      );
+    };
+
+    // Capture: el Modal hace stopPropagation en bubble y si no, el clic fuera
+    // dentro del dialog no cerraría el menú portaleado.
     const onPointerDown = (event: MouseEvent) => {
-      const root = rootRef.current;
-      const menu = menuRef.current;
-      const target = event.target as Node;
-      if (root?.contains(target) || menu?.contains(target)) return;
+      if (isInside(event.target)) return;
       onOpenChange(false);
     };
 
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    const onFocusIn = (event: FocusEvent) => {
+      if (isInside(event.target)) return;
+      onOpenChange(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown, true);
+    document.addEventListener("focusin", onFocusIn, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown, true);
+      document.removeEventListener("focusin", onFocusIn, true);
+    };
   }, [open, onOpenChange]);
 
   const menuClasses = (

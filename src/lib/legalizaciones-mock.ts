@@ -3,9 +3,12 @@ import {
   cloneInitialAnticipos,
   cloneInitialExtras,
   EMP_DET,
+  getAnticipoBeneficiarioId,
+  normalizeAnticipoId,
   PROYECTOS_ANT,
   parseMontoInput,
   isoToDmy,
+  SESSION_EMPLEADO,
   type Anticipo,
   type AnticipoTipo,
 } from "@/src/lib/mis-anticipos-mock";
@@ -277,6 +280,9 @@ export type Legalizacion = {
   destino?: DestinoLegalizacion;
   /** true = aparece en Historial */
   disponible: boolean;
+  paraOtro?: boolean;
+  beneficiarioId?: string;
+  beneficiarioNombre?: string;
 };
 
 export type CrearLegalizacionInput = {
@@ -286,6 +292,9 @@ export type CrearLegalizacionInput = {
   destino: DestinoLegalizacion;
   lineas: LineaGasto[];
   comentario?: string;
+  paraOtro?: boolean;
+  beneficiarioId?: string;
+  beneficiarioNombre?: string;
 };
 
 const LEGALIZACIONES_MOCK: Record<string, Legalizacion> = {
@@ -630,10 +639,14 @@ function toAnticipoLegalizable(a: Anticipo): AnticipoLegalizable {
   };
 }
 
-/** Anticipos pagados del empleado, aún sin legalización vinculada. */
+/** Anticipos pagados del beneficiario, aún sin legalización vinculada. */
 export function getAnticiposParaLegalizar(
   legalizaciones: Record<string, Legalizacion> = {},
+  beneficiarioId?: string,
 ): AnticipoLegalizable[] {
+  const targetId = normalizeAnticipoId(
+    beneficiarioId ?? SESSION_EMPLEADO.cedula,
+  );
   const anticiposUsados = new Set(
     Object.values(legalizaciones)
       .map((l) => l.anticipoNo)
@@ -641,7 +654,12 @@ export function getAnticiposParaLegalizar(
   );
   const anticipos = cloneInitialAnticipos();
   return Object.values(anticipos)
-    .filter((a) => puedeLegalizarAnticipo(a) && !anticiposUsados.has(a.no))
+    .filter(
+      (a) =>
+        puedeLegalizarAnticipo(a) &&
+        !anticiposUsados.has(a.no) &&
+        getAnticipoBeneficiarioId(a) === targetId,
+    )
     .map(toAnticipoLegalizable)
     .sort((a, b) => b.no.localeCompare(a.no));
 }

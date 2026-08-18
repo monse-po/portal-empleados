@@ -11,8 +11,13 @@ import { useAnticipos } from "@/src/app/mis-anticipos/AnticiposContext";
 type Vista = "lista" | "detalle" | "form";
 
 function AnticiposViewInner() {
-  const { getAnticipo, getExtra, lanzarAnticipo, cancelarAnticipo } =
-    useAnticipos();
+  const {
+    getAnticipo,
+    getExtra,
+    lanzarAnticipo,
+    cancelarAnticipo,
+    sessionIds,
+  } = useAnticipos();
   const { toast } = useToast();
   const [vista, setVista] = useState<Vista>("lista");
   const [detalleNo, setDetalleNo] = useState<string | null>(null);
@@ -26,13 +31,14 @@ function AnticiposViewInner() {
     setDetalleNo(null);
   };
 
-  const handleCancelar = () => {
+  const handleCancelar = async () => {
     if (!cancelarNo) return;
-    cancelarAnticipo(cancelarNo);
-    toast(
-      `Solicitud ${cancelarNo} cancelada — queda registrada en IFS`,
-      "danger",
-    );
+    const ok = await cancelarAnticipo(cancelarNo);
+    if (!ok) {
+      toast("No se pudo cancelar la solicitud", "danger");
+      return;
+    }
+    toast(`Solicitud ${cancelarNo} cancelada — queda en el historial`, "danger");
     setCancelarNo(null);
     volverLista();
   };
@@ -59,6 +65,7 @@ function AnticiposViewInner() {
         <AnticiposDetalle
           anticipo={anticipoDetalle}
           extra={extraDetalle}
+          sessionIds={sessionIds}
           onVolver={volverLista}
           onCancelar={
             anticipoDetalle.estado === "Lanzado"
