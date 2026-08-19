@@ -31,6 +31,7 @@ import {
 import { formatProyectoEmpleado } from "@/src/lib/tiempo-bridge";
 import { fetchScheduleHoursAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
+import { TiempoRegistroMobileCard } from "@/src/app/hoja-tiempo/TiempoRegistroMobileCard";
 import {
   getJornadaLimiteFromSistema,
   scheduleSourceLabel as formatScheduleSource,
@@ -216,37 +217,70 @@ export function MiTiempoDia({
         puedeDiaAnterior={!!fechaAnterior}
         puedeDiaSiguiente={!!fechaSiguiente}
         trailing={
-          <div className="flex items-center gap-2.5">
-            <div
-              className="flex h-[38px] items-center gap-2 rounded-lg px-4 text-xs"
-              style={{
-                border: contador.border,
-                background: contador.background,
-              }}
-            >
-              <Icon name="clock" size="sm" className="text-muted" />
-              <span
-                className="font-bold"
-                style={{ color: contador.totalColor }}
+          <>
+            <div className="hidden items-center gap-2.5 md:flex">
+              <div
+                className="flex h-[38px] items-center gap-2 rounded-lg px-4 text-xs"
+                style={{
+                  border: contador.border,
+                  background: contador.background,
+                }}
               >
-                {totalHoras}h
-              </span>
-              <span className="text-border">·</span>
-              <span style={{ color: contador.normColor }}>
-                {normales}h normales · máx{" "}
-                {formatScheduleHoursLabel(maxScheduleHours)} ({jornadaSourceLabel})
-              </span>
+                <Icon name="clock" size="sm" className="text-muted" />
+                <span
+                  className="font-bold"
+                  style={{ color: contador.totalColor }}
+                >
+                  {totalHoras}h
+                </span>
+                <span className="text-border">·</span>
+                <span style={{ color: contador.normColor }}>
+                  {normales}h normales · máx{" "}
+                  {formatScheduleHoursLabel(maxScheduleHours)} ({jornadaSourceLabel})
+                </span>
+              </div>
+              {!esHistorial && (
+                <Button
+                  variant="primary"
+                  onClick={() => openRegistrarModal({ fecha, origen: "dia" })}
+                >
+                  <Icon name="plus" size="xs" />
+                  Agregar registro
+                </Button>
+              )}
             </div>
-            {!esHistorial && (
-              <Button
-                variant="primary"
-                onClick={() => openRegistrarModal({ fecha, origen: "dia" })}
+            <div className="flex w-full flex-col gap-2 md:hidden">
+              <div
+                className="flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-3 text-xs"
+                style={{
+                  border: contador.border,
+                  background: contador.background,
+                }}
               >
-                <Icon name="plus" size="xs" />
-                Agregar registro
-              </Button>
-            )}
-          </div>
+                <Icon name="clock" size="sm" className="text-muted" />
+                <span
+                  className="font-bold"
+                  style={{ color: contador.totalColor }}
+                >
+                  {totalHoras}h
+                </span>
+                <span className="text-border">·</span>
+                <span style={{ color: contador.normColor }}>
+                  {normales}h / {formatScheduleHoursLabel(maxScheduleHours)}
+                </span>
+              </div>
+              {!esHistorial && (
+                <Button
+                  variant="primary"
+                  className="min-h-12 w-full justify-center text-[15px]"
+                  onClick={() => openRegistrarModal({ fecha, origen: "dia" })}
+                >
+                  <Icon name="plus" size="xs" />
+                  Agregar registro
+                </Button>
+              )}
+            </div>
+          </>
         }
       />
 
@@ -258,7 +292,7 @@ export function MiTiempoDia({
             </span>
           }
         >
-          <div className="flex flex-col gap-0.5">
+          <div className="hidden md:block">
             <span>Registros del día</span>
             {hayFilasEditables && (
               <span className="text-[11px] font-normal text-muted">
@@ -266,6 +300,7 @@ export function MiTiempoDia({
               </span>
             )}
           </div>
+          <span className="md:hidden">Registros</span>
         </CardHeader>
 
         {diaRegs.length === 0 ? (
@@ -278,7 +313,31 @@ export function MiTiempoDia({
           </div>
         ) : (
           <>
-            {/* Perfil B (display): sin ColFiltros ni paginación — ver .cursor/rules/10-tables-filters.mdc */}
+            <div className="flex flex-col gap-2 px-3 pb-3 md:hidden">
+              {diaRegs.map((r: RegistroMock) => (
+                <TiempoRegistroMobileCard
+                  key={r.id}
+                  registro={r}
+                  onOpen={
+                    isRegistroEditable(r.estado) && !esHistorial
+                      ? () =>
+                          openRegistrarModal({
+                            editId: r.id,
+                            fecha,
+                            origen: "dia",
+                          })
+                      : undefined
+                  }
+                  onDelete={
+                    isRegistroEliminable(r.estado) && !esHistorial
+                      ? () => setRegistroAEliminar(r)
+                      : undefined
+                  }
+                  deleteDisabled={!!registroAEliminar || enviando}
+                />
+              ))}
+            </div>
+            <div className="hidden md:block">
             <DataTable colWidths={[...MI_TIEMPO_DIA_COLS]}>
             <thead>
               <tr>
@@ -354,18 +413,19 @@ export function MiTiempoDia({
               })}
             </tbody>
           </DataTable>
+            </div>
           </>
         )}
       </Card>
 
       {!esHistorial && hayBorradores && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-green-border bg-green-bg px-4 py-3.5">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-green-border bg-green-bg px-4 py-3.5 max-md:flex-col max-md:items-stretch">
           <p className="min-w-0 text-[13px] leading-snug text-green-text">
             {TIEMPO_UI_COPY.diaBorradoresPendientes}
           </p>
           <Button
             variant="success"
-            className="!shrink-0"
+            className="!shrink-0 max-md:w-full max-md:justify-center"
             disabled={sobreTope || enviando || !!registroAEliminar}
             loading={enviando}
             loadingLabel="Enviando…"

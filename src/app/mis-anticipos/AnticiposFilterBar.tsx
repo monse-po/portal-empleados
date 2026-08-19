@@ -277,7 +277,7 @@ export function AnticiposFilterBar({
   return (
     <TableFilterSection>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="shrink-0 text-[13px] font-medium text-[#374151]">
+        <span className="hidden shrink-0 text-[13px] font-medium text-[#374151] sm:inline">
           Filtrar por:
         </span>
 

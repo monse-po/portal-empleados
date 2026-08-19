@@ -85,7 +85,7 @@ export function Dropdown({
 
     // Capture: el Modal hace stopPropagation en bubble y si no, el clic fuera
     // dentro del dialog no cerraría el menú portaleado.
-    const onPointerDown = (event: MouseEvent) => {
+    const onPointerDown = (event: PointerEvent) => {
       if (isInside(event.target)) return;
       onOpenChange(false);
     };
@@ -95,10 +95,10 @@ export function Dropdown({
       onOpenChange(false);
     };
 
-    document.addEventListener("mousedown", onPointerDown, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("focusin", onFocusIn, true);
     return () => {
-      document.removeEventListener("mousedown", onPointerDown, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("focusin", onFocusIn, true);
     };
   }, [open, onOpenChange]);

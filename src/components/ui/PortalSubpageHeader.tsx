@@ -35,7 +35,7 @@ export function PortalSubpageHeader({
 
   return (
     <div
-      className={`mb-4 flex flex-wrap items-start justify-between gap-3 ${className}`.trim()}
+      className={`mb-4 flex flex-wrap items-start justify-between gap-3 max-md:flex-col ${className}`.trim()}
     >
       <div className="min-w-0">
         <PageBreadcrumb

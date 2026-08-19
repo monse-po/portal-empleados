@@ -49,8 +49,8 @@ export function Modal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/45 p-4"
-      onMouseDown={(event) => {
+      className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/45 p-4 max-md:items-stretch max-md:p-0"
+      onPointerDown={(event) => {
         if (busy) return;
         if (event.target === event.currentTarget) onClose();
       }}
@@ -59,13 +59,13 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`flex max-h-[92vh] w-full ${widthClass} flex-col overflow-hidden rounded-xl bg-white shadow-[0_20px_50px_rgba(15,23,42,0.18)]`}
-        onMouseDown={(event) => event.stopPropagation()}
+        className={`flex max-h-[92vh] w-full ${widthClass} flex-col overflow-hidden rounded-xl bg-white shadow-[0_20px_50px_rgba(15,23,42,0.18)] max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:rounded-none`}
+        onPointerDown={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-5">
-          <div className="flex items-center gap-2.5">
-            {icon && <Icon name={icon} size="md" className="text-navy" />}
-            <span id={titleId} className="text-[15px] font-bold text-navy">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-5 max-md:px-4 max-md:py-3.5">
+          <div className="flex items-center gap-2.5 max-md:min-w-0">
+            {icon && <Icon name={icon} size="md" className="text-navy max-md:shrink-0" />}
+            <span id={titleId} className="text-[15px] font-bold text-navy max-md:truncate">
               {title}
             </span>
           </div>
@@ -73,7 +73,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="cursor-pointer rounded px-1.5 py-0.5 text-lg leading-none text-[#9ca3af] hover:text-muted disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded px-1.5 py-0.5 text-lg leading-none text-[#9ca3af] hover:text-muted disabled:cursor-not-allowed disabled:opacity-50 max-md:inline-flex max-md:h-11 max-md:w-11 max-md:shrink-0 max-md:items-center max-md:justify-center max-md:rounded-lg max-md:text-2xl max-md:touch-manipulation"
             title="Cerrar"
             aria-label="Cerrar"
           >
@@ -81,10 +81,12 @@ export function Modal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 max-md:px-4 max-md:py-4">
+          {children}
+        </div>
 
         {footer && (
-          <div className="flex shrink-0 items-center justify-between border-t border-border px-6 py-4">
+          <div className="flex shrink-0 items-center justify-between border-t border-border px-6 py-4 max-md:flex-col-reverse max-md:gap-2 max-md:px-4 max-md:py-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-md:[&>div]:w-full max-md:[&_button]:min-h-12 max-md:[&_button]:w-full">
             {footer}
           </div>
         )}

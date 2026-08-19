@@ -40,14 +40,18 @@ export function AnticiposLista({
 
   return (
     <div className="view-wide">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4 max-md:mb-4 max-md:flex-col max-md:gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#111]">Mis Anticipos</h1>
-          <p className="mt-1 text-[13px] text-[#4b5563]">
+          <p className="mt-1 text-[13px] text-[#4b5563] max-md:hidden">
             Solicita y consulta el estado de tus anticipos
           </p>
         </div>
-        <Button variant="primary" onClick={onNuevaSolicitud}>
+        <Button
+          variant="primary"
+          className="max-md:min-h-12 max-md:w-full max-md:justify-center max-md:text-[15px]"
+          onClick={onNuevaSolicitud}
+        >
           <Icon name="plus" size="xs" />
           Nueva solicitud
         </Button>
@@ -63,14 +67,14 @@ export function AnticiposLista({
       />
 
       <Card className="overflow-hidden p-0">
-        <div className="flex border-b-2 border-[#e5e9f0] px-2">
+        <div className="flex border-b-2 border-[#e5e9f0] px-2 max-md:px-1">
           <button
             type="button"
             onClick={() => handleTab("pendientes")}
-            className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all ${
+            className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all max-md:min-h-12 max-md:flex-1 max-md:justify-center max-md:gap-1.5 max-md:px-2 max-md:text-[14px] ${
               tab === "pendientes"
                 ? "border-b-navy font-bold text-navy"
-                : "border-b-transparent font-medium text-muted hover:text-navy"
+                : "border-b-transparent font-medium text-muted hover:text-navy max-md:active:bg-[#f0f2f5]"
             }`}
           >
             <Icon name="hourglass" size="sm" />
@@ -82,10 +86,10 @@ export function AnticiposLista({
           <button
             type="button"
             onClick={() => handleTab("disponibles")}
-            className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all ${
+            className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all max-md:min-h-12 max-md:flex-1 max-md:justify-center max-md:gap-1.5 max-md:px-2 max-md:text-[14px] ${
               tab === "disponibles"
                 ? "border-b-navy font-bold text-navy"
-                : "border-b-transparent font-medium text-muted hover:text-navy"
+                : "border-b-transparent font-medium text-muted hover:text-navy max-md:active:bg-[#f0f2f5]"
             }`}
           >
             <Icon name="circleCheck" size="sm" />

@@ -137,7 +137,8 @@ export function isUtilityPath(pathname: string): boolean {
   return (
     pathname.startsWith("/dev") ||
     pathname.startsWith("/login") ||
-    pathname.startsWith("/api/auth")
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/notificaciones")
   );
 }
 

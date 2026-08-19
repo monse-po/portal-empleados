@@ -23,15 +23,15 @@ export function UserMenu() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    const onClick = (e: MouseEvent) => {
+    const onClick = (e: PointerEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
 
     document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onClick);
+    document.addEventListener("pointerdown", onClick);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("pointerdown", onClick);
     };
   }, [open]);
 
@@ -56,7 +56,7 @@ export function UserMenu() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex cursor-pointer items-center gap-2.5 border-none bg-transparent p-0"
+        className="flex cursor-pointer items-center gap-2.5 border-none bg-transparent p-0 max-md:min-h-11 max-md:touch-manipulation"
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Menú de usuario"

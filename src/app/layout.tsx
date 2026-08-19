@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { PortalShell } from "@/src/components/layout/PortalShell";
 import "./globals.css";
@@ -12,6 +12,13 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Portal de Empleados",
   description: "Portal empresarial HMV — hoja de tiempo, anticipos y más",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#014783",
 };
 
 export default function RootLayout({

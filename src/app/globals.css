@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "../components/ui/date-picker.css";
 @config "../../tailwind.config.ts";
+
+/* En táctil el primer tap no debe “gastarse” en :hover (si no, los botones parecen muertos). */
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
 :root {
   --navy: #014783;
   --navy-mid: #01376a;
@@ -123,6 +132,13 @@
 @layer base {
   body {
     @apply font-sans text-base bg-bg text-text min-h-screen flex flex-col;
+  }
+
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(1, 71, 131, 0.16);
   }
 }
 

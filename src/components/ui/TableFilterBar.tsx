@@ -26,7 +26,7 @@ export function TableFilterSection({
   }
   return (
     <section
-      className={`z-20 mb-3.5 rounded-xl border border-border bg-white px-[18px] py-3 ${
+      className={`z-20 mb-3.5 rounded-xl border border-border bg-white px-[18px] py-3 max-md:px-3 max-md:py-2.5 ${
         sticky ? "sticky top-0" : ""
       }`}
     >

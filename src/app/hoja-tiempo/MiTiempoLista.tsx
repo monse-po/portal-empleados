@@ -13,13 +13,13 @@ import {
   dataTdClamp,
   dataTdNumeric,
   dataTdTruncate,
-  dataTh,
   dataThWithAlign,
   dataTdResPrimary,
   dataTdResSecondary,
   MI_TIEMPO_LISTA_COLS,
 } from "@/src/components/ui/DataTable";
 import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
+import { TiempoRegistroMobileCard } from "@/src/app/hoja-tiempo/TiempoRegistroMobileCard";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import {
   buildCalendarioGrid,
@@ -39,11 +39,11 @@ import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const DIAS_SEMANA_MOBILE = ["L", "M", "X", "J", "V", "S", "D"];
 
-/** Altura fija del día en el calendario mensual */
-const CAL_DIA_MIN_H = "min-h-[120px]";
-const CAL_DIA_MAX_H = "max-h-[168px]";
-const CAL_DIA_CELL = `${CAL_DIA_MIN_H} ${CAL_DIA_MAX_H} overflow-hidden`;
+/** Escritorio/iPad: celda original. Teléfono: llena la fila del mes. */
+const CAL_DIA_CELL =
+  "min-h-[120px] max-h-[168px] overflow-hidden max-md:min-h-0 max-md:h-full max-md:max-h-none";
 
 const ESTADOS_CAL_DESTACADOS = new Set<RegistroEstado>([
   "Aprobado",
@@ -69,6 +69,13 @@ function CalendarioLineaTipo({ tipo }: { tipo: string }) {
       <span className="truncate">{m.s || tipo}</span>
     </span>
   );
+}
+
+function eventoBarClass(estado: RegistroEstado): string {
+  if (estado === "Aprobado") return "bg-green-bg text-green";
+  if (estado === "Rechazado") return "bg-[#fee2e2] text-red";
+  if (estado === "Lanzado") return "bg-[#dbeafe] text-[#1d4ed8]";
+  return "bg-[#e8eef4] text-navy";
 }
 
 function ResumenItem({
@@ -124,10 +131,11 @@ function CalendarioTab({
     [hoy],
   );
   const celdas = buildCalendarioGrid(mesRef, registros, hoy);
+  const weekRows = Math.max(1, Math.ceil(celdas.length / 7));
 
   return (
-    <div className="mt-1">
-      <div className="mb-4 flex gap-4">
+    <div className="mt-1 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:overflow-hidden">
+      <div className="mb-4 flex gap-4 max-md:hidden">
         <Card className="mb-0 shrink-0 grow-0 basis-auto">
           <CardHeader>
             <span className="flex items-center text-sm">
@@ -164,21 +172,31 @@ function CalendarioTab({
         </Card>
       </div>
 
-      <Card className="mb-4">
-        <CardBody>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-lg font-extrabold tracking-tight text-navy">
+      <Card className="mb-4 max-md:!mb-0 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:overflow-hidden max-md:rounded-none max-md:border-0">
+        <CardBody className="max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:!px-0 max-md:!py-0">
+          <div className="mb-3 flex items-center justify-between gap-3 max-md:mb-1 max-md:px-3 max-md:pt-2">
+            <span className="text-lg font-extrabold tracking-tight text-navy max-md:text-[15px]">
               {getMesLabel(mesRef)}
+            </span>
+            <span className="text-[13px] font-bold tabular-nums text-orange md:hidden">
+              {resumen.pendientesReportar}h
+              <span className="ml-1 text-[10px] font-medium text-muted">
+                por registrar
+              </span>
             </span>
           </div>
 
-          <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-border bg-border">
-            {DIAS_SEMANA.map((d) => (
+          <div
+            className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-border bg-border max-md:min-h-0 max-md:flex-1 max-md:rounded-none max-md:border-0 max-md:[grid-template-rows:auto_repeat(var(--cal-weeks),minmax(0,1fr))]"
+            style={{ ["--cal-weeks" as string]: weekRows }}
+          >
+            {DIAS_SEMANA.map((d, i) => (
               <div
                 key={d}
-                className="bg-[#f8fafc] px-2 py-2 text-center text-[11px] font-semibold text-muted"
+                className="bg-[#f8fafc] px-2 py-2 text-center text-[11px] font-semibold text-muted max-md:px-0 max-md:py-1 max-md:text-[10px]"
               >
-                {d}
+                <span className="md:hidden">{DIAS_SEMANA_MOBILE[i]}</span>
+                <span className="hidden md:inline">{d}</span>
               </div>
             ))}
 
@@ -206,18 +224,35 @@ function CalendarioTab({
                   key={celda.fechaStr}
                   type="button"
                   onClick={() => onSelectDia(celda.fechaStr, false)}
-                  className={`relative flex ${CAL_DIA_CELL} flex-col items-start p-2.5 text-left transition-[filter,box-shadow] duration-100 cursor-pointer hover:brightness-[0.96] ${
+                  className={`relative flex ${CAL_DIA_CELL} cursor-pointer flex-col items-start p-2.5 text-left transition-[filter,box-shadow] duration-100 hover:brightness-[0.96] max-md:items-stretch max-md:p-0.5 max-md:touch-manipulation ${
                     celda.esHoy
                       ? celda.esFestivo
                         ? "z-[1] ring-2 ring-inset ring-orange/70"
                         : "z-[1] ring-2 ring-inset ring-navy shadow-[0_0_0_1px_var(--navy)]"
                       : ""
                   }`}
-                  style={{
-                    background: celda.bg,
-                  }}
+                  style={{ background: celda.bg }}
                 >
-                  <div className="w-full shrink-0">
+                  <div className="flex h-6 w-full shrink-0 items-center justify-center md:hidden">
+                    <span
+                      className={`inline-flex h-6 min-w-6 items-center justify-center text-[12px] leading-none ${
+                        celda.esHoy
+                          ? "rounded-full bg-navy font-bold text-white"
+                          : dayNumberClass
+                      }`}
+                    >
+                      {celda.dia}
+                    </span>
+                  </div>
+                  {celda.resumen ? (
+                    <div
+                      className={`mt-0.5 flex h-[18px] w-full shrink-0 items-center justify-center rounded px-0.5 text-[10px] font-bold tabular-nums md:hidden ${eventoBarClass(celda.resumen.estadoDia)}`}
+                    >
+                      {celda.resumen.total}h
+                    </div>
+                  ) : null}
+
+                  <div className="hidden w-full shrink-0 md:block">
                     <div className="flex w-full items-center justify-between gap-1">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span
@@ -244,7 +279,9 @@ function CalendarioTab({
                           </span>
                         )}
                         {celda.resumen && (
-                          <CalendarioEstadoDia estado={celda.resumen.estadoDia} />
+                          <CalendarioEstadoDia
+                            estado={celda.resumen.estadoDia}
+                          />
                         )}
                       </div>
                       {celda.resumen && (
@@ -270,7 +307,7 @@ function CalendarioTab({
                   </div>
 
                   {celda.resumen && celda.resumen.lineas.length > 0 && (
-                    <div className="mt-2 min-h-0 w-full flex-1 overflow-y-auto overscroll-contain">
+                    <div className="mt-2 hidden min-h-0 w-full flex-1 overflow-y-auto overscroll-contain md:block">
                       <div className="flex flex-col gap-0.5">
                         {celda.resumen.lineas.map((l) => (
                           <div
@@ -320,29 +357,79 @@ function ListaTab({
   ];
 
   return (
-    <Card>
-      <CardHeader
-        right={
-          <span className="text-[11px] font-normal text-muted">
-            {dias.length} día{dias.length !== 1 ? "s" : ""} ·{" "}
-            {dias.reduce((s, d) => s + d.registros.length, 0)} registros
-          </span>
-        }
-      >
-        <div className="flex flex-col gap-0.5">
-          <span className="flex flex-row items-center gap-1.5">
-            <Icon name="list" size="sm" />
-            <span>Lista</span>
-          </span>
-          {hayFilasEditables && (
-            <span className="text-[11px] font-normal text-muted">
-              {TIEMPO_UI_COPY.filaEditableHint}
-            </span>
-          )}
-        </div>
-      </CardHeader>
+    <>
+      <div className="md:hidden">
+        {dias.length === 0 ? (
+          <div className="px-6 py-8 text-center text-[13px] text-muted">
+            No hay registros todavía.
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-4 p-3 md:hidden">
+              {dias.map((dia) => (
+                <div key={dia.fecha} className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSelectDia(dia.fecha, false)}
+                    className="flex w-full items-center justify-between gap-2 px-1 text-left"
+                  >
+                    <span className="min-w-0 truncate text-[12px] font-semibold text-muted">
+                      {formatFechaLegible(dia.fecha)}
+                    </span>
+                    <span className="shrink-0 text-[13px] font-bold tabular-nums text-navy">
+                      {dia.totalHoras}h
+                    </span>
+                  </button>
+                  {dia.registros.map((r) => (
+                    <TiempoRegistroMobileCard
+                      key={r.id}
+                      registro={r}
+                      onOpen={
+                        isRegistroEditable(r.estado)
+                          ? () =>
+                              openRegistrarModal({
+                                editId: r.id,
+                                fecha: r.fecha,
+                                origen: "lista",
+                              })
+                          : undefined
+                      }
+                      onDelete={
+                        isRegistroEliminable(r.estado)
+                          ? () => setRegistroAEliminar(r)
+                          : undefined
+                      }
+                      deleteDisabled={!!registroAEliminar}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
-      <div>
+      <Card className="mb-4 hidden overflow-hidden md:block">
+        <CardHeader
+          right={
+            <span className="text-[11px] font-normal text-muted">
+              {dias.length} día{dias.length !== 1 ? "s" : ""} ·{" "}
+              {dias.reduce((s, d) => s + d.registros.length, 0)} registros
+            </span>
+          }
+        >
+          <div className="flex flex-col gap-0.5">
+            <span className="flex flex-row items-center gap-1.5">
+              <Icon name="list" size="sm" />
+              <span>Lista</span>
+            </span>
+            {hayFilasEditables && (
+              <span className="text-[11px] font-normal text-muted">
+                {TIEMPO_UI_COPY.filaEditableHint}
+              </span>
+            )}
+          </div>
+        </CardHeader>
         {dias.length === 0 ? (
           <div className="px-6 py-8 text-center text-[13px] text-muted">
             No hay registros todavía.
@@ -470,7 +557,7 @@ function ListaTab({
             </tbody>
           </DataTable>
         )}
-      </div>
+      </Card>
 
       <EliminarRegistroModal
         open={!!registroAEliminar}
@@ -492,7 +579,43 @@ function ListaTab({
           }
         }}
       />
-    </Card>
+    </>
+  );
+}
+
+function VistaTabs({
+  tab,
+  onTabChange,
+}: {
+  tab: "cal" | "lista";
+  onTabChange: (tab: "cal" | "lista") => void;
+}) {
+  const item = (id: "cal" | "lista", label: string, icon: "calendar" | "list") => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={tab === id}
+      onClick={() => onTabChange(id)}
+      className={`mb-[-2px] flex min-h-12 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-t-md border-b-[3px] px-2 text-[14px] ${
+        tab === id
+          ? "border-b-navy font-bold text-navy"
+          : "border-b-transparent font-medium text-muted active:bg-[#f0f2f5]"
+      }`}
+    >
+      <Icon name={icon} size="sm" />
+      {label}
+    </button>
+  );
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Vista"
+      className="flex border-b-2 border-[#e5e9f0] px-1"
+    >
+      {item("cal", "Calendario", "calendar")}
+      {item("lista", "Lista", "list")}
+    </div>
   );
 }
 
@@ -504,22 +627,30 @@ export function MiTiempoLista({
   const { openRegistrarModal } = useMiTiempo();
 
   return (
-    <div className="view-wide">
-      <div className="mb-4 flex flex-col gap-0">
+    <div
+      className={`view-wide ${
+        tab === "cal"
+          ? "max-md:flex max-md:h-[calc(100dvh-52px-env(safe-area-inset-bottom,0px))] max-md:flex-col max-md:px-2 max-md:pt-2"
+          : "max-md:px-2 max-md:pt-2 max-md:pb-24"
+      }`}
+    >
+      <div className="mb-4 hidden md:block">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-bold text-[#111]">Mi Tiempo</h1>
           </div>
           <div className="flex shrink-0 items-center gap-2.5">
-            <Button variant="primary" onClick={() => openRegistrarModal({ origen: "lista" })}>
+            <Button
+              variant="primary"
+              onClick={() => openRegistrarModal({ origen: "lista" })}
+            >
               <Icon name="plus" size="xs" />
               Registrar horas
             </Button>
           </div>
         </div>
       </div>
-
-      <div className="mb-[18px] flex border-b-2 border-[#e5e9f0]">
+      <div className="mb-[18px] hidden border-b-2 border-[#e5e9f0] md:flex">
         <button
           type="button"
           onClick={() => onTabChange("cal")}
@@ -546,11 +677,40 @@ export function MiTiempoLista({
         </button>
       </div>
 
-      {tab === "cal" ? (
-        <CalendarioTab onSelectDia={onSelectDia} />
-      ) : (
-        <ListaTab onSelectDia={onSelectDia} />
-      )}
+      <h1 className="mb-3 shrink-0 text-lg font-bold text-[#111] md:hidden">
+        Mi Tiempo
+      </h1>
+
+      <div className="max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:overflow-hidden max-md:rounded-lg max-md:border max-md:border-border max-md:bg-white">
+        <div className="md:hidden">
+          <VistaTabs tab={tab} onTabChange={onTabChange} />
+        </div>
+        <div
+          className={
+            tab === "cal"
+              ? "max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:overflow-hidden"
+              : "max-md:min-h-0 max-md:flex-1 max-md:overflow-y-auto"
+          }
+        >
+          {tab === "cal" ? (
+            <CalendarioTab onSelectDia={onSelectDia} />
+          ) : (
+            <ListaTab onSelectDia={onSelectDia} />
+          )}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => openRegistrarModal({ origen: "lista" })}
+        className="fixed right-3 z-[150] flex h-12 touch-manipulation items-center gap-2 rounded-full bg-navy px-4 text-[13px] font-semibold text-white shadow-[0_8px_24px_rgba(1,71,131,0.4)] active:bg-navy-mid md:hidden"
+        style={{
+          bottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        <Icon name="plus" size="sm" strokeWidth={2.25} />
+        Registrar horas
+      </button>
     </div>
   );
 }

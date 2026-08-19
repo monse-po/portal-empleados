@@ -5,6 +5,9 @@ import { createContext, useContext } from "react";
 type ShellContextValue = {
   collapsed: boolean;
   toggleSidebar: () => void;
+  mobileMenuOpen: boolean;
+  toggleMobileMenu: () => void;
+  closeMobileMenu: () => void;
 };
 
 export const ShellContext = createContext<ShellContextValue | null>(null);

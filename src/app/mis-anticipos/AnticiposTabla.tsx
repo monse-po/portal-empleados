@@ -15,6 +15,7 @@ import {
   TABLE_PAGE_SIZE,
 } from "@/src/components/ui/DataTable";
 import { TablePagination } from "@/src/components/ui/TablePagination";
+import { AnticiposMobileCards } from "@/src/app/mis-anticipos/AnticiposMobileCards";
 import {
   ANTICIPOS_COLS_HIST,
   ANTICIPOS_COLS_PEND,
@@ -137,7 +138,14 @@ export function AnticiposTabla({
 
   return (
     <div>
-      <div className="overflow-x-auto">
+      <div className="md:hidden">
+        <AnticiposMobileCards
+          registros={visibles}
+          sessionIds={sessionIds}
+          onOpenDetalle={onOpenDetalle}
+        />
+      </div>
+      <div className="hidden overflow-x-auto md:block">
         <DataTable
           className={esHistorial ? "min-w-[1380px]" : "min-w-[1280px]"}
           colWidths={[

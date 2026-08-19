@@ -9,12 +9,24 @@ import { UserMenu } from "@/src/components/layout/UserMenu";
 import { NotificationBell } from "@/src/components/notifications/NotificationBell";
 
 export function Topbar() {
-  const { collapsed, toggleSidebar } = useShell();
+  const { collapsed, toggleSidebar, mobileMenuOpen, toggleMobileMenu } =
+    useShell();
   const { isGerente } = useRole();
 
   return (
-    <header className="relative z-[100] flex h-[52px] shrink-0 items-center justify-between bg-white px-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] md:h-14 md:px-6">
-      <div className="flex items-center gap-4 md:gap-[18px]">
+    <header className="relative z-[100] flex h-[52px] shrink-0 items-center justify-between bg-white px-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] max-md:px-2 md:h-14 md:px-6">
+      <div className="flex items-center gap-4 max-md:min-w-0 max-md:gap-1 md:gap-[18px]">
+        <button
+          type="button"
+          onClick={toggleMobileMenu}
+          title={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+          className="inline-flex h-11 w-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-md text-navy active:bg-[#eef3f9] md:hidden"
+          aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+          aria-expanded={mobileMenuOpen}
+        >
+          <Icon name={mobileMenuOpen ? "x" : "menu"} size="md" />
+        </button>
+
         <button
           type="button"
           onClick={toggleSidebar}
@@ -25,7 +37,10 @@ export function Topbar() {
           <Icon name={collapsed ? "menu" : "x"} size="md" />
         </button>
 
-        <Link href={isGerente ? "/aprobacion-tiempo" : "/hoja-tiempo"} className="flex cursor-pointer items-center">
+        <Link
+          href={isGerente ? "/aprobacion-tiempo" : "/hoja-tiempo"}
+          className="flex cursor-pointer items-center"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={HMV_LOGO_SRC}

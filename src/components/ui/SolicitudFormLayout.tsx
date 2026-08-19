@@ -125,12 +125,14 @@ export function SolicitudFormFooter({
   children: ReactNode;
 }) {
   return (
-    <div className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white px-5 py-4">
-      <span className="flex items-center gap-1.5 text-[11.5px] text-muted">
-        <Icon name="info" size="xs" className="text-muted" />
+    <div className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white px-5 py-4 max-md:flex-col max-md:px-4 max-md:py-3">
+      <span className="flex items-center gap-1.5 text-[11.5px] text-muted max-md:items-start max-md:leading-snug">
+        <Icon name="info" size="xs" className="text-muted max-md:mt-0.5 max-md:shrink-0" />
         {note}
       </span>
-      <div className="flex flex-wrap gap-2.5">{children}</div>
+      <div className="flex flex-wrap gap-2.5 max-md:w-full max-md:flex-col-reverse max-md:gap-2 max-md:[&_button]:min-h-12 max-md:[&_button]:w-full">
+        {children}
+      </div>
     </div>
   );
 }
