@@ -89,8 +89,8 @@ export function AprobacionAnticiposProvider({
     clearSeleccion,
   } = useTableSelection();
 
-  const reloadSolicitudes = useCallback(async () => {
-    const result = await listAprobacionAnticiposAction();
+  const reloadSolicitudes = useCallback(async (alsoRequestNos: string[] = []) => {
+    const result = await listAprobacionAnticiposAction(alsoRequestNos);
     setSolicitudes(result.solicitudes);
     setSessionNombre(result.sessionNombre || GERENTE_APROBADOR);
     setFromIfs(result.fromIfs);
@@ -171,7 +171,7 @@ export function AprobacionAnticiposProvider({
         aprobadorNombre: fromIfs ? sessionNombre : undefined,
       });
       if (result.persisted.length || fromDb || fromIfs || result.error) {
-        await reloadSolicitudes();
+        await reloadSolicitudes(result.persisted);
       }
       return {
         ok: result.ok && !result.error,

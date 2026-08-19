@@ -483,6 +483,14 @@ export function AnticiposFormulario({
   };
 
   const validarYAbrirEnvio = () => {
+    if (!ifsCat.connected) {
+      toast(
+        ifsCat.error ||
+          "Sin sesión IFS. Inicia sesión para enviar el anticipo a Employee Advances.",
+        "danger",
+      );
+      return;
+    }
     if (paraOtro) {
       if (!compBenef) {
         toast("Selecciona la empresa del empleado beneficiario", "danger");
@@ -586,6 +594,14 @@ export function AnticiposFormulario({
 
   const ejecutarEnvio = async () => {
     if (enviando) return;
+    if (!ifsCat.connected) {
+      toast(
+        ifsCat.error ||
+          "Sin conexión a IFS. Inicia sesión para enviar el anticipo a Employee Advances.",
+        "danger",
+      );
+      return;
+    }
     setEnviando(true);
     setEnvioOpen(false);
     const compLabel = paraOtro
@@ -678,7 +694,12 @@ export function AnticiposFormulario({
           <p className="mb-3 text-[11px] font-medium text-muted">
             Catálogos IFS · {ifsCat.profile?.empName || ifsCat.profile?.companyId}
           </p>
-        ) : null}
+        ) : (
+          <p className="mb-3 text-[11px] font-medium text-red">
+            Sin sesión IFS — el envío no llega a Employee Advances.
+            {ifsCat.error ? ` ${ifsCat.error}` : " Inicia sesión y recarga."}
+          </p>
+        )}
 
         <SolicitudFormCard>
           <FormSection icon="send" title="Solicitud para">

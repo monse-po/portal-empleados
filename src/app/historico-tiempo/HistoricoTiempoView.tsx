@@ -63,7 +63,7 @@ function HistoricoTimelineStats({
 }
 
 export function HistoricoTiempoView() {
-  const { registros, registrosLoaded, registrosError, registrosFromIfs, ifsConnected } =
+  const { registros, registrosLoaded, registrosError, registrosIfsWarning, registrosFromIfs, ifsConnected } =
     useMiTiempo();
   const [filters, setFilters] = useState<HistoricoFilterRule[]>([]);
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
@@ -124,13 +124,16 @@ export function HistoricoTiempoView() {
         <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">
           {HISTORICO_UI_COPY.subtitle}
         </p>
+        {registrosIfsWarning ? (
+          <p className="alert-warn mt-2 px-3 py-2 text-sm">{registrosIfsWarning}</p>
+        ) : null}
         {usandoDummy && (
           <p className="mt-2 inline-flex rounded-md border border-[#fde68a] bg-[#fffbeb] px-2.5 py-1 text-[11px] font-medium text-[#92400e]">
             Datos de ejemplo — entra con IFS para ver tu hoja real
             (GetEmployeeTimesheet)
           </p>
         )}
-        {ifsConnected && reales.length === 0 && (
+        {ifsConnected && reales.length === 0 && !registrosIfsWarning && (
           <p className="mt-2 inline-flex rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-2.5 py-1 text-[11px] font-medium text-navy">
             Hoja IFS conectada · aún no hay horas enviadas o aprobadas
           </p>

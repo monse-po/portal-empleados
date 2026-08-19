@@ -16,6 +16,7 @@ import {
   registroToHoja,
   type SyncRegistroAccion,
 } from "@/src/lib/tiempo-bridge";
+import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";
@@ -73,6 +74,7 @@ type MiTiempoContextValue = {
   registros: Record<string, RegistroMock[]>;
   registrosLoaded: boolean;
   registrosError: string | null;
+  registrosIfsWarning: string | null;
   registrosFromIfs: boolean;
   ifsConnected: boolean;
   ifsEmail: string | null;
@@ -117,6 +119,9 @@ export function MiTiempoProvider({
   const [registros, setRegistros] = useState<Record<string, RegistroMock[]>>({});
   const [registrosLoaded, setRegistrosLoaded] = useState(false);
   const [registrosError, setRegistrosError] = useState<string | null>(null);
+  const [registrosIfsWarning, setRegistrosIfsWarning] = useState<string | null>(
+    null,
+  );
   const [registrosFromIfs, setRegistrosFromIfs] = useState(false);
   const [ifsConnected, setIfsConnected] = useState(false);
   const [ifsEmail, setIfsEmail] = useState<string | null>(null);
@@ -125,26 +130,36 @@ export function MiTiempoProvider({
     undefined,
   );
 
+  const applyGrouped = useCallback(
+    (result: Awaited<ReturnType<typeof getRegistrosGroupedAction>>) => {
+      setRegistros(result.registros);
+      setRegistrosFromIfs(result.fromIfs);
+      setRegistrosIfsWarning(
+        result.warning
+          ? result.sessionExpired
+            ? TIEMPO_UI_COPY.ifsTimesheetWarning.sessionExpired
+            : TIEMPO_UI_COPY.ifsTimesheetWarning.fetchFailed
+          : null,
+      );
+      setRegistrosError(null);
+    },
+    [],
+  );
+
   const reloadRegistros = useCallback(async () => {
     setRegistrosError(null);
     try {
-      const result = await getRegistrosGroupedAction();
-      setRegistros(result.registros);
-      setRegistrosFromIfs(result.fromIfs);
-      if (result.warning) {
-        setRegistrosError(
-          "No se pudo leer la hoja de IFS. Mostrando registros locales.",
-        );
-      }
+      applyGrouped(await getRegistrosGroupedAction());
     } catch {
       setRegistrosFromIfs(false);
+      setRegistrosIfsWarning(null);
       setRegistrosError(
         "No se pudieron cargar los registros. Revisa la conexión o la base de datos.",
       );
     } finally {
       setRegistrosLoaded(true);
     }
-  }, []);
+  }, [applyGrouped]);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,16 +169,11 @@ export function MiTiempoProvider({
       try {
         const result = await getRegistrosGroupedAction();
         if (cancelled) return;
-        setRegistros(result.registros);
-        setRegistrosFromIfs(result.fromIfs);
-        if (result.warning) {
-          setRegistrosError(
-            "No se pudo leer la hoja de IFS. Mostrando registros locales.",
-          );
-        }
+        applyGrouped(result);
       } catch {
         if (cancelled) return;
         setRegistrosFromIfs(false);
+        setRegistrosIfsWarning(null);
         setRegistrosError(
           "No se pudieron cargar los registros. Revisa la conexión o la base de datos.",
         );
@@ -176,7 +186,7 @@ export function MiTiempoProvider({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applyGrouped]);
 
   useEffect(() => {
     void getIfsSessionStatusAction().then((status) => {
@@ -197,9 +207,7 @@ export function MiTiempoProvider({
       const saved = await upsertRegistroAction(reg);
       if (isIfsRegistroId(saved.id)) {
         // Objversion IFS cambia tras update — refrescar timesheet.
-        const fresh = await getRegistrosGroupedAction();
-        setRegistros(fresh.registros);
-        setRegistrosFromIfs(fresh.fromIfs);
+        applyGrouped(await getRegistrosGroupedAction());
       } else {
         setRegistros((prev) => upsertIntoRegistros(prev, saved));
       }
@@ -208,7 +216,7 @@ export function MiTiempoProvider({
       }
       registroGuardadoHandler.current?.(saved.fecha);
     },
-    [onIngresarHojas],
+    [applyGrouped, onIngresarHojas],
   );
 
   const upsertRegistros = useCallback(
@@ -247,12 +255,10 @@ export function MiTiempoProvider({
       if (result.enviados.length) {
         onIngresarHojas?.(result.enviados.map((reg) => registroToHoja(reg)));
       }
-      const fresh = await getRegistrosGroupedAction();
-      setRegistros(fresh.registros);
-      setRegistrosFromIfs(fresh.fromIfs);
+      applyGrouped(await getRegistrosGroupedAction());
       return result;
     },
-    [onIngresarHojas],
+    [applyGrouped, onIngresarHojas],
   );
 
   const upsertRegistrosYEnviar = useCallback(
@@ -270,37 +276,31 @@ export function MiTiempoProvider({
       if (result.enviados.length) {
         onIngresarHojas?.(result.enviados.map((r) => registroToHoja(r)));
       }
-      const fresh = await getRegistrosGroupedAction();
-      setRegistros(fresh.registros);
-      setRegistrosFromIfs(fresh.fromIfs);
+      applyGrouped(await getRegistrosGroupedAction());
       registroGuardadoHandler.current?.(reg.fecha);
       return result;
     },
-    [onIngresarHojas],
+    [applyGrouped, onIngresarHojas],
   );
 
   const deleteRegistro = useCallback(
     async (id: string) => {
       await deleteRegistroAction(id);
       if (isIfsRegistroId(id)) {
-        const fresh = await getRegistrosGroupedAction();
-        setRegistros(fresh.registros);
-        setRegistrosFromIfs(fresh.fromIfs);
+        applyGrouped(await getRegistrosGroupedAction());
       } else {
         setRegistros((prev) => removeRegistroFromState(prev, id));
       }
       onRetirarHojas?.([id]);
     },
-    [onRetirarHojas],
+    [applyGrouped, onRetirarHojas],
   );
 
   const sincronizarDesdeAprobacion = useCallback(
     async (id: string, accion: SyncRegistroAccion, comentario?: string) => {
       // Registros IFS: el estado vive en IFS; refrescar timesheet en vez de Neon.
       if (isIfsRegistroId(id)) {
-        const fresh = await getRegistrosGroupedAction();
-        setRegistros(fresh.registros);
-        setRegistrosFromIfs(fresh.fromIfs);
+        applyGrouped(await getRegistrosGroupedAction());
         return;
       }
       const updated = await updateRegistroEstadoAction(
@@ -311,7 +311,7 @@ export function MiTiempoProvider({
       if (!updated) return;
       setRegistros((prev) => upsertIntoRegistros(prev, updated));
     },
-    [],
+    [applyGrouped],
   );
 
   const enviarDia = useCallback(
@@ -341,6 +341,7 @@ export function MiTiempoProvider({
       registros,
       registrosLoaded,
       registrosError,
+      registrosIfsWarning,
       registrosFromIfs,
       ifsConnected,
       ifsEmail,
@@ -362,6 +363,7 @@ export function MiTiempoProvider({
       registros,
       registrosLoaded,
       registrosError,
+      registrosIfsWarning,
       registrosFromIfs,
       ifsConnected,
       ifsEmail,

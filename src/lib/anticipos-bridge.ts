@@ -23,12 +23,12 @@ export type RetirarAnticipoHandler = (no: string) => void;
 
 /**
  * Mapea decisión del gerente al estado visible en Mis Anticipos.
- * Aprobar en demo = Pagado (Tesorería mock automática) + Historial.
+ * Pagado lo pone Tesorería/IFS, no el botón de aprobar.
  */
 export function estadoEmpleadoDesdeAccion(
   accion: SyncAnticipoAccion,
-): Extract<AnticipoEstado, "Pagado" | "Rechazado"> {
-  return accion === "aprobado" ? "Pagado" : "Rechazado";
+): Extract<AnticipoEstado, "Aprobado" | "Rechazado"> {
+  return accion === "aprobado" ? "Aprobado" : "Rechazado";
 }
 
 /** Convierte anticipo empleado → fila de cola de aprobación */

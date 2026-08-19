@@ -24,15 +24,20 @@ import {
   approveEmpAdvance,
   cancelEmpAdvance,
   createEmpAdvance,
+  getAdvanceQuery,
   getRequestsForApproval,
   getYourRequests,
+  listAdvanceQueries,
   rejectEmpAdvance,
+  type CEmpAdvanceQuery,
 } from "@/src/lib/ifs/cemp-advance";
+import { odataStringKey } from "@/src/lib/ifs/client";
 import {
   queryToAprobacion,
   recordsFromQueries,
   toCEmpAdvancesInsert,
 } from "@/src/lib/ifs/anticipos-ifs-map";
+import { isIfsAuthEnabled } from "@/src/lib/ifs/config";
 import { formatIfsError, IfsApiError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
@@ -197,7 +202,9 @@ export async function listMisAnticiposAction(): Promise<{
   };
 }
 
-export async function listAprobacionAnticiposAction(): Promise<{
+export async function listAprobacionAnticiposAction(
+  alsoRequestNos: string[] = [],
+): Promise<{
   solicitudes: Record<string, AnticipoAprobacion>;
   sessionNombre: string;
   fromIfs: boolean;
@@ -215,12 +222,45 @@ export async function listAprobacionAnticiposAction(): Promise<{
       };
     }
     try {
-      const rows = await getRequestsForApproval(
+      const pending = await getRequestsForApproval(
         actor.accessToken,
         actor.personId,
       );
+      const ids = [...new Set([actor.personId, actor.empNo].filter(Boolean))];
+      const resolved: CEmpAdvanceQuery[] = [];
+      for (const id of ids) {
+        try {
+          const rows = await listAdvanceQueries(
+            actor.accessToken,
+            `ApproverId eq '${odataStringKey(id)}'`,
+          );
+          resolved.push(...rows);
+        } catch (err) {
+          console.error("[anticipos] CEmpAdvanceQuerySet failed", id, err);
+        }
+      }
+      for (const no of alsoRequestNos.filter(Boolean)) {
+        try {
+          resolved.push(await getAdvanceQuery(actor.accessToken, no));
+        } catch (err) {
+          console.error("[anticipos] getAdvanceQuery failed", no, err);
+        }
+      }
+      const byNo = new Map<string, CEmpAdvanceQuery>();
+      for (const row of [...pending, ...resolved]) {
+        const no = row.RequestNo?.trim();
+        if (!no) continue;
+        const prev = byNo.get(no);
+        if (!prev) {
+          byNo.set(no, row);
+          continue;
+        }
+        const prevResolved = queryToAprobacion(prev).estadoApro;
+        const nextResolved = queryToAprobacion(row).estadoApro;
+        if (!prevResolved && nextResolved) byNo.set(no, row);
+      }
       const solicitudes: Record<string, AnticipoAprobacion> = {};
-      for (const row of rows) {
+      for (const row of byNo.values()) {
         const mapped = queryToAprobacion(row);
         if (!mapped.no) continue;
         solicitudes[mapped.no] = mapped;
@@ -276,6 +316,13 @@ export async function lanzarAnticipoAction(
 ): Promise<{ no: string; error?: string }> {
   const actor = await resolveActor();
 
+  if (isIfsAuthEnabled() && (!actor.fromIfs || !actor.accessToken)) {
+    return {
+      no: "",
+      error: "No hay sesión IFS. Inicia sesión para enviar el anticipo a Employee Advances.",
+    };
+  }
+
   if (actor.fromIfs && actor.accessToken) {
     if (!actor.personId && !input.createdBy) {
       return {
@@ -311,8 +358,23 @@ export async function lanzarAnticipoAction(
           error: `Faltan datos para IFS: ${missing.join(", ")}`,
         };
       }
+      console.info("[anticipos] POST CEmpAdvancesSet", {
+        Company: body.Company,
+        InvCompany: body.InvCompany,
+        EmpNo: body.EmpNo,
+        SupplierId: body.SupplierId,
+        CreatedBy: body.CreatedBy,
+        ProjectId: body.ProjectId,
+        Amount: body.Amount,
+        CurrencyCode: body.CurrencyCode,
+        RequestType: body.RequestType,
+      });
       const created = await createEmpAdvance(actor.accessToken, body);
       const no = created.RequestNo?.trim();
+      console.info("[anticipos] IFS create ok", {
+        RequestNo: no,
+        Objstate: created.Objstate,
+      });
       if (!no) {
         return { no: "", error: "IFS creó el anticipo pero no devolvió RequestNo" };
       }
@@ -494,7 +556,7 @@ export async function decidirAnticiposAction(input: {
   const missing: string[] = [];
 
   if (actor.fromIfs && actor.accessToken) {
-    const approver = (actor.personId || actor.empNo).slice(0, 20);
+    const approver = (actor.personId || actor.empNo || "").slice(0, 20);
     const errors: string[] = [];
     for (const no of nos) {
       try {

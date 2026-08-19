@@ -125,6 +125,7 @@ export async function getRegistrosGroupedAction(): Promise<{
   registros: Record<string, RegistroMock[]>;
   fromIfs: boolean;
   warning?: string;
+  sessionExpired?: boolean;
 }> {
   const localGrouped = await getRegistrosFromNeon();
   const ifsResult = await fetchRegistrosFromIfsAction();
@@ -136,10 +137,15 @@ export async function getRegistrosGroupedAction(): Promise<{
     };
   }
 
+  if (!ifsResult.error) {
+    return { registros: localGrouped, fromIfs: false };
+  }
+
   return {
     registros: localGrouped,
     fromIfs: false,
     warning: ifsResult.error,
+    sessionExpired: ifsResult.sessionExpired,
   };
 }
 

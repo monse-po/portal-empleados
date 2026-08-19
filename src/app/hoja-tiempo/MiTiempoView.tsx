@@ -28,7 +28,7 @@ function MiTiempoNavigationEffects({
 }
 
 export function MiTiempoView() {
-  const { registrosLoaded, registrosError, reloadRegistros } = useMiTiempo();
+  const { registrosLoaded, registrosError, registrosIfsWarning, reloadRegistros } = useMiTiempo();
   const { loading: retrying, run: retryLoad } = useAsyncAction(reloadRegistros);
   const [vista, setVista] = useState<Vista>("lista");
   const [tab, setTab] = useState<"cal" | "lista">("cal");
@@ -74,16 +74,6 @@ export function MiTiempoView() {
     return (
       <div className="view-wide flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
         <p className="max-w-md text-[13px] text-[#374151]">{registrosError}</p>
-        <p className="text-[12px] text-muted">
-          Ejecuta{" "}
-          <code className="rounded bg-[#f3f4f6] px-1.5 py-0.5">
-            npm run db:migrate
-          </code>{" "}
-          y{" "}
-          <code className="rounded bg-[#f3f4f6] px-1.5 py-0.5">
-            npm run db:seed
-          </code>
-        </p>
         <Button
           variant="primary"
           onClick={() => void retryLoad()}
@@ -99,6 +89,12 @@ export function MiTiempoView() {
   return (
     <>
       <MiTiempoNavigationEffects onRegistroGuardado={handleRegistroGuardado} />
+
+      {registrosIfsWarning ? (
+        <div className="view-wide mb-3">
+          <p className="alert-warn px-3 py-2 text-sm">{registrosIfsWarning}</p>
+        </div>
+      ) : null}
 
       {vista === "dia" && fechaSeleccionada ? (
         <MiTiempoDia

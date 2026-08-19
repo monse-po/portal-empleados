@@ -241,8 +241,8 @@ export function AnticiposProvider({
             ...item,
             estado,
             fechaAprob: fechaStr,
-            disponible: true,
-            pago: accion === "aprobado" ? "Pagado" : "—",
+            disponible: accion !== "aprobado",
+            pago: accion === "aprobado" ? "Pendiente" : "—",
           },
         };
       });

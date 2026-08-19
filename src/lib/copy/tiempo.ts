@@ -51,4 +51,10 @@ export const TIEMPO_UI_COPY = {
     fetchFailedSuffix:
       "— si CEmpPortalUserSet y GetUserInfo están verdes, pide a TI proyectos asignados a tu empleado para esa fecha.",
   },
+  ifsTimesheetWarning: {
+    sessionExpired:
+      "Tu sesión con IFS expiró. Mostrando registros locales. Vuelve a iniciar sesión para ver tu hoja IFS.",
+    fetchFailed:
+      "No se pudo leer la hoja de IFS. Mostrando registros locales.",
+  },
 } as const;

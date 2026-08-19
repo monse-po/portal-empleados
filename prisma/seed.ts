@@ -31,6 +31,7 @@ function codigoFromLegacyId(legacyId: string): string {
 
 async function main() {
   await prisma.registroTiempo.deleteMany();
+  await prisma.anticipo.deleteMany();
   await prisma.proyecto.deleteMany();
   await prisma.empleado.deleteMany();
 

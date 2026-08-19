@@ -107,12 +107,13 @@ function AnticipoSyncEffect({
 
 /** Inyecta anticipos Lanzado del empleado en la cola del gerente. */
 function AnticipoSeedHydration() {
-  const { anticipos, extras, loaded } = useAnticipos();
-  const { ingresarSolicitud } = useAprobacionAnticipos();
+  const { anticipos, extras, loaded, fromIfs: fromIfsEmp } = useAnticipos();
+  const { ingresarSolicitud, fromIfs: fromIfsApro } = useAprobacionAnticipos();
   const hydrated = useRef(new Set<string>());
 
   useEffect(() => {
     if (!loaded) return;
+    if (fromIfsEmp || fromIfsApro) return;
     Object.values(anticipos)
       .filter((a) => a.estado === "Lanzado")
       .forEach((a) => {
@@ -120,7 +121,7 @@ function AnticipoSeedHydration() {
         hydrated.current.add(a.no);
         ingresarSolicitud(anticipoToAprobacion(a, extras[a.no]));
       });
-  }, [anticipos, extras, ingresarSolicitud, loaded]);
+  }, [anticipos, extras, fromIfsApro, fromIfsEmp, ingresarSolicitud, loaded]);
 
   return null;
 }
