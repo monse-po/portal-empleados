@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Card, CardBody } from "@/src/components/ui/Card";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
+import { FloatingActions } from "@/src/components/ui/FloatingActions";
 
 /** Espaciado vertical entre bloques dentro de una sección */
 export function FormStack({
@@ -116,7 +117,7 @@ export function SolicitudFormCard({ children }: { children: ReactNode }) {
   );
 }
 
-/** Barra inferior de acciones (Descartar / Enviar…) */
+/** Barra inferior de acciones (Descartar / Enviar…). En teléfono los botones flotan. */
 export function SolicitudFormFooter({
   note,
   children,
@@ -125,14 +126,12 @@ export function SolicitudFormFooter({
   children: ReactNode;
 }) {
   return (
-    <div className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white px-5 py-4 max-md:flex-col max-md:px-4 max-md:py-3">
-      <span className="flex items-center gap-1.5 text-[11.5px] text-muted max-md:items-start max-md:leading-snug">
-        <Icon name="info" size="xs" className="text-muted max-md:mt-0.5 max-md:shrink-0" />
+    <div className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white px-5 py-4 max-md:mt-2 max-md:border-0 max-md:bg-transparent max-md:px-0 max-md:py-0">
+      <span className="flex items-start gap-1.5 pb-24 text-[11.5px] leading-snug text-muted md:items-center md:pb-0">
+        <Icon name="info" size="xs" className="mt-0.5 shrink-0 text-muted md:mt-0" />
         {note}
       </span>
-      <div className="flex flex-wrap gap-2.5 max-md:w-full max-md:flex-col-reverse max-md:gap-2 max-md:[&_button]:min-h-12 max-md:[&_button]:w-full">
-        {children}
-      </div>
+      <FloatingActions>{children}</FloatingActions>
     </div>
   );
 }

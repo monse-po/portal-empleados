@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
+import { FloatingActions } from "@/src/components/ui/FloatingActions";
 import { Icon } from "@/src/components/ui/Icon";
 import { LegalizacionesFilterBar } from "@/src/app/legalizaciones/LegalizacionesFilterBar";
 import { useLegalizaciones } from "@/src/app/legalizaciones/LegalizacionesContext";
@@ -39,7 +40,7 @@ export function LegalizacionesLista({
   };
 
   return (
-    <div className="view-wide">
+    <div className="view-wide max-md:pb-24">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-[#111]">Mis Legalizaciones</h1>
@@ -47,10 +48,12 @@ export function LegalizacionesLista({
             Solicita y consulta el estado de tus legalizaciones de gastos
           </p>
         </div>
-        <Button variant="primary" onClick={onNueva}>
-          <Icon name="plus" size="xs" />
-          Nueva solicitud
-        </Button>
+        <FloatingActions>
+          <Button variant="primary" onClick={onNueva}>
+            <Icon name="plus" size="xs" />
+            Nueva solicitud
+          </Button>
+        </FloatingActions>
       </div>
 
       <LegalizacionesFilterBar

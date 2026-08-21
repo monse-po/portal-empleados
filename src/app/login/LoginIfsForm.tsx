@@ -1,48 +1,70 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/src/components/ui/Button";
+import { Field } from "@/src/components/ui/Field";
+
+const inputClass =
+  "h-12 w-full rounded-[5px] border border-border bg-white px-3.5 text-[14px] text-text transition-colors focus:border-navy focus:outline-none max-md:text-[16px]";
 
 type LoginIfsFormProps = {
   next: string;
   defaultEmail?: string;
 };
 
-export function LoginIfsForm({ next, defaultEmail = "" }: LoginIfsFormProps) {
+export function LoginIfsForm({
+  next,
+  defaultEmail = "",
+}: LoginIfsFormProps) {
   const [email, setEmail] = useState(defaultEmail);
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = email.trim();
-    if (!trimmed) return;
+    if (!trimmed || !password || submitting) return;
 
-    const params = new URLSearchParams({ next });
-    params.set("email", trimmed);
-    window.location.href = `/api/auth/login?${params.toString()}`;
+    setSubmitting(true);
+    window.location.href = next;
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 space-y-3">
-      <label className="block text-sm">
-        <span className="font-medium text-navy">Correo corporativo</span>
+    <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+      <Field label="Correo corporativo" required htmlFor="login-email">
         <input
+          id="login-email"
           type="email"
           required
           autoComplete="username"
-          placeholder="csruiz@h-mv.com"
+          inputMode="email"
+          placeholder="cn@h-mv.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm focus:border-navy focus:outline-none"
+          className={inputClass}
         />
-      </label>
-      <button
+      </Field>
+      <Field label="Contraseña" required htmlFor="login-password">
+        <input
+          id="login-password"
+          type="password"
+          required
+          autoComplete="current-password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className={inputClass}
+        />
+      </Field>
+      <Button
         type="submit"
-        className="flex w-full cursor-pointer items-center justify-center rounded-lg bg-navy px-4 py-3 text-sm font-semibold text-white hover:bg-[#1e3a5f]"
+        variant="primary"
+        className="h-12 w-full justify-center text-[14px] max-md:min-h-12 max-md:text-[15px]"
+        loading={submitting}
+        loadingLabel="Entrando…"
       >
-        Entrar con IFS
-      </button>
-      <p className="text-center text-xs text-muted">
-        Te llevamos a IFS con ese correo. Ahí pones tu contraseña.
-      </p>
+        Entrar
+      </Button>
     </form>
   );
 }

@@ -72,7 +72,7 @@ export function AprobacionAnticiposDetalle({
     useAsyncAction(handleRechazar);
 
   return (
-    <div className="content-standard">
+    <div className="content-standard max-md:pb-24">
       <AnticipoDetailHeader
         parentLabel="Aprobación de Anticipos"
         codigo={solicitud.no}

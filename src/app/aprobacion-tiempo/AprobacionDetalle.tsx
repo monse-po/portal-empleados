@@ -67,7 +67,7 @@ export function AprobacionDetalle({
     useAsyncAction(handleRechazar);
 
   return (
-    <div className="content-standard">
+    <div className="content-standard max-md:pb-24">
       <RecordDetailHeader
         parentLabel="Aprobación de Hoja de Tiempo"
         codigo={hoja.no}

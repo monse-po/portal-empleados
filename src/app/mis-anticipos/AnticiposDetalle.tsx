@@ -56,7 +56,7 @@ export function AnticiposDetalle({
   );
 
   return (
-    <div className="content-standard">
+    <div className="content-standard max-md:pb-24">
       <AnticipoDetailHeader
         parentLabel="Mis Anticipos"
         codigo={anticipo.no}

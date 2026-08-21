@@ -59,7 +59,7 @@ export function DocumentoSoporteDetalle({
   const banner = getDocumentoBanner(documento);
 
   return (
-    <div className="content-standard">
+    <div className="content-standard max-md:pb-24">
       <RecordDetailHeader
         parentLabel="Mis DSE"
         codigo={documento.no}

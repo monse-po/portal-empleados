@@ -1,4 +1,5 @@
 import { Button } from "@/src/components/ui/Button";
+import { FloatingActions } from "@/src/components/ui/FloatingActions";
 import { Icon } from "@/src/components/ui/Icon";
 
 type GerenteAccionBarProps = {
@@ -48,28 +49,30 @@ export function GerenteAccionBar({
           disabled={busy}
           className={`h-9 min-w-0 flex-1 rounded-[5px] border bg-white px-2.5 text-[13px] focus:border-navy focus:outline-none disabled:opacity-60 ${error ? "border-red bg-[#fff5f5]" : "border-border"}`}
         />
-        <Button
-          variant="danger"
-          className="shrink-0"
-          onClick={() => void onRechazar()}
-          loading={loadingRechazar}
-          loadingLabel="Rechazando…"
-          disabled={busy}
-        >
-          <Icon name="x" size="xs" />
-          Rechazar
-        </Button>
-        <Button
-          variant="success"
-          className="shrink-0"
-          onClick={() => void onAprobar()}
-          loading={loadingAprobar}
-          loadingLabel="Aprobando…"
-          disabled={busy}
-        >
-          <Icon name="check" size="xs" />
-          {aprobarLabel}
-        </Button>
+        <FloatingActions>
+          <Button
+            variant="danger"
+            className="shrink-0"
+            onClick={() => void onRechazar()}
+            loading={loadingRechazar}
+            loadingLabel="Rechazando…"
+            disabled={busy}
+          >
+            <Icon name="x" size="xs" />
+            Rechazar
+          </Button>
+          <Button
+            variant="success"
+            className="shrink-0"
+            onClick={() => void onAprobar()}
+            loading={loadingAprobar}
+            loadingLabel="Aprobando…"
+            disabled={busy}
+          >
+            <Icon name="check" size="xs" />
+            {aprobarLabel}
+          </Button>
+        </FloatingActions>
       </div>
 
       {error ? (

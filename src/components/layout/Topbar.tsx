@@ -40,6 +40,15 @@ export function Topbar() {
         <Link
           href={isGerente ? "/aprobacion-tiempo" : "/hoja-tiempo"}
           className="flex cursor-pointer items-center"
+          onClick={() => {
+            if (!isGerente) {
+              window.dispatchEvent(
+                new CustomEvent("portal:module-home", {
+                  detail: { path: "/hoja-tiempo" },
+                }),
+              );
+            }
+          }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img

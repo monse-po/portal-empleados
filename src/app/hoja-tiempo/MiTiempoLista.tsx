@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/Card";
+import { FloatingActions } from "@/src/components/ui/FloatingActions";
 import { Icon } from "@/src/components/ui/Icon";
 import { EstadoTiempoPill } from "@/src/components/ui/Pill";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
@@ -634,21 +635,19 @@ export function MiTiempoLista({
           : "max-md:px-2 max-md:pt-2 max-md:pb-24"
       }`}
     >
-      <div className="mb-4 hidden md:block">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-bold text-[#111]">Mi Tiempo</h1>
-          </div>
-          <div className="flex shrink-0 items-center gap-2.5">
-            <Button
-              variant="primary"
-              onClick={() => openRegistrarModal({ origen: "lista" })}
-            >
-              <Icon name="plus" size="xs" />
-              Registrar horas
-            </Button>
-          </div>
+      <div className="mb-4 flex items-center justify-between gap-4 max-md:mb-0">
+        <div className="hidden items-center gap-2.5 md:flex">
+          <h1 className="text-xl font-bold text-[#111]">Mi Tiempo</h1>
         </div>
+        <FloatingActions>
+          <Button
+            variant="primary"
+            onClick={() => openRegistrarModal({ origen: "lista" })}
+          >
+            <Icon name="plus" size="xs" />
+            Registrar horas
+          </Button>
+        </FloatingActions>
       </div>
       <div className="mb-[18px] hidden border-b-2 border-[#e5e9f0] md:flex">
         <button
@@ -699,18 +698,6 @@ export function MiTiempoLista({
           )}
         </div>
       </div>
-
-      <button
-        type="button"
-        onClick={() => openRegistrarModal({ origen: "lista" })}
-        className="fixed right-3 z-[150] flex h-12 touch-manipulation items-center gap-2 rounded-full bg-navy px-4 text-[13px] font-semibold text-white shadow-[0_8px_24px_rgba(1,71,131,0.4)] active:bg-navy-mid md:hidden"
-        style={{
-          bottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
-        }}
-      >
-        <Icon name="plus" size="sm" strokeWidth={2.25} />
-        Registrar horas
-      </button>
     </div>
   );
 }

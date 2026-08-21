@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
+import { FloatingActions } from "@/src/components/ui/FloatingActions";
 import { Icon } from "@/src/components/ui/Icon";
 import { AnticiposFilterBar } from "@/src/app/mis-anticipos/AnticiposFilterBar";
 import { useAnticipos } from "@/src/app/mis-anticipos/AnticiposContext";
@@ -39,7 +40,7 @@ export function AnticiposLista({
   };
 
   return (
-    <div className="view-wide">
+    <div className="view-wide max-md:pb-24">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4 max-md:mb-4 max-md:flex-col max-md:gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#111]">Mis Anticipos</h1>
@@ -47,14 +48,12 @@ export function AnticiposLista({
             Solicita y consulta el estado de tus anticipos
           </p>
         </div>
-        <Button
-          variant="primary"
-          className="max-md:min-h-12 max-md:w-full max-md:justify-center max-md:text-[15px]"
-          onClick={onNuevaSolicitud}
-        >
-          <Icon name="plus" size="xs" />
-          Nueva solicitud
-        </Button>
+        <FloatingActions>
+          <Button variant="primary" onClick={onNuevaSolicitud}>
+            <Icon name="plus" size="xs" />
+            Nueva solicitud
+          </Button>
+        </FloatingActions>
       </div>
 
       <AnticiposFilterBar

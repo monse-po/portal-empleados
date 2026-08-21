@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { PageBreadcrumb } from "@/src/components/ui/PageBreadcrumb";
+import { FloatingActions } from "@/src/components/ui/FloatingActions";
 import {
   EstadoAnticipoPill,
   estadoAnticipoPillProps,
@@ -131,7 +132,9 @@ export function RecordDetailHeader({
             {renderEstadoPill(estado)}
           </div>
         </div>
-        {trailingAction}
+        {trailingAction ? (
+          <FloatingActions>{trailingAction}</FloatingActions>
+        ) : null}
       </div>
 
       {banner && (

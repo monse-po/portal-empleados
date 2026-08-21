@@ -843,6 +843,21 @@ export function formatFechaLegible(fechaStr: string, capitalize = true) {
   return capitalize ? label.charAt(0).toUpperCase() + label.slice(1) : label;
 }
 
+/** Fecha corta de una línea, p. ej. «Mié 19 ago». */
+export function formatFechaCorta(fechaStr: string) {
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  const fecha = new Date(y, m - 1, d);
+  const weekday = fecha
+    .toLocaleDateString("es-ES", { weekday: "short" })
+    .replace(".", "");
+  const rest = fecha.toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "short",
+  });
+  const w = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  return `${w} ${rest}`;
+}
+
 export function getHorasNormales(
   registros: Record<string, RegistroMock[]>,
   fechaStr: string,

@@ -1,4 +1,5 @@
 import { Button } from "@/src/components/ui/Button";
+import { FloatingActions } from "@/src/components/ui/FloatingActions";
 import { Icon } from "@/src/components/ui/Icon";
 
 type BulkSelectionBarProps = {
@@ -34,7 +35,7 @@ export function BulkSelectionBar({
         </span>
       </div>
 
-      <div className="flex items-center gap-2">
+      <FloatingActions>
         <Button
           variant="success"
           title="Aprobar seleccionados"
@@ -57,7 +58,7 @@ export function BulkSelectionBar({
           <Icon name="x" size="xs" />
           Rechazar
         </Button>
-      </div>
+      </FloatingActions>
     </div>
   );
 }

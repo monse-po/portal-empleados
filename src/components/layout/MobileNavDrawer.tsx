@@ -47,7 +47,16 @@ function DrawerLink({
   return (
     <Link
       href={route.path}
-      onClick={onNavigate}
+      onClick={() => {
+        if (pathname.startsWith(route.path)) {
+          window.dispatchEvent(
+            new CustomEvent("portal:module-home", {
+              detail: { path: route.path },
+            }),
+          );
+        }
+        onNavigate();
+      }}
       className={`flex min-h-12 touch-manipulation items-center gap-3 rounded-lg px-3 text-[14px] ${
         active
           ? "bg-[#eef3f9] font-semibold text-navy"

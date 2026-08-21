@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardHeader } from "@/src/components/ui/Card";
+import { FloatingActions } from "@/src/components/ui/FloatingActions";
 import { Icon } from "@/src/components/ui/Icon";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { EstadoTiempoPill } from "@/src/components/ui/Pill";
@@ -13,7 +14,6 @@ import {
   dataTdClamp,
   dataTdNumeric,
   dataTdTruncate,
-  dataTh,
   dataThWithAlign,
   MI_TIEMPO_DIA_COLS,
 } from "@/src/components/ui/DataTable";
@@ -21,6 +21,7 @@ import { useToast } from "@/src/components/ui/Toast";
 import { useAsyncAction } from "@/src/lib/use-async-action";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import {
+  formatFechaCorta,
   formatFechaLegible,
   getHorasNormales,
   getMesActualBounds,
@@ -120,6 +121,7 @@ export function MiTiempoDia({
       cancelled = true;
     };
   }, [fecha]);
+
   const { loading: enviando, run: runEnviar } = useAsyncAction(async () => {
     try {
       const result = await enviarDia(fecha);
@@ -170,9 +172,16 @@ export function MiTiempoDia({
     !esHistorial &&
     diaRegs.some((r) => isRegistroEditable(r.estado));
   const fechaLabel = formatFechaLegible(fecha);
+  const fechaCorta = formatFechaCorta(fecha);
   const mesBounds = getMesActualBounds();
   const fechaAnterior = shiftFechaMes(fecha, -1, mesBounds);
   const fechaSiguiente = shiftFechaMes(fecha, 1, mesBounds);
+  const puedeDiaAnterior = Boolean(
+    !esHistorial && onCambiarDia && fechaAnterior,
+  );
+  const puedeDiaSiguiente = Boolean(
+    !esHistorial && onCambiarDia && fechaSiguiente,
+  );
   const calendarKind = getDiaSinJornadaKind(fecha);
   const diaKind: DiaCalendarioKind | null =
     calendarKind === "festivo" || calendarKind === "fin_semana"
@@ -181,113 +190,150 @@ export function MiTiempoDia({
         ? "sin_jornada"
         : null;
 
+  const swipeRef = useRef<{
+    x: number;
+    y: number;
+    axis?: "h" | "v";
+  } | null>(null);
+  const [swipeX, setSwipeX] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+
+  useEffect(() => {
+    setSwipeX(0);
+    setSwiping(false);
+    swipeRef.current = null;
+  }, [fecha]);
+
+  const irDiaAnterior = () => {
+    if (puedeDiaAnterior && fechaAnterior && onCambiarDia) {
+      onCambiarDia(fechaAnterior);
+    }
+  };
+  const irDiaSiguiente = () => {
+    if (puedeDiaSiguiente && fechaSiguiente && onCambiarDia) {
+      onCambiarDia(fechaSiguiente);
+    }
+  };
+
+  const onSwipeStart = (event: React.TouchEvent) => {
+    if (!onCambiarDia || esHistorial) return;
+    const touch = event.touches[0];
+    swipeRef.current = { x: touch.clientX, y: touch.clientY };
+    setSwiping(true);
+  };
+  const onSwipeMove = (event: React.TouchEvent) => {
+    const start = swipeRef.current;
+    if (!start) return;
+    const touch = event.touches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (!start.axis) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      start.axis = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+    }
+    if (start.axis !== "h") return;
+    let x = dx;
+    if (dx > 0 && !puedeDiaAnterior) x = dx * 0.22;
+    if (dx < 0 && !puedeDiaSiguiente) x = dx * 0.22;
+    setSwipeX(x);
+  };
+  const onSwipeEnd = () => {
+    const THRESHOLD = 64;
+    if (swipeX > THRESHOLD) irDiaAnterior();
+    else if (swipeX < -THRESHOLD) irDiaSiguiente();
+    swipeRef.current = null;
+    setSwipeX(0);
+    setSwiping(false);
+  };
+
   return (
-    <div className="view-wide">
+    <div className="view-wide max-md:pb-28">
       <PortalSubpageHeader
         parentLabel="Mi Tiempo"
         onVolver={onVolver}
-        title={fechaLabel}
+        title={
+          <>
+            <span className="hidden md:inline">{fechaLabel}</span>
+            <span className="md:hidden">{fechaCorta}</span>
+          </>
+        }
         titleAddon={
           diaKind === "festivo" ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-1 text-[11px] font-semibold text-[#c2410c]">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-1 text-[11px] font-semibold text-[#c2410c]">
               <Icon name="star" size="xs" className="text-[#f59e0b]" />
               Festivo
             </span>
           ) : diaKind === "fin_semana" ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#2563eb]">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#2563eb]">
               <Icon name="moon" size="xs" />
               Fin de semana
             </span>
           ) : null
         }
         onDiaAnterior={
-          !esHistorial && onCambiarDia
-            ? () => {
-                if (fechaAnterior) onCambiarDia(fechaAnterior);
-              }
-            : undefined
+          !esHistorial && onCambiarDia ? irDiaAnterior : undefined
         }
         onDiaSiguiente={
-          !esHistorial && onCambiarDia
-            ? () => {
-                if (fechaSiguiente) onCambiarDia(fechaSiguiente);
-              }
-            : undefined
+          !esHistorial && onCambiarDia ? irDiaSiguiente : undefined
         }
         puedeDiaAnterior={!!fechaAnterior}
         puedeDiaSiguiente={!!fechaSiguiente}
         trailing={
-          <>
-            <div className="hidden items-center gap-2.5 md:flex">
-              <div
-                className="flex h-[38px] items-center gap-2 rounded-lg px-4 text-xs"
-                style={{
-                  border: contador.border,
-                  background: contador.background,
-                }}
+          <div className="hidden items-center gap-2.5 md:flex">
+            <div
+              className="flex h-[38px] items-center gap-2 rounded-lg px-4 text-xs"
+              style={{
+                border: contador.border,
+                background: contador.background,
+              }}
+            >
+              <Icon name="clock" size="sm" className="text-muted" />
+              <span
+                className="font-bold"
+                style={{ color: contador.totalColor }}
               >
-                <Icon name="clock" size="sm" className="text-muted" />
-                <span
-                  className="font-bold"
-                  style={{ color: contador.totalColor }}
-                >
-                  {totalHoras}h
-                </span>
-                <span className="text-border">·</span>
-                <span style={{ color: contador.normColor }}>
-                  {normales}h normales · máx{" "}
-                  {formatScheduleHoursLabel(maxScheduleHours)} ({jornadaSourceLabel})
-                </span>
-              </div>
-              {!esHistorial && (
-                <Button
-                  variant="primary"
-                  onClick={() => openRegistrarModal({ fecha, origen: "dia" })}
-                >
-                  <Icon name="plus" size="xs" />
-                  Agregar registro
-                </Button>
-              )}
+                {totalHoras}h
+              </span>
+              <span className="text-border">·</span>
+              <span style={{ color: contador.normColor }}>
+                {normales}h normales · máx{" "}
+                {formatScheduleHoursLabel(maxScheduleHours)} ({jornadaSourceLabel})
+              </span>
             </div>
-            <div className="flex w-full flex-col gap-2 md:hidden">
-              <div
-                className="flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-3 text-xs"
-                style={{
-                  border: contador.border,
-                  background: contador.background,
-                }}
+            {!esHistorial && (
+              <Button
+                variant="primary"
+                onClick={() => openRegistrarModal({ fecha, origen: "dia" })}
               >
-                <Icon name="clock" size="sm" className="text-muted" />
-                <span
-                  className="font-bold"
-                  style={{ color: contador.totalColor }}
-                >
-                  {totalHoras}h
-                </span>
-                <span className="text-border">·</span>
-                <span style={{ color: contador.normColor }}>
-                  {normales}h / {formatScheduleHoursLabel(maxScheduleHours)}
-                </span>
-              </div>
-              {!esHistorial && (
-                <Button
-                  variant="primary"
-                  className="min-h-12 w-full justify-center text-[15px]"
-                  onClick={() => openRegistrarModal({ fecha, origen: "dia" })}
-                >
-                  <Icon name="plus" size="xs" />
-                  Agregar registro
-                </Button>
-              )}
-            </div>
-          </>
+                <Icon name="plus" size="xs" />
+                Agregar registro
+              </Button>
+            )}
+          </div>
         }
       />
 
+      <div
+        className="max-md:overflow-hidden"
+        onTouchStart={onSwipeStart}
+        onTouchMove={onSwipeMove}
+        onTouchEnd={onSwipeEnd}
+        onTouchCancel={onSwipeEnd}
+      >
+        <div
+          className={swiping ? "" : "max-md:transition-transform max-md:duration-200 max-md:ease-out"}
+          style={{
+            transform: swipeX ? `translateX(${swipeX}px)` : undefined,
+          }}
+        >
       <Card>
         <CardHeader
           right={
             <span className="text-[11px] font-normal text-muted">
+              <span className="md:hidden font-bold tabular-nums text-navy">
+                {totalHoras}h
+                <span className="mx-1 font-normal text-border">·</span>
+              </span>
               {diaRegs.length} registro{diaRegs.length !== 1 ? "s" : ""}
             </span>
           }
@@ -313,7 +359,7 @@ export function MiTiempoDia({
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-2 px-3 pb-3 md:hidden">
+            <div className="flex flex-col gap-2 px-3 pb-3 pt-3 md:hidden">
               {diaRegs.map((r: RegistroMock) => (
                 <TiempoRegistroMobileCard
                   key={r.id}
@@ -419,13 +465,13 @@ export function MiTiempoDia({
       </Card>
 
       {!esHistorial && hayBorradores && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-green-border bg-green-bg px-4 py-3.5 max-md:flex-col max-md:items-stretch">
+        <div className="mt-4 hidden flex-wrap items-center justify-between gap-3 rounded-lg border border-green-border bg-green-bg px-4 py-3.5 md:flex">
           <p className="min-w-0 text-[13px] leading-snug text-green-text">
             {TIEMPO_UI_COPY.diaBorradoresPendientes}
           </p>
           <Button
             variant="success"
-            className="!shrink-0 max-md:w-full max-md:justify-center"
+            className="!shrink-0"
             disabled={sobreTope || enviando || !!registroAEliminar}
             loading={enviando}
             loadingLabel="Enviando…"
@@ -441,6 +487,38 @@ export function MiTiempoDia({
           </Button>
         </div>
       )}
+        </div>
+      </div>
+
+      {!esHistorial ? (
+        <FloatingActions className="md:hidden">
+          {hayBorradores ? (
+            <Button
+              variant="success"
+              disabled={sobreTope || enviando || !!registroAEliminar}
+              loading={enviando}
+              loadingLabel="Enviando…"
+              title={
+                sobreTope
+                  ? "Corrige las horas normales antes de enviar"
+                  : undefined
+              }
+              onClick={() => void runEnviar()}
+            >
+              <Icon name="send" size="xs" />
+              Enviar a Aprobación
+            </Button>
+          ) : null}
+          <Button
+            variant="primary"
+            onClick={() => openRegistrarModal({ fecha, origen: "dia" })}
+          >
+            <Icon name="plus" size="xs" />
+            Agregar registro
+          </Button>
+        </FloatingActions>
+      ) : null}
+
       <EliminarRegistroModal
         open={!!registroAEliminar}
         registro={registroAEliminar}

@@ -31,7 +31,7 @@ export function PortalShell({ children }: PortalShellProps) {
   if (isLogin) {
     return (
       <ToastProvider>
-        <main className="min-h-screen bg-[#f4f7fb]">{children}</main>
+        <main className="min-h-screen bg-[var(--bg)]">{children}</main>
       </ToastProvider>
     );
   }

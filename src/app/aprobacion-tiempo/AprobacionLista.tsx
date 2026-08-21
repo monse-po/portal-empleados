@@ -93,7 +93,7 @@ export function AprobacionLista({
   };
 
   return (
-    <div className="view-wide">
+    <div className="view-wide max-md:pb-24">
       <div className="mb-4">
         <h1 className="text-xl font-bold text-[#111]">
           Aprobación de Hoja de Tiempo

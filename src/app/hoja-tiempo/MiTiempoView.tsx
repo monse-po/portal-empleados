@@ -43,11 +43,21 @@ export function MiTiempoView() {
     setVista("dia");
   };
 
-  const handleVolver = () => {
+  const handleVolver = useCallback(() => {
     setVista("lista");
     setFechaSeleccionada(null);
     setEsHistorial(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    const onModuleHome = (event: Event) => {
+      const path = (event as CustomEvent<{ path?: string }>).detail?.path;
+      if (path && path !== "/hoja-tiempo") return;
+      handleVolver();
+    };
+    window.addEventListener("portal:module-home", onModuleHome);
+    return () => window.removeEventListener("portal:module-home", onModuleHome);
+  }, [handleVolver]);
 
   const handleRegistroGuardado = useCallback(
     (fecha: string) => {
