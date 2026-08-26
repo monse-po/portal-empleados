@@ -166,7 +166,7 @@ export type HistoricoProyectoSubResumen = {
 /** Horas que cuentan para hoja de vida: enviadas o ya aprobadas (no borrador ni rechazo). */
 export function isRegistroHistorico(estado: RegistroMock["estado"]): boolean {
   const normalized = normalizeRegistroEstado(estado);
-  return normalized === "Aprobado" || normalized === "Lanzado";
+  return normalized === "Aprobado" || normalized === "Registrado";
 }
 
 /** Registros de histórico, más recientes primero. */

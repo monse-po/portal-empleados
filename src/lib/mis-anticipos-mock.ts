@@ -60,15 +60,17 @@ export type AnticipoExtra = {
   tl: TimelineItem[];
 };
 
+/** Identidad de prueba: EmailId en CEmpPortalUserSet (correo Veyron → empleado DEV). */
 export const SESSION_EMPLEADO = {
-  nombre: "Carlos Rivas Mora",
-  cedula: "1.023.456.789",
+  nombre: "Liz Lino",
+  email: "liz.lino@veyron.com.mx",
+  cedula: "1001138468",
   companiaDefault: "HMVINGCO",
 };
 
 export const EMP_DET = {
   cedula: "1.023.456.789",
-  nombre: "Carlos Rivas Mora",
+  nombre: "Liz Lino",
   cuenta: "4567890123",
   banco: "Bancolombia",
   tipoCuenta: "Ahorros",
@@ -146,7 +148,7 @@ export type EmpleadoAnticipo = LovItem & {
 export const EMPLEADOS_ANT: EmpleadoAnticipo[] = [
   {
     id: "1023456789",
-    nombre: "Carlos Rivas Mora",
+    nombre: "Liz Lino",
     sub: "EMP-001",
     banco: "Bancolombia",
     tipo: "Ahorros",
@@ -436,11 +438,11 @@ export function getBeneficiarioDetalle(a: Anticipo, extra?: AnticipoExtra) {
   };
 }
 
-/** IDs mock empleados — visibilidad R-01 en lista Carlos Rivas */
+/** IDs mock empleados — visibilidad R-01 en lista Liz Lino */
 const SEED_EMP = {
   carlos: {
     id: "1023456789",
-    nombre: "Carlos Rivas Mora",
+    nombre: "Liz Lino",
     cedula: "1.023.456.789",
   },
   maria: {

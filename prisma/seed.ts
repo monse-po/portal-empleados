@@ -14,6 +14,7 @@ const SESSION_ID = SESSION_EMPLEADO.cedula.replace(/\./g, "");
 function mapEstado(estado: RegistroEstado): RegistroEstadoDb {
   switch (estado) {
     case "Registrado":
+    case "Lanzado":
       return RegistroEstadoDb.EN_REVISION;
     case "Aprobado":
       return RegistroEstadoDb.APROBADO;

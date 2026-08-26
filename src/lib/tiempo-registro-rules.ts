@@ -14,9 +14,9 @@ export function isBorradorEnviable(reg: RegistroMock): boolean {
   return isRegistroBorrador(reg.estado) && !isIfsRegistroId(reg.id);
 }
 
-/** Lanzado: enviado a aprobación; el aprobador aún no confirma. */
+/** Registrado: ya está en IFS; el aprobador aún no confirma. */
 export function isRegistroEnviado(estado: RegistroEstado): boolean {
-  return estado === "Lanzado";
+  return estado === "Registrado" || estado === "Lanzado";
 }
 
 /** Editable mientras el aprobador no haya aprobado. */
@@ -39,16 +39,17 @@ export function hayBorradoresEnviables(registros: RegistroMock[]): boolean {
 }
 
 export function labelEstadoRegistro(estado: RegistroEstado): string {
+  if (estado === "Lanzado") return "Registrado";
   return estado;
 }
 
-/** Normaliza etiquetas legacy antes del rename de estados. */
+/** Normaliza etiquetas legacy: Lanzado / En revisión → Registrado (en IFS). */
 export function normalizeRegistroEstado(estado: string): RegistroEstado {
-  if (estado === "En revisión" || estado === "Registrado") return "Lanzado";
+  if (estado === "En revisión" || estado === "Lanzado") return "Registrado";
   if (estado === "Nuevo") return "Borrador";
   if (
     estado === "Borrador" ||
-    estado === "Lanzado" ||
+    estado === "Registrado" ||
     estado === "Aprobado" ||
     estado === "Rechazado"
   ) {
@@ -59,6 +60,7 @@ export function normalizeRegistroEstado(estado: string): RegistroEstado {
 
 const ORDEN_ESTADO_LISTA: Record<RegistroEstado, number> = {
   Borrador: 0,
+  Registrado: 1,
   Lanzado: 1,
   Rechazado: 2,
   Aprobado: 3,

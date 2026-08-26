@@ -83,6 +83,16 @@ export function getIfsConfig(): IfsConfig {
   };
 }
 
+/** EmpNo de prueba en DEV (hoja de tiempo). Vacío en producción. */
+export function getIfsTargetEmpNo(): string | undefined {
+  const explicit = envFirst("IFS_DEV_EMP_NO");
+  if (explicit) return explicit.trim();
+  if (!process.env.VERCEL && process.env.NODE_ENV !== "production") {
+    return "1001138468";
+  }
+  return undefined;
+}
+
 export function isIfsConfigured(): boolean {
   const { oauthClientId, oauthClientSecret, oauthTokenUrl } = getIfsConfig();
   return Boolean(oauthClientId && oauthClientSecret && oauthTokenUrl);

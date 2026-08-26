@@ -49,6 +49,7 @@ const CAL_DIA_CELL =
 const ESTADOS_CAL_DESTACADOS = new Set<RegistroEstado>([
   "Aprobado",
   "Borrador",
+  "Registrado",
   "Lanzado",
   "Rechazado",
 ]);
@@ -75,7 +76,9 @@ function CalendarioLineaTipo({ tipo }: { tipo: string }) {
 function eventoBarClass(estado: RegistroEstado): string {
   if (estado === "Aprobado") return "bg-green-bg text-green";
   if (estado === "Rechazado") return "bg-[#fee2e2] text-red";
-  if (estado === "Lanzado") return "bg-[#dbeafe] text-[#1d4ed8]";
+  if (estado === "Registrado" || estado === "Lanzado") {
+    return "bg-[#dbeafe] text-[#1d4ed8]";
+  }
   return "bg-[#e8eef4] text-navy";
 }
 

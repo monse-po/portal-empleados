@@ -95,7 +95,7 @@ export function IfsDevTokenForm() {
             <input
               type="email"
               required
-              placeholder="nombre@h-mv.com"
+              placeholder="liz.lino@veyron.com.mx"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm"

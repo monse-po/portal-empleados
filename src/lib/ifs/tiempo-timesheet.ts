@@ -62,10 +62,10 @@ function mapIfsEstado(row: EmpReportItemRow): RegistroEstado {
   const status = `${row.CStatusDb ?? row.CStatus ?? ""}`.toLowerCase();
   if (status.includes("reject")) return "Rechazado";
   if (status.includes("confirm")) return "Aprobado";
-  // Registered / Registrado / Pending → ya enviado a aprobación
-  if (status.includes("registr") || status.includes("pending")) return "Lanzado";
+  // Registered / Registrado / Pending → ya está en IFS, aún no aprobado
+  if (status.includes("registr") || status.includes("pending")) return "Registrado";
   // Fila presente en timesheet IFS sin status claro: no es borrador del portal
-  if (row.ProjectTransactionSeq != null || row.Objid?.trim()) return "Lanzado";
+  if (row.ProjectTransactionSeq != null || row.Objid?.trim()) return "Registrado";
   return "Borrador";
 }
 
@@ -119,8 +119,17 @@ export function mapEmpReportItemToRegistro(
 
 export function mapEmployeeTimesheetToRegistros(
   raw: unknown,
+  empNo?: string,
 ): RegistroMock[] {
-  return parseEmpReportItems(raw)
+  let rows = parseEmpReportItems(raw);
+  if (empNo) {
+    const digits = empNo.replace(/\D/g, "");
+    const filtered = rows.filter(
+      (row) => !row.EmpNo || row.EmpNo.replace(/\D/g, "") === digits,
+    );
+    if (filtered.length) rows = filtered;
+  }
+  return rows
     .map(mapEmpReportItemToRegistro)
     .filter((row): row is RegistroMock => row !== null);
 }

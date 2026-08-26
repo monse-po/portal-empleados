@@ -38,7 +38,7 @@ export function LoginIfsForm({
           required
           autoComplete="username"
           inputMode="email"
-          placeholder="cn@h-mv.com"
+          placeholder="liz.lino@veyron.com.mx"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className={inputClass}

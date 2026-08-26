@@ -1,8 +1,8 @@
 "use server";
 
 import {
-  getEmployeeTimesheet,
-  openCempPortalSession,
+  getEmployeeTimesheetForEmp,
+  openCempPortalActor,
 } from "@/src/lib/ifs/cemp-portal";
 import { IfsApiError } from "@/src/lib/ifs/errors";
 import {
@@ -13,6 +13,7 @@ import {
   groupRegistrosMockByFecha,
   mapEmployeeTimesheetToRegistros,
 } from "@/src/lib/ifs/tiempo-timesheet";
+import { getIfsTargetEmpNo } from "@/src/lib/ifs/config";
 import { getServerIfsSession } from "@/src/lib/ifs/session";
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 
@@ -26,12 +27,13 @@ export async function fetchRegistrosFromIfsAction(): Promise<{
 
   try {
     const grouped = await withValidIfsSession(async (liveSession) => {
-      const ifs = await openCempPortalSession(
+      const ifs = await openCempPortalActor(
         liveSession.email,
         liveSession.accessToken,
       );
-      const raw = await getEmployeeTimesheet(ifs);
-      const registros = mapEmployeeTimesheetToRegistros(raw);
+      const targetEmpNo = getIfsTargetEmpNo();
+      const raw = await getEmployeeTimesheetForEmp(ifs, targetEmpNo);
+      const registros = mapEmployeeTimesheetToRegistros(raw, targetEmpNo);
       return groupRegistrosMockByFecha(registros);
     });
     return { grouped };

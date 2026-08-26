@@ -44,6 +44,12 @@ export const MODULES: ModuleDef[] = [
         navLabel: "Tiempo",
         icon: "checkSquare",
       },
+      {
+        path: "/aprobacion-tiempo-proyectos",
+        rol: "gerente",
+        navLabel: "Tiempo por proyecto",
+        icon: "briefcase",
+      },
     ],
   },
   {
@@ -111,16 +117,17 @@ export const MODULES: ModuleDef[] = [
 /**
  * Módulo enfocado vía variable de entorno.
  *
- *   FOCUS=tiempo npm run dev              → solo el módulo Tiempo
- *   FOCUS=documento-soporte npm run dev   → solo Documento de Soporte
- *   npm run dev                           → app completa (sin enfoque)
+ *   npm run dev                 → solo Tiempo (registro + aprobación)
+ *   FOCUS=all npm run dev       → app completa
+ *   FOCUS=tiempo npm run dev    → solo Tiempo (explícito)
  *
  * `FOCUS` se mapea a NEXT_PUBLIC_FOCUS en next.config para que esté
  * disponible también en componentes de cliente.
  */
 export function getFocusModule(): ModuleId | null {
   const raw = process.env.NEXT_PUBLIC_FOCUS?.trim().toLowerCase();
-  if (!raw) return null;
+  if (raw === "all" || raw === "off") return null;
+  if (!raw) return "tiempo";
   const match = MODULES.find((m) => m.id === raw);
   return match ? match.id : null;
 }
@@ -146,8 +153,13 @@ export function isUtilityPath(pathname: string): boolean {
 export function isPathVisible(pathname: string): boolean {
   if (isUtilityPath(pathname)) return true;
   return getVisibleModules().some((m) =>
-    m.routes.some((r) => pathname.startsWith(r.path)),
+    m.routes.some((r) => isNavRouteActive(pathname, r.path)),
   );
+}
+
+/** Activo exacto o subruta (`/foo/bar`), no un path que solo comparte prefijo (`/foo-otros`). */
+export function isNavRouteActive(pathname: string, routePath: string): boolean {
+  return pathname === routePath || pathname.startsWith(`${routePath}/`);
 }
 
 /** Home para un rol respetando el enfoque activo. */

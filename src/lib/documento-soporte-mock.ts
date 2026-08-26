@@ -83,15 +83,15 @@ export const EMPRESAS_DS = [
 
 export const DIVISAS_DS = ["COP", "USD", "MXN"] as const;
 
-/** Sesión mock del capturista — alineada con shell (Carlos Rivas). */
+/** Sesión mock del capturista — alineada con shell (Liz Lino). */
 export const SESSION_DS = {
   id: "1023456789",
-  nombre: "Carlos Rivas Mora",
+  nombre: "Liz Lino",
 };
 
 export const EMPLEADOS_DS = [
   { id: "1001138468", nombre: "Cristian Santiago Ruiz", empresa: "HMVINGCO" },
-  { id: "1023456789", nombre: "Carlos Rivas Mora", empresa: "HMVINGCO" },
+  { id: "1023456789", nombre: "Liz Lino", empresa: "HMVINGCO" },
   { id: "52874391", nombre: "María Fernanda López Torres", empresa: "HMVINGCO" },
   { id: "80341256", nombre: "Carlos Andrés Martínez Ruiz", empresa: "HMVMEX" },
 ] as const;

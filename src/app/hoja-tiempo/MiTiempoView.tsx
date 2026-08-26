@@ -7,6 +7,7 @@ import { MiTiempoLista } from "@/src/app/hoja-tiempo/MiTiempoLista";
 import { MiTiempoLoading } from "@/src/app/hoja-tiempo/MiTiempoLoading";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import { RegistrarHorasModal } from "@/src/app/hoja-tiempo/RegistrarHorasModal";
+import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
 import { LOADING_COPY, loadingPlaceholder } from "@/src/lib/copy/loading";
 import { useAsyncAction } from "@/src/lib/use-async-action";
 
@@ -28,7 +29,15 @@ function MiTiempoNavigationEffects({
 }
 
 export function MiTiempoView() {
-  const { registrosLoaded, registrosError, registrosIfsWarning, reloadRegistros } = useMiTiempo();
+  const {
+    registrosLoaded,
+    registrosError,
+    registrosIfsWarning,
+    registrosFromIfs,
+    ifsConnected,
+    ifsEmail,
+    reloadRegistros,
+  } = useMiTiempo();
   const { loading: retrying, run: retryLoad } = useAsyncAction(reloadRegistros);
   const [vista, setVista] = useState<Vista>("lista");
   const [tab, setTab] = useState<"cal" | "lista">("cal");
@@ -100,11 +109,15 @@ export function MiTiempoView() {
     <>
       <MiTiempoNavigationEffects onRegistroGuardado={handleRegistroGuardado} />
 
-      {registrosIfsWarning ? (
-        <div className="view-wide mb-3">
-          <p className="alert-warn px-3 py-2 text-sm">{registrosIfsWarning}</p>
-        </div>
-      ) : null}
+      <div className="view-wide">
+        <IfsStatusBanner
+          surface="timesheet"
+          connected={ifsConnected}
+          fromIfs={registrosFromIfs}
+          email={ifsEmail}
+          warning={registrosIfsWarning}
+        />
+      </div>
 
       {vista === "dia" && fechaSeleccionada ? (
         <MiTiempoDia

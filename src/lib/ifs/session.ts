@@ -181,6 +181,7 @@ function isUuidLike(value: string): boolean {
   );
 }
 
+/** EmailId de CEmpPortalUserSet: @h-mv.com o correo de prueba (p.ej. @veyron.com.mx). */
 function portalEmailDomain(): string | undefined {
   const configured = process.env.IFS_PORTAL_EMAIL_DOMAIN?.trim().replace(/^@/, "");
   if (configured) return configured;

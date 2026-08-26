@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Dropdown } from "@/src/components/ui/Dropdown";
 import { Field } from "@/src/components/ui/Field";
@@ -33,10 +33,7 @@ import {
   getMesActualBounds,
   HORAS_OPTIONS,
   inferSubproyecto,
-  JER_TIEMPO,
-  PROYECTOS,
   resolveFechaMes,
-  TIPO_HORA,
   tipoCat,
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
@@ -51,7 +48,7 @@ import { LOADING_COPY, loadingPlaceholder } from "@/src/lib/copy/loading";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 import { scheduleSourceLabel as formatScheduleSource } from "@/src/lib/tiempo-config";
 import { getJornadaLimiteFromSistema } from "@/src/lib/tiempo-config";
-import { labelEstadoRegistro, hayBorradoresEnviables } from "@/src/lib/tiempo-registro-rules";
+import { labelEstadoRegistro } from "@/src/lib/tiempo-registro-rules";
 import {
   fechasRegistroSegunTipo,
   filterTiposPorPrograma,
@@ -80,19 +77,15 @@ type FormState = {
   comentario: string;
 };
 
-type SaveMode = "guardar" | "enviar";
-
 type RegistroHorasFormProps = {
   formId: string;
   editId?: string;
   defaultFecha?: string;
   registros: Record<string, RegistroMock[]>;
   ifsConnected: boolean;
-  onSave: (registros: RegistroMock[], mode: SaveMode) => void | Promise<void>;
-  getSaveMode: () => SaveMode;
+  onSave: (registros: RegistroMock[]) => void | Promise<void>;
   onRangeDaysChange?: (count: number) => void;
   saving?: boolean;
-  hintEnvio?: "lista" | "dia";
 };
 
 function buildInitialForm(
@@ -247,10 +240,8 @@ function RegistroHorasForm({
   registros,
   ifsConnected,
   onSave,
-  getSaveMode,
   onRangeDaysChange,
   saving = false,
-  hintEnvio,
 }: RegistroHorasFormProps) {
   const bounds = getMesActualBounds();
   const isEdit = Boolean(editId);
@@ -355,29 +346,17 @@ function RegistroHorasForm({
 
   const useIfsCatalogLive = useIfsCatalog && Boolean(catalog) && !catalogError;
 
-  const mockSubs =
-    form.proy && JER_TIEMPO[form.proy]
-      ? Object.keys(JER_TIEMPO[form.proy].subs)
-      : [];
-  const mockActs =
-    form.proy && form.sub && JER_TIEMPO[form.proy]?.subs[form.sub]
-      ? JER_TIEMPO[form.proy].subs[form.sub]
-      : [];
   const proyEntry = form.proy ? catalog?.porProyecto[form.proy] : undefined;
-  const subs = useIfsCatalogLive
-    ? (proyEntry?.subs ?? [])
-    : mockSubs.map((s) => ({ id: s, label: s }));
+  const subs = useIfsCatalogLive ? (proyEntry?.subs ?? []) : [];
   const actividades = useIfsCatalogLive
     ? (proyEntry?.subs.find((s) => s.id === form.sub)?.actividades ?? [])
-    : mockActs.map((a) => ({ id: a, label: a, activitySeq: 0, activityNo: a }));
+    : [];
   const actMeta = useIfsCatalogLive
     ? findActividadMeta(catalog, form.proy, form.sub, form.act)
     : null;
   const aprobadorLabel = useIfsCatalogLive
     ? aprobadorLoading ? null : aprobadorIfs ?? resolveAprobadorLabel(catalog, form.proy)
-    : form.proy && JER_TIEMPO[form.proy]
-      ? JER_TIEMPO[form.proy].aprobador
-      : TIEMPO_UI_COPY.approverFallback;
+    : TIEMPO_UI_COPY.approverFallback;
   const aprobador =
     useIfsCatalogLive
       ? aprobadorIfs ?? resolveAprobadorLabel(catalog, form.proy)
@@ -481,14 +460,7 @@ function RegistroHorasForm({
   );
 
   const tiposDisponibles = useMemo(() => {
-    const base = useIfsCatalogLive
-      ? tipos
-      : Object.keys(TIPO_HORA).map((code) => ({
-          code,
-          label: TIPO_HORA[code].s,
-          fullLabel: TIPO_HORA[code].n,
-          cat: TIPO_HORA[code].cat,
-        }));
+    const base = useIfsCatalogLive ? tipos : [];
     return filterTiposPorPrograma(base, calendarioFechas, hoursByDate);
   }, [useIfsCatalogLive, tipos, calendarioFechas, hoursByDate]);
 
@@ -600,13 +572,13 @@ function RegistroHorasForm({
       horas: horasNum,
       fecha,
       comentario: form.comentario,
-      estado: registroExistente?.estado ?? "Borrador",
+      estado: registroExistente?.estado ?? "Registrado",
       aprobador: aprobador ?? undefined,
       comentarioRechazo: registroExistente?.comentarioRechazo ?? "",
       ifs: registroExistente?.ifs,
     }));
 
-    await onSave(payload, isEdit ? "guardar" : getSaveMode());
+    await onSave(payload);
   };
 
   const handleCopiarDiaAnterior = () => {
@@ -651,6 +623,14 @@ function RegistroHorasForm({
       )}
       {scheduleReady && scheduleError && (
         <p className="alert-warn px-3 py-2 text-sm">{scheduleError}</p>
+      )}
+      {!ifsConnected && (
+        <p className="alert-warn px-3 py-2 text-sm">
+          {TIEMPO_UI_COPY.ifsCatalogError.noSession}{" "}
+          <a href="/dev/ifs" className="font-semibold underline">
+            Diagnóstico
+          </a>
+        </p>
       )}
       {useIfsCatalog && catalogError && (
         <p className="alert-warn px-3 py-2 text-sm">
@@ -703,11 +683,7 @@ function RegistroHorasForm({
                   value: p.id,
                   label: `${p.id} – ${p.nombre}`,
                 }))
-              : PROYECTOS.map((p) => ({
-                  value: p.id,
-                  label: `${p.id} – ${p.nombre}`,
-                  hint: p.sub,
-                }))
+              : []
           }
           placeholder={
             !scheduleReady
@@ -906,7 +882,7 @@ function RegistroHorasForm({
                 ? labelEstadoRegistro(
                     findRegistroById(registros, editId)?.estado ?? "Borrador",
                   )
-                : TIEMPO_UI_COPY.estadoBorrador}
+                : TIEMPO_UI_COPY.estadoRegistrado}
             </div>
           </Field>
         </div>
@@ -936,14 +912,10 @@ function RegistroHorasForm({
         />
       </Field>
 
-      {hintEnvio && (
-        <p className="rounded-lg border border-[#dbeafe] bg-[#eff6ff] px-3 py-2.5 text-[11.5px] leading-relaxed text-[#1e40af]">
-          <Icon name="info" size="xs" className="mr-1 inline-block align-text-bottom" />
-          {hintEnvio === "lista"
-            ? TIEMPO_UI_COPY.hintEnviarDesdeLista
-            : TIEMPO_UI_COPY.hintEnviarEnVistaDia}
-        </p>
-      )}
+      <p className="rounded-lg border border-[#dbeafe] bg-[#eff6ff] px-3 py-2.5 text-[11.5px] leading-relaxed text-[#1e40af]">
+        <Icon name="info" size="xs" className="mr-1 inline-block align-text-bottom" />
+        {TIEMPO_UI_COPY.hintEnviarEnVistaDia}
+      </p>
 
       <span className="text-[11.5px] text-muted">
         Los campos con <span className="mx-0.5 text-red">*</span> son
@@ -960,68 +932,33 @@ export function RegistrarHorasModal() {
     registros,
     ifsConnected,
     upsertRegistros,
-    upsertRegistrosYEnviar,
   } = useMiTiempo();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [rangeDays, setRangeDays] = useState(1);
-  const saveModeRef = useRef<SaveMode>("guardar");
 
   const formKey = modal
     ? `${modal.editId ?? "new"}:${modal.fecha ?? "hoy"}`
     : "closed";
 
-  const fechaModal = modal
-    ? modal.fecha ??
-      (modal.editId
-        ? findRegistroById(registros, modal.editId)?.fecha
-        : undefined)
-    : undefined;
-  const hayBorradoresEnDia = fechaModal
-    ? hayBorradoresEnviables(getRegistrosDia(registros, fechaModal))
-    : false;
-  const hintEnvio =
-    modal?.origen === "lista" && hayBorradoresEnDia
-      ? ("lista" as const)
-      : modal?.origen === "dia" && hayBorradoresEnDia
-        ? ("dia" as const)
-        : undefined;
-
-  const handleSave = async (payload: RegistroMock[], mode: SaveMode) => {
+  const handleSave = async (payload: RegistroMock[]) => {
+    if (!ifsConnected) {
+      toast(TIEMPO_UI_COPY.ifsCatalogError.noSession, "danger");
+      return;
+    }
     setSaving(true);
-    const wasRejected =
-      modal?.editId &&
-      findRegistroById(registros, modal.editId)?.estado === "Rechazado";
+    const existing = modal?.editId
+      ? findRegistroById(registros, modal.editId)
+      : undefined;
+    const wasRejected = existing?.estado === "Rechazado";
 
     const regs = payload.map((registro) => ({
       ...registro,
-      estado: wasRejected ? ("Borrador" as const) : registro.estado,
+      estado: wasRejected && existing ? existing.estado : registro.estado,
       comentarioRechazo: wasRejected ? "" : registro.comentarioRechazo,
     }));
 
     try {
-      if (mode === "enviar" && !modal?.editId) {
-        const result = await upsertRegistrosYEnviar(regs);
-        closeRegistrarModal();
-        if (result.error) {
-          toast(result.error, "danger");
-          return;
-        }
-        if (result.warning) {
-          toast(result.warning, "warn");
-          return;
-        }
-        toast(
-          result.sentToIfs
-            ? result.inApprovalQueue
-              ? `${TIEMPO_UI_COPY.toastRegistrosEnviados(regs.length)} · Ya están en bandeja IFS`
-              : TIEMPO_UI_COPY.toastRegistrosEnviados(regs.length)
-            : TIEMPO_UI_COPY.toastRegistrosEnviados(regs.length),
-          "green",
-        );
-        return;
-      }
-
       await upsertRegistros(regs);
       closeRegistrarModal();
       if (modal?.editId) {
@@ -1035,12 +972,11 @@ export function RegistrarHorasModal() {
       toast(
         err instanceof Error
           ? err.message
-          : "No se pudo guardar el registro. Intenta de nuevo.",
+          : "No se pudo guardar el registro en IFS. Intenta de nuevo.",
         "danger",
       );
     } finally {
       setSaving(false);
-      saveModeRef.current = "guardar";
     }
   };
 
@@ -1049,11 +985,7 @@ export function RegistrarHorasModal() {
     closeRegistrarModal();
   };
 
-  const submitWithMode = (mode: SaveMode) => {
-    saveModeRef.current = mode;
-    const form = document.getElementById(FORM_ID) as HTMLFormElement | null;
-    form?.requestSubmit();
-  };
+  const saveDisabled = saving || !ifsConnected;
 
   return (
     <Modal
@@ -1074,43 +1006,18 @@ export function RegistrarHorasModal() {
             >
               Cancelar
             </Button>
-            {modal.editId ? (
-              <Button
-                type="submit"
-                form={FORM_ID}
-                variant="primary"
-                disabled={saving}
-                loading={saving}
-                loadingLabel="Guardando…"
-                onClick={() => {
-                  saveModeRef.current = "guardar";
-                }}
-              >
-                {TIEMPO_UI_COPY.guardarCambios}
-              </Button>
-            ) : (
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={saving}
-                  onClick={() => submitWithMode("guardar")}
-                >
-                  {TIEMPO_UI_COPY.guardarRango(rangeDays)}
-                </Button>
-                <Button
-                  type="button"
-                  variant="success"
-                  disabled={saving}
-                  loading={saving}
-                  loadingLabel="Enviando…"
-                  onClick={() => submitWithMode("enviar")}
-                >
-                  <Icon name="send" size="xs" />
-                  {TIEMPO_UI_COPY.guardarYEnviar(rangeDays)}
-                </Button>
-              </div>
-            )}
+            <Button
+              type="submit"
+              form={FORM_ID}
+              variant="primary"
+              disabled={saveDisabled}
+              loading={saving}
+              loadingLabel="Enviando a IFS…"
+            >
+              {modal.editId
+                ? TIEMPO_UI_COPY.guardarCambios
+                : TIEMPO_UI_COPY.guardarRango(rangeDays)}
+            </Button>
           </>
         ) : undefined
       }
@@ -1124,10 +1031,8 @@ export function RegistrarHorasModal() {
           registros={registros}
           ifsConnected={ifsConnected}
           onSave={handleSave}
-          getSaveMode={() => saveModeRef.current}
           onRangeDaysChange={setRangeDays}
           saving={saving}
-          hintEnvio={hintEnvio}
         />
       )}
     </Modal>

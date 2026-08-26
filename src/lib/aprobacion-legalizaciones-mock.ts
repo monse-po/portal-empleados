@@ -32,7 +32,7 @@ export const APRO_LEG_COLS_PEND = [
 ] as const;
 
 const SOLICITANTE = {
-  nombre: "Carlos Rivas Mora",
+  nombre: "Liz Lino",
   cedula: "1.023.456.789",
 };
 

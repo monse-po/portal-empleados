@@ -13,6 +13,7 @@ import {
 } from "@/src/app/aprobacion-tiempo/AprobacionModals";
 import { toastAprobados, toastAnulados, toastRechazados } from "@/src/lib/tiempo-bridge";
 import { getHojasPendientesAprobacionAction } from "@/src/server/mi-tiempo-actions";
+import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 
 type Vista = "lista" | "detalle";
 
@@ -29,14 +30,27 @@ export function AprobacionView() {
   const [anularTargets, setAnularTargets] = useState<string[]>([]);
   const [aprobarComentario, setAprobarComentario] = useState("");
   const [pendientesLoaded, setPendientesLoaded] = useState(false);
+  const [ifsConnected, setIfsConnected] = useState(false);
+  const [ifsEmail, setIfsEmail] = useState<string | null>(null);
+  const [fromIfs, setFromIfs] = useState(false);
+  const [ifsWarning, setIfsWarning] = useState<string | null>(null);
   const deepLinkNo = searchParams.get("no");
   const deepLinkHandled = useRef<string | null>(null);
 
   const refrescarBandeja = async () => {
     const result = await getHojasPendientesAprobacionAction();
     syncPendientesDesdeDb(result.hojas);
+    setFromIfs(result.fromIfs);
+    setIfsWarning(result.warning ?? null);
     if (result.warning) toast(result.warning, "warn");
   };
+
+  useEffect(() => {
+    void getIfsSessionStatusAction().then((status) => {
+      setIfsConnected(status.connected);
+      setIfsEmail(status.email ?? null);
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +58,8 @@ export function AprobacionView() {
       .then((result) => {
         if (cancelled) return;
         syncPendientesDesdeDb(result.hojas);
+        setFromIfs(result.fromIfs);
+        setIfsWarning(result.warning ?? null);
         if (result.warning) {
           toast(result.warning, "warn");
         }
@@ -249,6 +265,10 @@ export function AprobacionView() {
         onOpenDetalle={openDetalle}
         onRechazar={setRechazarTargets}
         onAprobar={solicitarAprobacion}
+        ifsConnected={ifsConnected}
+        fromIfs={fromIfs}
+        ifsEmail={ifsEmail}
+        ifsWarning={ifsWarning}
       />
       <RechazarModal
         open={rechazarTargets.length > 0}

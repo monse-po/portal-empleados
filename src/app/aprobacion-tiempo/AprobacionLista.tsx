@@ -7,6 +7,7 @@ import { Icon } from "@/src/components/ui/Icon";
 import { AprobacionFilterBar } from "@/src/app/aprobacion-tiempo/AprobacionFilterBar";
 import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import { AprobacionTabla } from "@/src/app/aprobacion-tiempo/AprobacionTabla";
+import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
 import {
   applyAproFilters,
   hayFiltrosActivos,
@@ -60,12 +61,20 @@ type AprobacionListaProps = {
   onOpenDetalle: (no: string) => void;
   onRechazar: (nos: string[]) => void;
   onAprobar: (nos: string[]) => void;
+  ifsConnected: boolean;
+  fromIfs: boolean;
+  ifsEmail?: string | null;
+  ifsWarning?: string | null;
 };
 
 export function AprobacionLista({
   onOpenDetalle,
   onRechazar,
   onAprobar,
+  ifsConnected,
+  fromIfs,
+  ifsEmail,
+  ifsWarning,
 }: AprobacionListaProps) {
   const {
     kpis,
@@ -101,6 +110,15 @@ export function AprobacionLista({
         <p className="mt-1 text-[13px] text-[#4b5563]">
           Registros de tu equipo pendientes de revisión · HMVINGCO
         </p>
+        <div className="mt-3">
+          <IfsStatusBanner
+            surface="approval"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+            email={ifsEmail}
+            warning={ifsWarning}
+          />
+        </div>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">

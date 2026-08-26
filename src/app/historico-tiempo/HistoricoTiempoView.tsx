@@ -182,7 +182,7 @@ export function HistoricoTiempoView() {
                     : "Aún no hay horas reportadas en el histórico."}
                   <br />
                   <span className="mt-1 inline-block text-[12px]">
-                    Aparecen aquí cuando envías registros (Lanzado) o cuando ya
+                    Aparecen aquí cuando quedan Registrados en IFS o cuando ya
                     están aprobados. Los borradores no entran.
                   </span>
                 </>

@@ -1,4 +1,5 @@
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
+import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
 import {
   PROYECTOS,
   type RegistroEstado,
@@ -88,9 +89,9 @@ export function formatProyectoAprobacionPorCod(
 }
 
 const EMPLEADO = {
-  solicitante: "Carlos Rivas",
-  nombre: "Carlos Rivas Mora",
-  cedula: "1.023.456.789",
+  solicitante: SESSION_EMPLEADO.nombre,
+  nombre: SESSION_EMPLEADO.nombre,
+  cedula: SESSION_EMPLEADO.cedula,
 };
 
 export function isoToDmy(iso: string): string {

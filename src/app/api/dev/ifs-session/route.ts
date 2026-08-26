@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
   if (!accessToken || !email) {
     return NextResponse.json(
-      { error: "Pega tu correo @h-mv.com y el token (empieza con eyJ…)" },
+      { error: "Pega el EmailId asociado al empleado (p.ej. liz.lino@veyron.com.mx) y el token (empieza con eyJ…)" },
       { status: 400 },
     );
   }

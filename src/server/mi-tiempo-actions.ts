@@ -6,8 +6,8 @@ import {
   approveTimeEntries,
   deleteTimeEntries,
   getApprovalTimesheets,
-  getEmployeeTimesheet,
-  openCempPortalSession,
+  getEmployeeTimesheetForEmp,
+  openCempPortalActor,
   registerTimeEntries,
   updateTimeEntries,
   type CempPortalSession,
@@ -17,6 +17,7 @@ import {
   IfsSessionExpiredError,
   withValidIfsSession,
 } from "@/src/lib/ifs/ifs-session-runtime";
+import { getIfsTargetEmpNo } from "@/src/lib/ifs/config";
 import { getServerIfsSession } from "@/src/lib/ifs/session";
 import {
   approvalEventsForDecision,
@@ -24,6 +25,8 @@ import {
   extractEmpTimeApprovalErrors,
   isStaleApprovalError,
   mapApprovalTimesheetToHojas,
+  mapApprovalTimesheetToProyectos,
+  type HorasProyectoAprobacion,
 } from "@/src/lib/ifs/tiempo-approval";
 import {
   extractEmpTimeDeleteErrors,
@@ -36,7 +39,6 @@ import {
   mapRegistroToEmpTimeDelete,
   mapRegistroToEmpTimeUpdate,
   mapRegistrosToEmpTimeReg,
-  mergeIfsAndLocalRegistros,
 } from "@/src/lib/ifs/tiempo-timesheet";
 import type {
   RegistroEstado,
@@ -46,16 +48,12 @@ import type {
 import {
   SESSION_EMPLEADO_ID,
   dayRange,
-  ensureRegistroTiempoRefs,
   estadoUiToDb,
-  groupRegistrosByFecha,
-  nextRegistroCodigo,
   toRegistroMock,
 } from "@/src/lib/registro-tiempo-db";
 import { createNotificacionesTiempoEnvioAction } from "@/src/server/notificacion-actions";
 import { fetchRegistrosFromIfsAction } from "@/src/server/mi-tiempo-timesheet-actions";
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
-import { registroToHoja } from "@/src/lib/tiempo-bridge";
 import { isRegistroEditable } from "@/src/lib/tiempo-registro-rules";
 
 export type EnviarDiaResult = {
@@ -77,14 +75,6 @@ async function findRowByPublicId(id: string) {
   });
 }
 
-async function getRegistrosFromNeon(): Promise<Record<string, RegistroMock[]>> {
-  const rows = await prisma.registroTiempo.findMany({
-    where: { empleadoId: SESSION_EMPLEADO_ID },
-    orderBy: [{ fecha: "asc" }, { createdAt: "asc" }],
-  });
-  return groupRegistrosByFecha(rows);
-}
-
 function ifsUserMessage(err: unknown, fallback: string): string {
   if (err instanceof IfsSessionExpiredError) {
     return "Sesión IFS expirada. Vuelve a iniciar sesión e intenta de nuevo.";
@@ -96,7 +86,7 @@ async function withIfsPortalSession<T>(
   fn: (ifs: CempPortalSession) => Promise<T>,
 ): Promise<T> {
   return withValidIfsSession(async (liveSession) => {
-    const ifs = await openCempPortalSession(
+    const ifs = await openCempPortalActor(
       liveSession.email,
       liveSession.accessToken,
     );
@@ -111,7 +101,7 @@ async function resolveIfsMeta(
   if (reg.ifs?.module && reg.ifs.objid && reg.ifs.objversion) {
     return reg.ifs;
   }
-  const raw = await getEmployeeTimesheet(ifs);
+  const raw = await getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo());
   const meta = findIfsMetaInTimesheet(raw, reg.id);
   if (!meta) {
     throw new Error(
@@ -127,25 +117,20 @@ export async function getRegistrosGroupedAction(): Promise<{
   warning?: string;
   sessionExpired?: boolean;
 }> {
-  const localGrouped = await getRegistrosFromNeon();
   const ifsResult = await fetchRegistrosFromIfsAction();
 
-  if (ifsResult.grouped) {
+  if (!ifsResult.grouped) {
     return {
-      registros: mergeIfsAndLocalRegistros(ifsResult.grouped, localGrouped),
-      fromIfs: true,
+      registros: {},
+      fromIfs: false,
+      warning: ifsResult.error,
+      sessionExpired: ifsResult.sessionExpired,
     };
   }
 
-  if (!ifsResult.error) {
-    return { registros: localGrouped, fromIfs: false };
-  }
-
   return {
-    registros: localGrouped,
-    fromIfs: false,
-    warning: ifsResult.error,
-    sessionExpired: ifsResult.sessionExpired,
+    registros: ifsResult.grouped,
+    fromIfs: true,
   };
 }
 
@@ -190,50 +175,89 @@ async function upsertRegistroIfs(reg: RegistroMock): Promise<RegistroMock> {
   return reg;
 }
 
+async function fetchTimesheetRegs(): Promise<RegistroMock[]> {
+  const raw = await withIfsPortalSession((ifs) =>
+    getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo()),
+  );
+  return mapEmployeeTimesheetToRegistros(raw, getIfsTargetEmpNo());
+}
+
+function asRegistrado(reg: RegistroMock): RegistroMock {
+  if (reg.estado === "Aprobado" || reg.estado === "Rechazado") return reg;
+  return { ...reg, estado: "Registrado" };
+}
+
+async function registrarNuevosEnIfs(
+  regs: RegistroMock[],
+): Promise<RegistroMock[]> {
+  if (!regs.length) return [];
+  if (!(await getServerIfsSession())) {
+    throw new Error("Sin sesión IFS. Entra con IFS para registrar horas.");
+  }
+
+  const toSend = regs.map((reg) => ({ ...reg, estado: "Registrado" as const }));
+
+  try {
+    const raw = await withIfsPortalSession((ifs) =>
+      registerTimeEntries(ifs, mapRegistrosToEmpTimeReg(toSend)),
+    );
+    const errors = extractEmpTimeRegErrors(raw);
+    if (errors.length) {
+      throw new Error(errors[0]);
+    }
+  } catch (err) {
+    throw new Error(
+      ifsUserMessage(err, "No se pudo registrar el tiempo en IFS."),
+    );
+  }
+
+  let matches: RegistroMock[] = [];
+  try {
+    matches = findIfsMatchesForLocal(toSend, await fetchTimesheetRegs());
+  } catch {
+    matches = [];
+  }
+
+  const enviados = (matches.length ? matches : toSend).map(asRegistrado);
+  try {
+    await createNotificacionesTiempoEnvioAction(enviados);
+  } catch (error) {
+    console.error("[notificaciones] error al crear envío", error);
+  }
+  return enviados;
+}
+
 export async function upsertRegistroAction(
   reg: RegistroMock,
 ): Promise<RegistroMock> {
-  if (isIfsRegistroId(reg.id)) {
-    return upsertRegistroIfs(reg);
+  if (isIfsRegistroId(reg.id) || reg.ifs) {
+    await upsertRegistroIfs(reg);
+    try {
+      const sheet = await fetchTimesheetRegs();
+      return sheet.find((row) => row.id === reg.id) ?? asRegistrado(reg);
+    } catch {
+      return asRegistrado(reg);
+    }
   }
 
-  await ensureRegistroTiempoRefs(reg.proy);
+  const [created] = await registrarNuevosEnIfs([reg]);
+  return created;
+}
 
-  const existing = await findRowByPublicId(reg.id);
-  if (existing?.estado === RegistroEstadoDb.APROBADO) {
-    throw new Error("Los registros aprobados no se pueden modificar.");
+export async function upsertRegistrosAction(
+  regs: RegistroMock[],
+): Promise<RegistroMock[]> {
+  if (!regs.length) return [];
+  const existentes = regs.filter((reg) => isIfsRegistroId(reg.id) || reg.ifs);
+  const nuevos = regs.filter((reg) => !isIfsRegistroId(reg.id) && !reg.ifs);
+  const out: RegistroMock[] = [];
+  for (const reg of existentes) {
+    out.push(await upsertRegistroAction(reg));
   }
-  const data = {
-    empleadoId: SESSION_EMPLEADO_ID,
-    proyectoId: reg.proy,
-    subproyecto: reg.subproy ?? null,
-    actividad: reg.act,
-    tipoHora: reg.tipo,
-    horas: reg.horas,
-    fecha: new Date(`${reg.fecha}T12:00:00.000Z`),
-    comentario: reg.comentario ?? "",
-    comentarioRechazo: reg.comentarioRechazo ?? "",
-    aprobador: reg.aprobador ?? null,
-    estado: estadoUiToDb(reg.estado),
-  };
-
-  if (existing) {
-    const updated = await prisma.registroTiempo.update({
-      where: { id: existing.id },
-      data,
-    });
-    return toRegistroMock(updated);
+  if (nuevos.length) {
+    out.push(...(await registrarNuevosEnIfs(nuevos)));
   }
-
-  const codigo = reg.codigo ?? (await nextRegistroCodigo());
-  const created = await prisma.registroTiempo.create({
-    data: {
-      ...data,
-      codigo,
-      legacyId: reg.id.startsWith("r") ? reg.id : null,
-    },
-  });
-  return toRegistroMock(created);
+  return out;
 }
 
 async function deleteRegistroIfs(id: string): Promise<void> {
@@ -243,10 +267,11 @@ async function deleteRegistroIfs(id: string): Promise<void> {
 
   try {
     await withIfsPortalSession(async (ifs) => {
-      const rawSheet = await getEmployeeTimesheet(ifs);
-      const row = mapEmployeeTimesheetToRegistros(rawSheet).find(
-        (r) => r.id === id,
-      );
+      const rawSheet = await getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo());
+      const row = mapEmployeeTimesheetToRegistros(
+        rawSheet,
+        getIfsTargetEmpNo(),
+      ).find((r) => r.id === id);
       const meta = row?.ifs ?? findIfsMetaInTimesheet(rawSheet, id);
       if (!row || !meta) {
         throw new Error(
@@ -296,6 +321,14 @@ export async function enviarFechasAction(
     return { enviados: [], sentToIfs: false };
   }
 
+  if (!(await getServerIfsSession())) {
+    return {
+      enviados: [],
+      sentToIfs: false,
+      error: "Sin sesión IFS. Entra con IFS para enviar a aprobación.",
+    };
+  }
+
   const min = fechasUnicas[0];
   const max = fechasUnicas[fechasUnicas.length - 1];
   const fechaSet = new Set(fechasUnicas);
@@ -341,11 +374,11 @@ export async function enviarFechasAction(
 
       try {
         const sheet = await withIfsPortalSession((ifs) =>
-          getEmployeeTimesheet(ifs),
+          getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo()),
         );
         ifsMatches = findIfsMatchesForLocal(
           borradores,
-          mapEmployeeTimesheetToRegistros(sheet),
+          mapEmployeeTimesheetToRegistros(sheet, getIfsTargetEmpNo()),
         );
       } catch {
         ifsMatches = [];
@@ -382,8 +415,8 @@ export async function enviarFechasAction(
   const ifsVisible = ifsMatches.length > 0;
 
   const enviadosBase: RegistroMock[] = ifsVisible
-    ? ifsMatches.map((r) => ({ ...r, estado: "Lanzado" as const }))
-    : borradores.map((reg) => ({ ...reg, estado: "Lanzado" as const }));
+    ? ifsMatches.map((r) => ({ ...r, estado: "Registrado" as const }))
+    : borradores.map((reg) => ({ ...reg, estado: "Registrado" as const }));
 
   if (sentToIfs && ifsVisible) {
     try {
@@ -429,7 +462,7 @@ export async function enviarFechasAction(
         ? inApprovalQueue
           ? undefined
           : "Enviado a IFS, pero aún no aparece en tu bandeja de aprobación. Revisa que seas el aprobador de esa actividad."
-        : "Enviado a IFS, pero aún no aparece en el timesheet. Quedó como Lanzado en el portal."
+        : "Enviado a IFS, pero aún no aparece en el timesheet. Quedó como Registrado en el portal."
       : undefined,
   };
 }
@@ -440,34 +473,62 @@ export type HojasAprobacionResult = {
   warning?: string;
 };
 
-/** Pendientes para bandeja gerente: IFS GetApprovalTimesheets (Neon solo sin sesión IFS). */
-export async function getHojasPendientesAprobacionAction(): Promise<HojasAprobacionResult> {
-  const neonRows = await prisma.registroTiempo.findMany({
-    where: { estado: RegistroEstadoDb.EN_REVISION },
-    orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
-  });
-  const neonHojas = neonRows.map((row) => registroToHoja(toRegistroMock(row)));
+export type ResumenProyectosAprobacionResult = {
+  proyectos: HorasProyectoAprobacion[];
+  /** Payload IFS para desglosar empleados al abrir un proyecto (sin otro fetch). */
+  raw: unknown;
+  fromIfs: boolean;
+  warning?: string;
+};
 
+/** Pendientes para bandeja gerente: solo IFS GetApprovalTimesheets. */
+export async function getHojasPendientesAprobacionAction(): Promise<HojasAprobacionResult> {
   const session = await getServerIfsSession();
   if (!session) {
-    return { hojas: neonHojas, fromIfs: false };
+    return { hojas: [], fromIfs: false };
   }
 
   try {
     const raw = await withIfsPortalSession((ifs) => getApprovalTimesheets(ifs));
     const ifsHojas = mapApprovalTimesheetToHojas(raw);
-    // Con sesión IFS la fuente de verdad es IFS: no mezclar Neon (evita filas fantasma).
     return {
       hojas: ifsHojas,
       fromIfs: true,
     };
   } catch (err) {
     return {
-      hojas: neonHojas,
+      hojas: [],
       fromIfs: false,
       warning: ifsUserMessage(
         err,
-        "No se pudo cargar la bandeja IFS. Mostrando pendientes locales.",
+        "No se pudo cargar la bandeja IFS.",
+      ),
+    };
+  }
+}
+
+/** Horas acumuladas / aprobadas / rechazadas por código de proyecto. */
+export async function getResumenProyectosAprobacionAction(): Promise<ResumenProyectosAprobacionResult> {
+  const session = await getServerIfsSession();
+  if (!session) {
+    return { proyectos: [], raw: { value: [] }, fromIfs: false };
+  }
+
+  try {
+    const raw = await withIfsPortalSession((ifs) => getApprovalTimesheets(ifs));
+    return {
+      proyectos: mapApprovalTimesheetToProyectos(raw),
+      raw,
+      fromIfs: true,
+    };
+  } catch (err) {
+    return {
+      proyectos: [],
+      raw: { value: [] },
+      fromIfs: false,
+      warning: ifsUserMessage(
+        err,
+        "No se pudo cargar el resumen por proyecto.",
       ),
     };
   }

@@ -13,48 +13,51 @@ export const TIEMPO_UI_COPY = {
   searchSubproject: "Buscar subproyecto...",
   searchActivity: "Buscar actividad...",
   estadoBorrador: "Borrador",
-  estadoRegistrado: "Lanzado",
-  estadoLanzado: "Lanzado",
+  estadoRegistrado: "Registrado",
+  estadoLanzado: "Registrado",
   guardar: "Guardar",
   guardarCambios: "Guardar cambios",
   hintEnviarDesdeLista:
-    "Con un solo proyecto estable: registra el rango y usa «Guardar y enviar». Si cambias de proyecto por día, envía desde el detalle del día.",
+    "Al guardar, el registro se envía a IFS y queda en estado Registrado. Puedes editarlo mientras no esté aprobado.",
   hintEnviarEnVistaDia:
-    "Después de guardar, envía este día aquí o usa «Guardar y enviar» en el modal para varios días.",
+    "Al guardar, el registro se envía a IFS (Registrado). Puedes modificarlo hasta que el aprobador lo confirme.",
   listaAyuda: "Clic en la fecha → ver detalle del día · Clic en fila → editar",
   verDia: "Ver día",
   verDetalleDia: "Ver detalle del día",
   filaEditableHint: "Clic en fila para editar",
   diaBorradoresPendientes:
-    "Cuando termines de registrar, envía a Aprobación.",
-  toastRegistroGuardado: "Registro guardado",
+    "Quedan borradores locales. Envíalos a IFS para que queden Registrados.",
+  toastRegistroGuardado: "Cambios enviados a IFS",
   toastRegistroNuevo:
-    "Registro guardado como borrador. Usa Guardar y enviar si quieres mandarlo ya a aprobación.",
+    "Registro enviado a IFS · Registrado. Puedes modificarlo mientras no esté aprobado.",
   toastRegistrosRango: (count: number) =>
-    `${count} borradores guardados. Usa «Guardar y enviar» la próxima vez para mandarlos todos a aprobación de una vez.`,
+    `${count} registros enviados a IFS · Registrado. Puedes modificarlos mientras no estén aprobados.`,
   toastRegistrosEnviados: (count: number) =>
     count <= 1
-      ? "Registro enviado a aprobación"
-      : `${count} días enviados a aprobación`,
+      ? "Registro enviado a IFS · Registrado"
+      : `${count} días enviados a IFS · Registrado`,
   guardarRango: (count: number) =>
-    count <= 1 ? "Guardar" : `Guardar ${count} días`,
+    count <= 1 ? "Guardar en IFS" : `Guardar ${count} días en IFS`,
   guardarYEnviar: (count: number) =>
-    count <= 1 ? "Guardar y enviar" : `Guardar y enviar ${count} días`,
+    count <= 1 ? "Guardar en IFS" : `Guardar ${count} días en IFS`,
   ifsCatalogError: {
     sessionExpired: (detail: string) =>
       `Tu sesión con IFS expiró (${detail}).`,
     sessionExpiredAction: "Vuelve a iniciar sesión",
-    sessionExpiredSuffix: "con tu correo @h-mv.com para cargar proyectos reales.",
+    sessionExpiredSuffix:
+      "con el correo asociado al empleado en DEV (EmailId de CEmpPortalUserSet) para cargar proyectos reales.",
     fetchFailed: (detail: string) =>
-      `No se pudo leer proyectos de IFS (${detail}). Mostrando catálogo demo.`,
+      `No se pudo leer proyectos de IFS (${detail}). No se usa catálogo de ejemplo.`,
     fetchFailedAction: "Revisa /dev/ifs",
     fetchFailedSuffix:
       "— si CEmpPortalUserSet y GetUserInfo están verdes, pide a TI proyectos asignados a tu empleado para esa fecha.",
+    noSession:
+      "Sin sesión IFS. El formulario no carga proyectos de ejemplo: entra con IFS para ver el catálogo real.",
   },
   ifsTimesheetWarning: {
     sessionExpired:
-      "Tu sesión con IFS expiró. Mostrando registros locales. Vuelve a iniciar sesión para ver tu hoja IFS.",
+      "Tu sesión con IFS expiró. No se muestran datos de ejemplo. Vuelve a iniciar sesión para ver tu hoja IFS.",
     fetchFailed:
-      "No se pudo leer la hoja de IFS. Mostrando registros locales.",
+      "No se pudo leer la hoja de IFS. No se muestran datos de ejemplo.",
   },
 } as const;

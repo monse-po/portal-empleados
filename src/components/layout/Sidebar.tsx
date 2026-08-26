@@ -10,6 +10,7 @@ import { useRole } from "@/src/components/layout/RoleContext";
 import { useShell } from "@/src/components/layout/ShellContext";
 import {
   getVisibleModules,
+  isNavRouteActive,
   isPathVisible,
   type ModuleRoute,
 } from "@/src/lib/modules";
@@ -107,7 +108,7 @@ function NavRouteItem({
       icon={route.icon}
       count={count}
       collapsed={collapsed}
-      active={pathname.startsWith(route.path)}
+      active={isNavRouteActive(pathname, route.path)}
     />
   );
 }
@@ -131,12 +132,10 @@ export function Sidebar() {
         collapsed ? "w-[52px] px-1.5" : "w-[220px] px-2.5"
       }`}
     >
-      {isGerente && gerenteRoutes.length > 0 && (
+      {empleadoRoutes.length > 0 && (
         <>
-          <NavSectionLabel collapsed={collapsed}>
-            Aprobaciones pendientes
-          </NavSectionLabel>
-          {gerenteRoutes.map((route) => (
+          <NavSectionLabel collapsed={collapsed}>Mis solicitudes</NavSectionLabel>
+          {empleadoRoutes.map((route) => (
             <NavRouteItem
               key={route.path}
               route={route}
@@ -144,14 +143,18 @@ export function Sidebar() {
               pathname={pathname}
             />
           ))}
-          {!collapsed && <div className="my-2.5 h-px bg-[#f0f0f0]" />}
         </>
       )}
 
-      {empleadoRoutes.length > 0 && (
+      {isGerente && gerenteRoutes.length > 0 && (
         <>
-          <NavSectionLabel collapsed={collapsed}>Mis solicitudes</NavSectionLabel>
-          {empleadoRoutes.map((route) => (
+          {empleadoRoutes.length > 0 && !collapsed && (
+            <div className="my-2.5 h-px bg-[#f0f0f0]" />
+          )}
+          <NavSectionLabel collapsed={collapsed}>
+            Aprobaciones pendientes
+          </NavSectionLabel>
+          {gerenteRoutes.map((route) => (
             <NavRouteItem
               key={route.path}
               route={route}

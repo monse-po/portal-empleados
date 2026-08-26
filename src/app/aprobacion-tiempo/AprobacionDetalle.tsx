@@ -18,6 +18,7 @@ import { Icon } from "@/src/components/ui/Icon";
 import { EstadoTiempoPill, estadoTiempoPillProps } from "@/src/components/ui/Pill";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import { useToast } from "@/src/components/ui/Toast";
+import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
 import { useAsyncAction } from "@/src/lib/use-async-action";
 import { horasNum, type HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 
@@ -32,7 +33,7 @@ type AprobacionDetalleProps = {
 function getTiempoEventBanner(hoja: HojaAprobacion): RecordEventBanner | null {
   if (!hoja.estadoApro) return null;
   return {
-    autor: hoja.aprobador || "Carlos Rivas Mora",
+    autor: hoja.aprobador || SESSION_EMPLEADO.nombre,
     fecha: hoja.fechaApro || "—",
     motivo: hoja.comentarioApro || "—",
   };

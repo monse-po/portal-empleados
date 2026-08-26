@@ -20,6 +20,7 @@ import { useTableSelection } from "@/src/lib/use-table-selection";
 import { resolverAprobacionTiempoAction } from "@/src/server/mi-tiempo-actions";
 import { createNotificacionesTiempoDecisionAction } from "@/src/server/notificacion-actions";
 import type { HojaNotificacionInput } from "@/src/lib/notificacion-tiempo";
+import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
 
 function toHojaNotifInput(hoja: HojaAprobacion): HojaNotificacionInput {
   return {
@@ -93,7 +94,7 @@ export function AprobacionProvider({
       const next = { ...prev };
       nuevas.forEach((hoja) => {
         const existing = next[hoja.no];
-        // Upsert: refresca datos si el empleado editó un Lanzado aún pendiente.
+        // Upsert: refresca datos si el empleado editó un Registrado aún pendiente.
         if (existing?.estadoApro) {
           return;
         }
@@ -162,7 +163,7 @@ export function AprobacionProvider({
             estadoApro: estado,
             comentarioApro: comentario,
             fechaApro: estado ? hoyDMY() : "",
-            aprobador: estado ? "Carlos Rivas Mora" : "",
+            aprobador: estado ? SESSION_EMPLEADO.nombre : "",
           };
           if (!registroId) return;
           if (estado === "Aprobado") {

@@ -5,6 +5,7 @@ import {
   type IfsRequestInit,
 } from "@/src/lib/ifs/client";
 import { IfsApiError } from "@/src/lib/ifs/errors";
+import { getIfsTargetEmpNo } from "@/src/lib/ifs/config";
 import type {
   CempPortalUser,
   CurrencyCodesQuery,
@@ -276,6 +277,88 @@ export async function listPortalUsers(
     { accessToken },
   );
   return data.value ?? [];
+}
+
+export async function findPortalUserByEmpId(
+  accessToken: string,
+  empId: string,
+): Promise<CempPortalUser | null> {
+  const id = odataStringKey(empId.trim());
+  if (!id) return null;
+  const data = await ifsFetch<ODataCollection<CempPortalUser>>(
+    `/CEmpPortalUserSet?$select=EmailId,CompanyId,EmpId&$filter=EmpId eq '${id}'&$top=5`,
+    { accessToken },
+  );
+  return data.value?.[0] ?? null;
+}
+
+/**
+ * Abre CEmpPortalUser del email de sesión, o del EmpNo de prueba
+ * (`IFS_DEV_EMP_NO`, en local 1001138468) si existe en CEmpPortalUserSet.
+ */
+export async function openCempPortalActor(
+  sessionEmail: string,
+  accessToken: string,
+): Promise<CempPortalSession> {
+  const targetEmpNo = getIfsTargetEmpNo();
+  if (targetEmpNo) {
+    try {
+      const match = await findPortalUserByEmpId(accessToken, targetEmpNo);
+      if (match?.EmailId) {
+        return openCempPortalSession(match.EmailId, accessToken);
+      }
+    } catch {
+      /* el token puede no listar otros EmpId; usar email de sesión */
+    }
+  }
+  return openCempPortalSession(sessionEmail, accessToken);
+}
+
+export async function getReportItemsByEmpNo(
+  session: CempPortalSession,
+  empNo: string,
+): Promise<unknown> {
+  const id = odataStringKey(empNo.trim());
+  return ifsFetch(
+    `${cempPortalUserPath(session.emailId)}/ReportItemSet?$filter=EmpNo eq '${id}'&$top=500`,
+    sessionRequest(session),
+  );
+}
+
+export async function getReferenceReportItemsByEmpNo(
+  accessToken: string,
+  empNo: string,
+): Promise<unknown> {
+  const id = odataStringKey(empNo.trim());
+  return ifsFetch(
+    `/Reference_EmpReportItem?$filter=EmpNo eq '${id}'&$top=500`,
+    { accessToken },
+  );
+}
+
+/** GetEmployeeTimesheet del actor; si viene vacío, ReportItemSet / Reference por EmpNo. */
+export async function getEmployeeTimesheetForEmp(
+  session: CempPortalSession,
+  empNo?: string,
+): Promise<unknown> {
+  try {
+    const raw = await getEmployeeTimesheet(session);
+    if (!empNo) return raw;
+    const rows = Array.isArray(raw)
+      ? raw
+      : ((raw as { value?: unknown[] } | null)?.value ?? []);
+    if (rows.length > 0) return raw;
+  } catch (err) {
+    if (!empNo) throw err;
+  }
+
+  if (!empNo) return { value: [] };
+
+  try {
+    return await getReportItemsByEmpNo(session, empNo);
+  } catch {
+    return getReferenceReportItemsByEmpNo(session.accessToken, empNo);
+  }
 }
 
 /** Gerente del proyecto (aprobador) desde Reference_ProjectInfoQuery. */

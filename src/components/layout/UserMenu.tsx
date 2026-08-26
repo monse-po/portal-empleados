@@ -7,15 +7,57 @@ import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
 import { useToast } from "@/src/components/ui/Toast";
 import { useRole, type UsuarioRol } from "@/src/components/layout/RoleContext";
 import { getHomePathForRole } from "@/src/lib/modules";
+import {
+  fetchIfsPortalProfileAction,
+  type IfsPortalProfile,
+} from "@/src/server/mi-tiempo-catalog-actions";
 
 const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
+
+function profileTitle(profile: IfsPortalProfile | null, loading: boolean): string {
+  if (loading) return "…";
+  if (profile?.connected && profile.empName) return profile.empName;
+  if (profile?.connected && profile.email) return profile.email;
+  return "Sin sesión IFS";
+}
+
+function profileSubtitle(profile: IfsPortalProfile | null, loading: boolean): string {
+  if (loading) return "Consultando empleado…";
+  if (profile?.connected) {
+    const bits = [profile.email, profile.companyId || profile.companyName].filter(
+      Boolean,
+    );
+    if (profile.empNo) bits.push(`EmpNo ${profile.empNo}`);
+    return bits.join(" · ") || "Sesión IFS";
+  }
+  return "Entra con el correo asociado al empleado en DEV";
+}
 
 export function UserMenu() {
   const { rol, setRol, homePath } = useRole();
   const { toast } = useToast();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<IfsPortalProfile | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchIfsPortalProfileAction()
+      .then((next) => {
+        if (!cancelled) setProfile(next);
+      })
+      .catch(() => {
+        if (!cancelled) setProfile({ connected: false });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -51,6 +93,9 @@ export function UserMenu() {
     );
   };
 
+  const title = profileTitle(profile, loading);
+  const subtitle = profileSubtitle(profile, loading);
+
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -66,11 +111,9 @@ export function UserMenu() {
         </div>
         <div className="hidden flex-col gap-px text-left md:flex">
           <span className="text-[13px] font-semibold leading-tight text-navy">
-            Carlos Rivas
+            {title}
           </span>
-          <span className="text-[11px] leading-tight text-muted">
-            carlos.rivas@hmvingenieros.com · HMVINGCO
-          </span>
+          <span className="text-[11px] leading-tight text-muted">{subtitle}</span>
         </div>
         <span
           className={`ml-0.5 hidden transition-transform md:inline-flex ${open ? "rotate-180" : ""}`}
@@ -85,26 +128,45 @@ export function UserMenu() {
           className="absolute right-0 top-[calc(100%+8px)] z-[300] min-w-[220px] overflow-hidden rounded-[10px] border border-border bg-white py-1 shadow-[0_10px_28px_rgba(15,23,42,0.14)]"
         >
           <div className="border-b border-[#f1f5f9] px-3.5 py-2.5">
-            <div className="text-[13px] font-semibold text-navy">
-              Carlos Rivas
-            </div>
-            <div className="text-[11px] text-muted">
-              carlos.rivas@hmvingenieros.com
-            </div>
+            <div className="text-[13px] font-semibold text-navy">{title}</div>
+            <div className="text-[11px] text-muted">{subtitle}</div>
+            {profile?.error ? (
+              <div className="mt-1 text-[11px] text-[#b45309]">{profile.error}</div>
+            ) : null}
           </div>
 
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              toast("Perfil de usuario (demo)", "navy");
-            }}
-            className="flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-3.5 py-2 text-left text-[12.5px] text-[#374151] hover:bg-[#f4f7fb]"
-          >
-            <Icon name="userCircle" size="sm" className="text-muted" />
-            Mi perfil
-          </button>
+          {!profile?.connected && !loading ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                router.push("/login?next=/hoja-tiempo");
+              }}
+              className="flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-3.5 py-2 text-left text-[12.5px] text-[#374151] hover:bg-[#f4f7fb]"
+            >
+              <Icon name="userCircle" size="sm" className="text-muted" />
+              Entrar con IFS
+            </button>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                toast(
+                  profile?.empNo
+                    ? `Empleado IFS ${profile.empNo}`
+                    : "Perfil IFS",
+                  "navy",
+                );
+              }}
+              className="flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-3.5 py-2 text-left text-[12.5px] text-[#374151] hover:bg-[#f4f7fb]"
+            >
+              <Icon name="userCircle" size="sm" className="text-muted" />
+              Mi perfil
+            </button>
+          )}
 
           <div className="my-1 h-px bg-[#f1f5f9]" />
 

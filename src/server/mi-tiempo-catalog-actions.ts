@@ -5,8 +5,9 @@ import {
   getScheduleHoursForDate,
   getEmployeeScheduleHoursByDate,
   getValidActReportCode,
+  getUserInfo,
   getValidEmpPrjAct,
-  openCempPortalSession,
+  openCempPortalActor,
 } from "@/src/lib/ifs/cemp-portal";
 import { formatIfsError, IfsApiError } from "@/src/lib/ifs/errors";
 import {
@@ -37,6 +38,55 @@ export async function getIfsSessionStatusAction(): Promise<{
   return { connected: true, email: session.email };
 }
 
+export type IfsPortalProfile = {
+  connected: boolean;
+  email?: string;
+  empName?: string;
+  empNo?: string;
+  companyId?: string;
+  companyName?: string;
+  error?: string;
+};
+
+/** EmailId de la sesión → CEmpPortalUserSet → GetUserInfo (empleado asociado en DEV). */
+export async function fetchIfsPortalProfileAction(): Promise<IfsPortalProfile> {
+  const session = await getServerIfsSession();
+  if (!session) return { connected: false };
+
+  try {
+    return await withValidIfsSession(async (live) => {
+      try {
+        const ifs = await openCempPortalActor(live.email, live.accessToken);
+        const info = await getUserInfo(ifs);
+        const empName = (info.EmpName || live.name || "").trim();
+        const empNo = (info.EmpNo || ifs.user.EmpId || "").trim();
+        const companyId = (info.CompanyId || ifs.user.CompanyId || "").trim();
+        const companyName = (info.CompanyName || "").trim();
+        return {
+          connected: true,
+          email: live.email,
+          empName: empName || undefined,
+          empNo: empNo || undefined,
+          companyId: companyId || undefined,
+          companyName: companyName || undefined,
+        };
+      } catch (err) {
+        if (err instanceof IfsApiError && err.status === 401) throw err;
+        return {
+          connected: true,
+          email: live.email,
+          error: formatIfsError(err),
+        };
+      }
+    });
+  } catch (err) {
+    if (err instanceof IfsSessionExpiredError) {
+      return { connected: false, error: err.message };
+    }
+    return { connected: false, error: formatIfsError(err) };
+  }
+}
+
 export async function fetchTiempoCatalogAction(accountDate: string): Promise<{
   catalog: TiempoCatalog | null;
   error?: string;
@@ -46,7 +96,7 @@ export async function fetchTiempoCatalogAction(accountDate: string): Promise<{
     return await withValidIfsSession(async (session) => {
       let ifs;
       try {
-        ifs = await openCempPortalSession(session.email, session.accessToken);
+        ifs = await openCempPortalActor(session.email, session.accessToken);
       } catch (err) {
         if (err instanceof IfsApiError && err.status === 401) throw err;
         return {
@@ -125,7 +175,7 @@ export async function fetchTiposHoraAction(input: {
   try {
     return await withValidIfsSession(async (session) => {
       try {
-        const ifs = await openCempPortalSession(
+        const ifs = await openCempPortalActor(
           session.email,
           session.accessToken,
         );
@@ -179,7 +229,7 @@ export async function fetchScheduleHoursAction(accountDate: string): Promise<{
   try {
     return await withValidIfsSession(async (liveSession) => {
       try {
-        const ifs = await openCempPortalSession(
+        const ifs = await openCempPortalActor(
           liveSession.email,
           liveSession.accessToken,
         );
@@ -238,7 +288,7 @@ export async function fetchEmployeeScheduleAction(): Promise<{
   try {
     return await withValidIfsSession(async (liveSession) => {
       try {
-        const ifs = await openCempPortalSession(
+        const ifs = await openCempPortalActor(
           liveSession.email,
           liveSession.accessToken,
         );

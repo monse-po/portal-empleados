@@ -1,5 +1,6 @@
 export type RegistroEstado =
   | "Borrador"
+  | "Registrado"
   | "Lanzado"
   | "Aprobado"
   | "Rechazado";
@@ -272,7 +273,7 @@ function buildRegistroRow(
     estado,
   };
 
-  if (estado === "Aprobado" || estado === "Lanzado") {
+  if (estado === "Aprobado" || estado === "Registrado" || estado === "Lanzado") {
     row.aprobador = jer?.aprobador;
   }
   if (estado === "Rechazado") {
@@ -625,7 +626,13 @@ export function getResumenHoras(
     .forEach((r) => {
       const h = r.horas || 0;
       if (r.estado === "Aprobado") aprob += h;
-      else if (r.estado === "Borrador" || r.estado === "Lanzado") rev += h;
+      else if (
+        r.estado === "Borrador" ||
+        r.estado === "Registrado" ||
+        r.estado === "Lanzado"
+      ) {
+        rev += h;
+      }
       else if (r.estado === "Rechazado") rech += h;
     });
 
@@ -790,7 +797,9 @@ export function getEstadoDia(diaRegs: RegistroMock[]): RegistroEstado {
   if (estados.includes("Rechazado")) return "Rechazado";
   if (estados.some((e) => e === "Borrador")) return "Borrador";
   if (estados.every((e) => e === "Aprobado")) return "Aprobado";
-  if (estados.includes("Lanzado")) return "Lanzado";
+  if (estados.includes("Registrado") || estados.includes("Lanzado")) {
+    return "Registrado";
+  }
   return "Borrador";
 }
 

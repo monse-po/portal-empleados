@@ -56,6 +56,7 @@ export function Pill({
 /** Labels de estado del portal (después de normalizar). */
 export type EstadoPortalLabel =
   | "Borrador"
+  | "Registrado"
   | "Lanzado"
   | "Pendiente"
   | "Aprobado"
@@ -67,7 +68,7 @@ export type EstadoPortalLabel =
 export function estadoPillIcon(estado: string): IconName | null {
   const e = normalizeEstadoLabel(estado);
   if (e === "Borrador") return "pencil";
-  if (e === "Lanzado" || e === "Pendiente") return "send";
+  if (e === "Lanzado" || e === "Pendiente" || e === "Registrado") return "send";
   if (e === "Aprobado") return "check";
   if (e === "Pagado") return "wallet";
   if (e === "Rechazado") return "x";
@@ -102,10 +103,10 @@ export const estadoPortalPillVariant: Record<string, PillVariant> = {
 
 export const estadoTiempoPillVariant: Record<string, PillVariant> = {
   Borrador: "borrador",
-  Pendiente: "lanzado",
-  Lanzado: "lanzado",
-  Registrado: "lanzado",
-  "En revisión": "lanzado",
+  Pendiente: "registrado",
+  Lanzado: "registrado",
+  Registrado: "registrado",
+  "En revisión": "registrado",
   Aprobado: "aprobado",
   Rechazado: "rechazado",
 };
@@ -137,11 +138,23 @@ export function estadoAnticipoPillProps(estado: string) {
 }
 
 function estadoTiempoEditable(estado: string): boolean {
-  const e = normalizeEstadoLabel(estado);
-  return e === "Borrador" || e === "Lanzado";
+  const e = estado === "Registrado" ? "Registrado" : normalizeEstadoLabel(estado);
+  return e !== "Aprobado";
 }
 
 export function estadoTiempoPillProps(estado: string) {
+  if (
+    estado === "Registrado" ||
+    estado === "Lanzado" ||
+    estado === "En revisión" ||
+    estado === "Pendiente"
+  ) {
+    return {
+      variant: "registrado" as PillVariant,
+      label: "Registrado",
+      editable: true,
+    };
+  }
   const label = normalizeEstadoLabel(estado);
   const variant =
     estadoTiempoPillVariant[label] ??
@@ -192,14 +205,18 @@ export function EstadoTiempoPill({
   className?: string;
 }) {
   const { variant, label, editable } = estadoTiempoPillProps(estado);
-  const isLanzado = label === "Lanzado" || label === "Pendiente";
+  const isRegistrado = label === "Registrado" || label === "Lanzado" || label === "Pendiente";
   return (
     <EstadoPillShell
       variant={variant}
-      label={label === "Pendiente" ? "Lanzado" : label}
+      label={label === "Pendiente" || label === "Lanzado" ? "Registrado" : label}
       className={className}
       title={
-        isLanzado ? "Enviado a aprobación" : editable ? "Editable" : undefined
+        isRegistrado
+          ? "Enviado a IFS · editable hasta que se apruebe"
+          : editable
+            ? "Editable"
+            : undefined
       }
     />
   );

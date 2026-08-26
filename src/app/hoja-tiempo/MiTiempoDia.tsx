@@ -131,7 +131,7 @@ export function MiTiempoDia({
       }
       if (!result.enviados.length) {
         toast(
-          "No hay borradores locales para enviar. Guarda un registro nuevo (Borrador) y luego envía.",
+          "No hay borradores locales para enviar. Los registros nuevos se mandan a IFS al guardar y quedan Registrados.",
           "warn",
         );
         return;

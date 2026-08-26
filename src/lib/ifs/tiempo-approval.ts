@@ -115,6 +115,140 @@ export function mapApprovalTimesheetToHojas(raw: unknown): HojaAprobacion[] {
     .filter((h): h is HojaAprobacion => h !== null);
 }
 
+export type HorasProyectoAprobacion = {
+  codigo: string;
+  nombre: string;
+  horasAcumuladas: number;
+  horasAprobadas: number;
+  horasRechazadas: number;
+  horasPendientes: number;
+  registros: number;
+  /** Ids IFS (`ifs-pt-*`) pendientes de este proyecto, para aprobar/rechazar en lote. */
+  pendienteIds: string[];
+};
+
+function classifyApprovalHours(
+  row: EmpReportItemRow,
+): "aprobadas" | "rechazadas" | "pendientes" {
+  const status = `${row.CStatusDb ?? row.CStatus ?? ""}`
+    .trim()
+    .toLowerCase();
+  if (status.includes("reject")) return "rechazadas";
+  if (status.includes("confirm")) return "aprobadas";
+  return "pendientes";
+}
+
+function codigoProyectoDeFila(row: EmpReportItemRow): string | null {
+  const codigo = row.ShortName?.trim() || row.ProjectId?.trim();
+  return codigo || null;
+}
+
+/**
+ * Resumen por código de proyecto (ShortName / ProjectId).
+ * Solo este agrupado en el primer render: sin empleados.
+ */
+export function mapApprovalTimesheetToProyectos(
+  raw: unknown,
+): HorasProyectoAprobacion[] {
+  const map = new Map<string, HorasProyectoAprobacion>();
+
+  for (const row of parseEmpReportItems(raw)) {
+    const codigo = codigoProyectoDeFila(row);
+    if (!codigo) continue;
+    const horas = parseHoras(row.Hours);
+    if (horas <= 0) continue;
+
+    const bucket = classifyApprovalHours(row);
+    const cur = map.get(codigo) ?? {
+      codigo,
+      nombre: row.ProjectName?.trim() || codigo,
+      horasAcumuladas: 0,
+      horasAprobadas: 0,
+      horasRechazadas: 0,
+      horasPendientes: 0,
+      registros: 0,
+      pendienteIds: [],
+    };
+    if (row.ProjectName?.trim() && (cur.nombre === cur.codigo || !cur.nombre)) {
+      cur.nombre = row.ProjectName.trim();
+    }
+    cur.horasAcumuladas += horas;
+    cur.registros += 1;
+    if (bucket === "aprobadas") cur.horasAprobadas += horas;
+    else if (bucket === "rechazadas") cur.horasRechazadas += horas;
+    else if (esPendienteAprobacion(row)) {
+      cur.horasPendientes += horas;
+      cur.pendienteIds.push(`ifs-pt-${row.ProjectTransactionSeq}`);
+    }
+    map.set(codigo, cur);
+  }
+
+  return [...map.values()].sort((a, b) => {
+    const byPendiente = Number(b.pendienteIds.length > 0) - Number(a.pendienteIds.length > 0);
+    if (byPendiente !== 0) return byPendiente;
+    return a.codigo.localeCompare(b.codigo, "es");
+  });
+}
+
+export type HorasEmpleadoAprobacion = {
+  empNo: string;
+  nombre: string;
+  horasAcumuladas: number;
+  horasPendientes: number;
+  pendienteIds: string[];
+};
+
+/**
+ * Empleados de UN proyecto. Se llama al abrir detalle; no en el primer render.
+ */
+export function mapApprovalTimesheetToEmpleados(
+  raw: unknown,
+  codigoProyecto: string,
+): HorasEmpleadoAprobacion[] {
+  const wanted = codigoProyecto.trim().toLowerCase();
+  if (!wanted) return [];
+  const map = new Map<string, HorasEmpleadoAprobacion>();
+
+  for (const row of parseEmpReportItems(raw)) {
+    const codigo = codigoProyectoDeFila(row);
+    if (!codigo || codigo.toLowerCase() !== wanted) continue;
+    const horas = parseHoras(row.Hours);
+    if (horas <= 0) continue;
+
+    const empNo = row.EmpNo?.trim() || "";
+    const nombre = row.EmployeeName?.trim() || empNo || "Empleado";
+    const key = empNo || nombre.toLowerCase();
+    const cur = map.get(key) ?? {
+      empNo: empNo || key,
+      nombre,
+      horasAcumuladas: 0,
+      horasPendientes: 0,
+      pendienteIds: [],
+    };
+    if (row.EmployeeName?.trim() && (cur.nombre === cur.empNo || !cur.nombre)) {
+      cur.nombre = row.EmployeeName.trim();
+    }
+    cur.horasAcumuladas += horas;
+    const bucket = classifyApprovalHours(row);
+    if (
+      bucket !== "aprobadas" &&
+      bucket !== "rechazadas" &&
+      esPendienteAprobacion(row)
+    ) {
+      cur.horasPendientes += horas;
+      cur.pendienteIds.push(`ifs-pt-${row.ProjectTransactionSeq}`);
+    }
+    map.set(key, cur);
+  }
+
+  return [...map.values()].sort((a, b) => {
+    const byPendiente =
+      Number(b.pendienteIds.length > 0) - Number(a.pendienteIds.length > 0);
+    if (byPendiente !== 0) return byPendiente;
+    return a.nombre.localeCompare(b.nombre, "es");
+  });
+}
+
 export function buildEmpTimeApproval(
   registroId: string,
   event: IfsApprovalEvent,

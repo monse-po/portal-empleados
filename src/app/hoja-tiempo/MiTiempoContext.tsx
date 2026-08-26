@@ -20,6 +20,7 @@ import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";
+import { isRegistroEnviado } from "@/src/lib/tiempo-registro-rules";
 import {
   deleteRegistroAction,
   enviarDiaAction,
@@ -27,6 +28,7 @@ import {
   getRegistrosGroupedAction,
   updateRegistroEstadoAction,
   upsertRegistroAction,
+  upsertRegistrosAction,
   type EnviarDiaResult,
 } from "@/src/server/mi-tiempo-actions";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
@@ -80,7 +82,7 @@ type MiTiempoContextValue = {
   ifsEmail: string | null;
   reloadRegistros: () => Promise<void>;
   upsertRegistro: (reg: RegistroMock) => Promise<void>;
-  /** Crea/actualiza varios borradores (p. ej. mismo registro en un rango de fechas). */
+  /** Crea/actualiza registros en IFS (estado Registrado). */
   upsertRegistros: (regs: RegistroMock[]) => Promise<void>;
   /** Guarda borradores y los envía a aprobación en un solo paso. */
   upsertRegistrosYEnviar: (regs: RegistroMock[]) => Promise<EnviarDiaResult>;
@@ -205,13 +207,8 @@ export function MiTiempoProvider({
   const upsertRegistro = useCallback(
     async (reg: RegistroMock) => {
       const saved = await upsertRegistroAction(reg);
-      if (isIfsRegistroId(saved.id)) {
-        // Objversion IFS cambia tras update — refrescar timesheet.
-        applyGrouped(await getRegistrosGroupedAction());
-      } else {
-        setRegistros((prev) => upsertIntoRegistros(prev, saved));
-      }
-      if (saved.estado === "Lanzado") {
+      applyGrouped(await getRegistrosGroupedAction());
+      if (isRegistroEnviado(saved.estado)) {
         onIngresarHojas?.([registroToHoja(saved)]);
       }
       registroGuardadoHandler.current?.(saved.fecha);
@@ -222,31 +219,15 @@ export function MiTiempoProvider({
   const upsertRegistros = useCallback(
     async (regs: RegistroMock[]) => {
       if (!regs.length) return;
-      if (regs.length === 1) {
-        await upsertRegistro(regs[0]);
-        return;
+      const saved = await upsertRegistrosAction(regs);
+      applyGrouped(await getRegistrosGroupedAction());
+      const enviados = saved.filter((row) => isRegistroEnviado(row.estado));
+      if (enviados.length) {
+        onIngresarHojas?.(enviados.map((row) => registroToHoja(row)));
       }
-
-      const saved: RegistroMock[] = [];
-      for (const reg of regs) {
-        saved.push(await upsertRegistroAction(reg));
-      }
-
-      setRegistros((prev) => {
-        let next = prev;
-        for (const row of saved) {
-          next = upsertIntoRegistros(next, row);
-        }
-        return next;
-      });
-
-      const lanzados = saved.filter((row) => row.estado === "Lanzado");
-      if (lanzados.length) {
-        onIngresarHojas?.(lanzados.map((row) => registroToHoja(row)));
-      }
-      registroGuardadoHandler.current?.(saved[0].fecha);
+      registroGuardadoHandler.current?.(saved[0]?.fecha ?? regs[0].fecha);
     },
-    [onIngresarHojas, upsertRegistro],
+    [applyGrouped, onIngresarHojas],
   );
 
   const enviarFechas = useCallback(
@@ -264,9 +245,12 @@ export function MiTiempoProvider({
   const upsertRegistrosYEnviar = useCallback(
     async (regs: RegistroMock[]) => {
       await upsertRegistros(regs);
-      return enviarFechas(regs.map((reg) => reg.fecha));
+      return {
+        enviados: regs,
+        sentToIfs: true,
+      } satisfies EnviarDiaResult;
     },
-    [upsertRegistros, enviarFechas],
+    [upsertRegistros],
   );
 
   const upsertRegistroYEnviarDia = useCallback(

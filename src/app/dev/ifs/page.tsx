@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { getIfsConfig, isIfsAuthEnabled, isIfsAuthReady, isIfsDevTokenBypass } from "@/src/lib/ifs/config";
+import {
+  getIfsConfig,
+  getIfsTargetEmpNo,
+  isIfsAuthEnabled,
+  isIfsAuthReady,
+  isIfsDevTokenBypass,
+} from "@/src/lib/ifs/config";
 import { isLocalDevRuntime } from "@/src/lib/ifs/dev-local";
 import { formatIfsError, IfsApiError } from "@/src/lib/ifs/errors";
 import {
@@ -9,10 +15,11 @@ import {
 import { getServerIfsSession, isSystemPortalEmail } from "@/src/lib/ifs/session";
 import { IfsDevTokenForm } from "@/src/app/dev/ifs/IfsDevTokenForm";
 import {
-  getEmployeeTimesheet,
+  findPortalUserByEmpId,
+  getEmployeeTimesheetForEmp,
   getUserInfo,
   getValidEmpPrjAct,
-  openCempPortalSession,
+  openCempPortalActor,
 } from "@/src/lib/ifs/cemp-portal";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +69,7 @@ async function probeIfs(): Promise<ProbeResult[]> {
     detail: !session?.email
       ? "Sin sesión — entra en /login (misma pestaña, no incógnito distinta)"
       : systemEmail
-        ? `${session.email} — cuenta técnica IFS, no empleado. Entra con tu @h-mv.com (incógnito si IFS da 400).`
+        ? `${session.email} — cuenta técnica IFS, no empleado. Entra con el EmailId asociado al empleado en DEV (incógnito si IFS da 400).`
         : session.email,
   });
 
@@ -72,22 +79,38 @@ async function probeIfs(): Promise<ProbeResult[]> {
     return await withValidIfsSession(async (liveSession) => {
       let ifs;
       try {
-        ifs = await openCempPortalSession(
+        ifs = await openCempPortalActor(
           liveSession.email,
           liveSession.accessToken,
         );
+        const targetEmpNo = getIfsTargetEmpNo();
         steps.push({
           ok: true,
           label: "CEmpPortalUserSet",
-          detail: `${ifs.user.CompanyId ?? "?"} · EmpId ${ifs.user.EmpId ?? "?"}`,
+          detail: `${ifs.user.EmailId} · ${ifs.user.CompanyId ?? "?"} · EmpId ${ifs.user.EmpId ?? "?"}${
+            targetEmpNo ? ` · filtro EmpNo ${targetEmpNo}` : ""
+          }`,
         });
+        if (targetEmpNo && ifs.user.EmpId !== targetEmpNo) {
+          const mapped = await findPortalUserByEmpId(
+            liveSession.accessToken,
+            targetEmpNo,
+          ).catch(() => null);
+          steps.push({
+            ok: Boolean(mapped?.EmailId),
+            label: `CEmpPortalUserSet EmpId=${targetEmpNo}`,
+            detail: mapped
+              ? `${mapped.EmailId} · ${mapped.CompanyId}`
+              : "No hay EmailId asociado a ese EmpNo en CEmpPortalUserSet",
+          });
+        }
       } catch (err) {
         if (err instanceof IfsApiError && err.status === 401) throw err;
         const msg = err instanceof Error ? err.message : String(err);
         const hint =
           liveSession.email && isSystemPortalEmail(liveSession.email)
             ? " Email del token no es empleado."
-            : " Verifica que exista en CEmpPortalUserSet con EmailId = tu @h-mv.com.";
+            : " Verifica que ese correo exista en CEmpPortalUserSet como EmailId (HMV o Veyron asociado al empleado).";
         steps.push({
           ok: false,
           label: "CEmpPortalUserSet",
@@ -112,7 +135,7 @@ async function probeIfs(): Promise<ProbeResult[]> {
       }
 
       try {
-        const sheet = await getEmployeeTimesheet(ifs);
+        const sheet = await getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo());
         steps.push({
           ok: true,
           label: "GetEmployeeTimesheet",
@@ -152,7 +175,7 @@ async function probeIfs(): Promise<ProbeResult[]> {
       steps.push({
         ok: false,
         label: "CEmpPortalUserSet",
-        detail: `${err.message}. Vuelve a /login con tu @h-mv.com.`,
+        detail: `${err.message}. Vuelve a /login con el EmailId asociado al empleado en DEV.`,
       });
       return steps;
     }
@@ -225,7 +248,7 @@ export default async function IfsDevPage() {
           <Link href="/api/auth/ifs-logout" className="font-semibold underline">
             Limpiar sesión
           </Link>{" "}
-          y vuelve a entrar con tu correo <strong>@h-mv.com</strong> (ventana de
+          y vuelve a entrar con el correo asociado al empleado en DEV (ventana de
           incógnito recomendada).
         </p>
       )}

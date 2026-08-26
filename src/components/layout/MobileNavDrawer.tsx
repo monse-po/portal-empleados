@@ -11,6 +11,7 @@ import { useRole } from "@/src/components/layout/RoleContext";
 import { useShell } from "@/src/components/layout/ShellContext";
 import {
   getVisibleModules,
+  isNavRouteActive,
   isPathVisible,
   type ModuleRoute,
 } from "@/src/lib/modules";
@@ -40,7 +41,7 @@ function DrawerLink({
 }) {
   const pathname = usePathname();
   const count = usePendingCount(route.path);
-  const active = pathname.startsWith(route.path);
+  const active = isNavRouteActive(pathname, route.path);
 
   if (!isPathVisible(route.path)) return null;
 
@@ -48,7 +49,7 @@ function DrawerLink({
     <Link
       href={route.path}
       onClick={() => {
-        if (pathname.startsWith(route.path)) {
+        if (isNavRouteActive(pathname, route.path)) {
           window.dispatchEvent(
             new CustomEvent("portal:module-home", {
               detail: { path: route.path },
@@ -128,27 +129,29 @@ export function MobileNavDrawer() {
       >
         {roleReady ? (
           <div className="flex flex-col gap-0.5 p-3">
-            {isGerente && gerenteRoutes.length > 0 && (
-              <>
-                <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#b0b7c3]">
-                  Aprobaciones
-                </p>
-                {gerenteRoutes.map((route) => (
-                  <DrawerLink
-                    key={route.path}
-                    route={route}
-                    onNavigate={closeMobileMenu}
-                  />
-                ))}
-                <div className="my-2 h-px bg-[#f0f0f0]" />
-              </>
-            )}
             {empleadoRoutes.length > 0 && (
               <>
                 <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#b0b7c3]">
                   Mis solicitudes
                 </p>
                 {empleadoRoutes.map((route) => (
+                  <DrawerLink
+                    key={route.path}
+                    route={route}
+                    onNavigate={closeMobileMenu}
+                  />
+                ))}
+              </>
+            )}
+            {isGerente && gerenteRoutes.length > 0 && (
+              <>
+                {empleadoRoutes.length > 0 && (
+                  <div className="my-2 h-px bg-[#f0f0f0]" />
+                )}
+                <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#b0b7c3]">
+                  Aprobaciones
+                </p>
+                {gerenteRoutes.map((route) => (
                   <DrawerLink
                     key={route.path}
                     route={route}
