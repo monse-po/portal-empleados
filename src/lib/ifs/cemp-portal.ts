@@ -614,8 +614,8 @@ export async function findPortalUserByEmpId(
 }
 
 /**
- * Abre CEmpPortalUser del email de sesión, o del EmpNo de prueba
- * (`IFS_DEV_EMP_NO`, en local 1001138468) si existe en CEmpPortalUserSet.
+ * Abre CEmpPortalUser del email de sesión (empleado HMV asociado en IFS).
+ * Solo si `IFS_DEV_EMP_NO` está definido en env, intenta abrir ese EmpId.
  */
 export async function openCempPortalActor(
   sessionEmail: string,
@@ -633,6 +633,16 @@ export async function openCempPortalActor(
     }
   }
   return openCempPortalSession(sessionEmail, accessToken);
+}
+
+/** EmpNo del actor abierto (`EmpId` de CEmpPortalUser), o override de env. */
+export function resolveActorEmpNo(
+  session: CempPortalSession,
+): string | undefined {
+  const override = getIfsTargetEmpNo()?.trim();
+  if (override) return override;
+  const fromUser = session.user.EmpId?.trim();
+  return fromUser || undefined;
 }
 
 export async function getReportItemsByEmpNo(

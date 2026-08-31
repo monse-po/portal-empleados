@@ -22,6 +22,7 @@ import {
   getAnticiposAction,
   lanzarAnticipoAction,
 } from "@/src/server/mis-anticipos-actions";
+import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 
 export type LanzarAnticipoInput = {
   tipo: AnticipoTipo;
@@ -93,6 +94,17 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void reload();
+  }, [reload]);
+
+  useEffect(() => {
+    const onEmployeeChanged = () => {
+      setLoaded(false);
+      void reload();
+    };
+    window.addEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onEmployeeChanged);
+    return () => {
+      window.removeEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onEmployeeChanged);
+    };
   }, [reload]);
 
   const lanzarAnticipo = useCallback(

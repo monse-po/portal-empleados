@@ -6,44 +6,47 @@ export type LoadingCopyEntry = {
   hint?: string;
 };
 
-/** Textos e iconos de estados de carga — una sola fuente de verdad. */
+/** Texto único para cualquier carga de datos. */
+export const LOADING_LABEL = "Cargando datos…";
+
+/** Iconos (y hints opcionales) de estados de carga — una sola fuente de verdad. */
 export const LOADING_COPY = {
   catalogIfs: {
-    label: "Cargando catálogo IFS",
+    label: LOADING_LABEL,
     icon: "folderOpen",
   },
   projects: {
-    label: "Cargando proyectos",
+    label: LOADING_LABEL,
     icon: "folderOpen",
   },
   approver: {
-    label: "Cargando aprobador",
+    label: LOADING_LABEL,
     icon: "userCircle",
   },
   hourTypes: {
-    label: "Cargando tipos de hora",
+    label: LOADING_LABEL,
     icon: "clock",
   },
   timeRecords: {
-    label: "Cargando registros de tiempo",
+    label: LOADING_LABEL,
     icon: "clock",
     hint: "Conectando con la base de datos",
   },
   timeRecordsIfs: {
-    label: "Cargando registros de tiempo",
+    label: LOADING_LABEL,
     icon: "clock",
     hint: "Consultando hoja de tiempo en IFS",
   },
   notifications: {
-    label: "Cargando notificaciones",
+    label: LOADING_LABEL,
     icon: "bell",
   },
   generic: {
-    label: "Cargando",
+    label: LOADING_LABEL,
     icon: "hourglass",
   },
 } as const satisfies Record<string, LoadingCopyEntry>;
 
-export function loadingPlaceholder(entry: LoadingCopyEntry): string {
-  return `${entry.label}…`;
+export function loadingPlaceholder(entry: LoadingCopyEntry = LOADING_COPY.generic): string {
+  return entry.label;
 }

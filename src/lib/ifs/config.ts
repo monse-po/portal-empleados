@@ -83,14 +83,14 @@ export function getIfsConfig(): IfsConfig {
   };
 }
 
-/** EmpNo de prueba en DEV (hoja de tiempo). Vacío en producción. */
+/**
+ * Override opcional de EmpNo (solo si `IFS_DEV_EMP_NO` está en env).
+ * Por defecto no hay override: el portal usa el empleado HMV asociado
+ * al EmailId de la sesión en CEmpPortalUserSet (remap Veyron↔HMV).
+ */
 export function getIfsTargetEmpNo(): string | undefined {
   const explicit = envFirst("IFS_DEV_EMP_NO");
-  if (explicit) return explicit.trim();
-  if (!process.env.VERCEL && process.env.NODE_ENV !== "production") {
-    return "1001138468";
-  }
-  return undefined;
+  return explicit ? explicit.trim() : undefined;
 }
 
 export function isIfsConfigured(): boolean {

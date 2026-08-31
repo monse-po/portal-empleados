@@ -254,6 +254,9 @@ export function LegalizacionesFilterBar({
     filters.filter(isRuleComplete).map((f) => f.column),
   );
   const hasFilters = hayFiltrosActivos(filters);
+  const availableColumns = columns.filter(
+    (col) => !barColumns.includes(col.id),
+  );
 
   const pickColumn = (col: LegalizacionFilterColumn) => {
     setColumnMenuOpen(false);
@@ -304,6 +307,7 @@ export function LegalizacionesFilterBar({
           );
         })}
 
+        {availableColumns.length > 0 ? (
         <Dropdown
           open={columnMenuOpen}
           onOpenChange={setColumnMenuOpen}
@@ -321,7 +325,7 @@ export function LegalizacionesFilterBar({
           }
         >
           <div className="py-0">
-            {columns.map((col) => (
+            {availableColumns.map((col) => (
               <button
                 key={col.id}
                 type="button"
@@ -338,6 +342,7 @@ export function LegalizacionesFilterBar({
             ))}
           </div>
         </Dropdown>
+        ) : null}
 
         {hasFilters && (
           <button

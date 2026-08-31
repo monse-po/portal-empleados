@@ -808,7 +808,7 @@ function RegistroHorasForm({
         <LoadingNotice
           variant="banner"
           icon={LOADING_COPY.catalogIfs.icon}
-          label="Cargando datos…"
+          label={LOADING_COPY.catalogIfs.label}
         />
       )}
       {scheduleReady && scheduleError && (
@@ -887,11 +887,9 @@ function RegistroHorasForm({
             form.proy,
           )}
           placeholder={
-            !scheduleReady
-              ? "Cargando programa…"
-              : useIfsCatalog && catalogLoading
-                ? loadingPlaceholder(LOADING_COPY.projects)
-                : TIEMPO_UI_COPY.selectProject
+            !scheduleReady || (useIfsCatalog && catalogLoading)
+              ? loadingPlaceholder(LOADING_COPY.projects)
+              : TIEMPO_UI_COPY.selectProject
           }
           searchPlaceholder={TIEMPO_UI_COPY.searchProject}
           disabled={
@@ -1015,7 +1013,9 @@ function RegistroHorasForm({
                   ) : (
                     <span className="text-muted">
                       {(() => {
-                        if (!scheduleReady) return "Cargando programa…";
+                        if (!scheduleReady) {
+                          return loadingPlaceholder(LOADING_COPY.hourTypes);
+                        }
                         if (useIfsCatalogLive && !form.act) {
                           return TIEMPO_UI_COPY.selectActivityFirst;
                         }

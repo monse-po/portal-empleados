@@ -440,7 +440,7 @@ export function LineaGastoModal({
               {draft.supplierLookupStatus === "loading" ? (
                 <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-muted">
                   <Icon name="hourglass" size="xs" className="shrink-0" />
-                  Consultando NIT en IFS…
+                  Cargando datos…
                 </p>
               ) : draft.supplierLookupStatus === "idle" &&
                 !draft.supplierId.trim() ? (

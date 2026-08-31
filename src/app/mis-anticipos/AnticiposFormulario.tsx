@@ -224,7 +224,7 @@ function DestinoPicker({
           onFocus={() => setOpen(true)}
           placeholder={
             loading
-              ? "Cargando destinos…"
+              ? "Cargando datos…"
               : "Ej: Bello, Antioquia, Colombia…"
           }
           autoComplete="off"
@@ -344,7 +344,7 @@ export function AnticiposFormulario({
 
   const aprobadorLabel = useMemo(() => {
     if (!proySel) return "";
-    if (aprobadorLoading) return "Consultando aprobador en IFS…";
+    if (aprobadorLoading) return "Cargando datos…";
     return (
       aprobadorIfs ??
       resolveAprobadorLabel(catalog, proySel.id) ??
@@ -762,7 +762,7 @@ export function AnticiposFormulario({
                             items={proyectosLov}
                             placeholder={
                               catalogLoading
-                                ? "Cargando proyectos IFS…"
+                                ? "Cargando datos…"
                                 : "Seleccionar proyecto"
                             }
                             searchPlaceholder="Buscar proyecto…"
@@ -829,7 +829,7 @@ export function AnticiposFormulario({
                         items={proyectosLov}
                         placeholder={
                           catalogLoading
-                            ? "Cargando proyectos IFS…"
+                            ? "Cargando datos…"
                             : "Seleccionar proyecto"
                         }
                         searchPlaceholder="Buscar proyecto…"

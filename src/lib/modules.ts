@@ -76,7 +76,7 @@ export const MODULES: ModuleDef[] = [
       {
         path: "/aprobacion-anticipos",
         rol: "gerente",
-        navLabel: "Anticipos",
+        navLabel: "Aprobar anticipos",
         icon: "wallet",
       },
     ],
@@ -94,7 +94,7 @@ export const MODULES: ModuleDef[] = [
       {
         path: "/aprobacion-legalizaciones",
         rol: "gerente",
-        navLabel: "Legalizaciones",
+        navLabel: "Aprobar legalizaciones",
         icon: "folderOpen",
       },
     ],

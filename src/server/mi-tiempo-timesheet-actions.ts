@@ -4,6 +4,7 @@ import {
   getEmployeeTimesheetForEmp,
   getUserInfo,
   openCempPortalActor,
+  resolveActorEmpNo,
 } from "@/src/lib/ifs/cemp-portal";
 import { IfsApiError } from "@/src/lib/ifs/errors";
 import {
@@ -14,13 +15,14 @@ import {
   groupRegistrosMockByFecha,
   mapEmployeeTimesheetToRegistros,
 } from "@/src/lib/ifs/tiempo-timesheet";
-import { getIfsTargetEmpNo } from "@/src/lib/ifs/config";
 import { getServerIfsSession } from "@/src/lib/ifs/session";
 import type { RegistroMock } from "@/src/lib/tiempo-registro";
 
 export async function fetchRegistrosFromIfsAction(): Promise<{
   grouped: Record<string, RegistroMock[]> | null;
   activePeriod?: string | null;
+  empNo?: string;
+  empName?: string;
   sessionExpired?: boolean;
   error?: string;
 }> {
@@ -33,15 +35,18 @@ export async function fetchRegistrosFromIfsAction(): Promise<{
         liveSession.email,
         liveSession.accessToken,
       );
-      const targetEmpNo = getIfsTargetEmpNo();
+      const empNo = resolveActorEmpNo(ifs);
       const [raw, info] = await Promise.all([
-        getEmployeeTimesheetForEmp(ifs, targetEmpNo),
+        getEmployeeTimesheetForEmp(ifs, empNo),
         getUserInfo(ifs).catch(() => null),
       ]);
-      const registros = mapEmployeeTimesheetToRegistros(raw, targetEmpNo);
+      const sessionEmpNo = info?.EmpNo?.trim() || empNo;
+      const registros = mapEmployeeTimesheetToRegistros(raw, sessionEmpNo);
       return {
         grouped: groupRegistrosMockByFecha(registros),
         activePeriod: info?.ActivePeriod?.trim() || null,
+        empNo: sessionEmpNo,
+        empName: info?.EmpName?.trim() || undefined,
       };
     });
     return result;

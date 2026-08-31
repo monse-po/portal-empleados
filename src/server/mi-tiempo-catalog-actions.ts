@@ -8,6 +8,7 @@ import {
   getUserInfo,
   getValidEmpPrjAct,
   openCempPortalActor,
+  openCempPortalSession,
 } from "@/src/lib/ifs/cemp-portal";
 import { formatIfsError, IfsApiError } from "@/src/lib/ifs/errors";
 import {
@@ -49,7 +50,12 @@ export type IfsPortalProfile = {
   error?: string;
 };
 
-/** EmailId de la sesión → CEmpPortalUserSet → GetUserInfo (empleado asociado en DEV). */
+/**
+ * Perfil del menú de usuario: siempre el EmailId de la sesión OAuth
+ * → CEmpPortalUserSet → GetUserInfo (empleado HMV asociado en IFS).
+ * No usa IFS_DEV_EMP_NO / openCempPortalActor, para reflejar el remap
+ * Veyron↔HMV que se cambia en pruebas.
+ */
 export async function fetchIfsPortalProfileAction(): Promise<IfsPortalProfile> {
   const session = await getServerIfsSession();
   if (!session) return { connected: false };
@@ -57,9 +63,9 @@ export async function fetchIfsPortalProfileAction(): Promise<IfsPortalProfile> {
   try {
     return await withValidIfsSession(async (live) => {
       try {
-        const ifs = await openCempPortalActor(live.email, live.accessToken);
+        const ifs = await openCempPortalSession(live.email, live.accessToken);
         const info = await getUserInfo(ifs);
-        const empName = (info.EmpName || live.name || "").trim();
+        const empName = (info.EmpName || "").trim();
         const empNo = (info.EmpNo || ifs.user.EmpId || "").trim();
         const companyId = (info.CompanyId || ifs.user.CompanyId || "").trim();
         const companyName = (info.CompanyName || "").trim();

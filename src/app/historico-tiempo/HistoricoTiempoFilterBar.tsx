@@ -200,6 +200,9 @@ export function HistoricoTiempoFilterBar({
     filters.filter(isRuleComplete).map((f) => f.column),
   );
   const hasFilters = hayFiltrosActivos(filters);
+  const availableColumns = HISTORICO_FILTER_COLUMNS.filter(
+    (col) => !barColumns.includes(col.id),
+  );
 
   const pickColumn = (col: HistoricoFilterColumn) => {
     setColumnMenuOpen(false);
@@ -250,6 +253,7 @@ export function HistoricoTiempoFilterBar({
           );
         })}
 
+        {availableColumns.length > 0 ? (
         <Dropdown
           open={columnMenuOpen}
           onOpenChange={setColumnMenuOpen}
@@ -267,7 +271,7 @@ export function HistoricoTiempoFilterBar({
           }
         >
           <div className="py-0">
-            {HISTORICO_FILTER_COLUMNS.map((col) => (
+            {availableColumns.map((col) => (
               <button
                 key={col.id}
                 type="button"
@@ -284,6 +288,7 @@ export function HistoricoTiempoFilterBar({
             ))}
           </div>
         </Dropdown>
+        ) : null}
 
         {hasFilters && (
           <button

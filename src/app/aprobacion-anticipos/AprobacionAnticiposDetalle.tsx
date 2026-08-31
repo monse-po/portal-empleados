@@ -72,7 +72,7 @@ export function AprobacionAnticiposDetalle({
   return (
     <div className="content-standard max-md:pb-24">
       <AnticipoDetailHeader
-        parentLabel="Aprobación de Anticipos"
+        parentLabel="Aprobar anticipos"
         codigo={solicitud.no}
         nombre={solicitud.nombre}
         estado={estadoPill}

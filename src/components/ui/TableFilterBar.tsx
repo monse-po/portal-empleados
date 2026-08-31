@@ -329,7 +329,11 @@ export function FilterBarMultiDropdown({
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => onToggle(opt.value)}
+                  onClick={() => {
+                    onToggle(opt.value);
+                    setOpen(false);
+                    setQ("");
+                  }}
                   className="flex w-full cursor-pointer items-center gap-2 rounded-[7px] px-2 py-1.5 text-left text-[12.5px] text-[#374151] hover:bg-[#f4f7fb]"
                 >
                   <Icon

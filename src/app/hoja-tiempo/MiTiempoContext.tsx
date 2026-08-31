@@ -34,6 +34,7 @@ import {
   upsertRegistrosAction,
 } from "@/src/server/mi-tiempo-actions";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
+import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 
 export type RegistrarModalState = {
   editId?: string;
@@ -215,6 +216,17 @@ export function MiTiempoProvider({
       setIfsEmail(status.email ?? null);
     });
   }, []);
+
+  useEffect(() => {
+    const onEmployeeChanged = () => {
+      setRegistrosLoaded(false);
+      void reloadRegistros();
+    };
+    window.addEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onEmployeeChanged);
+    return () => {
+      window.removeEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onEmployeeChanged);
+    };
+  }, [reloadRegistros]);
 
   const setRegistroGuardadoHandler = useCallback(
     (handler?: RegistroGuardadoHandler) => {

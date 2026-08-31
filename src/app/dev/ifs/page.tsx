@@ -137,7 +137,10 @@ async function probeIfs(): Promise<ProbeResult[]> {
       }
 
       try {
-        const sheet = await getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo());
+        const sheet = await getEmployeeTimesheetForEmp(
+          ifs,
+          getIfsTargetEmpNo() || ifs.user.EmpId,
+        );
         steps.push({
           ok: true,
           label: "GetEmployeeTimesheet",

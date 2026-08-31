@@ -211,7 +211,7 @@ export function AprobacionView() {
   if (!pendientesLoaded) {
     return (
       <div className="content-standard flex min-h-[240px] items-center justify-center">
-        <p className="text-[13px] text-muted">Cargando bandeja de aprobación…</p>
+        <p className="text-[13px] text-muted">Cargando datos…</p>
       </div>
     );
   }

@@ -18,7 +18,7 @@ export function AprobacionLegalizacionesDetalle({
   return (
     <div className="view-wide">
       <PortalSubpageHeader
-        parentLabel="Aprobación de Legalizaciones"
+        parentLabel="Aprobar legalizaciones"
         onVolver={onVolver}
         title={solicitud.no}
       />

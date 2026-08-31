@@ -9,6 +9,7 @@ import {
   getEmployeeTimesheetForEmp,
   openCempPortalActor,
   registerTimeEntries,
+  resolveActorEmpNo,
   updateTimeEntries,
   type CempPortalSession,
 } from "@/src/lib/ifs/cemp-portal";
@@ -17,7 +18,6 @@ import {
   IfsSessionExpiredError,
   withValidIfsSession,
 } from "@/src/lib/ifs/ifs-session-runtime";
-import { getIfsTargetEmpNo } from "@/src/lib/ifs/config";
 import { getServerIfsSession } from "@/src/lib/ifs/session";
 import {
   approvalEventsForDecision,
@@ -103,7 +103,7 @@ async function resolveIfsMeta(
   if (reg.ifs?.module && reg.ifs.objid && reg.ifs.objversion) {
     return reg.ifs;
   }
-  const raw = await getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo());
+  const raw = await getEmployeeTimesheetForEmp(ifs, resolveActorEmpNo(ifs));
   const meta = findIfsMetaInTimesheet(raw, reg.id);
   if (!meta) {
     throw new Error(
@@ -181,10 +181,11 @@ async function upsertRegistroIfs(reg: RegistroMock): Promise<RegistroMock> {
 }
 
 async function fetchTimesheetRegs(): Promise<RegistroMock[]> {
-  const raw = await withIfsPortalSession((ifs) =>
-    getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo()),
-  );
-  return mapEmployeeTimesheetToRegistros(raw, getIfsTargetEmpNo());
+  return withIfsPortalSession(async (ifs) => {
+    const empNo = resolveActorEmpNo(ifs);
+    const raw = await getEmployeeTimesheetForEmp(ifs, empNo);
+    return mapEmployeeTimesheetToRegistros(raw, empNo);
+  });
 }
 
 function asRegistrado(reg: RegistroMock): RegistroMock {
@@ -275,11 +276,11 @@ async function deleteRegistroIfs(id: string): Promise<void> {
 
   try {
     await withIfsPortalSession(async (ifs) => {
-      const rawSheet = await getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo());
-      const row = mapEmployeeTimesheetToRegistros(
-        rawSheet,
-        getIfsTargetEmpNo(),
-      ).find((r) => r.id === id);
+      const empNo = resolveActorEmpNo(ifs);
+      const rawSheet = await getEmployeeTimesheetForEmp(ifs, empNo);
+      const row = mapEmployeeTimesheetToRegistros(rawSheet, empNo).find(
+        (r) => r.id === id,
+      );
       const meta = row?.ifs ?? findIfsMetaInTimesheet(rawSheet, id);
       if (!row || !meta) {
         throw new Error(
@@ -384,13 +385,14 @@ export async function enviarFechasAction(
       sentToIfs = true;
 
       try {
-        const sheet = await withIfsPortalSession((ifs) =>
-          getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo()),
-        );
-        ifsMatches = findIfsMatchesForLocal(
-          locales,
-          mapEmployeeTimesheetToRegistros(sheet, getIfsTargetEmpNo()),
-        );
+        ifsMatches = await withIfsPortalSession(async (ifs) => {
+          const empNo = resolveActorEmpNo(ifs);
+          const sheet = await getEmployeeTimesheetForEmp(ifs, empNo);
+          return findIfsMatchesForLocal(
+            locales,
+            mapEmployeeTimesheetToRegistros(sheet, empNo),
+          );
+        });
       } catch {
         ifsMatches = [];
       }

@@ -260,6 +260,9 @@ export function DocumentoSoporteFilterBar({
     filters.filter(isRuleComplete).map((f) => f.column),
   );
   const hasFilters = hayFiltrosActivos(filters);
+  const availableColumns = columns.filter(
+    (col) => !barColumns.includes(col.id),
+  );
 
   const pickColumn = (col: DocumentoSoporteFilterColumn) => {
     setColumnMenuOpen(false);
@@ -310,6 +313,7 @@ export function DocumentoSoporteFilterBar({
           );
         })}
 
+        {availableColumns.length > 0 ? (
         <Dropdown
           open={columnMenuOpen}
           onOpenChange={setColumnMenuOpen}
@@ -327,7 +331,7 @@ export function DocumentoSoporteFilterBar({
           }
         >
           <div className="py-0">
-            {columns.map((col) => (
+            {availableColumns.map((col) => (
               <button
                 key={col.id}
                 type="button"
@@ -344,6 +348,7 @@ export function DocumentoSoporteFilterBar({
             ))}
           </div>
         </Dropdown>
+        ) : null}
 
         {hasFilters && (
           <button

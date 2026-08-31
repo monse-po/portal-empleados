@@ -261,6 +261,9 @@ export function AprobacionLegalizacionesFilterBar({
     filters.filter(isRuleComplete).map((f) => f.column),
   );
   const hasFilters = hayFiltrosActivos(filters);
+  const availableColumns = columns.filter(
+    (col) => !barColumns.includes(col.id),
+  );
 
   const pickColumn = (col: AproLegFilterColumn) => {
     setColumnMenuOpen(false);
@@ -312,6 +315,7 @@ export function AprobacionLegalizacionesFilterBar({
             );
           })}
 
+          {availableColumns.length > 0 ? (
           <Dropdown
             open={columnMenuOpen}
             onOpenChange={setColumnMenuOpen}
@@ -329,7 +333,7 @@ export function AprobacionLegalizacionesFilterBar({
             }
           >
             <div className="py-0">
-              {columns.map((col) => (
+              {availableColumns.map((col) => (
                 <button
                   key={col.id}
                   type="button"
@@ -346,6 +350,7 @@ export function AprobacionLegalizacionesFilterBar({
               ))}
             </div>
           </Dropdown>
+          ) : null}
 
           {hasFilters && (
             <button

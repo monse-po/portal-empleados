@@ -25,10 +25,10 @@ import {
   openKeysFromCatalog,
 } from "@/src/lib/historico-tiempo";
 import { downloadHistoricoPdf } from "@/src/lib/historico-pdf";
-import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import { fetchTiempoCatalogAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { getHistoricoRegistrosAction } from "@/src/server/historico-tiempo-actions";
+import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 
 /** Proyecto | Subproyecto | Actividad | Horas | Periodo | Estado */
 const HISTORICO_COLS = ["26%", "16%", "18%", "8%", "18%", "14%"] as const;
@@ -67,6 +67,7 @@ export function HistoricoTiempoView() {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [empNo, setEmpNo] = useState<string | null>(null);
+  const [empName, setEmpName] = useState<string | null>(null);
   const [filters, setFilters] = useState<HistoricoFilterRule[]>([]);
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const [nombresPorProy, setNombresPorProy] = useState<Record<string, string>>(
@@ -78,6 +79,7 @@ export function HistoricoTiempoView() {
     try {
       const result = await getHistoricoRegistrosAction();
       setEmpNo(result.empNo ?? null);
+      setEmpName(result.empName ?? null);
       if (result.error && result.registros.length === 0) {
         setLoadError(result.error);
         setAprobados([]);
@@ -99,6 +101,17 @@ export function HistoricoTiempoView() {
 
   useEffect(() => {
     void reload();
+  }, [reload]);
+
+  useEffect(() => {
+    const onEmployeeChanged = () => {
+      setLoaded(false);
+      void reload();
+    };
+    window.addEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onEmployeeChanged);
+    return () => {
+      window.removeEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onEmployeeChanged);
+    };
   }, [reload]);
 
   useEffect(() => {
@@ -131,7 +144,7 @@ export function HistoricoTiempoView() {
   if (!loaded) {
     return (
       <div className="view-wide flex min-h-[240px] items-center justify-center text-[13px] text-muted">
-        Consultando histórico en IFS…
+        Cargando datos…
       </div>
     );
   }
@@ -160,7 +173,7 @@ export function HistoricoTiempoView() {
             className="shrink-0"
             onClick={() =>
               downloadHistoricoPdf(filas, {
-                empleadoNombre: SESSION_EMPLEADO.nombre,
+                empleadoNombre: empName || empNo || "Empleado IFS",
                 empNo: empNo ?? undefined,
               })
             }

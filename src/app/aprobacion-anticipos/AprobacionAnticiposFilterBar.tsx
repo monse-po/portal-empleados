@@ -258,6 +258,9 @@ export function AprobacionAnticiposFilterBar({
     filters.filter(isRuleComplete).map((f) => f.column),
   );
   const hasFilters = hayFiltrosActivos(filters);
+  const availableColumns = columns.filter(
+    (col) => !barColumns.includes(col.id),
+  );
 
   const pickColumn = (col: AproAntFilterColumn) => {
     setColumnMenuOpen(false);
@@ -309,6 +312,7 @@ export function AprobacionAnticiposFilterBar({
             );
           })}
 
+          {availableColumns.length > 0 ? (
           <Dropdown
             open={columnMenuOpen}
             onOpenChange={setColumnMenuOpen}
@@ -326,7 +330,7 @@ export function AprobacionAnticiposFilterBar({
             }
           >
             <div className="py-0">
-              {columns.map((col) => (
+              {availableColumns.map((col) => (
                 <button
                   key={col.id}
                   type="button"
@@ -343,6 +347,7 @@ export function AprobacionAnticiposFilterBar({
               ))}
             </div>
           </Dropdown>
+          ) : null}
 
           {hasFilters && (
             <button

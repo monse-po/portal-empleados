@@ -102,7 +102,7 @@ export function AprobacionLegalizacionesLista({
     <div className="view-wide max-md:pb-24">
       <div className="mb-4">
         <h1 className="text-xl font-bold text-[#111]">
-          Aprobación de Legalizaciones
+          Aprobar legalizaciones
         </h1>
         <p className="mt-1 text-[13px] text-[#4b5563]">
           Revisa y resuelve las legalizaciones pendientes de tu equipo

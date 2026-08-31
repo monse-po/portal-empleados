@@ -56,7 +56,7 @@ function AnticiposViewInner() {
   if (!loaded) {
     return (
       <div className="view-wide flex min-h-[240px] items-center justify-center text-[13px] text-muted">
-        Cargando anticipos…
+        Cargando datos…
       </div>
     );
   }

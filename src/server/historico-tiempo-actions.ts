@@ -10,8 +10,8 @@ import {
   getReferenceEmpReportItemsHistorico,
   getUserInfo,
   openCempPortalActor,
+  resolveActorEmpNo,
 } from "@/src/lib/ifs/cemp-portal";
-import { getIfsTargetEmpNo } from "@/src/lib/ifs/config";
 import { IfsApiError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
@@ -66,6 +66,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
   registros: RegistroMock[];
   desdeIso: string;
   empNo?: string;
+  empName?: string;
   confirmedHours?: number;
   sessionExpired?: boolean;
   error?: string;
@@ -93,19 +94,22 @@ export async function getHistoricoRegistrosAction(): Promise<{
   try {
     const payload = await withValidIfsSession(async (liveSession) => {
       const collected: RegistroMock[] = [];
-      // Misma identidad que Mi Tiempo en DEV (IFS_DEV_EMP_NO / 1001138468).
+      // Empleado HMV asociado al EmailId de la sesión (mismo actor que Mi Tiempo).
       const ifs = await openCempPortalActor(
         liveSession.email,
         liveSession.accessToken,
       );
       const info = await getUserInfo(ifs).catch(() => null);
-      const targetEmpNo = getIfsTargetEmpNo()?.trim();
       const empNo =
-        targetEmpNo || info?.EmpNo?.trim() || empleado.empleadoId;
+        info?.EmpNo?.trim() ||
+        resolveActorEmpNo(ifs) ||
+        empleado.empleadoId;
+      const empName =
+        info?.EmpName?.trim() || empleado.name?.trim() || undefined;
       const companyId =
         info?.CompanyId?.trim() || ifs.user.CompanyId?.trim() || "";
       const empleadoIdNeon =
-        (targetEmpNo || empNo).replace(/\D/g, "") || empleado.empleadoId;
+        empNo.replace(/\D/g, "") || empleado.empleadoId;
 
       // 1) Misma hoja que Mi Tiempo (GetEmployeeTimesheet + borradores Neon)
       try {
@@ -207,13 +211,14 @@ export async function getHistoricoRegistrosAction(): Promise<{
         /* diag opcional */
       }
 
-      return { registros: result, empNo, confirmedHours };
+      return { registros: result, empNo, empName, confirmedHours };
     });
 
     return {
       registros: payload.registros,
       desdeIso,
       empNo: payload.empNo,
+      empName: payload.empName,
       confirmedHours: payload.confirmedHours,
     };
   } catch (err) {

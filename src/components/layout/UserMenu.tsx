@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/src/components/ui/Icon";
 import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
@@ -11,26 +11,51 @@ import {
   fetchIfsPortalProfileAction,
   type IfsPortalProfile,
 } from "@/src/server/mi-tiempo-catalog-actions";
+import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 
 const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
 
 function profileTitle(profile: IfsPortalProfile | null, loading: boolean): string {
-  if (loading) return "…";
+  if (loading && !profile) return "…";
   if (profile?.connected && profile.empName) return profile.empName;
+  if (profile?.connected && profile.empNo) return `EmpNo ${profile.empNo}`;
   if (profile?.connected && profile.email) return profile.email;
   return "Sin sesión IFS";
 }
 
 function profileSubtitle(profile: IfsPortalProfile | null, loading: boolean): string {
-  if (loading) return "Consultando empleado…";
+  if (loading && !profile) return "Cargando datos…";
   if (profile?.connected) {
-    const bits = [profile.email, profile.companyId || profile.companyName].filter(
-      Boolean,
-    );
+    const bits: string[] = [];
     if (profile.empNo) bits.push(`EmpNo ${profile.empNo}`);
-    return bits.join(" · ") || "Sesión IFS";
+    if (profile.email) bits.push(profile.email);
+    if (profile.companyId || profile.companyName) {
+      bits.push(profile.companyId || profile.companyName || "");
+    }
+    return bits.filter(Boolean).join(" · ") || "Sesión IFS";
   }
   return "Entra con el correo asociado al empleado en DEV";
+}
+
+function applyProfile(
+  next: IfsPortalProfile,
+  prevEmpNo: MutableRefObject<string | undefined>,
+  setProfile: (p: IfsPortalProfile) => void,
+) {
+  setProfile(next);
+  const nextEmpNo = next.connected ? next.empNo : undefined;
+  if (
+    nextEmpNo &&
+    prevEmpNo.current &&
+    prevEmpNo.current !== nextEmpNo
+  ) {
+    window.dispatchEvent(
+      new CustomEvent(IFS_EMPLOYEE_CHANGED_EVENT, {
+        detail: { empNo: nextEmpNo },
+      }),
+    );
+  }
+  if (nextEmpNo) prevEmpNo.current = nextEmpNo;
 }
 
 export function UserMenu() {
@@ -41,12 +66,27 @@ export function UserMenu() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<IfsPortalProfile | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const prevEmpNoRef = useRef<string | undefined>(undefined);
+
+  const reloadProfile = () => {
+    setLoading(true);
+    return fetchIfsPortalProfileAction()
+      .then((next) => {
+        applyProfile(next, prevEmpNoRef, setProfile);
+      })
+      .catch(() => {
+        setProfile({ connected: false });
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
     let cancelled = false;
     fetchIfsPortalProfileAction()
       .then((next) => {
-        if (!cancelled) setProfile(next);
+        if (!cancelled) applyProfile(next, prevEmpNoRef, setProfile);
       })
       .catch(() => {
         if (!cancelled) setProfile({ connected: false });
@@ -58,6 +98,11 @@ export function UserMenu() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    void reloadProfile();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
