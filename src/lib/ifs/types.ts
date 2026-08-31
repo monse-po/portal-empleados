@@ -134,6 +134,8 @@ export type EmpReportItemRow = {
   ModuleDecoded?: string;
   Col2?: string;
   Hours?: string | number;
+  /** Horas en ProjectTransactionsHandling.ProjectTransactionSet. */
+  InternalQuantity?: string | number;
   EmployeeName?: string;
   InternalComments?: string;
   CStatus?: string;
@@ -147,6 +149,8 @@ export type EmpReportItemRow = {
   SubProjectDesc?: string;
   ActivityNo?: string;
   ActDescription?: string;
+  /** Descripción de actividad (p. ej. Reference_Activity.Description). */
+  Description?: string;
   ShortName?: string;
   ProjectName?: string;
   ReportCostCode?: string;

@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/Card";
 import { Icon } from "@/src/components/ui/Icon";
 import {
   DataTable,
   dataTd,
   dataTdNumeric,
-  dataTdResPrimary,
-  dataTdResSecondary,
   dataTdTruncate,
   dataThWithAlign,
 } from "@/src/components/ui/DataTable";
-import { MiTiempoLoading } from "@/src/app/hoja-tiempo/MiTiempoLoading";
-import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import { HistoricoTiempoFilterBar } from "@/src/app/historico-tiempo/HistoricoTiempoFilterBar";
 import { HISTORICO_UI_COPY } from "@/src/lib/copy/historico";
 import { dateToIso } from "@/src/lib/date-picker-utils";
@@ -24,13 +21,17 @@ import {
 import {
   formatHistoricoRango,
   getHistoricoResumenPorProyectoSub,
-  getRegistrosHistoricoAprobados,
   nombresProyectoFromCatalog,
   openKeysFromCatalog,
 } from "@/src/lib/historico-tiempo";
+import { downloadHistoricoPdf } from "@/src/lib/historico-pdf";
+import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
+import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import { fetchTiempoCatalogAction } from "@/src/server/mi-tiempo-catalog-actions";
+import { getHistoricoRegistrosAction } from "@/src/server/historico-tiempo-actions";
 
-const HISTORICO_COLS = ["40%", "26%", "12%", "22%"] as const;
+/** Proyecto | Subproyecto | Actividad | Horas | Periodo | Estado */
+const HISTORICO_COLS = ["26%", "16%", "18%", "8%", "18%", "14%"] as const;
 
 function formatHorasTotal(horas: number): string {
   return Number.isInteger(horas) ? String(horas) : horas.toFixed(1);
@@ -62,13 +63,43 @@ function HistoricoTimelineStats({
 }
 
 export function HistoricoTiempoView() {
-  const { registros, registrosLoaded, registrosError, registrosIfsWarning, registrosFromIfs, ifsConnected } =
-    useMiTiempo();
+  const [aprobados, setAprobados] = useState<RegistroMock[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [empNo, setEmpNo] = useState<string | null>(null);
   const [filters, setFilters] = useState<HistoricoFilterRule[]>([]);
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const [nombresPorProy, setNombresPorProy] = useState<Record<string, string>>(
     {},
   );
+
+  const reload = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const result = await getHistoricoRegistrosAction();
+      setEmpNo(result.empNo ?? null);
+      if (result.error && result.registros.length === 0) {
+        setLoadError(result.error);
+        setAprobados([]);
+      } else {
+        setAprobados(result.registros as RegistroMock[]);
+        if (result.error) setLoadError(result.error);
+      }
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo cargar el histórico.",
+      );
+      setAprobados([]);
+    } finally {
+      setLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   useEffect(() => {
     const hoy = dateToIso(new Date());
@@ -80,13 +111,8 @@ export function HistoricoTiempoView() {
     });
   }, []);
 
-  const reales = useMemo(
-    () => getRegistrosHistoricoAprobados(registros),
-    [registros],
-  );
-  const aprobados = reales;
   const filtrados = useMemo(
-    () => applyHistoricoFilters(aprobados, filters),
+    () => applyHistoricoFilters(aprobados, filters) as RegistroMock[],
     [aprobados, filters],
   );
   const filas = useMemo(
@@ -102,38 +128,47 @@ export function HistoricoTiempoView() {
     [filas],
   );
 
-  if (!registrosLoaded) {
-    return <MiTiempoLoading />;
+  if (!loaded) {
+    return (
+      <div className="view-wide flex min-h-[240px] items-center justify-center text-[13px] text-muted">
+        Consultando histórico en IFS…
+      </div>
+    );
   }
 
-  if (registrosError) {
+  if (loadError && aprobados.length === 0) {
     return (
       <div className="view-wide px-2 py-8 text-center text-[13px] text-muted">
-        {registrosError}
+        <p>{loadError}</p>
+        <p className="mt-2 text-[12px]">Inicia sesión con tu correo @h-mv.com</p>
       </div>
     );
   }
 
   return (
     <div className="view-wide">
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-[#111]">Mi Histórico</h1>
-        <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">
-          {HISTORICO_UI_COPY.subtitle}
-        </p>
-        {registrosIfsWarning ? (
-          <p className="alert-warn mt-2 px-3 py-2 text-sm">{registrosIfsWarning}</p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-[#111]">Mi Histórico</h1>
+          {loadError ? (
+            <p className="alert-warn mt-2 px-3 py-2 text-sm">{loadError}</p>
+          ) : null}
+        </div>
+        {filas.length > 0 ? (
+          <Button
+            variant="secondary"
+            className="shrink-0"
+            onClick={() =>
+              downloadHistoricoPdf(filas, {
+                empleadoNombre: SESSION_EMPLEADO.nombre,
+                empNo: empNo ?? undefined,
+              })
+            }
+          >
+            <Icon name="download" size="sm" />
+            {HISTORICO_UI_COPY.downloadPdf}
+          </Button>
         ) : null}
-        {ifsConnected && reales.length === 0 && !registrosIfsWarning && (
-          <p className="mt-2 inline-flex rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-2.5 py-1 text-[11px] font-medium text-navy">
-            Hoja IFS conectada · aún no hay horas enviadas o aprobadas
-          </p>
-        )}
-        {registrosFromIfs && reales.length > 0 && (
-          <p className="mt-2 inline-flex rounded-md border border-[#bbf7d0] bg-[#f0fdf4] px-2.5 py-1 text-[11px] font-medium text-[#15803d]">
-            Datos de tu hoja IFS (GetEmployeeTimesheet)
-          </p>
-        )}
       </div>
 
       {aprobados.length > 0 && (
@@ -168,9 +203,7 @@ export function HistoricoTiempoView() {
             <div className="px-6 py-10 text-center text-[13px] text-muted">
               {aprobados.length === 0 ? (
                 <>
-                  {ifsConnected
-                    ? "Tu hoja IFS no tiene horas enviadas o aprobadas todavía."
-                    : "Aún no hay horas reportadas en el histórico."}
+                  Aún no hay horas reportadas en el histórico.
                   <br />
                   <span className="mt-1 inline-block text-[12px]">
                     Aparecen aquí cuando quedan Registrados en IFS o cuando ya
@@ -188,8 +221,10 @@ export function HistoricoTiempoView() {
                   {[
                     ["Proyecto", "text-left"],
                     ["Subproyecto", "text-left"],
+                    ["Actividad", "text-left"],
                     ["Horas", "text-center"],
                     ["Periodo", "text-left"],
+                    ["Estado", "text-left"],
                   ].map(([col, align]) => (
                     <th key={col} className={dataThWithAlign(align)}>
                       {col}
@@ -200,34 +235,42 @@ export function HistoricoTiempoView() {
               <tbody>
                 {filas.map((r) => (
                   <tr
-                    key={`${r.proyId}::${r.subproy}`}
+                    key={`${r.proyId}::${r.subproy}::${r.actividad}`}
                     className="transition-colors hover:bg-[#fafbfc]"
                   >
                     <td className={dataTd}>
-                      <div className="min-w-0">
-                        <div className={dataTdResPrimary} title={r.nombre}>
+                      <div
+                        className="flex min-w-0 items-baseline gap-2"
+                        title={`${r.codigo} · ${r.nombre}`}
+                      >
+                        <span className="shrink-0 font-bold text-navy">
+                          {r.codigo}
+                        </span>
+                        <span className={`${dataTdTruncate} text-[#374151]`}>
                           {r.nombre}
-                        </div>
-                        <div className={dataTdResSecondary}>{r.codigo}</div>
+                        </span>
                       </div>
                     </td>
                     <td className={`${dataTd} ${dataTdTruncate}`}>{r.subproy}</td>
+                    <td className={`${dataTd} ${dataTdTruncate}`}>{r.actividad}</td>
                     <td className={dataTdNumeric}>
                       <span className="font-semibold text-navy">
                         {formatHorasTotal(r.totalHoras)}
                       </span>
                     </td>
-                    <td className={`${dataTd} text-muted`}>
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <span className="truncate">
-                          {formatHistoricoRango(r.desde, r.hasta, r.abierto)}
-                        </span>
-                        {r.abierto && (
-                          <span className="shrink-0 rounded-full border border-[#bbf7d0] bg-[#f0fdf4] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-[#15803d]">
-                            Abierto
-                          </span>
-                        )}
-                      </div>
+                    <td className={`${dataTd} ${dataTdTruncate} text-muted`}>
+                      {formatHistoricoRango(r.desde, r.hasta, r.abierto)}
+                    </td>
+                    <td className={dataTd}>
+                      <span
+                        className={
+                          r.abierto
+                            ? "font-semibold text-[#15803d]"
+                            : "font-medium text-muted"
+                        }
+                      >
+                        {r.abierto ? "Abierto" : "Cerrado"}
+                      </span>
                     </td>
                   </tr>
                 ))}

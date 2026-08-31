@@ -6,10 +6,12 @@ import {
   getEmployeeReportItemsHistorico,
   getEmployeeReportItemsHistoricoMainChannel,
   getHoursSummary,
+  getProjectTransactionsHistorico,
   getReferenceEmpReportItemsHistorico,
   getUserInfo,
-  openCempPortalSession,
+  openCempPortalActor,
 } from "@/src/lib/ifs/cemp-portal";
+import { getIfsTargetEmpNo } from "@/src/lib/ifs/config";
 import { IfsApiError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
@@ -63,6 +65,8 @@ async function getApprovedFromNeon(
 export async function getHistoricoRegistrosAction(): Promise<{
   registros: RegistroMock[];
   desdeIso: string;
+  empNo?: string;
+  confirmedHours?: number;
   sessionExpired?: boolean;
   error?: string;
 }> {
@@ -87,16 +91,25 @@ export async function getHistoricoRegistrosAction(): Promise<{
   }
 
   try {
-    const registros = await withValidIfsSession(async (liveSession) => {
+    const payload = await withValidIfsSession(async (liveSession) => {
       const collected: RegistroMock[] = [];
-      const ifs = await openCempPortalSession(
+      // Misma identidad que Mi Tiempo en DEV (IFS_DEV_EMP_NO / 1001138468).
+      const ifs = await openCempPortalActor(
         liveSession.email,
         liveSession.accessToken,
       );
+      const info = await getUserInfo(ifs).catch(() => null);
+      const targetEmpNo = getIfsTargetEmpNo()?.trim();
+      const empNo =
+        targetEmpNo || info?.EmpNo?.trim() || empleado.empleadoId;
+      const companyId =
+        info?.CompanyId?.trim() || ifs.user.CompanyId?.trim() || "";
+      const empleadoIdNeon =
+        (targetEmpNo || empNo).replace(/\D/g, "") || empleado.empleadoId;
 
       // 1) Misma hoja que Mi Tiempo (GetEmployeeTimesheet + borradores Neon)
       try {
-        const localGrouped = await getRegistrosFromNeon(empleado.empleadoId);
+        const localGrouped = await getRegistrosFromNeon(empleadoIdNeon);
         const ifsResult = await fetchRegistrosFromIfsAction();
         const merged = mergeIfsAndLocalRegistros(
           ifsResult.grouped ?? {},
@@ -107,7 +120,24 @@ export async function getHistoricoRegistrosAction(): Promise<{
         console.warn("[historico] hoja Mi Tiempo", err);
       }
 
-      // 2) Meses anteriores vía ReportItemSet (solo lectura IFS)
+      // 2) Transacciones Proyecto (Aurena) — histórico real del año, no solo ActivePeriod
+      if (empNo) {
+        try {
+          const raw = await getProjectTransactionsHistorico(ifs, empNo, desdeIso);
+          const mapped = mapReportItemsHistoricoToRegistros(raw);
+          if (process.env.NODE_ENV === "development") {
+            console.info(
+              `[historico] ProjectTransactionSet: ${mapped.length} filas`,
+            );
+          }
+          collected.push(...mapped);
+        } catch (err) {
+          if (!(err instanceof IfsApiError)) throw err;
+          console.warn("[historico] ProjectTransactionSet", err.message);
+        }
+      }
+
+      // 3) Meses anteriores vía ReportItemSet (solo lectura IFS)
       try {
         const raw = await getEmployeeReportItemsHistorico(ifs, desdeIso);
         collected.push(...mapReportItemsHistoricoToRegistros(raw));
@@ -116,35 +146,29 @@ export async function getHistoricoRegistrosAction(): Promise<{
         console.warn("[historico] ReportItemSet", err.message);
       }
 
-      // 3) Reference_EmpReportItem por EmpNo (histórico global del empleado)
-      try {
-        const info = await getUserInfo(ifs);
-        if (info.EmpNo?.trim()) {
-          const companyId =
-            info.CompanyId?.trim() || ifs.user.CompanyId?.trim() || "";
+      // 4) Reference_EmpReportItem por EmpNo (histórico global del empleado)
+      if (empNo) {
+        try {
           const raw = await getReferenceEmpReportItemsHistorico(
             ifs,
             companyId,
-            info.EmpNo.trim(),
+            empNo,
             desdeIso,
           );
           collected.push(...mapReportItemsHistoricoToRegistros(raw));
+        } catch (err) {
+          if (!(err instanceof IfsApiError)) throw err;
+          console.warn("[historico] Reference_EmpReportItem", err.message);
         }
-      } catch (err) {
-        if (!(err instanceof IfsApiError)) throw err;
-        console.warn("[historico] Reference_EmpReportItem", err.message);
       }
 
-      // 4) Canal /main/ (Aurena) — a veces /int/ no expone EmpReportItem histórico
-      try {
-        const info = await getUserInfo(ifs);
-        if (info.EmpNo?.trim()) {
-          const companyId =
-            info.CompanyId?.trim() || ifs.user.CompanyId?.trim() || "";
+      // 5) Canal /main/ (Aurena) — a veces /int/ no expone EmpReportItem histórico
+      if (empNo) {
+        try {
           const raw = await getEmployeeReportItemsHistoricoMainChannel(
             ifs,
             companyId,
-            info.EmpNo.trim(),
+            empNo,
             desdeIso,
           );
           const mapped = mapReportItemsHistoricoToRegistros(raw);
@@ -152,37 +176,46 @@ export async function getHistoricoRegistrosAction(): Promise<{
             console.info(`[historico] canal main: ${mapped.length} filas`);
           }
           collected.push(...mapped);
+        } catch (err) {
+          if (!(err instanceof IfsApiError)) throw err;
+          console.warn("[historico] canal main", err.message);
         }
-      } catch (err) {
-        if (!(err instanceof IfsApiError)) throw err;
-        console.warn("[historico] canal main", err.message);
       }
 
-      // 5) Neon explícito APROBADO (sync local tras aprobación en portal)
+      // 6) Neon explícito APROBADO (sync local tras aprobación en portal)
       try {
-        collected.push(...(await getApprovedFromNeon(empleado.empleadoId, desdeIso)));
+        collected.push(...(await getApprovedFromNeon(empleadoIdNeon, desdeIso)));
       } catch (err) {
         console.warn("[historico] Neon APROBADO", err);
       }
 
       const deduped = dedupeRegistros(collected);
       const result = sortRegistrosHistorico(deduped);
-
-      if (process.env.NODE_ENV === "development") {
-        try {
-          const summary = await getHoursSummary(ifs);
+      let confirmedHours: number | undefined;
+      try {
+        const summary = await getHoursSummary(ifs);
+        confirmedHours =
+          typeof summary.ConfirmedHours === "number"
+            ? summary.ConfirmedHours
+            : undefined;
+        if (process.env.NODE_ENV === "development") {
           console.info(
-            `[historico] emp=${empleado.empleadoId} confirmed=${summary.ConfirmedHours ?? 0} crudas=${collected.length} aprobadas=${result.length}`,
+            `[historico] emp=${empNo} neon=${empleadoIdNeon} confirmed=${confirmedHours ?? 0} crudas=${collected.length} enVentana=${result.length}`,
           );
-        } catch {
-          /* diag opcional */
         }
+      } catch {
+        /* diag opcional */
       }
 
-      return result;
+      return { registros: result, empNo, confirmedHours };
     });
 
-    return { registros, desdeIso };
+    return {
+      registros: payload.registros,
+      desdeIso,
+      empNo: payload.empNo,
+      confirmedHours: payload.confirmedHours,
+    };
   } catch (err) {
     if (err instanceof IfsSessionExpiredError) {
       return {

@@ -53,6 +53,14 @@ export function projectionSiblingBaseUrl(serviceName: string): string {
   return cempPortalBaseUrl.replace(/\/[^/]+\.svc\/?$/, `/${svc}`);
 }
 
+/** Proyección hermana en el canal /main/ (Aurena). /int/ a menudo no publica el metadata. */
+export function projectionMainSiblingBaseUrl(serviceName: string): string {
+  return cempPortalMainBaseUrl().replace(
+    /\/[^/]+\.svc\/?$/,
+    `/${serviceName.endsWith(".svc") ? serviceName : `${serviceName}.svc`}`,
+  );
+}
+
 /** Escapa comillas simples en literales OData entre comillas. */
 export function odataStringKey(value: string): string {
   return value.replace(/'/g, "''");

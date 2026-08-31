@@ -11,15 +11,36 @@ export function getHistoricoFechaMinimaIso(base = new Date()): string {
   return format(subMonths(base, HISTORICO_MESES_VENTANA), "yyyy-MM-dd");
 }
 
-/** Histórico confirmado = Aprobado (IFS Confirmed). */
+/** Histórico confirmado = Aprobado (IFS Confirmed). Útil para diagnósticos. */
 export function isRegistroHistoricoConfirmado(estado: string): boolean {
   return normalizeRegistroEstado(estado) === "Aprobado";
 }
 
+/** Etiqueta de ventana: p. ej. "Agosto 2025". */
+export function formatHistoricoVentanaLabel(base = new Date()): string {
+  const desde = getHistoricoFechaMinimaIso(base);
+  const [y, m, d] = desde.split("-").map(Number);
+  const label = new Date(y, m - 1, d).toLocaleDateString("es-ES", {
+    month: "long",
+    year: "numeric",
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/** Horas que cuentan para hoja de vida: enviadas o ya aprobadas (no rechazo). */
+export function isRegistroHistorico(estado: RegistroMock["estado"]): boolean {
+  const normalized = normalizeRegistroEstado(estado);
+  return normalized === "Aprobado" || normalized === "Registrado";
+}
+
+/**
+ * Histórico de hoja de vida: Registrado o Aprobado en la ventana de meses.
+ * (No solo el ActivePeriod / mes actual de Mi Tiempo.)
+ */
 export function sortRegistrosHistorico(rows: RegistroMock[]): RegistroMock[] {
   const minFecha = getHistoricoFechaMinimaIso();
   return rows
-    .filter((r) => isRegistroHistoricoConfirmado(r.estado))
+    .filter((r) => isRegistroHistorico(r.estado))
     .filter((r) => r.fecha >= minFecha)
     .sort((a, b) => {
       const byFecha = b.fecha.localeCompare(a.fecha);
@@ -44,6 +65,7 @@ export type HistoricoProyectoSubResumen = {
   nombre: string;
   subproy: string;
   subproyId?: string;
+  actividad: string;
   totalHoras: number;
   registros: number;
   desde: string;
@@ -52,19 +74,15 @@ export type HistoricoProyectoSubResumen = {
   abierto: boolean;
 };
 
-/** Horas que cuentan para hoja de vida: enviadas o ya aprobadas (no rechazo). */
-export function isRegistroHistorico(estado: RegistroMock["estado"]): boolean {
-  const normalized = normalizeRegistroEstado(estado);
-  return normalized === "Aprobado" || normalized === "Registrado";
-}
-
-/** Registros de histórico, más recientes primero. */
+/** Registros de histórico dentro de la ventana, más recientes primero. */
 export function getRegistrosHistoricoAprobados(
   registros: Record<string, RegistroMock[]>,
 ): RegistroMock[] {
+  const minFecha = getHistoricoFechaMinimaIso();
   return Object.values(registros)
     .flat()
     .filter((r) => isRegistroHistorico(r.estado))
+    .filter((r) => r.fecha >= minFecha)
     .sort((a, b) => {
       const byFecha = b.fecha.localeCompare(a.fecha);
       if (byFecha !== 0) return byFecha;
@@ -98,16 +116,24 @@ export function getHistoricoResumenPorProyecto(
   return [...map.values()].sort((a, b) => b.totalHoras - a.totalHoras);
 }
 
-/** Claves `shortName` y `shortName::sub` vigentes hoy (GetValidEmpPrjAct). */
+/**
+ * Claves vigentes hoy (GetValidEmpPrjAct).
+ * Incluye ShortName (Mi Tiempo) y ProjectId (Mi Histórico), con y sin subproyecto.
+ */
 export function openKeysFromCatalog(catalog: TiempoCatalog | null): Set<string> {
   const keys = new Set<string>();
   if (!catalog) return keys;
   for (const p of catalog.proyectos) {
     keys.add(p.id);
+    if (p.projectId) keys.add(p.projectId);
     const entry = catalog.porProyecto[p.id];
     for (const sub of entry?.subs ?? []) {
       keys.add(`${p.id}::${sub.id}`);
       if (sub.label) keys.add(`${p.id}::${sub.label}`);
+      if (p.projectId) {
+        keys.add(`${p.projectId}::${sub.id}`);
+        if (sub.label) keys.add(`${p.projectId}::${sub.label}`);
+      }
     }
   }
   return keys;
@@ -119,7 +145,9 @@ export function nombresProyectoFromCatalog(
   const map: Record<string, string> = {};
   if (!catalog) return map;
   for (const p of catalog.proyectos) {
-    if (p.nombre) map[p.id] = p.nombre;
+    if (!p.nombre) continue;
+    map[p.id] = p.nombre;
+    if (p.projectId) map[p.projectId] = p.nombre;
   }
   return map;
 }
@@ -164,18 +192,23 @@ export function getHistoricoResumenPorProyectoSub(
   for (const r of rows) {
     const subproy = r.subproy?.trim() || "—";
     const subproyId = r.subproyId?.trim();
-    const key = `${r.proy}::${subproyId || subproy}`;
+    const actividad = r.act?.trim() || "—";
+    const key = `${r.proy}::${subproyId || subproy}::${actividad}`;
     const parts = getProyectoListaParts(r.proy);
     const nombre =
       r.proyNombre?.trim() ||
       nombresPorProy?.[r.proy] ||
       (parts.nombreFull !== parts.codigo ? parts.nombreFull : parts.codigo);
+    const codigo = parts.codigo.includes(".")
+      ? parts.codigo.split(".")[0] || parts.codigo
+      : parts.codigo;
     const cur = map.get(key) ?? {
       proyId: r.proy,
-      codigo: parts.codigo,
+      codigo,
       nombre,
       subproy,
       subproyId,
+      actividad,
       totalHoras: 0,
       registros: 0,
       desde: r.fecha,
@@ -209,7 +242,9 @@ export function getHistoricoResumenPorProyectoSub(
     if (byHasta !== 0) return byHasta;
     const byNombre = a.nombre.localeCompare(b.nombre, "es");
     if (byNombre !== 0) return byNombre;
-    return a.subproy.localeCompare(b.subproy, "es");
+    const bySub = a.subproy.localeCompare(b.subproy, "es");
+    if (bySub !== 0) return bySub;
+    return a.actividad.localeCompare(b.actividad, "es");
   });
 }
 

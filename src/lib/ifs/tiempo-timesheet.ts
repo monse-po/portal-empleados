@@ -42,8 +42,18 @@ export function ifsMetaFromReportRow(
 
 export function parseEmpReportItems(raw: unknown): EmpReportItemRow[] {
   if (Array.isArray(raw)) return raw as EmpReportItemRow[];
-  const value = (raw as { value?: EmpReportItemRow[] })?.value;
-  return Array.isArray(value) ? value : [];
+  if (!raw || typeof raw !== "object") return [];
+  const obj = raw as Record<string, unknown>;
+  if (Array.isArray(obj.value)) return obj.value as EmpReportItemRow[];
+  for (const key of [
+    "EmpReportItemStructure",
+    "EmpReportItem",
+    "ReportItem",
+  ]) {
+    const nested = obj[key];
+    if (Array.isArray(nested)) return nested as EmpReportItemRow[];
+  }
+  return [];
 }
 
 function isoDate(value: string | undefined): string | null {
@@ -86,7 +96,7 @@ export function mapEmpReportItemToRegistro(
   const proy = row.ShortName?.trim() || row.ProjectId?.trim();
   if (!fecha || !proy) return null;
 
-  const horas = parseHoras(row.Hours);
+  const horas = parseHoras(row.Hours ?? row.InternalQuantity);
   if (horas <= 0) return null;
 
   const aprobador =
@@ -168,7 +178,7 @@ export function flattenReportItemRow(item: ReportItemExpanded): EmpReportItemRow
     ActivitySeq: item.ActivitySeq ?? act?.ActivitySeq,
     AccountDate: item.AccountDate,
     Module: item.Module,
-    Hours: item.Hours ?? pt?.Hours,
+    Hours: item.Hours ?? pt?.Hours ?? item.InternalQuantity ?? pt?.InternalQuantity,
     InternalComments: pt?.InternalComments ?? item.InternalComments,
     CStatus: pt?.CStatus ?? item.CStatus,
     CStatusDb: pt?.CStatusDb ?? item.CStatusDb,
@@ -177,11 +187,17 @@ export function flattenReportItemRow(item: ReportItemExpanded): EmpReportItemRow
     CApproverName: pt?.CApproverName ?? item.CApproverName,
     CAutoApproverName: pt?.CAutoApproverName ?? item.CAutoApproverName,
     ProjectId: pt?.ProjectId ?? act?.ProjectId ?? item.ProjectId,
+    ProjectName: pt?.ProjectName ?? item.ProjectName,
     SubProjectId: pt?.SubProjectId ?? act?.SubProjectId ?? item.SubProjectId,
     SubProjectDesc: pt?.SubProjectDesc ?? act?.SubProjectDesc ?? item.SubProjectDesc,
-    ActivityNo: act?.ActivityNo ?? item.ActivityNo,
+    ActivityNo: act?.ActivityNo ?? item.ActivityNo ?? pt?.ActivityNo,
     ActDescription:
-      act?.ActDescription ?? act?.Description ?? item.ActDescription,
+      act?.ActDescription ??
+      act?.Description ??
+      item.ActDescription ??
+      pt?.ActDescription ??
+      item.Description ??
+      pt?.Description,
     ShortName:
       act?.ShortName ??
       pt?.ShortName ??
@@ -193,6 +209,7 @@ export function flattenReportItemRow(item: ReportItemExpanded): EmpReportItemRow
     ReportCostCode: cost?.ReportCostCode ?? item.ReportCostCode,
     Objid: item.Objid,
     Objversion: item.Objversion,
+    InternalQuantity: item.InternalQuantity ?? pt?.InternalQuantity,
   };
 }
 
@@ -213,10 +230,33 @@ export function dedupeRegistros(rows: RegistroMock[]): RegistroMock[] {
   return [...byKey.values()];
 }
 
+/**
+ * Histórico: proyecto = ProjectId + ProjectName (no ShortName armado
+ * proyecto.sub.actividad, p. ej. TIC1100.01.01.06).
+ * Mi Tiempo sigue usando ShortName porque EmpTimeReg lo exige.
+ */
+function mapEmpReportItemToRegistroHistorico(
+  row: EmpReportItemRow,
+  index: number,
+): RegistroMock | null {
+  const mapped = mapEmpReportItemToRegistro(row, index);
+  if (!mapped) return null;
+  const projectId = row.ProjectId?.trim();
+  if (!projectId) return mapped;
+  return {
+    ...mapped,
+    proy: projectId,
+    proyNombre: row.ProjectName?.trim() || mapped.proyNombre,
+  };
+}
+
 export function mapReportItemsHistoricoToRegistros(raw: unknown): RegistroMock[] {
   return parseEmpReportItems(raw)
     .map((row, index) =>
-      mapEmpReportItemToRegistro(flattenReportItemRow(row as ReportItemExpanded), index),
+      mapEmpReportItemToRegistroHistorico(
+        flattenReportItemRow(row as ReportItemExpanded),
+        index,
+      ),
     )
     .filter((row): row is RegistroMock => row !== null);
 }

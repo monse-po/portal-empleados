@@ -3,8 +3,10 @@ import {
   cempPortalUserPath,
   ifsFetch,
   odataStringKey,
+  projectionMainSiblingBaseUrl,
   type IfsRequestInit,
 } from "@/src/lib/ifs/client";
+import { fetchIfsAccessToken } from "@/src/lib/ifs/auth";
 import { getIfsConfig } from "@/src/lib/ifs/config";
 import { IfsApiError } from "@/src/lib/ifs/errors";
 import { getIfsTargetEmpNo } from "@/src/lib/ifs/config";
@@ -344,6 +346,106 @@ export async function getEmployeeReportItemsHistoricoMainChannel(
       lastErr = err;
       if (!(err instanceof IfsApiError)) throw err;
     }
+  }
+
+  throw lastErr;
+}
+
+/**
+ * ProjectTransactionSet trae ActivityNo pero no la descripción.
+ * La descripción vive en Reference_Activity(ActivitySeq).Description.
+ */
+async function enrichProjectTxWithActivityDescriptions(
+  raw: unknown,
+  accessToken: string,
+  baseUrl: string,
+): Promise<unknown> {
+  if (!raw || typeof raw !== "object") return raw;
+  const obj = raw as { value?: Array<Record<string, unknown>> };
+  const rows = Array.isArray(obj.value) ? obj.value : null;
+  if (!rows?.length) return raw;
+
+  const seqs = [
+    ...new Set(
+      rows
+        .map((r) => Number(r.ActivitySeq))
+        .filter((n) => Number.isFinite(n) && n > 0),
+    ),
+  ];
+  if (!seqs.length) return raw;
+
+  const descBySeq = new Map<number, string>();
+  await Promise.all(
+    seqs.map(async (seq) => {
+      try {
+        const act = await ifsFetch<{ Description?: string }>(
+          `/Reference_Activity(ActivitySeq=${seq})`,
+          { accessToken, baseUrl },
+        );
+        const desc = act.Description?.trim();
+        if (desc) descBySeq.set(seq, desc);
+      } catch {
+        /* si falla un ActivitySeq, dejamos ActivityNo como fallback */
+      }
+    }),
+  );
+
+  if (!descBySeq.size) return raw;
+
+  return {
+    ...obj,
+    value: rows.map((row) => {
+      const seq = Number(row.ActivitySeq);
+      const desc = Number.isFinite(seq) ? descBySeq.get(seq) : undefined;
+      if (!desc) return row;
+      return { ...row, ActDescription: desc, Description: desc };
+    }),
+  };
+}
+
+/**
+ * Histórico anual de horas: proyección Aurena ProjectTransactionsHandling
+ * (`/main/…/ProjectTransactionSet`). CEmpPortalServices solo expone el
+ * ActivePeriod (p. ej. 3 filas) aunque el empleado tenga decenas de txs.
+ * Sin $select: varios campos custom (CApproverName) no son seleccionables.
+ */
+export async function getProjectTransactionsHistorico(
+  session: CempPortalSession,
+  empNo: string,
+  desdeIso: string,
+): Promise<unknown> {
+  const baseUrl = projectionMainSiblingBaseUrl("ProjectTransactionsHandling");
+  const emp = odataStringKey(empNo);
+  const common = `$orderby=AccountDate desc&$top=5000`;
+  const filters = [
+    `EmpNo eq '${emp}' and AccountDate ge ${desdeIso}`,
+    `EmpNo eq '${emp}'`,
+  ];
+
+  let lastErr: unknown;
+  const tryFilters = async (accessToken: string) => {
+    for (const filter of filters) {
+      const path = `/ProjectTransactionSet?$filter=${encodeURIComponent(filter)}&${common}`;
+      try {
+        const raw = await ifsFetch(path, { accessToken, baseUrl });
+        return enrichProjectTxWithActivityDescriptions(raw, accessToken, baseUrl);
+      } catch (err) {
+        lastErr = err;
+        if (!(err instanceof IfsApiError)) throw err;
+      }
+    }
+    return undefined;
+  };
+
+  const fromSession = await tryFilters(session.accessToken);
+  if (fromSession !== undefined) return fromSession;
+
+  try {
+    const m2m = await fetchIfsAccessToken();
+    const fromM2m = await tryFilters(m2m.accessToken);
+    if (fromM2m !== undefined) return fromM2m;
+  } catch {
+    /* el token de sesión puede bastar; M2M es respaldo */
   }
 
   throw lastErr;

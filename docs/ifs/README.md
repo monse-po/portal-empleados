@@ -93,7 +93,15 @@ Variables en `.env.local` (ver `.env.example`).
 |----------|--------|
 | `UserProfileService` (`/main/`) | Preferencias Aurena, no portal |
 | `UserSettings` (`/b2b/`) | Contexto B2B |
-| `CEmpBulkTimeApprovalHandling` | Cierre masivo por periodo |
+| `CEmpBulkTimeApprovalHandling` | Cierre masivo por periodo (403; no sirve para histórico) |
+
+## Histórico de horas (Mi Histórico)
+
+`CEmpPortalServices` (`Reference_EmpReportItem` / timesheet) solo expone el **ActivePeriod** del empleado. El resto del año está en Aurena:
+
+`/main/ifsapplications/projection/v1/ProjectTransactionsHandling.svc/ProjectTransactionSet`
+
+Filtro: `EmpNo` + `AccountDate`. Horas = `InternalQuantity`. Estado = `CStatusDb`.
 | `TimeClockService` | Reloj checador |
 | `EmployeeAbsenceDataService` | Ausencias (fase posterior) |
 
