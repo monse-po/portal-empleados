@@ -8,6 +8,7 @@ import { Field } from "@/src/components/ui/Field";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
+import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
 import { SelectControl } from "@/src/components/ui/DropdownAffordance";
 import {
   TIPO_ANTICIPO_SEGMENTED_OPTIONS,
@@ -328,7 +329,7 @@ export function AnticiposFormulario({
         result.catalog.proyectos.map((p) => ({
           id: p.id,
           nombre: p.nombre,
-          sub: p.projectId !== p.id ? p.projectId : "",
+          sub: "",
         })),
       );
     });
@@ -491,6 +492,24 @@ export function AnticiposFormulario({
     setProySel(item);
     setEmpOtro(null);
     setCompaniaGastoOtro(compBenef?.id ?? "");
+  };
+
+  const proyectoOptions = useMemo(
+    () =>
+      proyectosLov.map((p) => ({
+        value: p.id,
+        label: `${p.id} – ${p.nombre}`,
+      })),
+    [proyectosLov],
+  );
+
+  const handleProyectoIdChange = (id: string) => {
+    const item = proyectosLov.find((p) => p.id === id) ?? null;
+    if (paraOtro) {
+      handleProyOtroChange(item);
+      return;
+    }
+    setProySel(item);
   };
 
   const handleEmpOtroChange = (item: LovItem | null) => {
@@ -756,17 +775,19 @@ export function AnticiposFormulario({
                     <>
                       <FormGrid className="mt-3">
                         <Field label="Proyecto asociado" required>
-                          <LovPicker
-                            value={proySel}
-                            onChange={handleProyOtroChange}
-                            items={proyectosLov}
+                          <SearchableSelect
+                            value={proySel?.id ?? ""}
+                            onChange={handleProyectoIdChange}
+                            options={proyectoOptions}
                             placeholder={
                               catalogLoading
                                 ? "Cargando datos…"
-                                : "Seleccionar proyecto"
+                                : TIEMPO_UI_COPY.selectProject
                             }
-                            searchPlaceholder="Buscar proyecto…"
-                            disabled={catalogLoading || proyectosLov.length === 0}
+                            searchPlaceholder={TIEMPO_UI_COPY.searchProject}
+                            disabled={
+                              catalogLoading || proyectosLov.length === 0
+                            }
                           />
                         </Field>
                         <Field label="Aprobador">
@@ -823,16 +844,16 @@ export function AnticiposFormulario({
                 <>
                   <FormGrid>
                     <Field label="Proyecto asociado" required>
-                      <LovPicker
-                        value={proySel}
-                        onChange={setProySel}
-                        items={proyectosLov}
+                      <SearchableSelect
+                        value={proySel?.id ?? ""}
+                        onChange={handleProyectoIdChange}
+                        options={proyectoOptions}
                         placeholder={
                           catalogLoading
                             ? "Cargando datos…"
-                            : "Seleccionar proyecto"
+                            : TIEMPO_UI_COPY.selectProject
                         }
-                        searchPlaceholder="Buscar proyecto…"
+                        searchPlaceholder={TIEMPO_UI_COPY.searchProject}
                         disabled={catalogLoading || proyectosLov.length === 0}
                       />
                     </Field>
