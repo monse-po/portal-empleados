@@ -38,6 +38,7 @@ import {
 } from "@/src/lib/tiempo-registro-rules";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const DIAS_SEMANA_MOBILE = ["L", "M", "X", "J", "V", "S", "D"];
@@ -48,7 +49,6 @@ const CAL_DIA_CELL =
 
 const ESTADOS_CAL_DESTACADOS = new Set<RegistroEstado>([
   "Aprobado",
-  "Borrador",
   "Registrado",
   "Lanzado",
   "Rechazado",
@@ -109,7 +109,9 @@ function ResumenItem({
       <div className="mb-1.5 text-[11px] font-medium leading-snug text-muted">
         {label}
       </div>
-      <div className={`text-[22px] font-bold ${toneClass}`}>{value}</div>
+      <div className={`text-[22px] font-bold ${toneClass}`}>
+        {typeof value === "number" ? formatHorasValor(value) : value}
+      </div>
     </div>
   );
 }
@@ -120,10 +122,54 @@ type MiTiempoListaProps = {
   onSelectDia: (fecha: string, esHistorial: boolean) => void;
 };
 
+function HorasResumenBar() {
+  const { registros } = useMiTiempo();
+  const resumen = getResumenHoras(registros);
+
+  return (
+    <div className="mb-4 flex gap-4 max-md:hidden">
+      <Card className="mb-0 shrink-0 grow-0 basis-auto">
+        <CardHeader>
+          <span className="flex items-center text-sm">
+            <Icon name="barChart" size="sm" className="text-navy" />
+            <span className="ml-1.5">Resumen de horas</span>
+          </span>
+        </CardHeader>
+        <div className="grid grid-cols-2">
+          <ResumenItem label="Horas del Mes" value={resumen.horasMes} />
+          <ResumenItem
+            label="Pendientes de Reportar"
+            value={resumen.pendientesReportar}
+            tone="warn"
+            noBorder
+          />
+        </div>
+      </Card>
+
+      <Card className="mb-0 min-w-0 flex-1">
+        <CardHeader>
+          <span className="text-sm">Horas Reportadas</span>
+        </CardHeader>
+        <div className="grid grid-cols-4">
+          <ResumenItem label="Reportadas" value={resumen.reportadas} />
+          <ResumenItem label="Aprobadas" value={resumen.aprobadas} tone="ok" />
+          <ResumenItem label="Pend. Aprobar" value={resumen.pendAprobacion} />
+          <ResumenItem
+            label="Rechazadas"
+            value={resumen.rechazadas}
+            tone="err"
+            noBorder
+          />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function CalendarioTab({
   onSelectDia,
 }: Pick<MiTiempoListaProps, "onSelectDia">) {
-  const { registros } = useMiTiempo();
+  const { registros, openRegistrarModal } = useMiTiempo();
   const resumen = getResumenHoras(registros);
   const hoy = useMemo(() => {
     const d = new Date();
@@ -138,52 +184,14 @@ function CalendarioTab({
   const weekRows = Math.max(1, Math.ceil(celdas.length / 7));
 
   return (
-    <div className="mt-1 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:overflow-hidden">
-      <div className="mb-4 flex gap-4 max-md:hidden">
-        <Card className="mb-0 shrink-0 grow-0 basis-auto">
-          <CardHeader>
-            <span className="flex items-center text-sm">
-              <Icon name="barChart" size="sm" className="text-navy" />
-              <span className="ml-1.5">Resumen de horas</span>
-            </span>
-          </CardHeader>
-          <div className="grid grid-cols-2">
-            <ResumenItem label="Horas del Mes" value={resumen.horasMes} />
-            <ResumenItem
-              label="Pendientes de Reportar"
-              value={resumen.pendientesReportar}
-              tone="warn"
-              noBorder
-            />
-          </div>
-        </Card>
-
-        <Card className="mb-0 min-w-0 flex-1">
-          <CardHeader>
-            <span className="text-sm">Horas Reportadas</span>
-          </CardHeader>
-          <div className="grid grid-cols-4">
-            <ResumenItem label="Reportadas" value={resumen.reportadas} />
-            <ResumenItem label="Aprobadas" value={resumen.aprobadas} tone="ok" />
-            <ResumenItem label="Pend. Aprobar" value={resumen.pendAprobacion} />
-            <ResumenItem
-              label="Rechazadas"
-              value={resumen.rechazadas}
-              tone="err"
-              noBorder
-            />
-          </div>
-        </Card>
-      </div>
-
-      <Card className="mb-4 max-md:!mb-0 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:overflow-hidden max-md:rounded-none max-md:border-0">
-        <CardBody className="max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:!px-0 max-md:!py-0">
+    <div className="max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:overflow-hidden">
+      <div className="px-[22px] py-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:px-0 max-md:py-0">
           <div className="mb-3 flex items-center justify-between gap-3 max-md:mb-1 max-md:px-3 max-md:pt-2">
             <span className="text-lg font-extrabold tracking-tight text-navy max-md:text-[15px]">
               {getMesLabel(mesRef)}
             </span>
             <span className="text-[13px] font-bold tabular-nums text-orange md:hidden">
-              {resumen.pendientesReportar}h
+              {resumen.pendientesReportar}
               <span className="ml-1 text-[10px] font-medium text-muted">
                 por registrar
               </span>
@@ -227,7 +235,21 @@ function CalendarioTab({
                 <button
                   key={celda.fechaStr}
                   type="button"
-                  onClick={() => onSelectDia(celda.fechaStr, false)}
+                  aria-label={
+                    celda.resumen
+                      ? `Ver registros del día ${celda.dia}`
+                      : `Registrar horas del día ${celda.dia}`
+                  }
+                  onClick={() => {
+                    if (celda.resumen) {
+                      onSelectDia(celda.fechaStr, false);
+                      return;
+                    }
+                    openRegistrarModal({
+                      fecha: celda.fechaStr,
+                      origen: "lista",
+                    });
+                  }}
                   className={`relative flex ${CAL_DIA_CELL} cursor-pointer flex-col items-start p-2.5 text-left transition-[filter,box-shadow] duration-100 hover:brightness-[0.96] max-md:items-stretch max-md:p-0.5 max-md:touch-manipulation ${
                     celda.esHoy
                       ? celda.esFestivo
@@ -252,7 +274,7 @@ function CalendarioTab({
                     <div
                       className={`mt-0.5 flex h-[18px] w-full shrink-0 items-center justify-center rounded px-0.5 text-[10px] font-bold tabular-nums md:hidden ${eventoBarClass(celda.resumen.estadoDia)}`}
                     >
-                      {celda.resumen.total}h
+                      {celda.resumen.total}
                     </div>
                   ) : null}
 
@@ -296,7 +318,7 @@ function CalendarioTab({
                               : "text-muted"
                           }`}
                         >
-                          {celda.resumen.total}h
+                          {celda.resumen.total}
                         </span>
                       )}
                     </div>
@@ -320,7 +342,7 @@ function CalendarioTab({
                           >
                             <CalendarioLineaTipo tipo={l.tipo} />
                             <span className="shrink-0 font-semibold text-[#9ca3af]">
-                              {l.horas}h
+                              {formatHorasValor(l.horas)}
                             </span>
                           </div>
                         ))}
@@ -331,8 +353,7 @@ function CalendarioTab({
               );
             })}
           </div>
-        </CardBody>
-      </Card>
+      </div>
     </div>
   );
 }
@@ -381,7 +402,7 @@ function ListaTab({
                       {formatFechaLegible(dia.fecha)}
                     </span>
                     <span className="shrink-0 text-[13px] font-bold tabular-nums text-navy">
-                      {dia.totalHoras}h
+                      {formatHorasValor(dia.totalHoras)}
                     </span>
                   </button>
                   {dia.registros.map((r) => (
@@ -413,27 +434,12 @@ function ListaTab({
         )}
       </div>
 
-      <Card className="mb-4 hidden overflow-hidden md:block">
-        <CardHeader
-          right={
-            <span className="text-[11px] font-normal text-muted">
-              {dias.length} día{dias.length !== 1 ? "s" : ""} ·{" "}
-              {dias.reduce((s, d) => s + d.registros.length, 0)} registros
-            </span>
-          }
-        >
-          <div className="flex flex-col gap-0.5">
-            <span className="flex flex-row items-center gap-1.5">
-              <Icon name="list" size="sm" />
-              <span>Lista</span>
-            </span>
-            {hayFilasEditables && (
-              <span className="text-[11px] font-normal text-muted">
-                {TIEMPO_UI_COPY.filaEditableHint}
-              </span>
-            )}
-          </div>
-        </CardHeader>
+      <div className="hidden md:block">
+        {hayFilasEditables ? (
+          <p className="border-b border-border bg-[#fafbfc] px-[22px] py-2.5 text-[11px] font-normal text-muted">
+            {TIEMPO_UI_COPY.filaEditableHint}
+          </p>
+        ) : null}
         {dias.length === 0 ? (
           <div className="px-6 py-8 text-center text-[13px] text-muted">
             No hay registros todavía.
@@ -479,7 +485,7 @@ function ListaTab({
                           <span className="shrink-0 text-[12px] text-muted">
                             {dia.registros.length} registro
                             {dia.registros.length !== 1 ? "s" : ""} ·{" "}
-                            {dia.totalHoras} h
+                            {formatHorasValor(dia.totalHoras)} h
                           </span>
                         </button>
                       </td>
@@ -522,7 +528,7 @@ function ListaTab({
                         <td className={dataTd}>
                           <TipoHoraPill tipo={r.tipo} />
                         </td>
-                        <td className={dataTdNumeric}>{r.horas}h</td>
+                        <td className={dataTdNumeric}>{formatHorasValor(r.horas)}</td>
                         <td className={`${dataTd} text-[#374151]`}>
                           <div className={dataTdClamp}>{r.comentario || "—"}</div>
                         </td>
@@ -561,7 +567,7 @@ function ListaTab({
             </tbody>
           </DataTable>
         )}
-      </Card>
+      </div>
 
       <EliminarRegistroModal
         open={!!registroAEliminar}
@@ -600,10 +606,10 @@ function VistaTabs({
       role="tab"
       aria-selected={tab === id}
       onClick={() => onTabChange(id)}
-      className={`mb-[-2px] flex min-h-12 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-t-md border-b-[3px] px-2 text-[14px] ${
+      className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all duration-150 max-md:min-h-12 max-md:flex-1 max-md:justify-center max-md:gap-1.5 max-md:px-2 max-md:text-[14px] ${
         tab === id
           ? "border-b-navy font-bold text-navy"
-          : "border-b-transparent font-medium text-muted active:bg-[#f0f2f5]"
+          : "border-b-transparent font-medium text-muted hover:bg-[#f0f2f5] hover:text-navy max-md:hover:bg-transparent max-md:active:bg-[#f0f2f5]"
       }`}
     >
       <Icon name={icon} size="sm" />
@@ -615,7 +621,7 @@ function VistaTabs({
     <div
       role="tablist"
       aria-label="Vista"
-      className="flex border-b-2 border-[#e5e9f0] px-1"
+      className="flex min-w-0 flex-1"
     >
       {item("cal", "Calendario", "calendar")}
       {item("lista", "Lista", "list")}
@@ -629,6 +635,7 @@ export function MiTiempoLista({
   onSelectDia,
 }: MiTiempoListaProps) {
   const { openRegistrarModal } = useMiTiempo();
+  const openNuevo = () => openRegistrarModal({ origen: "lista" });
 
   return (
     <div
@@ -638,54 +645,30 @@ export function MiTiempoLista({
           : "max-md:px-2 max-md:pt-2 max-md:pb-24"
       }`}
     >
-      <div className="mb-4 flex items-center justify-between gap-4 max-md:mb-0">
-        <div className="hidden items-center gap-2.5 md:flex">
-          <h1 className="text-xl font-bold text-[#111]">Mi Tiempo</h1>
-        </div>
-        <FloatingActions>
-          <Button
-            variant="primary"
-            onClick={() => openRegistrarModal({ origen: "lista" })}
-          >
-            <Icon name="plus" size="xs" />
-            Registrar horas
-          </Button>
-        </FloatingActions>
-      </div>
-      <div className="mb-[18px] hidden border-b-2 border-[#e5e9f0] md:flex">
-        <button
-          type="button"
-          onClick={() => onTabChange("cal")}
-          className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all duration-150 ${
-            tab === "cal"
-              ? "border-b-navy bg-white font-bold text-navy"
-              : "border-b-transparent font-medium text-muted hover:bg-[#f0f2f5] hover:text-navy"
-          }`}
-        >
-          <Icon name="calendar" size="sm" />
-          Calendario
-        </button>
-        <button
-          type="button"
-          onClick={() => onTabChange("lista")}
-          className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all duration-150 ${
-            tab === "lista"
-              ? "border-b-navy bg-white font-bold text-navy"
-              : "border-b-transparent font-medium text-muted hover:bg-[#f0f2f5] hover:text-navy"
-          }`}
-        >
-          <Icon name="list" size="sm" />
-          Lista
-        </button>
-      </div>
-
+      <h1 className="mb-4 hidden text-xl font-bold text-[#111] md:block">
+        Mi Tiempo
+      </h1>
       <h1 className="mb-3 shrink-0 text-lg font-bold text-[#111] md:hidden">
         Mi Tiempo
       </h1>
 
-      <div className="max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:overflow-hidden max-md:rounded-lg max-md:border max-md:border-border max-md:bg-white">
-        <div className="md:hidden">
+      <HorasResumenBar />
+
+      <Card
+        className={
+          tab === "cal"
+            ? "mb-4 p-0 max-md:!mb-0 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:overflow-hidden md:overflow-visible"
+            : "mb-4 overflow-visible p-0"
+        }
+      >
+        <div className="sticky top-0 z-20 flex items-stretch rounded-t-lg border-b-2 border-[#e5e9f0] bg-white px-2 shadow-[0_1px_0_rgba(15,23,42,0.04)] max-md:px-1">
           <VistaTabs tab={tab} onTabChange={onTabChange} />
+          <div className="hidden shrink-0 items-center py-1.5 pr-1 md:flex">
+            <Button variant="primary" onClick={openNuevo}>
+              <Icon name="plus" size="xs" />
+              Registrar horas
+            </Button>
+          </div>
         </div>
         <div
           className={
@@ -700,7 +683,14 @@ export function MiTiempoLista({
             <ListaTab onSelectDia={onSelectDia} />
           )}
         </div>
-      </div>
+      </Card>
+
+      <FloatingActions className="md:hidden">
+        <Button variant="primary" onClick={openNuevo}>
+          <Icon name="plus" size="xs" />
+          Registrar horas
+        </Button>
+      </FloatingActions>
     </div>
   );
 }

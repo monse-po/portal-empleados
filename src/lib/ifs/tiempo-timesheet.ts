@@ -64,9 +64,9 @@ function mapIfsEstado(row: EmpReportItemRow): RegistroEstado {
   if (status.includes("confirm")) return "Aprobado";
   // Registered / Registrado / Pending → ya está en IFS, aún no aprobado
   if (status.includes("registr") || status.includes("pending")) return "Registrado";
-  // Fila presente en timesheet IFS sin status claro: no es borrador del portal
+  // Fila presente en timesheet IFS sin status claro → Registrado
   if (row.ProjectTransactionSeq != null || row.Objid?.trim()) return "Registrado";
-  return "Borrador";
+  return "Registrado";
 }
 
 function registroIdFromRow(row: EmpReportItemRow, index: number): string {
@@ -317,7 +317,7 @@ function localRowsNotInIfs(
   );
 }
 
-/** IFS como fuente principal + locales sin par (borradores aún no enviados). */
+/** IFS como fuente principal + locales sin par en timesheet. */
 export function mergeIfsAndLocalRegistros(
   ifsGrouped: Record<string, RegistroMock[]>,
   localGrouped: Record<string, RegistroMock[]>,

@@ -3,10 +3,7 @@ import {
   formatMontoLegal,
   type Legalizacion,
 } from "@/src/lib/legalizaciones-mock";
-import {
-  ACTION_COL_WIDTH,
-  CHECKBOX_COL_WIDTH,
-} from "@/src/components/ui/DataTable";
+import { CHECKBOX_COL_WIDTH } from "@/src/components/ui/DataTable";
 
 export type LegalizacionAproEstado = "" | "Aprobado" | "Rechazado";
 
@@ -18,17 +15,16 @@ export type LegalizacionApro = Legalizacion & {
   fechaApro: string;
 };
 
-/** Aprobación legalizaciones — pendientes: checkbox + datos + acciones */
+/** Aprobación legalizaciones — pendientes: checkbox + datos */
 export const APRO_LEG_COLS_PEND = [
   CHECKBOX_COL_WIDTH,
-  "9%",   // Código
-  "8%",   // Solicitado
-  "12%",  // Empleado
-  "9%",   // Tipo pill
-  "18%",  // Concepto
-  "22%",  // Motivo
-  "11%",  // Monto + divisa
-  ACTION_COL_WIDTH,
+  "10%",
+  "9%",
+  "13%",
+  "10%",
+  "20%",
+  "24%",
+  "14%",
 ] as const;
 
 const SOLICITANTE = {

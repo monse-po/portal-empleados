@@ -18,21 +18,19 @@ Fuente de verdad: `src/components/ui/Pill.tsx` + tokens en `src/app/globals.css`
 
 | Label | Uso |
 |-------|-----|
-| Borrador | Solo Mi Tiempo |
-| Lanzado | Enviado / en proceso (alias: Pendiente, En revisión, Registrado → Lanzado) |
+| Lanzado / Registrado | Enviado / en proceso (alias: Pendiente, En revisión; Mi Tiempo muestra **Registrado**) |
 | Aprobado | Cerrado OK |
 | Pagado | Solo Anticipos (post-tesorería) |
 | Rechazado | Cerrado KO |
 | Cancelado | Único label de baja (DSE/Anticipos/Legaliz.). **No usar “Anulado”** en UI |
 
-`normalizeEstadoLabel`: `Anulado` → `Cancelado`. La acción gerente Tiempo “anular” (vuelve a Borrador) **no** es un chip Anulado.
+`normalizeEstadoLabel`: `Anulado` → `Cancelado`; legacy `Borrador` → `Registrado`. La acción gerente Tiempo “anular” (vuelve a Registrado) **no** es un chip Anulado.
 
 ## Tokens CSS (`:root`)
 
 | Variant | Tokens | Notas |
 |---------|--------|-------|
-| borrador | `--pill-borrador-*` | Neutro editable |
-| lanzado | `--pill-lanzado-*` | Azul envío |
+| lanzado / registrado | `--pill-lanzado-*` / `--pill-registrado-*` | Azul envío |
 | aprobado | `--pill-aprobado-*` → `green-soft` / `green` | Mint soft |
 | pagado | `--pill-pagado-*` → `green-pastel` `#c5ebd4` / `green-dark` | Pastel más lleno que Aprobado |
 | rechazado | `--pill-rechazado-*` | Rojo soft |
@@ -44,8 +42,7 @@ Cambiar color = editar token en `globals.css` (+ `@theme` / `tailwind.config.ts`
 
 | Estado | Icon |
 |--------|------|
-| Borrador | `pencil` |
-| Lanzado / Pendiente | `send` |
+| Lanzado / Registrado / Pendiente | `send` |
 | Aprobado | `check` |
 | Pagado | `wallet` |
 | Rechazado | `x` |
@@ -57,7 +54,7 @@ Sin emojis.
 
 | Módulo | Estados en chip |
 |--------|-----------------|
-| Mi Tiempo | Borrador, Lanzado, Aprobado, Rechazado |
+| Mi Tiempo | Registrado, Aprobado, Rechazado |
 | Anticipos | Lanzado, Aprobado, Pagado, Rechazado, Cancelado |
 | Legalizaciones | Lanzado, Aprobado, Rechazado, Cancelado |
 | DSE | Lanzado, Aprobado, Rechazado, Cancelado |

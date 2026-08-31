@@ -8,6 +8,7 @@ import {
   isRegistroEliminable,
 } from "@/src/lib/tiempo-registro-rules";
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 type TiempoRegistroMobileCardProps = {
   registro: RegistroMock;
@@ -86,7 +87,7 @@ export function TiempoRegistroMobileCard({
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <TipoHoraPill tipo={registro.tipo} />
         <span className="text-[16px] font-bold tabular-nums text-navy">
-          {registro.horas}h
+          {formatHorasValor(registro.horas)}
         </span>
       </div>
     </div>

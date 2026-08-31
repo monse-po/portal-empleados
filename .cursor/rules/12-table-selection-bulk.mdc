@@ -12,19 +12,19 @@ Aplicar el mismo patrón en cualquier módulo gerente con tab **Pendientes** + a
 
 ## Cuándo usar
 
-- **Tab Pendientes:** columna checkbox + columna acciones + `BulkSelectionBar`
+- **Tab Pendientes:** columna checkbox + `BulkSelectionBar` (botones siempre visibles; disabled si no hay selección). Sin columna Acciones por fila.
 - **Tab Resueltas:** sin checkbox; spacer 28px al inicio; acción **Anular** solo si aplica (tiempo)
 
 ## Layout en `{Modulo}Lista`
 
 ```
-Header → KPIs → [barra contexto] → BulkSelectionBar (si seleccion.size > 0)
-→ TableFilterSection → Card (tabs + tabla + paginación)
+Header → KPIs → [barra contexto]
+→ TableFilterSection (filtros + BulkActionButtons en pendientes)
+→ Card (tabs + tabla + paginación)
 ```
 
-- `BulkSelectionBar` **fuera** del Card, `className="mb-3.5"`
-- Visible solo en tab pendientes y `seleccion.size > 0`
-- Entre barra de contexto (proyecto, etc.) y filtros
+- Una sola franja fuera del Card: filtros a la izquierda, acciones a la derecha
+- Acciones solo en tab pendientes (`actions` prop del FilterBar)
 
 ## Estado (`{Modulo}Context`)
 
@@ -47,7 +47,7 @@ const { seleccion, toggleSeleccion, toggleSeleccionLote, clearSeleccion } =
 
 Clases: `dataThCheck`/`dataTdCheck`, `dataThAction`/`dataTdAction`, `TableCheckboxWrap`, `TableActionWrap`.
 
-`colWidths` pendientes: `[CHECKBOX_COL_WIDTH, …%, ACTION_COL_WIDTH]`.
+`colWidths` pendientes: `[CHECKBOX_COL_WIDTH, …%]`.
 
 ## Checkbox
 
@@ -61,20 +61,21 @@ Usar `TableSelectionCheckbox` — nunca `<input>` suelto.
 
 ```tsx
 <td className={dataTdCheck} onClick={(e) => e.stopPropagation()}>
-<td className={dataTdAction} onClick={(e) => e.stopPropagation()}>
 ```
 
 Fila: `cursor-pointer hover:bg-[#fafbfc]` + `onClick` → detalle.
 
-## Acciones inline (fila)
+## Acciones por fila
 
-`TableAproIconButton` — 30×30, `variant="ok"|"no"|"undo"`, dentro de `TableActionWrap`.
+Pendientes: no. El checkbox + `BulkSelectionBar` cubren aprobar/rechazar.
+
+Resueltas (tiempo): `TableAproIconButton` variant `undo` dentro de `TableActionWrap`.
 
 ## Acciones en lote (barra)
 
-`BulkSelectionBar` — fondo `#eef3f9`, borde `border-navy`, badge contador navy.
+`BulkActionButtons` — dentro de `*FilterBar` (`actions` prop), a la derecha de «Filtrar por».
 
-Botones: `Button variant="success"` (Aprobar) + `Button variant="danger"` (Rechazar) con iconos `check`/`x`.
+Botones discretos: `secondary` (Aprobar) + `tertiary` tintado (Rechazar). `disabled` solo en loading. Sin selección → toast al pulsar.
 
 ## Mutaciones
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Card } from "@/src/components/ui/Card";
-import { BulkSelectionBar } from "@/src/components/ui/BulkSelectionBar";
+import { BulkActionButtons } from "@/src/components/ui/BulkSelectionBar";
 import { Icon } from "@/src/components/ui/Icon";
 import { AprobacionAnticiposFilterBar } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposFilterBar";
 import { useAprobacionAnticipos } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposContext";
@@ -129,15 +129,6 @@ export function AprobacionAnticiposLista({
         />
       </div>
 
-      {tab === "pendientes" && seleccion.size > 0 && (
-        <BulkSelectionBar
-          className="mb-3.5"
-          count={seleccion.size}
-          onAprobar={() => onAprobar([...seleccion])}
-          onRechazar={() => onRechazar([...seleccion])}
-        />
-      )}
-
       <AprobacionAnticiposFilterBar
         registros={registrosActuales}
         filters={filters}
@@ -145,6 +136,14 @@ export function AprobacionAnticiposLista({
         tab={tab}
         shown={filtrados.length}
         total={registrosActuales.length}
+        actions={
+          tab === "pendientes" ? (
+            <BulkActionButtons
+              onAprobar={() => onAprobar([...seleccion])}
+              onRechazar={() => onRechazar([...seleccion])}
+            />
+          ) : undefined
+        }
       />
 
       <Card className="overflow-hidden p-0">
@@ -187,8 +186,6 @@ export function AprobacionAnticiposLista({
           totalBase={registrosActuales.length}
           hasFilters={hayFiltrosActivos(filters)}
           onOpenDetalle={onOpenDetalle}
-          onAprobar={onAprobar}
-          onRechazar={onRechazar}
         />
       </Card>
     </div>

@@ -36,6 +36,8 @@ alwaysApply: false
 
 **Aprobación masiva:** ver regla `12-table-selection-bulk.mdc` — checkbox, `BulkSelectionBar`, `useTableSelection`.
 
+**Entrar al detalle / siguiente nivel:** `TableDrillLink` en **toda** la clave o el nombre (navy + underline). Checkbox selecciona; el enlace entra. No chevron ni texto “ver…”. Ver `02-design-system.mdc` § Tablas → drill.
+
 **Dos tabs:** Pendientes y Resueltas.
 
 ## Columnas numéricas

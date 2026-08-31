@@ -59,6 +59,7 @@ function esPendienteAprobacion(row: EmpReportItemRow): boolean {
 export function mapApprovalRowToHoja(
   row: EmpReportItemRow,
   index: number,
+  opts?: { includeResolved?: boolean },
 ): HojaAprobacion | null {
   const fechaIso = isoDate(row.AccountDate);
   const proy =
@@ -69,9 +70,17 @@ export function mapApprovalRowToHoja(
 
   const horas = parseHoras(row.Hours);
   if (horas <= 0) return null;
-  if (!esPendienteAprobacion(row)) return null;
 
-  const seq = row.ProjectTransactionSeq!;
+  const pendiente = esPendienteAprobacion(row);
+  if (!pendiente && !opts?.includeResolved) return null;
+  if (row.ProjectTransactionSeq == null) return null;
+
+  const bucket = classifyApprovalHours(row);
+  if (!pendiente && bucket !== "aprobadas" && bucket !== "rechazadas") {
+    return null;
+  }
+
+  const seq = row.ProjectTransactionSeq;
   const registroId = `ifs-pt-${seq}`;
   const no = `IFS-${seq}`;
 
@@ -99,19 +108,25 @@ export function mapApprovalRowToHoja(
       row.ActDescription?.trim() ||
       row.ActivityNo?.trim() ||
       "—",
-    horas: `${horas}h`,
+    horas: String(horas),
     comentarioEmpleado: row.InternalComments?.trim() || "",
     aprobador:
       row.CApproverName?.trim() ||
       row.CAutoApproverName?.trim() ||
       "",
     registroId,
+    estadoApro: pendiente
+      ? ""
+      : bucket === "aprobadas"
+        ? "Aprobado"
+        : "Rechazado",
+    comentarioApro: row.CRejectNote?.trim() || "",
   };
 }
 
 export function mapApprovalTimesheetToHojas(raw: unknown): HojaAprobacion[] {
   return parseEmpReportItems(raw)
-    .map(mapApprovalRowToHoja)
+    .map((row, index) => mapApprovalRowToHoja(row, index))
     .filter((h): h is HojaAprobacion => h !== null);
 }
 
@@ -199,7 +214,7 @@ export type HorasEmpleadoAprobacion = {
 };
 
 /**
- * Empleados de UN proyecto. Se llama al abrir detalle; no en el primer render.
+ * Empleados de UN proyecto. Se llama al expandir la fila; no en el primer render.
  */
 export function mapApprovalTimesheetToEmpleados(
   raw: unknown,
@@ -247,6 +262,25 @@ export function mapApprovalTimesheetToEmpleados(
     if (byPendiente !== 0) return byPendiente;
     return a.nombre.localeCompare(b.nombre, "es");
   });
+}
+
+/** Líneas de un empleado en un proyecto (pendientes y ya decididas). */
+export function mapApprovalTimesheetToHojasScoped(
+  raw: unknown,
+  opts: { codigoProyecto: string; empNo: string },
+): HojaAprobacion[] {
+  const wantedProy = opts.codigoProyecto.trim().toLowerCase();
+  const wantedEmp = opts.empNo.trim().toLowerCase();
+  if (!wantedProy || !wantedEmp) return [];
+
+  return parseEmpReportItems(raw)
+    .filter((row) => {
+      const codigo = codigoProyectoDeFila(row);
+      const emp = (row.EmpNo?.trim() || "").toLowerCase();
+      return Boolean(codigo && codigo.toLowerCase() === wantedProy && emp === wantedEmp);
+    })
+    .map((row, index) => mapApprovalRowToHoja(row, index, { includeResolved: true }))
+    .filter((h): h is HojaAprobacion => h !== null);
 }
 
 export function buildEmpTimeApproval(

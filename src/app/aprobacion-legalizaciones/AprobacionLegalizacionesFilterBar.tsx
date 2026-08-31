@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { DateRangePicker } from "@/src/components/ui/DateRangePicker";
 import { Dropdown } from "@/src/components/ui/Dropdown";
 import { FilterChainRow } from "@/src/components/ui/FilterChainRow";
@@ -37,6 +37,8 @@ type AprobacionLegalizacionesFilterBarProps = {
   tab: "pend" | "res";
   shown?: number;
   total?: number;
+  /** Aprobar/Rechazar en la misma franja que los filtros */
+  actions?: ReactNode;
 };
 
 function valueOptionIcon(column: AproLegFilterColumn, val: string): IconName {
@@ -247,6 +249,7 @@ export function AprobacionLegalizacionesFilterBar({
   tab,
   shown,
   total,
+  actions,
 }: AprobacionLegalizacionesFilterBarProps) {
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [barColumns, setBarColumns] = useState<AproLegFilterColumn[]>([]);
@@ -279,79 +282,82 @@ export function AprobacionLegalizacionesFilterBar({
 
   return (
     <TableFilterSection>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="shrink-0 text-[13px] font-medium text-[#374151]">
-          Filtrar por:
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <span className="shrink-0 text-[13px] font-medium text-[#374151]">
+            Filtrar por:
+          </span>
 
-        {barColumns.map((col) => {
-          const def = getFilterColumnDef(col);
-          const active =
-            !!getFilterForColumn(filters, col) && usedColumns.has(col);
-          return (
-            <FilterChainRow
-              key={col}
-              label={def.label}
-              icon={def.icon}
-              operator={filterOperatorLabel(col)}
-              active={active || !!getFilterForColumn(filters, col)}
-              onRemove={() => removeBarColumn(col)}
-            >
-              <ColumnBarControl
-                column={col}
-                registros={registros}
-                filters={filters}
-                onChange={onChange}
-                autoOpen={autoOpenColumn === col}
-              />
-            </FilterChainRow>
-          );
-        })}
+          {barColumns.map((col) => {
+            const def = getFilterColumnDef(col);
+            const active =
+              !!getFilterForColumn(filters, col) && usedColumns.has(col);
+            return (
+              <FilterChainRow
+                key={col}
+                label={def.label}
+                icon={def.icon}
+                operator={filterOperatorLabel(col)}
+                active={active || !!getFilterForColumn(filters, col)}
+                onRemove={() => removeBarColumn(col)}
+              >
+                <ColumnBarControl
+                  column={col}
+                  registros={registros}
+                  filters={filters}
+                  onChange={onChange}
+                  autoOpen={autoOpenColumn === col}
+                />
+              </FilterChainRow>
+            );
+          })}
 
-        <Dropdown
-          open={columnMenuOpen}
-          onOpenChange={setColumnMenuOpen}
-          portal
-          menuClassName="shadow-[0_4px_16px_rgba(0,0,0,0.10)] min-w-[220px] border-[#E5E7EB] py-1"
-          trigger={
+          <Dropdown
+            open={columnMenuOpen}
+            onOpenChange={setColumnMenuOpen}
+            portal
+            menuClassName="shadow-[0_4px_16px_rgba(0,0,0,0.10)] min-w-[220px] border-[#E5E7EB] py-1"
+            trigger={
+              <button
+                type="button"
+                onClick={() => setColumnMenuOpen((o) => !o)}
+                className="inline-flex cursor-pointer items-center gap-1 rounded-[6px] border border-dashed border-[#c7d9ed] bg-white px-2.5 py-1 text-[12px] font-semibold text-navy hover:border-navy hover:bg-[#f4f7fb]"
+              >
+                <Icon name="plus" size="xs" />
+                Filtros
+              </button>
+            }
+          >
+            <div className="py-0">
+              {columns.map((col) => (
+                <button
+                  key={col.id}
+                  type="button"
+                  onClick={() => pickColumn(col.id)}
+                  className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-2.5 text-left text-[14px] font-normal text-[#1F2937] hover:bg-[#F3F4F6]"
+                >
+                  <Icon
+                    name={col.icon}
+                    size="sm"
+                    className="h-4 w-4 shrink-0 text-navy"
+                  />
+                  <span className="min-w-0 truncate">{col.label}</span>
+                </button>
+              ))}
+            </div>
+          </Dropdown>
+
+          {hasFilters && (
             <button
               type="button"
-              onClick={() => setColumnMenuOpen((o) => !o)}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-[6px] border border-dashed border-[#c7d9ed] bg-white px-2.5 py-1 text-[12px] font-semibold text-navy hover:border-navy hover:bg-[#f4f7fb]"
+              onClick={clearAll}
+              className="cursor-pointer border-none bg-transparent px-1 text-[12px] font-semibold text-muted hover:text-navy"
             >
-              <Icon name="plus" size="xs" />
-              Filtros
+              Limpiar todo
             </button>
-          }
-        >
-          <div className="py-0">
-            {columns.map((col) => (
-              <button
-                key={col.id}
-                type="button"
-                onClick={() => pickColumn(col.id)}
-                className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-2.5 text-left text-[14px] font-normal text-[#1F2937] hover:bg-[#F3F4F6]"
-              >
-                <Icon
-                  name={col.icon}
-                  size="sm"
-                  className="h-4 w-4 shrink-0 text-navy"
-                />
-                <span className="min-w-0 truncate">{col.label}</span>
-              </button>
-            ))}
-          </div>
-        </Dropdown>
-
-        {hasFilters && (
-          <button
-            type="button"
-            onClick={clearAll}
-            className="cursor-pointer border-none bg-transparent px-1 text-[12px] font-semibold text-muted hover:text-navy"
-          >
-            Limpiar todo
-          </button>
-        )}
+          )}
+        </div>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
       </div>
 
       {hasFilters && shown !== undefined && total !== undefined && (

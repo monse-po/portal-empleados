@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useRole } from "@/src/components/layout/RoleContext";
-import { getFocusModule, isPathVisible } from "@/src/lib/modules";
+import { getFocusModules, isPathVisible } from "@/src/lib/modules";
 
 /**
  * Modo enfoque: si hay un módulo enfocado (FOCUS=...) y el usuario navega a
@@ -15,7 +15,7 @@ export function FocusGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { homePath, roleReady } = useRole();
 
-  const focus = getFocusModule();
+  const focus = getFocusModules();
   const oculto =
     focus !== null &&
     pathname !== "/" &&

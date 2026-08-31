@@ -13,7 +13,7 @@ function loginHref(
 ): string {
   const next =
     loginNext ??
-    (surface === "approval" ? "/aprobacion-tiempo" : "/hoja-tiempo");
+    (surface === "approval" ? "/aprobacion-tiempo-proyectos" : "/hoja-tiempo");
   return `/api/auth/login?next=${encodeURIComponent(next)}`;
 }
 

@@ -19,6 +19,11 @@ export type ModuleRoute = {
   rol: UsuarioRol;
   navLabel: string;
   icon: IconName;
+  /**
+   * Si true, la ruta sigue existiendo (URL, FOCUS, deep link) pero
+   * no aparece en sidebar / drawer. Útil para legacy a punto de sustituir.
+   */
+  navHidden?: boolean;
 };
 
 export type ModuleDef = {
@@ -39,16 +44,22 @@ export const MODULES: ModuleDef[] = [
         icon: "clock",
       },
       {
-        path: "/aprobacion-tiempo",
-        rol: "gerente",
-        navLabel: "Tiempo",
-        icon: "checkSquare",
-      },
-      {
         path: "/aprobacion-tiempo-proyectos",
         rol: "gerente",
-        navLabel: "Tiempo por proyecto",
-        icon: "briefcase",
+        navLabel: "Aprobar Tiempo",
+        icon: "checkSquare",
+      },
+      /**
+       * Legacy: bandeja plana por registro.
+       * El flujo canónico es proyecto → empleado → registros
+       * (`/aprobacion-tiempo-proyectos`). La ruta sigue viva; solo se oculta del menú.
+       */
+      {
+        path: "/aprobacion-tiempo",
+        rol: "gerente",
+        navLabel: "Aprobar Tiempo (legacy)",
+        icon: "list",
+        navHidden: true,
       },
     ],
   },
@@ -115,28 +126,40 @@ export const MODULES: ModuleDef[] = [
 ];
 
 /**
- * Módulo enfocado vía variable de entorno.
+ * Módulos enfocados vía variable de entorno.
  *
- *   npm run dev                 → solo Tiempo (registro + aprobación)
- *   FOCUS=all npm run dev       → app completa
- *   FOCUS=tiempo npm run dev    → solo Tiempo (explícito)
+ *   npm run dev                      → Tiempo + Anticipos
+ *   FOCUS=all npm run dev            → app completa
+ *   FOCUS=tiempo npm run dev         → solo Tiempo
+ *   FOCUS=tiempo,anticipos npm run dev
  *
- * `FOCUS` se mapea a NEXT_PUBLIC_FOCUS en next.config para que esté
- * disponible también en componentes de cliente.
+ * `FOCUS` se mapea a NEXT_PUBLIC_FOCUS en next.config.
  */
-export function getFocusModule(): ModuleId | null {
+export function getFocusModules(): ModuleId[] | null {
   const raw = process.env.NEXT_PUBLIC_FOCUS?.trim().toLowerCase();
   if (raw === "all" || raw === "off") return null;
-  if (!raw) return "tiempo";
-  const match = MODULES.find((m) => m.id === raw);
-  return match ? match.id : null;
+  const tokens = (raw || "tiempo,anticipos")
+    .split(/[,\s]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const matched = tokens.filter((id): id is ModuleId =>
+    MODULES.some((m) => m.id === id),
+  );
+  return matched.length ? matched : null;
+}
+
+/** Un solo módulo enfocado, o null si no hay enfoque / hay varios. */
+export function getFocusModule(): ModuleId | null {
+  const ids = getFocusModules();
+  if (!ids || ids.length !== 1) return null;
+  return ids[0];
 }
 
 /** Módulos visibles según el enfoque activo (todos si no hay enfoque). */
 export function getVisibleModules(): ModuleDef[] {
-  const focus = getFocusModule();
+  const focus = getFocusModules();
   if (!focus) return MODULES;
-  return MODULES.filter((m) => m.id === focus);
+  return MODULES.filter((m) => focus.includes(m.id));
 }
 
 /** Rutas de herramientas / auth: siempre accesibles aunque FOCUS=tiempo, etc. */
@@ -145,7 +168,9 @@ export function isUtilityPath(pathname: string): boolean {
     pathname.startsWith("/dev") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/notificaciones")
+    pathname.startsWith("/notificaciones") ||
+    pathname === "/inicio" ||
+    pathname.startsWith("/inicio/")
   );
 }
 
@@ -167,9 +192,13 @@ export function getHomePathForRole(rol: UsuarioRol): string {
   const visibles = getVisibleModules();
 
   for (const m of visibles) {
+    const propia = m.routes.find((r) => r.rol === rol && !r.navHidden);
+    if (propia) return propia.path;
+  }
+  for (const m of visibles) {
     const propia = m.routes.find((r) => r.rol === rol);
     if (propia) return propia.path;
   }
-  const primera = visibles[0]?.routes[0];
+  const primera = visibles[0]?.routes.find((r) => !r.navHidden) ?? visibles[0]?.routes[0];
   return primera?.path ?? "/hoja-tiempo";
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Card } from "@/src/components/ui/Card";
-import { BulkSelectionBar } from "@/src/components/ui/BulkSelectionBar";
+import { BulkActionButtons } from "@/src/components/ui/BulkSelectionBar";
 import { Icon } from "@/src/components/ui/Icon";
 import { AprobacionFilterBar } from "@/src/app/aprobacion-tiempo/AprobacionFilterBar";
 import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
@@ -65,6 +65,12 @@ type AprobacionListaProps = {
   fromIfs: boolean;
   ifsEmail?: string | null;
   ifsWarning?: string | null;
+  /** Tercer nivel (proyecto → empleado): solo filtros + tabla, sin título/KPI. */
+  embedded?: boolean;
+  /** Breadcrumb u otra franja arriba de las tabs, dentro del Card. */
+  tableLead?: ReactNode;
+  /** Sustituye la tabla sin salir del Card (mismo padding). */
+  detail?: ReactNode;
 };
 
 export function AprobacionLista({
@@ -75,6 +81,9 @@ export function AprobacionLista({
   fromIfs,
   ifsEmail,
   ifsWarning,
+  embedded = false,
+  tableLead,
+  detail,
 }: AprobacionListaProps) {
   const {
     kpis,
@@ -84,6 +93,7 @@ export function AprobacionLista({
     seleccion,
     clearSeleccion,
     registrosActuales,
+    hojas,
   } = useAprobacion();
 
   const [filters, setFilters] = useState<AproFilterRule[]>([]);
@@ -101,58 +111,33 @@ export function AprobacionLista({
     }
   };
 
-  return (
-    <div className="view-wide max-md:pb-24">
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-[#111]">
-          Aprobación de Hoja de Tiempo
-        </h1>
-        <p className="mt-1 text-[13px] text-[#4b5563]">
-          Registros de tu equipo pendientes de revisión · HMVINGCO
-        </p>
-        <div className="mt-3">
-          <IfsStatusBanner
-            surface="approval"
-            connected={ifsConnected}
-            fromIfs={fromIfs}
-            email={ifsEmail}
-            warning={ifsWarning}
+  const body = (
+    <>
+      {embedded ? null : (
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard
+            label="Pendientes"
+            value={kpis.pendientes}
+            sub="Requieren acción"
+            alert
+          />
+          <KpiCard
+            label="Aprobadas este mes"
+            value={kpis.aprobadas}
+            sub={`${kpis.horasAprobadas} aprobadas`}
+            navy
+          />
+          <KpiCard
+            label="Rechazadas"
+            value={kpis.rechazadas}
+            sub="Este mes"
+          />
+          <KpiCard
+            label="Horas por aprobar"
+            value={kpis.horasPendientes}
+            sub="En registros pendientes"
           />
         </div>
-      </div>
-
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          label="Pendientes"
-          value={kpis.pendientes}
-          sub="Requieren acción"
-          alert
-        />
-        <KpiCard
-          label="Aprobadas este mes"
-          value={kpis.aprobadas}
-          sub={`${kpis.horasAprobadas}h aprobadas`}
-          navy
-        />
-        <KpiCard
-          label="Rechazadas"
-          value={kpis.rechazadas}
-          sub="Este mes"
-        />
-        <KpiCard
-          label="Horas por aprobar"
-          value={`${kpis.horasPendientes}h`}
-          sub="En registros pendientes"
-        />
-      </div>
-
-      {tab === "pend" && seleccion.size > 0 && (
-        <BulkSelectionBar
-          className="mb-3.5"
-          count={seleccion.size}
-          onAprobar={() => onAprobar([...seleccion])}
-          onRechazar={() => onRechazar([...seleccion])}
-        />
       )}
 
       <AprobacionFilterBar
@@ -162,9 +147,18 @@ export function AprobacionLista({
         tab={tab}
         shown={filtrados.length}
         total={registrosActuales.length}
+        actions={
+          tab === "pend" ? (
+            <BulkActionButtons
+              onAprobar={() => onAprobar([...seleccion])}
+              onRechazar={() => onRechazar([...seleccion])}
+            />
+          ) : undefined
+        }
       />
 
       <Card className="overflow-hidden p-0">
+        {tableLead}
         <div className="flex border-b-2 border-[#e5e9f0] px-2">
           <button
             type="button"
@@ -198,16 +192,41 @@ export function AprobacionLista({
           </button>
         </div>
 
-        <AprobacionTabla
-          key={tab}
-          registros={filtrados}
-          totalBase={registrosActuales.length}
-          hasFilters={hayFiltrosActivos(filters)}
-          onOpenDetalle={onOpenDetalle}
-          onRechazar={onRechazar}
-          onAprobar={onAprobar}
-        />
+        {detail ?? (
+          <AprobacionTabla
+            key={tab}
+            registros={filtrados}
+            totalBase={registrosActuales.length}
+            hasFilters={hayFiltrosActivos(filters)}
+            onOpenDetalle={onOpenDetalle}
+          />
+        )}
       </Card>
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <div className="view-wide max-md:pb-24">
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-[#111]">
+          Aprobación de Hoja de Tiempo
+        </h1>
+        <p className="mt-1 text-[13px] text-[#4b5563]">
+          Registros de tu equipo pendientes de revisión
+        </p>
+        <div className="mt-3">
+          <IfsStatusBanner
+            surface="approval"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+            email={ifsEmail}
+            warning={ifsWarning}
+          />
+        </div>
+      </div>
+      {body}
     </div>
   );
 }

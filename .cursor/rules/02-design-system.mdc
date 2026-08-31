@@ -14,8 +14,8 @@ alwaysApply: true
 
 ## Layout
 
-- Contenido estándar: `content-standard` → max **1100px** (calendario, vistas compactas)
-- Tablas/listas/formularios: `view-wide` → max **1320px** (siempre, con poca o mucha data)
+- Contenido estándar: `content-standard` → max **1280px** (vistas compactas)
+- Tablas/listas/formularios: `view-wide` → max **1680px** (aprovechar horizontal; padding del `main` es bajo: `px-2` / `md:px-3`)
 - Las clases viven en `globals.css`; el ancho lo define el contenedor, no la cantidad de filas
 - Page header: título `text-xl font-bold text-[#111]` + subtítulo `text-[13px] text-[#4b5563]`
 - CTA principal arriba a la derecha del header
@@ -43,6 +43,7 @@ alwaysApply: true
 | `FilterValuePill` + `buildFilterMultiOptions` | Pills en chips de filtro (tipo/estado) — mismos colores que tablas |
 | `BulkSelectionBar` | Selección en lote — tab pendientes |
 | `TableSelectionCheckbox` | Checkbox en columnas de tabla |
+| `TableDrillLink` | Identidad que abre el siguiente nivel (clave/nombre) — toda la etiqueta es el enlace |
 | `TableAproIconButton` | Aprobar / rechazar / anular inline (30×30) |
 
 ## Botones — jerarquía de acción
@@ -188,6 +189,15 @@ Trigger estándar: texto truncado + `DropdownChevron`; panel blanco, borde `bord
 - `DataTable`: `table-fixed`, `text-[12px]`, `TABLE_PAGE_SIZE = 50`
 - TH: 10px uppercase muted; hover fila `#fafbfc`
 - Filtros externos al Card — ver `10-tables-filters.mdc` y `11-aprobacion-list-ui.mdc`
+
+### Entrar al siguiente nivel (drill)
+
+Si una fila abre otro nivel (proyecto → empleados, empleado → registros), la **identidad** se ve como enlace — no un chevron ni “ver…”.
+
+- **Qué:** toda la clave del proyecto o todo el nombre del empleado (`TableDrillLink`)
+- **Cómo:** navy, semibold, subrayado en todo el texto, `cursor-pointer`
+- **Checkbox** = seleccionar para aprobar. **Enlace** = entrar. El resto de la fila no navega.
+- No apilar una segunda línea (“ver empleados”). Hueco = `—`.
 
 ## Formularios
 

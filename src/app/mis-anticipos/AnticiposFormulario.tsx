@@ -55,6 +55,7 @@ type AnticiposFormularioProps = {
     input: LanzarAnticipoInput,
   ) => Promise<{ no: string | null; error?: string }>;
   onLanzarOtro: (beneficiario: string) => void;
+  inicial?: { tipo?: AnticipoTipo; proyId?: string };
 };
 
 const PROYECTOS_LOV: LovItem[] = PROYECTOS_ANT.map((p) => ({
@@ -206,14 +207,18 @@ export function AnticiposFormulario({
   onVolver,
   onLanzar,
   onLanzarOtro,
+  inicial,
 }: AnticiposFormularioProps) {
   const { toast } = useToast();
   const ifsCat = useAnticiposIfsCatalog();
   const [paraOtro, setParaOtro] = useState(false);
-  const [tipo, setTipo] = useState<AnticipoTipo | "">("");
+  const [tipo, setTipo] = useState<AnticipoTipo | "">(inicial?.tipo ?? "");
   const [companiaId, setCompaniaId] = useState(SESSION_EMPLEADO.companiaDefault);
   const [companiaGastoOtro, setCompaniaGastoOtro] = useState("");
-  const [proySel, setProySel] = useState<LovItem | null>(null);
+  const [proySel, setProySel] = useState<LovItem | null>(() => {
+    if (!inicial?.proyId) return null;
+    return PROYECTOS_LOV.find((p) => p.id === inicial.proyId) ?? null;
+  });
   const [compBenef, setCompBenef] = useState<LovItem | null>(null);
   const [empOtro, setEmpOtro] = useState<EmpleadoAnticipo | null>(null);
   const [divisa, setDivisa] = useState("COP");

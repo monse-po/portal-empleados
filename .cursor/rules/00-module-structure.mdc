@@ -42,7 +42,7 @@ Rutas gerente: `<RoleRouteGuard allow="gerente">` en `page.tsx`. Rol en `session
 
 - `{Modulo}View` posee `vista` + `detalleNo`; Lista/Detalle/Form son hermanos.
 - Modales de confirmación en View o Detalle; toast tras mutación; `volverLista()` al cerrar.
-- Listas/tablas/formularios usan `className="view-wide"` (1320px). Vistas compactas usan `content-standard` (1100px).
+- Listas/tablas/formularios usan `className="view-wide"` (1680px). Vistas compactas usan `content-standard` (1280px).
 
 ## Controles de formulario y filtros
 

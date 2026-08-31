@@ -5,21 +5,17 @@ import { useAprobacionLegalizaciones } from "@/src/app/aprobacion-legalizaciones
 import { Icon } from "@/src/components/ui/Icon";
 import { EstadoLegalizacionPill } from "@/src/components/ui/Pill";
 import { TipoLegalizacionPill } from "@/src/components/ui/TipoLegalizacionPill";
-import { TableAproIconButton } from "@/src/components/ui/TableAproIconButton";
 import { TableSelectionCheckbox } from "@/src/components/ui/TableSelectionCheckbox";
 import {
   APRO_LEG_COLS_RES,
   DataTable,
   dataTd,
-  dataTdAction,
   dataTdCheck,
   dataTdResSecondary,
   dataTdTruncate,
   dataTh,
-  dataThAction,
   dataThCheck,
   dataThWithAlign,
-  TableActionWrap,
   TABLE_PAGE_SIZE,
 } from "@/src/components/ui/DataTable";
 import { TablePagination } from "@/src/components/ui/TablePagination";
@@ -35,10 +31,6 @@ type AprobacionLegalizacionesTablaProps = {
   totalBase: number;
   hasFilters: boolean;
   onOpenDetalle: (no: string) => void;
-  onAprobar: (nos: string[]) => void | Promise<void>;
-  onRechazar: (nos: string[]) => void | Promise<void>;
-  loadingAprobar?: boolean;
-  loadingRechazar?: boolean;
 };
 
 export function AprobacionLegalizacionesTabla({
@@ -46,32 +38,11 @@ export function AprobacionLegalizacionesTabla({
   totalBase,
   hasFilters,
   onOpenDetalle,
-  onAprobar,
-  onRechazar,
-  loadingAprobar = false,
-  loadingRechazar = false,
 }: AprobacionLegalizacionesTablaProps) {
   const { tab, seleccion, toggleSeleccion, toggleSeleccionLote } =
     useAprobacionLegalizaciones();
   const esPendientes = tab === "pend";
   const [page, setPage] = useState(1);
-  const [rowAction, setRowAction] = useState<{
-    no: string;
-    action: "aprobar" | "rechazar";
-  } | null>(null);
-
-  const runRowAction = async (
-    no: string,
-    action: "aprobar" | "rechazar",
-  ) => {
-    setRowAction({ no, action });
-    try {
-      if (action === "aprobar") await onAprobar([no]);
-      else await onRechazar([no]);
-    } finally {
-      setRowAction(null);
-    }
-  };
 
   if (!totalBase) {
     return (
@@ -146,38 +117,6 @@ export function AprobacionLegalizacionesTabla({
           {formatMontoLegal(s.monto, s.div)}
         </div>
         <div className={dataTdResSecondary}>{s.div}</div>
-      </td>
-      <td className={dataTdAction} onClick={(e) => e.stopPropagation()}>
-        <TableActionWrap>
-          <TableAproIconButton
-            variant="ok"
-            title="Aprobar"
-            loading={rowAction?.no === s.no && rowAction.action === "aprobar"}
-            disabled={
-              loadingAprobar ||
-              loadingRechazar ||
-              (rowAction !== null && rowAction.no !== s.no)
-            }
-            onClick={(e) => {
-              e.stopPropagation();
-              void runRowAction(s.no, "aprobar");
-            }}
-          />
-          <TableAproIconButton
-            variant="no"
-            title="Rechazar"
-            loading={rowAction?.no === s.no && rowAction.action === "rechazar"}
-            disabled={
-              loadingAprobar ||
-              loadingRechazar ||
-              (rowAction !== null && rowAction.no !== s.no)
-            }
-            onClick={(e) => {
-              e.stopPropagation();
-              void runRowAction(s.no, "rechazar");
-            }}
-          />
-        </TableActionWrap>
       </td>
     </tr>
   );
@@ -269,7 +208,6 @@ export function AprobacionLegalizacionesTabla({
                     {col}
                   </th>
                 ))}
-                <th className={dataThAction}>Acciones</th>
               </>
             ) : (
               <>

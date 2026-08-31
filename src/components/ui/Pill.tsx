@@ -55,7 +55,6 @@ export function Pill({
 
 /** Labels de estado del portal (después de normalizar). */
 export type EstadoPortalLabel =
-  | "Borrador"
   | "Registrado"
   | "Lanzado"
   | "Pendiente"
@@ -67,7 +66,6 @@ export type EstadoPortalLabel =
 /** Icono Lucide homologado por estado (todos los módulos). */
 export function estadoPillIcon(estado: string): IconName | null {
   const e = normalizeEstadoLabel(estado);
-  if (e === "Borrador") return "pencil";
   if (e === "Lanzado" || e === "Pendiente" || e === "Registrado") return "send";
   if (e === "Aprobado") return "check";
   if (e === "Pagado") return "wallet";
@@ -79,9 +77,11 @@ export function estadoPillIcon(estado: string): IconName | null {
 /**
  * Normaliza labels legacy / alias → label de producto.
  * Anulado → Cancelado (nunca mostrar “Anulado” en chips).
+ * Borrador (legacy Mi Tiempo) → Lanzado/Registrado vía mapa del módulo.
  */
 export function normalizeEstadoLabel(estado: string): string {
   if (!estado) return "Pendiente";
+  if (estado === "Borrador") return "Registrado";
   if (estado === "En revisión" || estado === "Registrado") return "Lanzado";
   if (estado === "Anulado") return "Cancelado";
   return estado;
@@ -89,7 +89,6 @@ export function normalizeEstadoLabel(estado: string): string {
 
 /** Mapa canónico estado → variant (compartido; módulos filtran los que usan). */
 export const estadoPortalPillVariant: Record<string, PillVariant> = {
-  Borrador: "borrador",
   Pendiente: "lanzado",
   Lanzado: "lanzado",
   Registrado: "lanzado",
@@ -102,7 +101,6 @@ export const estadoPortalPillVariant: Record<string, PillVariant> = {
 };
 
 export const estadoTiempoPillVariant: Record<string, PillVariant> = {
-  Borrador: "borrador",
   Pendiente: "registrado",
   Lanzado: "registrado",
   Registrado: "registrado",
@@ -147,7 +145,8 @@ export function estadoTiempoPillProps(estado: string) {
     estado === "Registrado" ||
     estado === "Lanzado" ||
     estado === "En revisión" ||
-    estado === "Pendiente"
+    estado === "Pendiente" ||
+    estado === "Borrador"
   ) {
     return {
       variant: "registrado" as PillVariant,
@@ -159,7 +158,7 @@ export function estadoTiempoPillProps(estado: string) {
   const variant =
     estadoTiempoPillVariant[label] ??
     estadoTiempoPillVariant[estado] ??
-    "borrador";
+    "registrado";
   const editable = estadoTiempoEditable(estado);
   return { variant, label, editable };
 }

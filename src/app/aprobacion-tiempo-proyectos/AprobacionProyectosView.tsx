@@ -1,42 +1,53 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Card } from "@/src/components/ui/Card";
-import { Icon } from "@/src/components/ui/Icon";
-import { BulkSelectionBar } from "@/src/components/ui/BulkSelectionBar";
-import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
-import { PageBreadcrumb } from "@/src/components/ui/PageBreadcrumb";
 import {
-  ACTION_COL_WIDTH,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { Card } from "@/src/components/ui/Card";
+import { BulkActionButtons } from "@/src/components/ui/BulkSelectionBar";
+import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
+import { TableBreadcrumb } from "@/src/components/ui/TableBreadcrumb";
+import {
   CHECKBOX_COL_WIDTH,
   DataTable,
+  TableDrillLink,
   dataTd,
-  dataTdAction,
   dataTdCheck,
   dataTdNumeric,
-  dataTdResPrimary,
-  dataTdResSecondary,
   dataTh,
-  dataThAction,
   dataThCenter,
   dataThCheck,
-  TableActionWrap,
   TABLE_PAGE_SIZE,
 } from "@/src/components/ui/DataTable";
 import { TablePagination } from "@/src/components/ui/TablePagination";
-import { TableAproIconButton } from "@/src/components/ui/TableAproIconButton";
 import { TableSelectionCheckbox } from "@/src/components/ui/TableSelectionCheckbox";
+import { TableFilterSection } from "@/src/components/ui/TableFilterBar";
+import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import { useToast } from "@/src/components/ui/Toast";
+import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
+import { horasLabel } from "@/src/app/aprobacion-tiempo/AprobacionDetalle";
 import {
   AprobarModal,
   RechazarModal,
 } from "@/src/app/aprobacion-tiempo/AprobacionModals";
+import { AprobacionProyectosFilterBar } from "@/src/app/aprobacion-tiempo-proyectos/AprobacionProyectosFilterBar";
 import {
   mapApprovalTimesheetToEmpleados,
+  mapApprovalTimesheetToHojasScoped,
+  mapApprovalTimesheetToProyectos,
   type HorasEmpleadoAprobacion,
   type HorasProyectoAprobacion,
 } from "@/src/lib/ifs/tiempo-approval";
+import { horasNum } from "@/src/lib/aprobacion-tiempo-mock";
+import {
+  applyEmpleadoFilters,
+  applyProyectoFilters,
+  type AproProyFilterRule,
+} from "@/src/lib/aprobacion-proyectos-filtros";
 import {
   getResumenProyectosAprobacionAction,
   resolverAprobacionTiempoAction,
@@ -49,11 +60,15 @@ import {
 
 const COLS = [
   CHECKBOX_COL_WIDTH,
-  "46%",
+  "24%",
+  "24%",
+  "16%",
+  "14%",
   "22%",
-  "22%",
-  ACTION_COL_WIDTH,
 ] as const;
+
+const PLACEHOLDER = "—";
+const SKELETON_ROWS = 6;
 
 function roundHoras(n: number): number {
   return Math.round(n * 10) / 10;
@@ -62,6 +77,43 @@ function roundHoras(n: number): number {
 function formatHoras(n: number): string {
   const r = roundHoras(n);
   return Number.isInteger(r) ? `${r}` : r.toFixed(1);
+}
+
+function cellOrDash(value: string | number | undefined | null) {
+  if (value == null) return PLACEHOLDER;
+  const text = String(value).trim();
+  return text.length ? text : PLACEHOLDER;
+}
+
+function Dash() {
+  return <span className="text-[#c0c7d4]">{PLACEHOLDER}</span>;
+}
+
+function Cell({
+  children,
+  numeric,
+}: {
+  children: ReactNode;
+  numeric?: boolean;
+}) {
+  const empty =
+    children == null ||
+    children === "" ||
+    children === PLACEHOLDER;
+  return (
+    <td className={numeric ? dataTdNumeric : dataTd}>
+      {empty ? <Dash /> : children}
+    </td>
+  );
+}
+
+function SkeletonBar({ width }: { width: string }) {
+  return (
+    <span
+      className="inline-block h-3 rounded bg-[#e5e9f0]"
+      style={{ width }}
+    />
+  );
 }
 
 function KpiCard({
@@ -135,6 +187,14 @@ function horasPendientesDe<T extends { pendienteIds: string[]; horasPendientes: 
 
 export function AprobacionProyectosView() {
   const { toast } = useToast();
+  const {
+    aprobar,
+    rechazar,
+    getHoja,
+    syncPendientesDesdeDb,
+    setTab: setTabRegistros,
+    clearSeleccion: clearSeleccionRegistros,
+  } = useAprobacion();
   const [proyectos, setProyectos] = useState<HorasProyectoAprobacion[]>([]);
   const [raw, setRaw] = useState<unknown>({ value: [] });
   const [loaded, setLoaded] = useState(false);
@@ -142,8 +202,10 @@ export function AprobacionProyectosView() {
   const [ifsEmail, setIfsEmail] = useState<string | null>(null);
   const [fromIfs, setFromIfs] = useState(false);
   const [ifsWarning, setIfsWarning] = useState<string | null>(null);
+  const [filters, setFilters] = useState<AproProyFilterRule[]>([]);
   const [page, setPage] = useState(1);
   const [proyectoAbierto, setProyectoAbierto] = useState<string | null>(null);
+  const [empleadoAbierto, setEmpleadoAbierto] = useState<string | null>(null);
   const [aprobarTargets, setAprobarTargets] = useState<string[]>([]);
   const [rechazarTargets, setRechazarTargets] = useState<string[]>([]);
   const {
@@ -152,13 +214,12 @@ export function AprobacionProyectosView() {
     toggleSeleccionLote,
     clearSeleccion,
   } = useTableSelection();
-
   const cargar = useCallback(async () => {
     const result = await getResumenProyectosAprobacionAction();
+    setIfsWarning(result.warning ?? null);
     setProyectos(result.proyectos);
     setRaw(result.raw);
     setFromIfs(result.fromIfs);
-    setIfsWarning(result.warning ?? null);
     return result;
   }, []);
 
@@ -197,22 +258,81 @@ export function AprobacionProyectosView() {
   const proyectoActual = proyectoAbierto
     ? proyectos.find((p) => p.codigo === proyectoAbierto)
     : undefined;
-  const enDetalle = Boolean(proyectoAbierto);
+  const empleadoActual = empleadoAbierto
+    ? empleados.find((e) => e.empNo === empleadoAbierto)
+    : undefined;
+  const enRegistros = Boolean(proyectoAbierto && empleadoAbierto);
+  const enDetalle = Boolean(proyectoAbierto) && !enRegistros;
+
+  const hojasScoped = useMemo(
+    () =>
+      proyectoAbierto && empleadoAbierto
+        ? mapApprovalTimesheetToHojasScoped(raw, {
+            codigoProyecto: proyectoAbierto,
+            empNo: empleadoAbierto,
+          })
+        : [],
+    [raw, proyectoAbierto, empleadoAbierto],
+  );
+
+  useEffect(() => {
+    if (!enRegistros) return;
+    syncPendientesDesdeDb(hojasScoped);
+  }, [enRegistros, hojasScoped, syncPendientesDesdeDb]);
+
+  const hojasPendientes = useMemo(
+    () => hojasScoped.filter((h) => !h.estadoApro),
+    [hojasScoped],
+  );
+
+  const proyectosPendientes = useMemo(
+    () => proyectos.filter((p) => p.pendienteIds.length > 0),
+    [proyectos],
+  );
+  const empleadosPendientes = useMemo(
+    () => empleados.filter((e) => e.pendienteIds.length > 0),
+    [empleados],
+  );
+
+  const pendientesCount = enRegistros
+    ? hojasPendientes.length
+    : enDetalle
+      ? empleadosPendientes.length
+      : proyectosPendientes.length;
+
+  const proyectosFiltrados = useMemo(
+    () => applyProyectoFilters(proyectosPendientes, filters),
+    [proyectosPendientes, filters],
+  );
+
+  const empleadosFiltrados = useMemo(
+    () => applyEmpleadoFilters(empleadosPendientes, filters),
+    [empleadosPendientes, filters],
+  );
 
   const seleccionables = useMemo(
     () =>
-      enDetalle
-        ? empleados.filter((e) => e.pendienteIds.length > 0).map((e) => e.empNo)
-        : proyectos.filter((p) => p.pendienteIds.length > 0).map((p) => p.codigo),
-    [enDetalle, empleados, proyectos],
+      enRegistros
+        ? hojasPendientes.map((h) => h.no)
+        : enDetalle
+          ? empleadosFiltrados.map((e) => e.empNo)
+          : proyectosFiltrados.map((p) => p.codigo),
+    [enRegistros, hojasPendientes, enDetalle, empleadosFiltrados, proyectosFiltrados],
   );
 
   const kpis = useMemo(() => {
+    if (enRegistros && empleadoActual) {
+      return {
+        pendientes: roundHoras(empleadoActual.horasPendientes),
+        acumuladas: roundHoras(empleadoActual.horasAcumuladas),
+        unidades: pendientesCount,
+      };
+    }
     if (enDetalle && proyectoActual) {
       return {
         pendientes: roundHoras(proyectoActual.horasPendientes),
         acumuladas: roundHoras(proyectoActual.horasAcumuladas),
-        unidades: empleados.filter((e) => e.pendienteIds.length > 0).length,
+        unidades: pendientesCount,
       };
     }
     let acumuladas = 0;
@@ -224,18 +344,30 @@ export function AprobacionProyectosView() {
     return {
       pendientes: roundHoras(pendientes),
       acumuladas: roundHoras(acumuladas),
-      unidades: proyectos.filter((p) => p.pendienteIds.length > 0).length,
+      unidades: pendientesCount,
     };
-  }, [enDetalle, proyectoActual, empleados, proyectos]);
+  }, [enRegistros, empleadoActual, pendientesCount, enDetalle, proyectoActual, proyectos]);
 
-  const filas = enDetalle ? empleados : proyectos;
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
+
+  const filas = enRegistros
+    ? hojasPendientes
+    : enDetalle
+      ? empleadosFiltrados
+      : proyectosFiltrados;
   const pages = Math.max(1, Math.ceil(filas.length / TABLE_PAGE_SIZE));
   const safePage = Math.min(page, pages);
-  const sliceProyectos = proyectos.slice(
+  const sliceProyectos = proyectosFiltrados.slice(
     (safePage - 1) * TABLE_PAGE_SIZE,
     safePage * TABLE_PAGE_SIZE,
   );
-  const sliceEmpleados = empleados.slice(
+  const sliceEmpleados = empleadosFiltrados.slice(
+    (safePage - 1) * TABLE_PAGE_SIZE,
+    safePage * TABLE_PAGE_SIZE,
+  );
+  const sliceHojas = hojasPendientes.slice(
     (safePage - 1) * TABLE_PAGE_SIZE,
     safePage * TABLE_PAGE_SIZE,
   );
@@ -247,16 +379,38 @@ export function AprobacionProyectosView() {
   const selectedKeys = [...seleccion];
   const keyOfProyecto = (p: HorasProyectoAprobacion) => p.codigo;
   const keyOfEmpleado = (e: HorasEmpleadoAprobacion) => e.empNo;
-
   const abrirProyecto = (codigo: string) => {
     clearSeleccion();
+    clearSeleccionRegistros();
     setPage(1);
+    setFilters([]);
+    setEmpleadoAbierto(null);
     setProyectoAbierto(codigo);
+  };
+
+  const abrirEmpleado = (empNo: string) => {
+    clearSeleccion();
+    clearSeleccionRegistros();
+    setPage(1);
+    setFilters([]);
+    setTabRegistros("pend");
+    setEmpleadoAbierto(empNo);
+  };
+
+  const volverAEmpleados = () => {
+    clearSeleccion();
+    clearSeleccionRegistros();
+    setPage(1);
+    setFilters([]);
+    setEmpleadoAbierto(null);
   };
 
   const volverAProyectos = () => {
     clearSeleccion();
+    clearSeleccionRegistros();
     setPage(1);
+    setFilters([]);
+    setEmpleadoAbierto(null);
     setProyectoAbierto(null);
   };
 
@@ -264,9 +418,11 @@ export function AprobacionProyectosView() {
     const conPendiente = keys.filter((k) => seleccionables.includes(k));
     if (!conPendiente.length) {
       toast(
-        enDetalle
-          ? "Selecciona al menos un empleado con horas por aprobar"
-          : "Selecciona al menos un proyecto con horas por aprobar",
+        enRegistros
+          ? "Selecciona al menos un registro"
+          : enDetalle
+            ? "Selecciona al menos un empleado con horas por aprobar"
+            : "Selecciona al menos un proyecto con horas por aprobar",
         "danger",
       );
       return;
@@ -278,9 +434,11 @@ export function AprobacionProyectosView() {
     const conPendiente = keys.filter((k) => seleccionables.includes(k));
     if (!conPendiente.length) {
       toast(
-        enDetalle
-          ? "Selecciona al menos un empleado con horas por aprobar"
-          : "Selecciona al menos un proyecto con horas por aprobar",
+        enRegistros
+          ? "Selecciona al menos un registro"
+          : enDetalle
+            ? "Selecciona al menos un empleado con horas por aprobar"
+            : "Selecciona al menos un proyecto con horas por aprobar",
         "danger",
       );
       return;
@@ -288,22 +446,65 @@ export function AprobacionProyectosView() {
     setRechazarTargets(conPendiente);
   };
 
+  const confirmarDecisionRegistros = async (
+    nos: string[],
+    decision: "aprobado" | "rechazado",
+    comentario = "",
+  ) => {
+    const registroIds = nos
+      .map((no) => getHoja(no)?.registroId)
+      .filter((id): id is string => !!id);
+    const result =
+      decision === "aprobado"
+        ? await aprobar(nos, comentario)
+        : await rechazar(nos, comentario);
+    if (!result.ok) {
+      if (result.stale) {
+        toast(
+          "Algún registro ya no está pendiente en IFS. Actualizamos el detalle.",
+          "warn",
+        );
+        await cargar();
+        clearSeleccionRegistros();
+        return;
+      }
+      toast(result.error || "No se pudo registrar la decisión en IFS.", "danger");
+      return;
+    }
+
+    await cargar();
+
+    const n = nos.length;
+    const horasTxt = horasLabel(nos, getHoja);
+    toast(
+      decision === "aprobado"
+        ? n === 1
+          ? `${nos[0]} · ${horasTxt} aprobadas · IFS`
+          : `${n} registros · ${horasTxt} aprobadas · IFS`
+        : n === 1
+          ? `${nos[0]} · ${horasTxt} rechazadas · el empleado fue notificado`
+          : `${n} registros · ${horasTxt} rechazadas · el empleado fue notificado`,
+      decision === "aprobado" ? "green" : "danger",
+    );
+    clearSeleccionRegistros();
+  };
+
   const confirmarDecision = async (
     keys: string[],
     decision: "aprobado" | "rechazado",
     comentario?: string,
   ) => {
+    if (enRegistros) {
+      await confirmarDecisionRegistros(keys, decision, comentario);
+      return;
+    }
     const registroIds = enDetalle
       ? idsPendientesDe(empleados, keys, keyOfEmpleado)
       : idsPendientesDe(proyectos, keys, keyOfProyecto);
     if (!registroIds.length) {
       toast("Esa selección ya no tiene horas pendientes.", "warn");
-      const refreshed = await cargar();
       clearSeleccion();
-      if (proyectoAbierto) {
-        const still = refreshed.proyectos.find((p) => p.codigo === proyectoAbierto);
-        if (!still?.pendienteIds.length) setProyectoAbierto(null);
-      }
+      await cargar();
       return;
     }
 
@@ -322,12 +523,8 @@ export function AprobacionProyectosView() {
           "Algún registro ya no está pendiente en IFS. Actualizamos el resumen.",
           "warn",
         );
-        const refreshed = await cargar();
+        await cargar();
         clearSeleccion();
-        if (proyectoAbierto) {
-          const still = refreshed.proyectos.find((p) => p.codigo === proyectoAbierto);
-          if (!still?.pendienteIds.length) setProyectoAbierto(null);
-        }
         return;
       }
       toast(result.error || "No se pudo registrar la decisión en IFS.", "danger");
@@ -340,56 +537,71 @@ export function AprobacionProyectosView() {
     toast(
       decision === "aprobado"
         ? n === 1
-          ? `${keys[0]} · ${horasLabel}h aprobadas · IFS`
-          : `${n} ${unidad} · ${horasLabel}h aprobadas · IFS`
+          ? `${keys[0]} · ${horasLabel} aprobadas · IFS`
+          : `${n} ${unidad} · ${horasLabel} aprobadas · IFS`
         : n === 1
-          ? `${keys[0]} · ${horasLabel}h rechazadas · el empleado fue notificado`
-          : `${n} ${unidad} · ${horasLabel}h rechazadas · los empleados fueron notificados`,
+          ? `${keys[0]} · ${horasLabel} rechazadas · el empleado fue notificado`
+          : `${n} ${unidad} · ${horasLabel} rechazadas · los empleados fueron notificados`,
       decision === "aprobado" ? "green" : "danger",
     );
     clearSeleccion();
-    const refreshed = await cargar();
-    if (proyectoAbierto) {
-      const still = refreshed.proyectos.find((p) => p.codigo === proyectoAbierto);
-      if (!still?.pendienteIds.length) setProyectoAbierto(null);
-    }
+    await cargar();
   };
 
+  const unidadSeleccion = enRegistros
+    ? "registros"
+    : enDetalle
+      ? "empleados"
+      : "proyectos";
   const aprobarResumen =
     aprobarTargets.length === 1
       ? aprobarTargets[0]
-      : `${aprobarTargets.length} ${enDetalle ? "empleados" : "proyectos"}`;
+      : `${aprobarTargets.length} ${unidadSeleccion}`;
   const rechazarResumen =
     rechazarTargets.length === 1
       ? rechazarTargets[0]
-      : `${rechazarTargets.length} ${enDetalle ? "empleados" : "proyectos"}`;
+      : `${rechazarTargets.length} ${unidadSeleccion}`;
 
-  const horasModal = enDetalle
-    ? horasPendientesDe(empleados, aprobarTargets, keyOfEmpleado)
-    : horasPendientesDe(proyectos, aprobarTargets, keyOfProyecto);
+  const horasModal = enRegistros
+    ? Number(horasLabel(aprobarTargets, getHoja))
+    : enDetalle
+      ? horasPendientesDe(empleados, aprobarTargets, keyOfEmpleado)
+      : horasPendientesDe(proyectos, aprobarTargets, keyOfProyecto);
+
+  const tableCrumbs = [
+    {
+      label: "Proyectos",
+      onClick: proyectoAbierto ? volverAProyectos : undefined,
+    },
+    ...(proyectoActual
+      ? [
+          {
+            label: proyectoActual.codigo,
+            onClick: enRegistros ? volverAEmpleados : undefined,
+          },
+        ]
+      : []),
+    ...(enRegistros
+      ? [
+          {
+            label: empleadoActual?.nombre || empleadoAbierto || "Empleado",
+          },
+        ]
+      : []),
+  ];
+
+  const tableBreadcrumb = <TableBreadcrumb items={tableCrumbs} />;
 
   return (
     <div className="view-wide max-md:pb-24">
       <div className="mb-4">
-        {enDetalle && proyectoActual ? (
-          <PageBreadcrumb
-            parentLabel="Proyectos"
-            onVolver={volverAProyectos}
-            segment="Empleados"
-          />
-        ) : null}
-        <h1 className={`text-xl font-bold text-[#111] ${enDetalle ? "mt-3" : ""}`}>
-          {enDetalle && proyectoActual
-            ? `Empleados · ${proyectoActual.codigo}`
-            : "Aprobación por proyecto"}
-        </h1>
+        <h1 className="text-xl font-bold text-[#111]">Aprobar Tiempo</h1>
         <p className="mt-1 text-[13px] text-[#4b5563]">
-          {enDetalle && proyectoActual
-            ? `${proyectoActual.nombre !== proyectoActual.codigo ? `${proyectoActual.nombre} · ` : ""}Aprueba por persona o en lote. El lote de todo el proyecto sigue en la lista anterior.`
-            : "Dos niveles: aquí apruebas el proyecto entero. En cada fila, «Ver empleados» abre el detalle por persona."}{" "}
-          <Link href="/aprobacion-tiempo" className="font-semibold text-navy underline">
-            Ver bandeja por registro
-          </Link>
+          {enRegistros
+            ? "Solo registros pendientes de este empleado."
+            : enDetalle
+              ? "Empleados con horas por aprobar en este proyecto."
+              : "Proyectos con horas pendientes. Clic para ver empleados y registros."}
         </p>
         <div className="mt-3">
           <IfsStatusBanner
@@ -406,207 +618,262 @@ export function AprobacionProyectosView() {
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <KpiCard
           label="Por aprobar"
-          value={`${formatHoras(kpis.pendientes)}h`}
+          value={formatHoras(kpis.pendientes)}
           sub={
-            enDetalle
-              ? `${kpis.unidades} empleados con cola`
-              : `${kpis.unidades} proyectos con cola`
+            enRegistros
+              ? `${kpis.unidades} registros con cola`
+              : enDetalle
+                ? `${kpis.unidades} empleados con cola`
+                : `${kpis.unidades} proyectos con cola`
           }
           alert
         />
         <KpiCard
           label="Acumulado"
-          value={`${formatHoras(kpis.acumuladas)}h`}
-          sub={enDetalle ? "Horas de este proyecto" : "Todas las horas del equipo"}
+          value={formatHoras(kpis.acumuladas)}
+          sub={
+            enRegistros
+              ? "Horas de este empleado"
+              : enDetalle
+                ? "Horas de este proyecto"
+                : "Todas las horas del equipo"
+          }
           navy
         />
         <KpiCard
-          label={enDetalle ? "Empleados" : "Proyectos"}
-          value={enDetalle ? empleados.length : proyectos.length}
-          sub={enDetalle ? "En este proyecto" : "En la bandeja IFS"}
+          label={enRegistros ? "Registros" : enDetalle ? "Empleados" : "Proyectos"}
+          value={
+            enRegistros
+              ? hojasPendientes.length
+              : enDetalle
+                ? empleadosPendientes.length
+                : proyectosPendientes.length
+          }
+          sub="En la bandeja IFS"
         />
       </div>
 
-      {seleccion.size > 0 && (
-        <BulkSelectionBar
-          className="mb-3.5"
-          count={seleccion.size}
-          onAprobar={() => solicitarAprobacion(selectedKeys)}
-          onRechazar={() => solicitarRechazo(selectedKeys)}
+      {enRegistros ? (
+        <TableFilterSection sticky={false}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <span className="shrink-0 text-[13px] font-medium text-[#374151]">
+                Filtrar por:
+              </span>
+            </div>
+            {loaded && hojasPendientes.length > 0 ? (
+              <div className="shrink-0">
+                <BulkActionButtons
+                  onAprobar={() => solicitarAprobacion(selectedKeys)}
+                  onRechazar={() => solicitarRechazo(selectedKeys)}
+                />
+              </div>
+            ) : null}
+          </div>
+        </TableFilterSection>
+      ) : (
+        <AprobacionProyectosFilterBar
+          level={enDetalle ? "empleado" : "proyecto"}
+          proyectos={proyectosPendientes}
+          empleados={empleadosPendientes}
+          filters={filters}
+          onChange={setFilters}
+          shown={filas.length}
+          total={enDetalle ? empleadosPendientes.length : proyectosPendientes.length}
+          actions={
+            loaded && seleccionables.length > 0 ? (
+              <BulkActionButtons
+                onAprobar={() => solicitarAprobacion(selectedKeys)}
+                onRechazar={() => solicitarRechazo(selectedKeys)}
+              />
+            ) : undefined
+          }
         />
       )}
 
       <Card className="overflow-hidden p-0">
-        {loaded ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e5e9f0] bg-[#f8fafc] px-4 py-2.5">
-            <span className="text-[12px] font-semibold uppercase tracking-wide text-navy">
-              {enDetalle && proyectoActual
-                ? `Nivel 2 · empleados de ${proyectoActual.codigo}`
-                : "Nivel 1 · proyectos"}
-            </span>
-            <span className="text-[12px] text-muted">
-              {enDetalle
-                ? "Aprobar / rechazar por persona o con los checkboxes"
-                : "Lote en los checks · detalle con «Ver empleados»"}
-            </span>
-          </div>
-        ) : null}
-        {!loaded ? (
-          <div className="px-5 py-12 text-center text-[13px] text-muted">
-            Cargando resumen por proyecto…
-          </div>
-        ) : !proyectos.length ? (
-          <div className="px-5 py-12 text-center text-[13px] text-muted">
-            <Icon name="briefcase" size="xl" className="mx-auto mb-2 opacity-30" />
-            Sin horas por proyecto. Si IFS solo entrega pendientes y no hay
-            cola, esta tabla queda vacía.
-          </div>
-        ) : enDetalle && !empleados.length ? (
-          <div className="px-5 py-12 text-center text-[13px] text-muted">
-            <Icon name="user" size="xl" className="mx-auto mb-2 opacity-30" />
-            Este proyecto no tiene horas por empleado en la bandeja.
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <DataTable colWidths={[...COLS]}>
-                <thead>
-                  <tr>
-                    <th className={dataThCheck}>
-                      <TableSelectionCheckbox
-                        checked={allSelected}
-                        indeterminate={someSelected && !allSelected}
-                        onChange={() => toggleSeleccionLote(seleccionables)}
-                        aria-label={
-                          enDetalle
-                            ? "Seleccionar todos los empleados con horas pendientes"
-                            : "Seleccionar todos los proyectos con horas pendientes"
-                        }
-                      />
-                    </th>
-                    <th className={dataTh}>{enDetalle ? "Empleado" : "Proyecto"}</th>
-                    <th className={dataThCenter}>Por aprobar</th>
-                    <th className={dataThCenter}>Acumulado</th>
-                    <th className={dataThAction}>Acciones</th>
+        {tableBreadcrumb}
+        <DataTable colWidths={[...COLS]}>
+          <thead>
+            <tr>
+              <th className={dataThCheck}>
+                <TableSelectionCheckbox
+                  checked={allSelected}
+                  indeterminate={someSelected && !allSelected}
+                  onChange={() => toggleSeleccionLote(seleccionables)}
+                  aria-label={
+                    enRegistros
+                      ? "Seleccionar todos los registros pendientes"
+                      : enDetalle
+                        ? "Seleccionar todos los empleados con horas pendientes"
+                        : "Seleccionar todos los proyectos con horas pendientes"
+                  }
+                />
+              </th>
+              <th className={dataTh}>
+                {enRegistros ? "Fecha" : enDetalle ? "Empleado" : "Proyecto"}
+              </th>
+              <th className={dataTh}>
+                {enRegistros ? "Actividad" : enDetalle ? "Cédula" : "Nombre"}
+              </th>
+              <th className={dataTh}>Tipo</th>
+              <th className={dataThCenter}>
+                {enRegistros ? "Horas" : "Por aprobar"}
+              </th>
+              <th className={enRegistros ? dataTh : dataThCenter}>
+                {enRegistros ? "Comentario" : "Acumulado"}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {!loaded
+              ? Array.from({ length: SKELETON_ROWS }, (_, i) => (
+                  <tr key={`sk-${i}`}>
+                    <td className={dataTdCheck}>
+                      <SkeletonBar width="14px" />
+                    </td>
+                    <td className={dataTd}>
+                      <SkeletonBar width="72%" />
+                    </td>
+                    <td className={dataTd}>
+                      <SkeletonBar width="64%" />
+                    </td>
+                    <td className={dataTd}>
+                      <SkeletonBar width="40%" />
+                    </td>
+                    <td className={dataTdNumeric}>
+                      <SkeletonBar width="32px" />
+                    </td>
+                    <td className={dataTd}>
+                      <SkeletonBar width="70%" />
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {enDetalle
-                    ? sliceEmpleados.map((e) => {
-                        const puedeAprobar = e.pendienteIds.length > 0;
-                        return (
-                          <tr key={e.empNo} className="hover:bg-[#f8fafc]">
-                            <td className={dataTdCheck}>
-                              {puedeAprobar ? (
-                                <TableSelectionCheckbox
-                                  checked={seleccion.has(e.empNo)}
-                                  onChange={() => toggleSeleccion(e.empNo)}
-                                  aria-label={`Seleccionar ${e.nombre}`}
-                                />
-                              ) : null}
-                            </td>
-                            <td className={dataTd}>
-                              <div className={dataTdResPrimary}>{e.nombre}</div>
-                              <div className={dataTdResSecondary}>{e.empNo}</div>
-                            </td>
-                            <td className={dataTdNumeric}>
-                              {formatHoras(e.horasPendientes)}h
-                            </td>
-                            <td className={dataTdNumeric}>
-                              {formatHoras(e.horasAcumuladas)}h
-                            </td>
-                            <td className={dataTdAction}>
-                              {puedeAprobar ? (
-                                <TableActionWrap>
-                                  <TableAproIconButton
-                                    variant="ok"
-                                    title={`Aprobar ${formatHoras(e.horasPendientes)}h de ${e.nombre}`}
-                                    onClick={() => solicitarAprobacion([e.empNo])}
-                                  />
-                                  <TableAproIconButton
-                                    variant="no"
-                                    title={`Rechazar ${formatHoras(e.horasPendientes)}h de ${e.nombre}`}
-                                    onClick={() => solicitarRechazo([e.empNo])}
-                                  />
-                                </TableActionWrap>
-                              ) : null}
-                            </td>
-                          </tr>
-                        );
-                      })
+                ))
+              : !filas.length
+                ? (
+                    <tr>
+                      <td className={dataTdCheck} />
+                      <Cell>{PLACEHOLDER}</Cell>
+                      <Cell>{PLACEHOLDER}</Cell>
+                      <Cell>{PLACEHOLDER}</Cell>
+                      <Cell numeric>{PLACEHOLDER}</Cell>
+                      <Cell>{PLACEHOLDER}</Cell>
+                    </tr>
+                  )
+                : enRegistros
+                  ? sliceHojas.map((h) => (
+                      <tr
+                        key={h.no}
+                        onClick={() => toggleSeleccion(h.no)}
+                        className="cursor-pointer transition-colors hover:bg-[#fafbfc]"
+                      >
+                        <td
+                          className={dataTdCheck}
+                          onClick={(ev) => ev.stopPropagation()}
+                        >
+                          <TableSelectionCheckbox
+                            checked={seleccion.has(h.no)}
+                            onChange={() => toggleSeleccion(h.no)}
+                            aria-label={`Seleccionar ${h.no}`}
+                          />
+                        </td>
+                        <Cell>{cellOrDash(h.fecha)}</Cell>
+                        <Cell>{cellOrDash(h.actividad)}</Cell>
+                        <Cell>
+                          {h.tipo ? <TipoHoraPill tipo={h.tipo} /> : PLACEHOLDER}
+                        </Cell>
+                        <Cell numeric>{horasNum(h.horas)}</Cell>
+                        <Cell>{cellOrDash(h.comentarioEmpleado)}</Cell>
+                      </tr>
+                    ))
+                  : enDetalle
+                    ? sliceEmpleados.map((e) => (
+                        <tr
+                          key={e.empNo}
+                          className="transition-colors hover:bg-[#fafbfc]"
+                        >
+                          <td className={dataTdCheck}>
+                            <TableSelectionCheckbox
+                              checked={seleccion.has(e.empNo)}
+                              onChange={() => toggleSeleccion(e.empNo)}
+                              aria-label={`Seleccionar ${e.nombre}`}
+                            />
+                          </td>
+                          <td className={dataTd}>
+                            <TableDrillLink
+                              title={e.nombre}
+                              onClick={() => abrirEmpleado(e.empNo)}
+                            >
+                              {cellOrDash(e.nombre)}
+                            </TableDrillLink>
+                          </td>
+                          <Cell>{cellOrDash(e.empNo)}</Cell>
+                          <Cell>{PLACEHOLDER}</Cell>
+                          <Cell numeric>
+                            {formatHoras(e.horasPendientes)}
+                          </Cell>
+                          <Cell numeric>
+                            {formatHoras(e.horasAcumuladas)}
+                          </Cell>
+                        </tr>
+                      ))
                     : sliceProyectos.map((p) => {
-                        const puedeAprobar = p.pendienteIds.length > 0;
+                        const nombre =
+                          p.nombre && p.nombre !== p.codigo ? p.nombre : "";
                         return (
-                          <tr key={p.codigo} className="hover:bg-[#f8fafc]">
+                          <tr
+                            key={p.codigo}
+                            className="transition-colors hover:bg-[#fafbfc]"
+                          >
                             <td className={dataTdCheck}>
-                              {puedeAprobar ? (
-                                <TableSelectionCheckbox
-                                  checked={seleccion.has(p.codigo)}
-                                  onChange={() => toggleSeleccion(p.codigo)}
-                                  aria-label={`Seleccionar ${p.codigo}`}
-                                />
-                              ) : null}
+                              <TableSelectionCheckbox
+                                checked={seleccion.has(p.codigo)}
+                                onChange={() => toggleSeleccion(p.codigo)}
+                                aria-label={`Seleccionar ${p.codigo}`}
+                              />
                             </td>
                             <td className={dataTd}>
-                              <div className={`${dataTdResPrimary} font-semibold tabular-nums`}>
-                                {p.codigo}
-                              </div>
-                              <div className={dataTdResSecondary}>
-                                {p.nombre !== p.codigo
-                                  ? p.nombre
-                                  : `${p.registros} registros`}
-                              </div>
-                              <button
-                                type="button"
+                              <TableDrillLink
+                                title={p.codigo}
                                 onClick={() => abrirProyecto(p.codigo)}
-                                className="btn-link mt-1 inline-flex items-center gap-0.5 text-[11.5px] font-semibold"
                               >
-                                Ver empleados
-                                <Icon name="chevronRight" size="xs" />
-                              </button>
+                                {cellOrDash(p.codigo)}
+                              </TableDrillLink>
                             </td>
-                            <td className={dataTdNumeric}>
-                              {formatHoras(p.horasPendientes)}h
-                            </td>
-                            <td className={dataTdNumeric}>
-                              {formatHoras(p.horasAcumuladas)}h
-                            </td>
-                            <td className={dataTdAction}>
-                              {puedeAprobar ? (
-                                <TableActionWrap>
-                                  <TableAproIconButton
-                                    variant="ok"
-                                    title={`Aprobar ${formatHoras(p.horasPendientes)}h de ${p.codigo}`}
-                                    onClick={() => solicitarAprobacion([p.codigo])}
-                                  />
-                                  <TableAproIconButton
-                                    variant="no"
-                                    title={`Rechazar ${formatHoras(p.horasPendientes)}h de ${p.codigo}`}
-                                    onClick={() => solicitarRechazo([p.codigo])}
-                                  />
-                                </TableActionWrap>
-                              ) : null}
-                            </td>
+                            <Cell>{cellOrDash(nombre)}</Cell>
+                            <Cell>{PLACEHOLDER}</Cell>
+                            <Cell numeric>
+                              {formatHoras(p.horasPendientes)}
+                            </Cell>
+                            <Cell numeric>
+                              {formatHoras(p.horasAcumuladas)}
+                            </Cell>
                           </tr>
                         );
                       })}
-                </tbody>
-              </DataTable>
-            </div>
-            <TablePagination
-              page={safePage}
-              total={filas.length}
-              onPageChange={setPage}
-            />
-          </>
-        )}
+          </tbody>
+        </DataTable>
+
+        {loaded && filas.length > 0 ? (
+          <TablePagination
+            page={safePage}
+            total={filas.length}
+            onPageChange={setPage}
+          />
+        ) : null}
       </Card>
 
       <AprobarModal
         open={aprobarTargets.length > 0}
         registroLabel={aprobarResumen}
-        empleado={enDetalle ? "Empleado" : "Equipo"}
-        horas={`${formatHoras(horasModal)}h`}
+        empleado={
+          enRegistros
+            ? empleadoActual?.nombre || "Empleado"
+            : enDetalle
+              ? "Empleado"
+              : "Equipo"
+        }
+        horas={formatHoras(horasModal)}
         onClose={() => setAprobarTargets([])}
         onConfirm={async () => {
           const targets = [...aprobarTargets];

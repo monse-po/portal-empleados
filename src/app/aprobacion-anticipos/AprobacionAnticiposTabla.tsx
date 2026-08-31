@@ -5,22 +5,18 @@ import { useAprobacionAnticipos } from "@/src/app/aprobacion-anticipos/Aprobacio
 import { Icon } from "@/src/components/ui/Icon";
 import { EstadoAnticipoPill } from "@/src/components/ui/Pill";
 import { TipoAnticipoPill } from "@/src/components/ui/TipoAnticipoPill";
-import { TableAproIconButton } from "@/src/components/ui/TableAproIconButton";
 import { TableSelectionCheckbox } from "@/src/components/ui/TableSelectionCheckbox";
 import {
   DataTable,
   dataTd,
-  dataTdAction,
   dataTdCheck,
   dataTdResPrimary,
   dataTdResSecondary,
   dataTdTruncate,
   dataTh,
-  dataThAction,
   dataThCheck,
   dataThWithAlign,
   APRO_ANT_COLS_RES,
-  TableActionWrap,
   TABLE_PAGE_SIZE,
 } from "@/src/components/ui/DataTable";
 import { TablePagination } from "@/src/components/ui/TablePagination";
@@ -36,8 +32,6 @@ type AprobacionAnticiposTablaProps = {
   totalBase: number;
   hasFilters: boolean;
   onOpenDetalle: (no: string) => void;
-  onAprobar: (nos: string[]) => void;
-  onRechazar: (nos: string[]) => void;
 };
 
 export function AprobacionAnticiposTabla({
@@ -45,8 +39,6 @@ export function AprobacionAnticiposTabla({
   totalBase,
   hasFilters,
   onOpenDetalle,
-  onAprobar,
-  onRechazar,
 }: AprobacionAnticiposTablaProps) {
   const { tab, seleccion, toggleSeleccion, toggleSeleccionLote } =
     useAprobacionAnticipos();
@@ -124,26 +116,6 @@ export function AprobacionAnticiposTabla({
           {formatMonto(s.monto, s.divisa)}
         </div>
         <div className={dataTdResSecondary}>{s.divisa}</div>
-      </td>
-      <td className={dataTdAction} onClick={(e) => e.stopPropagation()}>
-        <TableActionWrap>
-          <TableAproIconButton
-            variant="ok"
-            title="Aprobar"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAprobar([s.no]);
-            }}
-          />
-          <TableAproIconButton
-            variant="no"
-            title="Rechazar"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRechazar([s.no]);
-            }}
-          />
-        </TableActionWrap>
       </td>
     </tr>
   );
@@ -237,7 +209,6 @@ export function AprobacionAnticiposTabla({
                     {col}
                   </th>
                 ))}
-                <th className={dataThAction}>Acciones</th>
               </>
             ) : (
               <>

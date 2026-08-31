@@ -1,10 +1,7 @@
 import { dmyToSortKey } from "@/src/lib/tiempo-bridge";
 import type { AnticipoTipo } from "@/src/lib/mis-anticipos-mock";
 import { formatMonto, hoyDMY } from "@/src/lib/mis-anticipos-mock";
-import {
-  ACTION_COL_WIDTH,
-  CHECKBOX_COL_WIDTH,
-} from "@/src/components/ui/DataTable";
+import { CHECKBOX_COL_WIDTH } from "@/src/components/ui/DataTable";
 
 export type AnticipoAprobacionTab = "pendientes" | "resueltas";
 
@@ -38,17 +35,16 @@ export type AnticipoAprobacion = {
   aprobador: string;
 };
 
-/** Aprobación anticipos — pendientes: checkbox + 7 datos + acciones */
+/** Aprobación anticipos — pendientes: checkbox + 7 datos */
 export const APRO_ANT_COLS_PEND = [
   CHECKBOX_COL_WIDTH,
-  "9%",   // Código
-  "8%",   // Solicitado
-  "12%",  // Empleado
-  "7%",   // Tipo pill
-  "13%",  // Proyecto
-  "24%",  // Motivo
-  "11%",  // Monto + divisa
-  ACTION_COL_WIDTH,
+  "10%",
+  "9%",
+  "13%",
+  "8%",
+  "14%",
+  "32%",
+  "14%",
 ] as const;
 
 const SEED: AnticipoAprobacion[] = [

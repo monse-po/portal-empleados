@@ -18,14 +18,14 @@ Controles de fecha y selectores: **`02-design-system.mdc`** (canónico para todo
 Header (h1 + subtítulo)
 → KPIs (grid 2×2 / 4 cols)
 → Barra contexto (proyecto, etc.)     [tiempo: obligatorio proyecto]
-→ BulkSelectionBar (si hay selección)  [ver 12-table-selection-bulk.mdc]
-→ TableFilterSection (barra filtros externa)
+→ TableFilterSection: filtros + `BulkActionButtons` (misma franja; acciones solo en pendientes)
 → Card (tabs + tabla + paginación)
 ```
 
-- Bulk actions vía `BulkSelectionBar` fuera del Card (`Button success` / `Button danger`)
+- **Una sola barra** fuera del Card: `Filtrar por` a la izquierda, Aprobar/Rechazar a la derecha (`BulkActionButtons`).
+- Pendientes **sin** columna Acciones: el checkbox marca la selección.
 - Filtros **nunca** en `<th>`; headers planos (`dataTh`).
-- Tab Resueltas: columna Estado disponible en filtros; al volver a Pendientes quitar filtro `estado`.
+- Tab Resueltas: columna Estado disponible en filtros; al volver a Pendientes quitar filtro `estado`. Acción **Anular** solo en tiempo.
 
 ## Barra de filtros (FilterChainRow)
 
@@ -78,9 +78,10 @@ Ver **`02-design-system.mdc` § Campos de fecha** (clases `ds-date-picker-*`, `D
 ## Tabla
 
 - Hover fila: `hover:bg-[#fafbfc]`
-- **Celdas:** `dataTd` / `dataTdNumeric` en ambas tabs (misma altura y `align-middle`); línea secundaria apilada `text-[11px] text-[#9ca3af]`
+- **Celdas:** `dataTd` / `dataTdNumeric` en ambas tabs (misma altura y `align-middle`); un valor por columna, hueco `—` (no apilar “ver empleados” / cédula bajo el nombre)
+- **Drill:** `TableDrillLink` en toda la clave de proyecto o todo el nombre del empleado. Checkbox = lote; enlace = entrar. Ver `02-design-system.mdc` § Tablas → drill.
 - Paginación: `TABLE_PAGE_SIZE` (50)
-- Acciones inline fila: `TableAproIconButton` 30×30px (ver `12-table-selection-bulk.mdc`)
+- Acciones en lote: `BulkSelectionBar` (botones Aprobar/Rechazar; deshabilitados sin selección)
 - Sin shadow en barra ni popovers de filtro
 - **Columnas numéricas** (horas, etc.): header `text-center`, celda `dataTdNumeric` / `dataTdResNumeric`
 

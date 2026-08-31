@@ -20,7 +20,12 @@ import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import { useToast } from "@/src/components/ui/Toast";
 import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
 import { useAsyncAction } from "@/src/lib/use-async-action";
-import { horasNum, type HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
+import {
+  horasNum,
+  proyKey,
+  proyNombre,
+  type HojaAprobacion,
+} from "@/src/lib/aprobacion-tiempo-mock";
 
 type AprobacionDetalleProps = {
   hoja: HojaAprobacion;
@@ -28,6 +33,9 @@ type AprobacionDetalleProps = {
   onAprobar: (comentario?: string) => void;
   onRechazar: (comentario: string) => void;
   onAnular?: () => void;
+  parentLabel?: string;
+  /** `panel`: dentro del Card de la tabla, mismo px que las celdas. */
+  variant?: "page" | "panel";
 };
 
 function getTiempoEventBanner(hoja: HojaAprobacion): RecordEventBanner | null {
@@ -45,6 +53,8 @@ export function AprobacionDetalle({
   onAprobar,
   onRechazar,
   onAnular,
+  parentLabel = "Aprobación de Hoja de Tiempo",
+  variant = "page",
 }: AprobacionDetalleProps) {
   const [comentario, setComentario] = useState(hoja.comentarioApro || "");
   const [error, setError] = useState("");
@@ -67,10 +77,79 @@ export function AprobacionDetalle({
   const { loading: rechazando, run: runRechazar } =
     useAsyncAction(handleRechazar);
 
+  const proyCodigo = proyKey(hoja.proy) || hoja.proy;
+  const proyNombreTxt = proyNombre(hoja.proy);
+
+  const campos = (
+    <DetailGrid>
+      <ReadOnlyField label="Fecha">{hoja.fecha}</ReadOnlyField>
+      <ReadOnlyField label="Tipo de hora">
+        <TipoHoraPill tipo={hoja.tipo} />
+      </ReadOnlyField>
+      <ReadOnlyField label="Horas reportadas" highlight>
+        {horasNum(hoja.horas)}
+      </ReadOnlyField>
+      <ReadOnlyField label="Proyecto" className="md:col-span-2">
+        <span className="block truncate">{proyCodigo}</span>
+        {proyNombreTxt ? (
+          <span className="block truncate text-[11px] font-normal text-[#9ca3af]">
+            {proyNombreTxt}
+          </span>
+        ) : null}
+      </ReadOnlyField>
+      <ReadOnlyField label="Subproyecto">{hoja.subproy || "—"}</ReadOnlyField>
+      <ReadOnlyField label="Actividad">{hoja.actividad}</ReadOnlyField>
+      <ReadOnlyField label="Cédula">{hoja.cedula}</ReadOnlyField>
+      <ReadOnlyField label="Nombre">{hoja.nombre}</ReadOnlyField>
+      <ReadOnlyBlock label="Comentario del empleado">
+        {hoja.comentarioEmpleado || "—"}
+      </ReadOnlyBlock>
+    </DetailGrid>
+  );
+
+  const accion = !resuelto ? (
+    <GerenteAccionBar
+      comentario={comentario}
+      onComentarioChange={(value) => {
+        setComentario(value);
+        if (error) setError("");
+      }}
+      error={error}
+      onRechazar={() => void runRechazar()}
+      onAprobar={() => onAprobar(comentario.trim() || undefined)}
+      loadingRechazar={rechazando}
+      hint="Al aprobar, las horas quedan confirmadas en IFS. Esta acción no se puede deshacer."
+      placeholder="Ej: Horas conformes / Rechazado — excede horas autorizadas"
+    />
+  ) : resuelto && onAnular ? (
+    <div className="flex items-center justify-between gap-2">
+      <EstadoTiempoPill estado={estadoPill} />
+      <Button variant="tertiary" onClick={onAnular}>
+        <Icon name="undo" size="xs" />
+        Anular decisión
+      </Button>
+    </div>
+  ) : null;
+
+  if (variant === "panel") {
+    return (
+      <div className="px-2 py-3">
+        {muestraSolicitante ? (
+          <p className="mb-3 text-[12px] leading-snug text-muted">
+            Reportado por{" "}
+            <span className="font-semibold text-[#374151]">{hoja.solicitante}</span>
+          </p>
+        ) : null}
+        {accion ? <div className="mb-3">{accion}</div> : null}
+        {campos}
+      </div>
+    );
+  }
+
   return (
-    <div className="content-standard max-md:pb-24">
+    <div className="view-wide max-md:pb-24">
       <RecordDetailHeader
-        parentLabel="Aprobación de Hoja de Tiempo"
+        parentLabel={parentLabel}
         codigo={hoja.no}
         nombre={hoja.nombre}
         estado={estadoPill}
@@ -90,27 +169,13 @@ export function AprobacionDetalle({
 
       {!resuelto && (
         <Card className="mb-3 border-[#c7d9ed] bg-[#fafcff]">
-          <CardBody className="py-3">
-            <GerenteAccionBar
-              comentario={comentario}
-              onComentarioChange={(value) => {
-                setComentario(value);
-                if (error) setError("");
-              }}
-              error={error}
-              onRechazar={() => void runRechazar()}
-              onAprobar={() => onAprobar(comentario.trim() || undefined)}
-              loadingRechazar={rechazando}
-              hint="Al aprobar, las horas quedan confirmadas en IFS. Esta acción no se puede deshacer."
-              placeholder="Ej: Horas conformes / Rechazado — excede horas autorizadas"
-            />
-          </CardBody>
+          <CardBody className="py-3">{accion}</CardBody>
         </Card>
       )}
 
       <Card className="mb-3 overflow-visible">
         <CardBody className="py-4">
-          <DetailSection icon="userCircle" title="Empleado y registro">
+          <DetailSection icon="userCircle" title="Registro">
             {muestraSolicitante && (
               <p className="mb-3 text-[12px] leading-snug text-muted">
                 Reportado por{" "}
@@ -119,40 +184,7 @@ export function AprobacionDetalle({
                 </span>
               </p>
             )}
-            <DetailGrid>
-              <ReadOnlyField label="Fecha del registro">
-                {hoja.fecha}
-              </ReadOnlyField>
-              <ReadOnlyField label="Proyecto">{hoja.proy}</ReadOnlyField>
-              <ReadOnlyField label="Subproyecto">
-                {hoja.subproy || "—"}
-              </ReadOnlyField>
-            </DetailGrid>
-            <DetailGrid className="mt-3">
-              <ReadOnlyField label="Actividad">{hoja.actividad}</ReadOnlyField>
-              <ReadOnlyField label="Cédula">{hoja.cedula}</ReadOnlyField>
-              <ReadOnlyField label="Nombre">{hoja.nombre}</ReadOnlyField>
-            </DetailGrid>
-          </DetailSection>
-        </CardBody>
-      </Card>
-
-      <Card className="mb-3 overflow-visible">
-        <CardBody className="py-4">
-          <DetailSection icon="clock" title="Tipo y horas reportadas">
-            <DetailGrid>
-              <ReadOnlyField label="Tipo de hora">
-                <TipoHoraPill tipo={hoja.tipo} />
-              </ReadOnlyField>
-              <ReadOnlyField label="Horas reportadas" highlight>
-                {hoja.horas}
-              </ReadOnlyField>
-            </DetailGrid>
-            <DetailGrid className="mt-3">
-              <ReadOnlyBlock label="Comentario del empleado">
-                {hoja.comentarioEmpleado || "—"}
-              </ReadOnlyBlock>
-            </DetailGrid>
+            {campos}
           </DetailSection>
         </CardBody>
       </Card>
@@ -168,5 +200,5 @@ export function horasLabel(
     const h = getHoja(no);
     return a + (h ? horasNum(h.horas) : 0);
   }, 0);
-  return `${Math.round(total * 10) / 10}h`;
+  return String(Math.round(total * 10) / 10);
 }

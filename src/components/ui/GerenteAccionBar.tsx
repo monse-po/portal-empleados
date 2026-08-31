@@ -47,9 +47,9 @@ export function GerenteAccionBar({
           onChange={(e) => onComentarioChange(e.target.value)}
           placeholder={placeholder}
           disabled={busy}
-          className={`h-9 min-w-0 flex-1 rounded-[5px] border bg-white px-2.5 text-[13px] focus:border-navy focus:outline-none disabled:opacity-60 ${error ? "border-red bg-[#fff5f5]" : "border-border"}`}
+          className={`h-9 min-w-0 flex-1 rounded-[5px] border bg-white px-2.5 text-[13px] leading-none focus:border-navy focus:outline-none disabled:opacity-60 ${error ? "border-red bg-[#fff5f5]" : "border-border"}`}
         />
-        <FloatingActions>
+        <FloatingActions className="flex items-center">
           <Button
             variant="danger"
             className="shrink-0"

@@ -29,8 +29,8 @@ function NavItem({ label, href, icon, count, active, collapsed }: NavItemProps) 
     <Link
       href={href}
       title={collapsed ? `${label}${count ? ` (${count})` : ""}` : undefined}
-      className={`relative mb-0.5 flex w-full cursor-pointer items-center gap-2.5 rounded-sm text-left text-[12.5px] transition-colors duration-[120ms] ${
-        collapsed ? "justify-center px-0 py-2.5" : "px-3.5 py-[9px]"
+      className={`relative mb-0.5 flex w-full cursor-pointer items-center gap-2 rounded-sm text-left text-[12.5px] transition-colors duration-[120ms] ${
+        collapsed ? "justify-center px-0 py-2.5" : "px-3 py-[9px]"
       } ${
         active
           ? "bg-[#eef3f9] font-semibold text-navy"
@@ -40,15 +40,17 @@ function NavItem({ label, href, icon, count, active, collapsed }: NavItemProps) 
       <Icon
         name={icon}
         size="md"
-        className={`w-5 text-center ${active ? "text-navy" : "text-muted"}`}
+        className={`w-5 shrink-0 text-center ${active ? "text-navy" : "text-muted"}`}
       />
-      {!collapsed && <span className="flex-1">{label}</span>}
+      {!collapsed && (
+        <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span>
+      )}
       {count !== undefined && count > 0 && (
         <span
-          className={`inline-flex items-center rounded-full bg-[#dbeafe] font-semibold text-[#1d4ed8] ${
+          className={`inline-flex shrink-0 items-center rounded-full bg-[#dbeafe] font-semibold tabular-nums text-[#1d4ed8] ${
             collapsed
               ? "absolute -right-0.5 -top-0.5 h-4 min-w-4 justify-center px-1 text-[9px]"
-              : "ml-auto px-[7px] py-0.5 text-[10px]"
+              : "px-[7px] py-0.5 text-[10px]"
           }`}
         >
           {collapsed && count > 9 ? "9+" : count}
@@ -79,8 +81,12 @@ function usePendingCount(path: string): number | undefined {
   const aprobacionLegalizaciones = useAprobacionLegalizacionesOptional();
 
   let count = 0;
-  if (path === "/aprobacion-tiempo") count = aprobacion?.pendientesCount ?? 0;
-  else if (path === "/aprobacion-anticipos") {
+  if (
+    path === "/aprobacion-tiempo-proyectos" ||
+    path === "/aprobacion-tiempo"
+  ) {
+    count = aprobacion?.pendientesCount ?? 0;
+  } else if (path === "/aprobacion-anticipos") {
     count = aprobacionAnticipos?.pendientesCount ?? 0;
   } else if (path === "/aprobacion-legalizaciones") {
     count = aprobacionLegalizaciones?.pendientesCount ?? 0;
@@ -120,10 +126,10 @@ export function Sidebar() {
   const modules = getVisibleModules();
 
   const gerenteRoutes = modules.flatMap((m) =>
-    m.routes.filter((r) => r.rol === "gerente"),
+    m.routes.filter((r) => r.rol === "gerente" && !r.navHidden),
   );
   const empleadoRoutes = modules.flatMap((m) =>
-    m.routes.filter((r) => r.rol === "empleado"),
+    m.routes.filter((r) => r.rol === "empleado" && !r.navHidden),
   );
 
   return (
@@ -132,6 +138,14 @@ export function Sidebar() {
         collapsed ? "w-[52px] px-1.5" : "w-[220px] px-2.5"
       }`}
     >
+      <NavItem
+        label="Inicio"
+        href="/inicio"
+        icon="home"
+        collapsed={collapsed}
+        active={pathname === "/inicio"}
+      />
+
       {empleadoRoutes.length > 0 && (
         <>
           <NavSectionLabel collapsed={collapsed}>Mis solicitudes</NavSectionLabel>

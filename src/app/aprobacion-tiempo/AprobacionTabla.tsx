@@ -12,14 +12,12 @@ import {
   APRO_RES_COLS,
   DataTable,
   dataTd,
-  dataTdAction,
   dataTdCheck,
   dataTdClamp,
   dataTdNumeric,
   dataTdResAction,
   dataTdTruncate,
   dataTh,
-  dataThAction,
   dataThCheck,
   dataThResAction,
   dataThWithAlign,
@@ -43,8 +41,6 @@ type AprobacionTablaProps = {
   totalBase: number;
   hasFilters: boolean;
   onOpenDetalle: (no: string) => void;
-  onRechazar: (nos: string[]) => void;
-  onAprobar: (nos: string[]) => void;
 };
 
 export function AprobacionTabla({
@@ -52,8 +48,6 @@ export function AprobacionTabla({
   totalBase,
   hasFilters,
   onOpenDetalle,
-  onRechazar,
-  onAprobar,
 }: AprobacionTablaProps) {
   const { tab, seleccion, toggleSeleccion, toggleSeleccionLote, anular } =
     useAprobacion();
@@ -153,26 +147,6 @@ export function AprobacionTabla({
       <td className={`${dataTd} text-muted`}>
         <div className={dataTdClamp}>{s.comentarioEmpleado || "—"}</div>
       </td>
-      <td className={dataTdAction} onClick={(e) => e.stopPropagation()}>
-        <TableActionWrap>
-          <TableAproIconButton
-            variant="ok"
-            title="Aprobar"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAprobar([s.no]);
-            }}
-          />
-          <TableAproIconButton
-            variant="no"
-            title="Rechazar"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRechazar([s.no]);
-            }}
-          />
-        </TableActionWrap>
-      </td>
     </tr>
   );
 
@@ -263,7 +237,6 @@ export function AprobacionTabla({
                     {col}
                   </th>
                 ))}
-                <th className={dataThAction}>Acciones</th>
               </>
             ) : (
               <>

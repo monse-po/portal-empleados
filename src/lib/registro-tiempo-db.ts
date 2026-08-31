@@ -23,7 +23,6 @@ export function dayRange(fecha: string) {
 export function estadoDbToUi(estado: RegistroEstadoDb): RegistroEstado {
   switch (estado) {
     case RegistroEstadoDb.REGISTRADO:
-      return "Borrador";
     case RegistroEstadoDb.EN_REVISION:
       return "Registrado";
     case RegistroEstadoDb.APROBADO:
@@ -31,14 +30,12 @@ export function estadoDbToUi(estado: RegistroEstadoDb): RegistroEstado {
     case RegistroEstadoDb.RECHAZADO:
       return "Rechazado";
     default:
-      return "Borrador";
+      return "Registrado";
   }
 }
 
 export function estadoUiToDb(estado: RegistroEstado): RegistroEstadoDb {
   switch (estado) {
-    case "Borrador":
-      return RegistroEstadoDb.REGISTRADO;
     case "Registrado":
     case "Lanzado":
       return RegistroEstadoDb.EN_REVISION;
@@ -47,7 +44,7 @@ export function estadoUiToDb(estado: RegistroEstado): RegistroEstadoDb {
     case "Rechazado":
       return RegistroEstadoDb.RECHAZADO;
     default:
-      return RegistroEstadoDb.REGISTRADO;
+      return RegistroEstadoDb.EN_REVISION;
   }
 }
 

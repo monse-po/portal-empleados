@@ -29,6 +29,7 @@ import {
   type HorasProyectoAprobacion,
 } from "@/src/lib/ifs/tiempo-approval";
 import {
+  parseEmpReportItems,
   extractEmpTimeDeleteErrors,
   extractEmpTimeRegErrors,
   extractEmpTimeUpdateErrors,
@@ -312,7 +313,10 @@ export async function enviarDiaAction(fecha: string): Promise<EnviarDiaResult> {
   return enviarFechasAction([fecha]);
 }
 
-/** Envía borradores locales de uno o varios días en un solo paso (rango estable 8–5). */
+/**
+ * Legacy: reenvía filas Neon aún en REGISTRADO (pre-IFS).
+ * El flujo normal ya registra directo en IFS al guardar (estado Registrado).
+ */
 export async function enviarFechasAction(
   fechas: string[],
 ): Promise<EnviarDiaResult> {
@@ -349,7 +353,7 @@ export async function enviarFechasAction(
     return { enviados: [], sentToIfs: false };
   }
 
-  const borradores = rows.map(toRegistroMock);
+  const locales = rows.map(toRegistroMock);
   const ifsSession = await getServerIfsSession();
   let sentToIfs = false;
   let ifsMatches: RegistroMock[] = [];
@@ -357,7 +361,7 @@ export async function enviarFechasAction(
 
   if (ifsSession) {
     try {
-      const payload = mapRegistrosToEmpTimeReg(borradores);
+      const payload = mapRegistrosToEmpTimeReg(locales);
       const raw = await withIfsPortalSession((ifs) =>
         registerTimeEntries(ifs, payload),
       );
@@ -377,7 +381,7 @@ export async function enviarFechasAction(
           getEmployeeTimesheetForEmp(ifs, getIfsTargetEmpNo()),
         );
         ifsMatches = findIfsMatchesForLocal(
-          borradores,
+          locales,
           mapEmployeeTimesheetToRegistros(sheet, getIfsTargetEmpNo()),
         );
       } catch {
@@ -416,7 +420,7 @@ export async function enviarFechasAction(
 
   const enviadosBase: RegistroMock[] = ifsVisible
     ? ifsMatches.map((r) => ({ ...r, estado: "Registrado" as const }))
-    : borradores.map((reg) => ({ ...reg, estado: "Registrado" as const }));
+    : locales.map((reg) => ({ ...reg, estado: "Registrado" as const }));
 
   if (sentToIfs && ifsVisible) {
     try {

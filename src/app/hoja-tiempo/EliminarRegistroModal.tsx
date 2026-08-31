@@ -7,6 +7,7 @@ import { EstadoTiempoPill } from "@/src/components/ui/Pill";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import { formatProyectoEmpleado } from "@/src/lib/tiempo-bridge";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 type EliminarRegistroModalProps = {
   open: boolean;
@@ -63,7 +64,7 @@ export function EliminarRegistroModal({
                 <dt className="text-[11px] font-medium text-muted">Tipo / Horas</dt>
                 <dd className="flex flex-wrap items-center gap-2">
                   <TipoHoraPill tipo={registro.tipo} />
-                  <span className="font-semibold">{registro.horas}h</span>
+                  <span className="font-semibold">{formatHorasValor(registro.horas)}</span>
                 </dd>
               </div>
               <div>

@@ -39,9 +39,9 @@ export function AprobacionView() {
 
   const refrescarBandeja = async () => {
     const result = await getHojasPendientesAprobacionAction();
+    setIfsWarning(result.warning ?? null);
     syncPendientesDesdeDb(result.hojas);
     setFromIfs(result.fromIfs);
-    setIfsWarning(result.warning ?? null);
     if (result.warning) toast(result.warning, "warn");
   };
 
@@ -57,9 +57,9 @@ export function AprobacionView() {
     void getHojasPendientesAprobacionAction()
       .then((result) => {
         if (cancelled) return;
+        setIfsWarning(result.warning ?? null);
         syncPendientesDesdeDb(result.hojas);
         setFromIfs(result.fromIfs);
-        setIfsWarning(result.warning ?? null);
         if (result.warning) {
           toast(result.warning, "warn");
         }

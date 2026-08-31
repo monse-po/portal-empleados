@@ -1,0 +1,49 @@
+---
+description: Si una regla o catálogo ya existe en IFS, IFS tiene prioridad sobre mocks y lógica local del portal
+alwaysApply: true
+---
+
+# IFS tiene prioridad
+
+Cuando una regla de negocio, tope, catálogo o lista de valores **ya está definida en IFS**, el portal **no la reinventar** ni la sustituye con mock, hardcode o heurísticas locales.
+
+## Prioridad
+
+1. **IFS** (LOV, ScheduleHours, estados, códigos, validaciones del ERP)
+2. Configuración de sistema del portal (solo si IFS no trae valor)
+3. Fallback / mock (solo demo, sin sesión, o dato ausente) — nunca como verdad de negocio si IFS ya respondió
+
+## Hacer
+
+- **Priorizar la regla que ya aplica IFS y ya.** El portal la respeta; no la reinterpreta ni añade filtros “por si acaso”.
+- Usar lo que IFS devolvió (tipos, proyectos, tope del día, aprobador, etc.).
+- UX mínima acordada (ocultar DN si jornada completa / sin jornada): filtrar **sobre el LOV IFS**, sin inventar códigos.
+
+## Tipos de hora (LOV)
+
+- Fuente: **`GetValidActReportCode`** (actividad + fecha).
+- **El usuario elige** el tipo entre lo que IFS desplegó. No hay regla portal del tipo “sábado → Extra Diurna”.
+- No filtrar en portal “festivas solo en festivo” u otras subclassificaciones **hasta que negocio lo pida**; si IFS manda varias extras, se muestran.
+- Único filtro portal acordado hoy: ocultar **diurnas normales (DN)** cuando no hay jornada o la jornada DN ya está completa.
+
+## No hacer
+
+- Sustituir un LOV IFS por catálogos mock locales “completos”.
+- Hardcodear topes (ej. 8.5 h) cuando IFS ya expone ScheduleHours / HoursSummary.
+- Autoseleccionar o concatenar tipo según día de la semana.
+- Duplicar en el portal una regla que el ERP ya aplica, salvo UX (avisos, filtros) que respete el mismo criterio.
+
+## Mensajes de error (empleados de planta)
+
+- Textos **cortos y accionables** (qué hacer). Evitar códigos IFS (`COTCANREP…`, ORA-…).
+- Si es **regla de HQ** (fecha vencida, sin extras en actividad, tope): explicar eso; **no** mandar a TI.
+- Mencionar TI / soporte solo en fallos técnicos reales (sesión, caída de servicio).
+
+## Ejemplos
+
+| Caso | Correcto | Incorrecto |
+|------|----------|------------|
+| Tipos de hora | LOV IFS de la actividad; filtrar DN si aplica | Lista fija `TIPO_HORA` inventada en el selector |
+| Tope diarias | `GetHoursSummary` / ScheduleHours del día | Constante 8.5 si IFS ya mandó el tope |
+| Proyectos / actividades | Catálogo IFS del empleado | Mock de proyectos cuando hay sesión IFS válida |
+| Fecha vencida (cutoff) | “Esa fecha ya no admite horas extras. Elige una más reciente.” | Pegar `CEmpOverTimeCutOff…` o “pide a TI” |

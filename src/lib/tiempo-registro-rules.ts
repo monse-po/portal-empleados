@@ -1,18 +1,4 @@
 import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
-import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";
-
-/** Borrador: guardado en el día, aún no enviado a aprobación. */
-export function isRegistroBorrador(estado: RegistroEstado): boolean {
-  return estado === "Borrador";
-}
-
-/**
- * Borrador local enviable con EmpPortalTimeRegList.
- * Filas ifs-pt-* ya viven en IFS (no se reenvían como borrador Neon).
- */
-export function isBorradorEnviable(reg: RegistroMock): boolean {
-  return isRegistroBorrador(reg.estado) && !isIfsRegistroId(reg.id);
-}
 
 /** Registrado: ya está en IFS; el aprobador aún no confirma. */
 export function isRegistroEnviado(estado: RegistroEstado): boolean {
@@ -29,41 +15,36 @@ export function isRegistroEliminable(estado: RegistroEstado): boolean {
   return isRegistroEditable(estado);
 }
 
-export function hayRegistrosBorrador(registros: RegistroMock[]): boolean {
-  return registros.some((r) => isRegistroBorrador(r.estado));
-}
-
-/** Hay al menos un borrador local que se puede enviar a IFS/aprobación. */
-export function hayBorradoresEnviables(registros: RegistroMock[]): boolean {
-  return registros.some(isBorradorEnviable);
-}
-
 export function labelEstadoRegistro(estado: RegistroEstado): string {
   if (estado === "Lanzado") return "Registrado";
   return estado;
 }
 
-/** Normaliza etiquetas legacy: Lanzado / En revisión → Registrado (en IFS). */
+/** Normaliza etiquetas legacy (Borrador / Lanzado / En revisión → Registrado). */
 export function normalizeRegistroEstado(estado: string): RegistroEstado {
-  if (estado === "En revisión" || estado === "Lanzado") return "Registrado";
-  if (estado === "Nuevo") return "Borrador";
   if (
-    estado === "Borrador" ||
+    estado === "En revisión" ||
+    estado === "Lanzado" ||
+    estado === "Nuevo" ||
+    estado === "Borrador"
+  ) {
+    return "Registrado";
+  }
+  if (
     estado === "Registrado" ||
     estado === "Aprobado" ||
     estado === "Rechazado"
   ) {
     return estado;
   }
-  return "Borrador";
+  return "Registrado";
 }
 
 const ORDEN_ESTADO_LISTA: Record<RegistroEstado, number> = {
-  Borrador: 0,
-  Registrado: 1,
-  Lanzado: 1,
-  Rechazado: 2,
-  Aprobado: 3,
+  Registrado: 0,
+  Lanzado: 0,
+  Rechazado: 1,
+  Aprobado: 2,
 };
 
 export function compareRegistrosLista(a: RegistroMock, b: RegistroMock): number {

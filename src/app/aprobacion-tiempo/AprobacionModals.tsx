@@ -130,7 +130,7 @@ export function AnularModal({
     >
       <p className="mb-4 text-[13px] text-[#374151]">
         Al anular, el registro sale de la cola de aprobación y vuelve a
-        borrador en Mi Tiempo. El empleado debe reenviarlo si aplica.
+        Registrado en Mi Tiempo. El empleado puede editarlo de nuevo.
       </p>
       <div className="space-y-2 rounded-lg border border-border bg-[#f8fafc] px-4 py-3 text-[12.5px]">
         <div className="flex justify-between gap-4">

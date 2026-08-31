@@ -40,18 +40,20 @@ export function ReadOnlyField({
   label,
   children,
   highlight,
+  className = "",
 }: {
   label: string;
   children: React.ReactNode;
   highlight?: boolean;
+  className?: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div className={`flex min-w-0 flex-col gap-1.5 ${className}`.trim()}>
       <span className="text-[12px] font-semibold text-[#374151]">{label}</span>
       <div
-        className={`flex min-h-9 items-center rounded-[5px] border border-border bg-[#f3f4f6] px-2.5 text-[13px] text-[#374151] ${highlight ? "font-bold text-navy" : ""}`}
+        className={`flex min-h-9 w-full items-center overflow-hidden rounded-[5px] border border-border bg-[#f3f4f6] px-2.5 py-1.5 text-[13px] leading-snug break-words text-[#374151] ${highlight ? "font-bold text-navy" : ""}`}
       >
-        {children}
+        <div className="min-w-0 w-full">{children}</div>
       </div>
     </div>
   );

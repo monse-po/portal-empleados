@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { MiTiempoDia } from "@/src/app/hoja-tiempo/MiTiempoDia";
 import { MiTiempoLista } from "@/src/app/hoja-tiempo/MiTiempoLista";
@@ -10,6 +10,7 @@ import { RegistrarHorasModal } from "@/src/app/hoja-tiempo/RegistrarHorasModal";
 import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
 import { LOADING_COPY, loadingPlaceholder } from "@/src/lib/copy/loading";
 import { useAsyncAction } from "@/src/lib/use-async-action";
+import { recientePorId } from "@/src/lib/recientes-dummy";
 
 type Vista = "lista" | "dia";
 
@@ -37,6 +38,7 @@ export function MiTiempoView() {
     ifsConnected,
     ifsEmail,
     reloadRegistros,
+    openRegistrarModal,
   } = useMiTiempo();
   const { loading: retrying, run: retryLoad } = useAsyncAction(reloadRegistros);
   const [vista, setVista] = useState<Vista>("lista");
@@ -51,6 +53,20 @@ export function MiTiempoView() {
     setEsHistorial(fromHistorial);
     setVista("dia");
   };
+
+  const repetirQueryOpened = useRef(false);
+  useEffect(() => {
+    if (!registrosLoaded || repetirQueryOpened.current) return;
+    const id = new URLSearchParams(window.location.search).get("repetir");
+    if (!id) return;
+    const item = recientePorId(id);
+    if (!item?.tiempo) return;
+    repetirQueryOpened.current = true;
+    openRegistrarModal({
+      plantilla: item.tiempo,
+      origen: "lista",
+    });
+  }, [registrosLoaded, openRegistrarModal]);
 
   const handleVolver = useCallback(() => {
     setVista("lista");

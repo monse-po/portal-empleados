@@ -25,7 +25,7 @@ import { NotificationProvider } from "@/src/components/notifications/Notificatio
 import { anticipoToAprobacion } from "@/src/lib/anticipos-bridge";
 import type { SyncAnticipoHandler } from "@/src/lib/anticipos-bridge";
 import type { SyncRegistroHandler } from "@/src/lib/tiempo-bridge";
-import { getFocusModule } from "@/src/lib/modules";
+import { getFocusModules } from "@/src/lib/modules";
 
 function MiTiempoBridge({
   children,
@@ -145,7 +145,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
     [],
   );
 
-  const tiempoOnly = getFocusModule() === "tiempo";
+  const focus = getFocusModules();
+  const tiempoOnly = focus?.length === 1 && focus[0] === "tiempo";
   const tiempoTree = (
     <NotificationProvider>
       <AprobacionProvider onSyncRegistro={onSyncRegistro}>

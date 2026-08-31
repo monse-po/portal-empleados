@@ -151,7 +151,7 @@ const DECISION_META: Record<
     tipo: NOTIF_TIPO_TIEMPO_ANULADO,
     titulo: "Aprobación anulada",
     verb: "anulado",
-    suffix: " · vuelve a borrador; debes reenviar",
+    suffix: " · vuelve a Registrado; puedes editarlo",
   },
 };
 

@@ -57,7 +57,7 @@ export function PortalSubpageHeader({
               </button>
             )}
             <h1
-              className={`min-w-0 text-xl font-bold max-md:flex-1 max-md:truncate max-md:whitespace-nowrap max-md:text-center max-md:text-[17px] ${
+              className={`min-w-0 text-2xl font-bold max-md:flex-1 max-md:truncate max-md:whitespace-nowrap max-md:text-center max-md:text-[18px] ${
                 onDiaAnterior || onDiaSiguiente ? "text-navy" : "text-[#111]"
               }`}
             >

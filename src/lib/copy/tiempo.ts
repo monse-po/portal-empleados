@@ -9,10 +9,24 @@ export const TIEMPO_UI_COPY = {
   selectActivityFirst: "Elige actividad primero",
   selectHourType: "Seleccionar...",
   tipoHoraProgramaHint: "Los tipos disponibles dependen de tu programa de trabajo.",
+  /** Banner corto cuando las diurnas normales del día ya están en el tope. */
+  jornadaCompletaSoloExtras: "Jornada completa · solo extras",
+  horasPlaceholderSinTope: "Ej. 0.5",
+  /** Ayuda fija: IFS usa DayHours decimal. */
+  horasAyudaDecimales: "0.25 = 15 min · 0.5 = 30 min · 1 = 1 h",
+  /** Sin sesión IFS y el día ya no admite diurnas normales. */
+  selectHourTypeNeedsIfs: "Entra con IFS para ver extras",
+  /** LOV IFS vacío (error o actividad sin códigos). */
+  selectHourTypeVacioIfs: "IFS no devolvió tipos para esta actividad",
+  /**
+   * El LOV IFS de la actividad solo trae diurnas normales (DN).
+   * Con jornada completa no hay extras que ofrecer.
+   */
+  selectHourTypeSoloDnIfs:
+    "Esta actividad solo tiene DN en IFS · no hay extras",
   searchProject: "Buscar proyecto...",
   searchSubproject: "Buscar subproyecto...",
   searchActivity: "Buscar actividad...",
-  estadoBorrador: "Borrador",
   estadoRegistrado: "Registrado",
   estadoLanzado: "Registrado",
   guardar: "Guardar",
@@ -25,8 +39,6 @@ export const TIEMPO_UI_COPY = {
   verDia: "Ver día",
   verDetalleDia: "Ver detalle del día",
   filaEditableHint: "Clic en fila para editar",
-  diaBorradoresPendientes:
-    "Quedan borradores locales. Envíalos a IFS para que queden Registrados.",
   toastRegistroGuardado: "Cambios enviados a IFS",
   toastRegistroNuevo:
     "Registro enviado a IFS · Registrado. Puedes modificarlo mientras no esté aprobado.",
@@ -37,9 +49,13 @@ export const TIEMPO_UI_COPY = {
       ? "Registro enviado a IFS · Registrado"
       : `${count} días enviados a IFS · Registrado`,
   guardarRango: (count: number) =>
-    count <= 1 ? "Guardar en IFS" : `Guardar ${count} días en IFS`,
+    count <= 1
+      ? "Enviar a aprobación"
+      : `Enviar ${count} días a aprobación`,
   guardarYEnviar: (count: number) =>
-    count <= 1 ? "Guardar en IFS" : `Guardar ${count} días en IFS`,
+    count <= 1
+      ? "Enviar a aprobación"
+      : `Enviar ${count} días a aprobación`,
   ifsCatalogError: {
     sessionExpired: (detail: string) =>
       `Tu sesión con IFS expiró (${detail}).`,

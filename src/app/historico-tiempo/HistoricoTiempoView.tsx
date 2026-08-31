@@ -25,7 +25,6 @@ import {
   formatHistoricoRango,
   getHistoricoResumenPorProyectoSub,
   getRegistrosHistoricoAprobados,
-  HISTORICO_DUMMY_REGISTROS,
   nombresProyectoFromCatalog,
   openKeysFromCatalog,
 } from "@/src/lib/historico-tiempo";
@@ -85,9 +84,7 @@ export function HistoricoTiempoView() {
     () => getRegistrosHistoricoAprobados(registros),
     [registros],
   );
-  const usandoDummy =
-    reales.length === 0 && !ifsConnected && !registrosFromIfs;
-  const aprobados = usandoDummy ? HISTORICO_DUMMY_REGISTROS : reales;
+  const aprobados = reales;
   const filtrados = useMemo(
     () => applyHistoricoFilters(aprobados, filters),
     [aprobados, filters],
@@ -95,10 +92,10 @@ export function HistoricoTiempoView() {
   const filas = useMemo(
     () =>
       getHistoricoResumenPorProyectoSub(filtrados, {
-        openKeys: usandoDummy ? undefined : openKeys,
+        openKeys,
         nombresPorProy,
       }),
-    [filtrados, openKeys, nombresPorProy, usandoDummy],
+    [filtrados, openKeys, nombresPorProy],
   );
   const totalHoras = useMemo(
     () => filas.reduce((s, r) => s + r.totalHoras, 0),
@@ -127,12 +124,6 @@ export function HistoricoTiempoView() {
         {registrosIfsWarning ? (
           <p className="alert-warn mt-2 px-3 py-2 text-sm">{registrosIfsWarning}</p>
         ) : null}
-        {usandoDummy && (
-          <p className="mt-2 inline-flex rounded-md border border-[#fde68a] bg-[#fffbeb] px-2.5 py-1 text-[11px] font-medium text-[#92400e]">
-            Datos de ejemplo — entra con IFS para ver tu hoja real
-            (GetEmployeeTimesheet)
-          </p>
-        )}
         {ifsConnected && reales.length === 0 && !registrosIfsWarning && (
           <p className="mt-2 inline-flex rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-2.5 py-1 text-[11px] font-medium text-navy">
             Hoja IFS conectada · aún no hay horas enviadas o aprobadas
@@ -152,7 +143,7 @@ export function HistoricoTiempoView() {
           onChange={setFilters}
           shown={filas.length}
           total={getHistoricoResumenPorProyectoSub(aprobados, {
-            openKeys: usandoDummy ? undefined : openKeys,
+            openKeys,
             nombresPorProy,
           }).length}
         />
@@ -183,7 +174,7 @@ export function HistoricoTiempoView() {
                   <br />
                   <span className="mt-1 inline-block text-[12px]">
                     Aparecen aquí cuando quedan Registrados en IFS o cuando ya
-                    están aprobados. Los borradores no entran.
+                    están aprobados.
                   </span>
                 </>
               ) : (
@@ -223,7 +214,7 @@ export function HistoricoTiempoView() {
                     <td className={`${dataTd} ${dataTdTruncate}`}>{r.subproy}</td>
                     <td className={dataTdNumeric}>
                       <span className="font-semibold text-navy">
-                        {formatHorasTotal(r.totalHoras)}h
+                        {formatHorasTotal(r.totalHoras)}
                       </span>
                     </td>
                     <td className={`${dataTd} text-muted`}>

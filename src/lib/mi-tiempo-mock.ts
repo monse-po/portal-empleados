@@ -1,5 +1,4 @@
 export type RegistroEstado =
-  | "Borrador"
   | "Registrado"
   | "Lanzado"
   | "Aprobado"
@@ -101,25 +100,8 @@ export const JER_TIEMPO: Record<string, JerTiempoEntry> = {
   },
 };
 
-export const HORAS_OPTIONS: { value: number; label: string }[] = [
-  { value: 0.5, label: "0:30 h" },
-  { value: 1, label: "1:00 h" },
-  { value: 1.5, label: "1:30 h" },
-  { value: 2, label: "2:00 h" },
-  { value: 2.5, label: "2:30 h" },
-  { value: 3, label: "3:00 h" },
-  { value: 3.5, label: "3:30 h" },
-  { value: 4, label: "4:00 h" },
-  { value: 4.5, label: "4:30 h" },
-  { value: 5, label: "5:00 h" },
-  { value: 5.5, label: "5:30 h" },
-  { value: 6, label: "6:00 h" },
-  { value: 6.5, label: "6:30 h" },
-  { value: 7, label: "7:00 h" },
-  { value: 7.5, label: "7:30 h" },
-  { value: 8, label: "8:00 h" },
-  { value: 8.5, label: "8:30 h" },
-];
+/** Código de tipo de hora por defecto (~90% de la plantilla: programa diurno). */
+export const TIPO_HORA_CODIGO_DEFAULT = "DN";
 
 export const META_HORAS_MES = 161.5;
 
@@ -180,8 +162,8 @@ function mockEstado(monthOffset: number, seed: number): RegistroEstado {
     if (roll < 3) return "Lanzado";
     return "Aprobado";
   }
-  if (roll < 5) return "Borrador";
-  if (roll < 10) return "Lanzado";
+  if (roll < 10) return "Registrado";
+  if (roll < 12) return "Lanzado";
   if (roll === 10) return "Rechazado";
   return "Aprobado";
 }
@@ -212,9 +194,9 @@ function isDiaLaborable(fecha: string, y: number, m: number, d: number): boolean
 
 /** Mes actual: como si el empleado hubiera registrado todos los días hábiles hasta hoy. */
 function mockEstadoMesActual(d: number, hoyDia: number, seed: number): RegistroEstado {
-  if (d === hoyDia) return "Borrador";
+  if (d === hoyDia) return "Registrado";
   const diasAtras = hoyDia - d;
-  if (diasAtras <= 2) return "Lanzado";
+  if (diasAtras <= 2) return "Registrado";
   if (diasAtras === 4 && mod(seed, 7) === 0) return "Rechazado";
   return "Aprobado";
 }
@@ -406,7 +388,7 @@ function applySemanaVariada(
       ],
     },
     {
-      estado: "Borrador",
+      estado: "Registrado",
       entries: [
         {
           proy: "PRY-2024-001",
@@ -426,7 +408,7 @@ function applySemanaVariada(
           act: "Gestión cambios",
           tipo: "RF",
           horas: 1,
-          comentario: "Recargo festivo pendiente de envío.",
+          comentario: "Recargo festivo del día.",
         },
         {
           proy: "PRY-2024-001",
@@ -626,11 +608,7 @@ export function getResumenHoras(
     .forEach((r) => {
       const h = r.horas || 0;
       if (r.estado === "Aprobado") aprob += h;
-      else if (
-        r.estado === "Borrador" ||
-        r.estado === "Registrado" ||
-        r.estado === "Lanzado"
-      ) {
+      else if (r.estado === "Registrado" || r.estado === "Lanzado") {
         rev += h;
       }
       else if (r.estado === "Rechazado") rech += h;
@@ -795,12 +773,11 @@ export type DiaResumen = {
 export function getEstadoDia(diaRegs: RegistroMock[]): RegistroEstado {
   const estados = diaRegs.map((r) => r.estado);
   if (estados.includes("Rechazado")) return "Rechazado";
-  if (estados.some((e) => e === "Borrador")) return "Borrador";
   if (estados.every((e) => e === "Aprobado")) return "Aprobado";
   if (estados.includes("Registrado") || estados.includes("Lanzado")) {
     return "Registrado";
   }
-  return "Borrador";
+  return "Registrado";
 }
 
 export function getRegistrosDia(

@@ -145,13 +145,14 @@
 @layer components {
   .content-standard {
     width: 100%;
-    max-width: 1100px;
+    max-width: 1280px;
     margin-inline: auto;
   }
 
+  /* Listas/tablas: ancho generoso; el aire lo da el main (px-2 / md:px-3), no un tope bajo. */
   .view-wide {
     width: 100%;
-    max-width: 1320px;
+    max-width: 1680px;
     margin-inline: auto;
   }
 

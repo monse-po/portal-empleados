@@ -124,15 +124,18 @@ export function AprobacionProvider({
     });
   }, []);
 
-  const syncPendientesDesdeDb = useCallback((pendientes: HojaAprobacion[]) => {
-    setHojas((prev) => {
-      const resueltas = Object.fromEntries(
-        Object.entries(prev).filter(([, h]) => !!h.estadoApro),
-      );
-      const pend = Object.fromEntries(pendientes.map((h) => [h.no, h]));
-      return { ...resueltas, ...pend };
-    });
-  }, []);
+  const syncPendientesDesdeDb = useCallback(
+    (pendientes: HojaAprobacion[]) => {
+      setHojas((prev) => {
+        const resueltas = Object.fromEntries(
+          Object.entries(prev).filter(([, h]) => !!h.estadoApro),
+        );
+        const pend = Object.fromEntries(pendientes.map((h) => [h.no, h]));
+        return { ...resueltas, ...pend };
+      });
+    },
+    [],
+  );
 
   const syncRegistro = useCallback(
     (registroId: string, accion: SyncRegistroAccion, comentario = "") => {
@@ -263,7 +266,7 @@ export function AprobacionProvider({
           if (!next[no]) return;
           const registroId = next[no].registroId;
           if (registroId) toSync.push(registroId);
-          // Sale de la cola; el empleado vuelve a Borrador vía sync (debe reenviar).
+          // Sale de la cola; el empleado vuelve a Registrado vía sync.
           delete next[no];
         });
         return next;

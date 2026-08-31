@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BulkSelectionBar } from "@/src/components/ui/BulkSelectionBar";
+import { BulkActionButtons } from "@/src/components/ui/BulkSelectionBar";
 import { Card } from "@/src/components/ui/Card";
 import { Icon } from "@/src/components/ui/Icon";
 import { AprobacionLegalizacionesFilterBar } from "@/src/app/aprobacion-legalizaciones/AprobacionLegalizacionesFilterBar";
@@ -135,17 +135,6 @@ export function AprobacionLegalizacionesLista({
         />
       </div>
 
-      {tab === "pend" && seleccion.size > 0 && (
-        <BulkSelectionBar
-          className="mb-3.5"
-          count={seleccion.size}
-          onAprobar={() => onAprobar([...seleccion])}
-          onRechazar={() => onRechazar([...seleccion])}
-          loadingAprobar={loadingAprobar}
-          loadingRechazar={loadingRechazar}
-        />
-      )}
-
       <AprobacionLegalizacionesFilterBar
         registros={registrosActuales}
         filters={filters}
@@ -153,6 +142,16 @@ export function AprobacionLegalizacionesLista({
         tab={tab}
         shown={filtrados.length}
         total={registrosActuales.length}
+        actions={
+          tab === "pend" ? (
+            <BulkActionButtons
+              onAprobar={() => onAprobar([...seleccion])}
+              onRechazar={() => onRechazar([...seleccion])}
+              loadingAprobar={loadingAprobar}
+              loadingRechazar={loadingRechazar}
+            />
+          ) : undefined
+        }
       />
 
       <Card className="overflow-hidden p-0">
@@ -195,10 +194,6 @@ export function AprobacionLegalizacionesLista({
           totalBase={registrosActuales.length}
           hasFilters={hayFiltrosActivos(filters)}
           onOpenDetalle={onOpenDetalle}
-          onAprobar={onAprobar}
-          onRechazar={onRechazar}
-          loadingAprobar={loadingAprobar}
-          loadingRechazar={loadingRechazar}
         />
       </Card>
     </div>

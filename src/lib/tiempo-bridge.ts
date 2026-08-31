@@ -20,7 +20,7 @@ export function estadoDesdeAccionAprobacion(
 ): RegistroEstado {
   if (accion === "aprobado") return "Aprobado";
   if (accion === "rechazado") return "Rechazado";
-  return "Borrador";
+  return "Registrado";
 }
 
 export function comentarioRechazoDesdeAccion(
@@ -122,7 +122,7 @@ export function registroToHoja(reg: RegistroMock): HojaAprobacion {
     cedula: EMPLEADO.cedula,
     nombre: EMPLEADO.nombre,
     actividad: reg.act,
-    horas: `${reg.horas}h`,
+    horas: String(reg.horas),
     comentarioEmpleado: reg.comentario || "",
     aprobador: reg.aprobador || "",
     registroId: reg.id,
@@ -145,7 +145,7 @@ export function toastRechazados(nos: string[], notificado = true) {
 
 export function toastAnulados(nos: string[]) {
   if (nos.length === 1) {
-    return "Registro anulado · vuelve a borrador del empleado";
+    return "Registro anulado · vuelve a Registrado; el empleado puede editarlo";
   }
-  return `${nos.length} registro(s) anulado(s) · vuelven a borrador`;
+  return `${nos.length} registro(s) anulado(s) · vuelven a Registrado`;
 }

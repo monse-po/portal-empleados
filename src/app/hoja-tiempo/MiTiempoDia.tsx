@@ -18,7 +18,6 @@ import {
   MI_TIEMPO_DIA_COLS,
 } from "@/src/components/ui/DataTable";
 import { useToast } from "@/src/components/ui/Toast";
-import { useAsyncAction } from "@/src/lib/use-async-action";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import {
   formatFechaCorta,
@@ -30,6 +29,7 @@ import {
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
 import { formatProyectoEmpleado } from "@/src/lib/tiempo-bridge";
+import { formatIfsError } from "@/src/lib/ifs/errors";
 import { fetchScheduleHoursAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
 import { TiempoRegistroMobileCard } from "@/src/app/hoja-tiempo/TiempoRegistroMobileCard";
@@ -38,13 +38,13 @@ import {
   scheduleSourceLabel as formatScheduleSource,
 } from "@/src/lib/tiempo-config";
 import {
-  hayBorradoresEnviables,
   isRegistroEditable,
   isRegistroEliminable,
 } from "@/src/lib/tiempo-registro-rules";
 import {
   atNormalLimit,
   exceedsNormalLimit,
+  formatHorasValor,
   formatScheduleHoursLabel,
   getDiaSinJornadaKind,
   isDiaConJornadaNormal,
@@ -90,8 +90,7 @@ export function MiTiempoDia({
   onVolver,
   onCambiarDia,
 }: MiTiempoDiaProps) {
-  const { registros, openRegistrarModal, deleteRegistro, enviarDia } =
-    useMiTiempo();
+  const { registros, openRegistrarModal, deleteRegistro } = useMiTiempo();
   const { toast } = useToast();
   const [registroAEliminar, setRegistroAEliminar] = useState<RegistroMock | null>(
     null,
@@ -122,41 +121,6 @@ export function MiTiempoDia({
     };
   }, [fecha]);
 
-  const { loading: enviando, run: runEnviar } = useAsyncAction(async () => {
-    try {
-      const result = await enviarDia(fecha);
-      if (result.error) {
-        toast(result.error, "danger");
-        return;
-      }
-      if (!result.enviados.length) {
-        toast(
-          "No hay borradores locales para enviar. Los registros nuevos se mandan a IFS al guardar y quedan Registrados.",
-          "warn",
-        );
-        return;
-      }
-      if (result.warning) {
-        toast(result.warning, "warn");
-        return;
-      }
-      toast(
-        result.sentToIfs
-          ? result.inApprovalQueue
-            ? "Enviado a IFS · Ya está en tu bandeja de aprobación"
-            : "Registros enviados a aprobación (IFS)"
-          : "Registros enviados a aprobación",
-        "green",
-      );
-    } catch (err) {
-      toast(
-        err instanceof Error
-          ? err.message
-          : "No se pudo enviar a aprobación. Intenta de nuevo.",
-        "danger",
-      );
-    }
-  });
   const diaRegsAll = getRegistrosDia(registros, fecha);
   const diaRegs = esHistorial
     ? diaRegsAll.filter(
@@ -166,8 +130,6 @@ export function MiTiempoDia({
   const totalHoras = diaRegs.reduce((s, r) => s + r.horas, 0);
   const normales = getHorasNormales(registros, fecha);
   const contador = getContadorStyle(normales, maxScheduleHours);
-  const sobreTope = exceedsNormalLimit(normales, maxScheduleHours);
-  const hayBorradores = hayBorradoresEnviables(diaRegsAll);
   const hayFilasEditables =
     !esHistorial &&
     diaRegs.some((r) => isRegistroEditable(r.estado));
@@ -292,11 +254,11 @@ export function MiTiempoDia({
                 className="font-bold"
                 style={{ color: contador.totalColor }}
               >
-                {totalHoras}h
+                {formatHorasValor(totalHoras)}
               </span>
               <span className="text-border">·</span>
               <span style={{ color: contador.normColor }}>
-                {normales}h normales · máx{" "}
+                {formatHorasValor(normales)} normales · máx{" "}
                 {formatScheduleHoursLabel(maxScheduleHours)} ({jornadaSourceLabel})
               </span>
             </div>
@@ -331,7 +293,7 @@ export function MiTiempoDia({
           right={
             <span className="text-[11px] font-normal text-muted">
               <span className="md:hidden font-bold tabular-nums text-navy">
-                {totalHoras}h
+                {formatHorasValor(totalHoras)}
                 <span className="mx-1 font-normal text-border">·</span>
               </span>
               {diaRegs.length} registro{diaRegs.length !== 1 ? "s" : ""}
@@ -379,7 +341,7 @@ export function MiTiempoDia({
                       ? () => setRegistroAEliminar(r)
                       : undefined
                   }
-                  deleteDisabled={!!registroAEliminar || enviando}
+                  deleteDisabled={!!registroAEliminar}
                 />
               ))}
             </div>
@@ -424,7 +386,7 @@ export function MiTiempoDia({
                     <td className={dataTd}>
                       <TipoHoraPill tipo={r.tipo} />
                     </td>
-                    <td className={dataTdNumeric}>{r.horas}h</td>
+                    <td className={dataTdNumeric}>{formatHorasValor(r.horas)}</td>
                     <td className={`${dataTd} text-[#374151]`}>
                       <div className={dataTdClamp}>{r.comentario || "—"}</div>
                     </td>
@@ -444,7 +406,7 @@ export function MiTiempoDia({
                           variant="danger"
                           className="!px-2 !py-1 text-[11px]"
                           title="Eliminar"
-                          disabled={!!registroAEliminar || enviando}
+                          disabled={!!registroAEliminar}
                           onClick={(e) => {
                             e.stopPropagation();
                             setRegistroAEliminar(r);
@@ -464,51 +426,11 @@ export function MiTiempoDia({
         )}
       </Card>
 
-      {!esHistorial && hayBorradores && (
-        <div className="mt-4 hidden flex-wrap items-center justify-between gap-3 rounded-lg border border-green-border bg-green-bg px-4 py-3.5 md:flex">
-          <p className="min-w-0 text-[13px] leading-snug text-green-text">
-            {TIEMPO_UI_COPY.diaBorradoresPendientes}
-          </p>
-          <Button
-            variant="success"
-            className="!shrink-0"
-            disabled={sobreTope || enviando || !!registroAEliminar}
-            loading={enviando}
-            loadingLabel="Enviando…"
-            title={
-              sobreTope
-                ? "Corrige las horas normales antes de enviar"
-                : undefined
-            }
-            onClick={() => void runEnviar()}
-          >
-            <Icon name="send" size="xs" />
-            Enviar a Aprobación
-          </Button>
-        </div>
-      )}
         </div>
       </div>
 
       {!esHistorial ? (
         <FloatingActions className="md:hidden">
-          {hayBorradores ? (
-            <Button
-              variant="success"
-              disabled={sobreTope || enviando || !!registroAEliminar}
-              loading={enviando}
-              loadingLabel="Enviando…"
-              title={
-                sobreTope
-                  ? "Corrige las horas normales antes de enviar"
-                  : undefined
-              }
-              onClick={() => void runEnviar()}
-            >
-              <Icon name="send" size="xs" />
-              Enviar a Aprobación
-            </Button>
-          ) : null}
           <Button
             variant="primary"
             onClick={() => openRegistrarModal({ fecha, origen: "dia" })}
@@ -531,9 +453,8 @@ export function MiTiempoDia({
             toast("Registro eliminado", "navy");
           } catch (err) {
             toast(
-              err instanceof Error
-                ? err.message
-                : "No se pudo eliminar el registro. Intenta de nuevo.",
+              formatIfsError(err) ||
+                "No se pudo eliminar el registro. Intenta de nuevo.",
               "danger",
             );
           }

@@ -49,12 +49,14 @@ export function PortalShell({ children }: PortalShellProps) {
               closeMobileMenu,
             }}
           >
-            <div className="flex min-h-screen flex-col">
+            <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
               <Topbar />
-              <div className="flex flex-1 overflow-visible">
+              <div className="flex min-h-0 flex-1 overflow-hidden">
                 <Sidebar />
-                <main className="flex flex-1 flex-col items-center overflow-x-visible overflow-y-auto px-3.5 py-[18px] max-md:px-2 max-md:py-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] md:px-8 md:py-7 [&>*]:w-full">
-                  <FocusGuard>{children}</FocusGuard>
+                <main className="flex min-h-0 flex-1 flex-col items-center overflow-x-hidden overflow-y-auto px-2 max-md:px-1.5 md:px-3">
+                  <div className="w-full py-[18px] max-md:py-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] md:py-4 [&>*]:w-full">
+                    <FocusGuard>{children}</FocusGuard>
+                  </div>
                 </main>
               </div>
               <MobileNavDrawer />

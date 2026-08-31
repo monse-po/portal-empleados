@@ -38,7 +38,7 @@ export function Topbar() {
         </button>
 
         <Link
-          href={isGerente ? "/aprobacion-tiempo" : "/hoja-tiempo"}
+          href={isGerente ? "/aprobacion-tiempo-proyectos" : "/hoja-tiempo"}
           className="flex cursor-pointer items-center"
           onClick={() => {
             if (!isGerente) {

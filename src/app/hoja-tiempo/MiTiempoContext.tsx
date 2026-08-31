@@ -17,34 +17,35 @@ import {
   type SyncRegistroAccion,
 } from "@/src/lib/tiempo-bridge";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
-import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";
 import { isRegistroEnviado } from "@/src/lib/tiempo-registro-rules";
 import {
   deleteRegistroAction,
-  enviarDiaAction,
-  enviarFechasAction,
   getRegistrosGroupedAction,
   updateRegistroEstadoAction,
   upsertRegistroAction,
   upsertRegistrosAction,
-  type EnviarDiaResult,
 } from "@/src/server/mi-tiempo-actions";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
-
-export type { EnviarDiaResult };
 
 export type RegistrarModalState = {
   editId?: string;
   fecha?: string;
-  /** Abierto desde tab Lista — un solo botón guardar; envío desde vista día. */
+  /** Desde dónde se abrió el modal (afecta copy del hint). */
   origen?: "lista" | "dia";
+  /** Alta rápida: rellena proyecto/sub/actividad (la fecha sigue siendo hoy). */
+  plantilla?: {
+    proy: string;
+    sub: string;
+    act: string;
+    tipo?: string;
+    horas?: string;
+  };
 } | null;
 
 type RegistroGuardadoHandler = (fecha: string) => void;
-
-export type GuardarRegistroMode = "guardar" | "enviar";
 
 function upsertIntoRegistros(
   prev: Record<string, RegistroMock[]>,
@@ -84,12 +85,7 @@ type MiTiempoContextValue = {
   upsertRegistro: (reg: RegistroMock) => Promise<void>;
   /** Crea/actualiza registros en IFS (estado Registrado). */
   upsertRegistros: (regs: RegistroMock[]) => Promise<void>;
-  /** Guarda borradores y los envía a aprobación en un solo paso. */
-  upsertRegistrosYEnviar: (regs: RegistroMock[]) => Promise<EnviarDiaResult>;
-  upsertRegistroYEnviarDia: (reg: RegistroMock) => Promise<EnviarDiaResult>;
   deleteRegistro: (id: string) => Promise<void>;
-  enviarDia: (fecha: string) => Promise<EnviarDiaResult>;
-  enviarFechas: (fechas: string[]) => Promise<EnviarDiaResult>;
   sincronizarDesdeAprobacion: (
     id: string,
     accion: SyncRegistroAccion,
@@ -100,6 +96,13 @@ type MiTiempoContextValue = {
     editId?: string;
     fecha?: string;
     origen?: "lista" | "dia";
+    plantilla?: {
+      proy: string;
+      sub: string;
+      act: string;
+      tipo?: string;
+      horas?: string;
+    };
   }) => void;
   closeRegistrarModal: () => void;
   setRegistroGuardadoHandler: (handler?: RegistroGuardadoHandler) => void;
@@ -230,43 +233,6 @@ export function MiTiempoProvider({
     [applyGrouped, onIngresarHojas],
   );
 
-  const enviarFechas = useCallback(
-    async (fechas: string[]) => {
-      const result = await enviarFechasAction(fechas);
-      if (result.enviados.length) {
-        onIngresarHojas?.(result.enviados.map((reg) => registroToHoja(reg)));
-      }
-      applyGrouped(await getRegistrosGroupedAction());
-      return result;
-    },
-    [applyGrouped, onIngresarHojas],
-  );
-
-  const upsertRegistrosYEnviar = useCallback(
-    async (regs: RegistroMock[]) => {
-      await upsertRegistros(regs);
-      return {
-        enviados: regs,
-        sentToIfs: true,
-      } satisfies EnviarDiaResult;
-    },
-    [upsertRegistros],
-  );
-
-  const upsertRegistroYEnviarDia = useCallback(
-    async (reg: RegistroMock) => {
-      await upsertRegistroAction(reg);
-      const result = await enviarDiaAction(reg.fecha);
-      if (result.enviados.length) {
-        onIngresarHojas?.(result.enviados.map((r) => registroToHoja(r)));
-      }
-      applyGrouped(await getRegistrosGroupedAction());
-      registroGuardadoHandler.current?.(reg.fecha);
-      return result;
-    },
-    [applyGrouped, onIngresarHojas],
-  );
-
   const deleteRegistro = useCallback(
     async (id: string) => {
       await deleteRegistroAction(id);
@@ -298,18 +264,18 @@ export function MiTiempoProvider({
     [applyGrouped],
   );
 
-  const enviarDia = useCallback(
-    async (fecha: string) => {
-      return enviarFechas([fecha]);
-    },
-    [enviarFechas],
-  );
-
   const openRegistrarModal = useCallback(
     (opts?: {
       editId?: string;
       fecha?: string;
       origen?: "lista" | "dia";
+      plantilla?: {
+        proy: string;
+        sub: string;
+        act: string;
+        tipo?: string;
+        horas?: string;
+      };
     }) => {
       setModal(opts ?? {});
     },
@@ -332,11 +298,7 @@ export function MiTiempoProvider({
       reloadRegistros,
       upsertRegistro,
       upsertRegistros,
-      upsertRegistrosYEnviar,
-      upsertRegistroYEnviarDia,
       deleteRegistro,
-      enviarDia,
-      enviarFechas,
       sincronizarDesdeAprobacion,
       modal,
       openRegistrarModal,
@@ -354,11 +316,7 @@ export function MiTiempoProvider({
       reloadRegistros,
       upsertRegistro,
       upsertRegistros,
-      upsertRegistrosYEnviar,
-      upsertRegistroYEnviarDia,
       deleteRegistro,
-      enviarDia,
-      enviarFechas,
       sincronizarDesdeAprobacion,
       modal,
       openRegistrarModal,

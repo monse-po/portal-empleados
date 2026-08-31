@@ -82,6 +82,31 @@ export function TableActionWrap({ children }: { children: ReactNode }) {
   );
 }
 
+/** Clave/nombre que entra al siguiente nivel. Toda la etiqueta es el enlace. */
+export function TableDrillLink({
+  children,
+  onClick,
+  title,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className="block w-full cursor-pointer truncate border-0 bg-transparent p-0 text-left text-[13px] font-semibold text-navy underline decoration-[#014783] underline-offset-2 hover:text-[#01376a] hover:decoration-[#01376a]"
+    >
+      {children}
+    </button>
+  );
+}
+
 export const dataTdTruncate = "truncate";
 
 export const dataTdClamp =
@@ -129,7 +154,7 @@ export const MI_TIEMPO_LISTA_COLS = [
 /** Mi Tiempo — vista día con columna de acciones */
 export const MI_TIEMPO_DIA_COLS = [...MI_TIEMPO_COLS, "5%"] as const;
 
-/** Aprobación — pendientes */
+/** Aprobación — pendientes (checkbox + datos; acciones van en BulkSelectionBar) */
 export const APRO_PEND_COLS = [
   CHECKBOX_COL_WIDTH,
   "7%",
@@ -139,14 +164,13 @@ export const APRO_PEND_COLS = [
   "12%",
   "11%",
   "12%",
-  "20%",
-  ACTION_COL_WIDTH,
+  "26%",
 ] as const;
 
 export const TABLE_PAGE_SIZE = 50;
 
 /**
- * Tabs resueltas — view-wide 1320px.
+ * Tabs resueltas — view-wide 1680px.
  * Columnas compactas usan 2 líneas apiladas → menos % horizontal → más para Motivo.
  */
 export const RES_TAB_SPACER_COL = "28px" as const;

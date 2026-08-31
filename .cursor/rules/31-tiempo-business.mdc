@@ -18,34 +18,35 @@ Implementación:
 
 ## Tope de horas normales por día
 
-- **No hardcodear** (ej. 8.5h). Depende de **configuración de sistema por compañía/país** (`src/lib/tiempo-config.ts` → `TIEMPO_JORNADA_POR_COMPANIA`).
-- Con sesión IFS, **`GetHoursSummary`** puede sobreescribir el tope del día (`fetchScheduleHoursAction` → `resolveScheduleHoursLimit`).
-- Validación en `validateForm`, contador del día y botón **Enviar a Aprobación** (`exceedsNormalLimit` + `maxScheduleHours`).
+- Ver regla general **`01-ifs-priority.mdc`**: si IFS ya define el tope/programa, **IFS gana**.
+- **No hardcodear** (ej. 8.5h). Fallback: configuración de sistema por compañía (`tiempo-config.ts`).
+- Con sesión IFS, **`GetHoursSummary` / ScheduleHours** define el tope del día (`fetchScheduleHoursAction` → `resolveScheduleHoursLimit`).
+- Con jornada de diurnas normales completa (o día sin jornada): se puede registrar, pero solo lo que el **LOV IFS** permita excepto DN. **El usuario elige** el tipo extra; el portal no asigna uno por día (sábado/festivo).
+- No filtrar festivas/recargos en portal más allá del LOV — **prioridad a la regla IFS** (`01-ifs-priority.mdc`).
+- Validación en `validateForm`, contador del día (`exceedsNormalLimit` + `maxScheduleHours`).
 
 ## Estados y edición
 
 | Estado UI | Significado | ¿Editable / eliminable? |
 |-----------|-------------|-------------------------|
-| **Borrador** | Guardado en el día, **no enviado** a aprobación (solo Mi Tiempo; Anticipos/DSE/Legalizaciones no usan borrador) | Sí |
-| **Lanzado** | **Enviado** a aprobación; aprobador aún no confirma (antes: Registrado) | Sí |
+| **Registrado** | Enviado a IFS; aprobador aún no confirma (alias legacy: Lanzado) | Sí |
 | **Rechazado** | Aprobador rechazó | Sí |
 | **Aprobado** | Aprobador confirmó | No |
+
+**No hay Borrador.** Al guardar, el registro se envía a IFS y queda **Registrado**.
 
 Reglas:
 
 - `isRegistroEditable` / `isRegistroEliminable` en `src/lib/tiempo-registro-rules.ts` — bloqueo solo en **Aprobado**.
-- Filas IFS (`ifs-pt-*`) en Lanzado/Rechazado: editar → `EmpPortalTimeUpdateList`; eliminar → `EmpPortalTimeDeleteList` (requiere sesión IFS + Objid/Objversion).
-- Al guardar edición, **preservar** el estado actual (no resetear a borrador salvo rechazo corregido → borrador).
-- **Enviar a Aprobación:** solo registros en **borrador** del día pasan a **Lanzado** (`EmpPortalTimeRegList` si hay sesión IFS).
-- Tras enviar, **sí se pueden agregar** registros nuevos al mismo día (nuevos borradores).
-- **Sync gerente:** editar Lanzado refresca la fila en aprobación; borrar Lanzado lo retira de la cola (`retirarHojas`).
-- **Anular (gerente):** el ítem **sale** de la cola; empleado vuelve a **Borrador** y debe reenviar.
+- Filas IFS (`ifs-pt-*`) en Registrado/Rechazado: editar → `EmpPortalTimeUpdateList`; eliminar → `EmpPortalTimeDeleteList` (requiere sesión IFS + Objid/Objversion).
+- Al guardar edición, **preservar** el estado actual (salvo flujos de sync gerente).
+- **Sync gerente:** editar Registrado refresca la fila en aprobación; borrar Registrado lo retira de la cola (`retirarHojas`).
+- **Anular (gerente):** el ítem **sale** de la cola; empleado vuelve a **Registrado** y puede editarlo de nuevo.
 
 ## UI — pills de estado
 
-- **Borrador:** tono neutro editable; **Lanzado:** misma variante `lanzado` que Anticipos/DSE/Legalizaciones.
-- **Icono lápiz** en pill de Borrador (editable); **icono send** en Lanzado (enviado a aprobación).
-- **Aprobado** verde; **Rechazado** rojo (sin lápiz).
+- **Registrado:** variante `registrado` + icono send.
+- **Aprobado** verde; **Rechazado** rojo.
 
 ## Códigos HTREG
 
@@ -53,15 +54,13 @@ Reglas:
 
 ## UI — modal Registrar horas
 
-- **Siempre:** Cancelar + **Guardar** (o **Guardar cambios** si edición).
-- **Nunca** incluir «Enviar a aprobación» en el modal.
-- Desde **tab Lista**, hint breve: enviar solo desde la vista del día.
-- **Enviar a aprobación:** solo footer de `MiTiempoDia` (todos los borradores del día).
+- **Siempre:** Cancelar + **Guardar** / **Enviar a aprobación** (alta → IFS como Registrado).
+- No hay paso intermedio de borrador ni botón aparte «Enviar borradores del día».
 
 ## UI — tab Lista
 
-- Muestra **todos** los estados: Borrador, Lanzado, Rechazado y **Aprobado**.
-- Orden por día: borrador → registrado → rechazado → aprobado.
+- Muestra **todos** los estados: Registrado, Rechazado y **Aprobado**.
+- Orden por día: registrado → rechazado → aprobado.
 
 ## UI — formularios y filtros
 
