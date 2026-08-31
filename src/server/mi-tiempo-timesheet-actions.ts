@@ -16,7 +16,7 @@ import {
 } from "@/src/lib/ifs/tiempo-timesheet";
 import { getIfsTargetEmpNo } from "@/src/lib/ifs/config";
 import { getServerIfsSession } from "@/src/lib/ifs/session";
-import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroMock } from "@/src/lib/tiempo-registro";
 
 export async function fetchRegistrosFromIfsAction(): Promise<{
   grouped: Record<string, RegistroMock[]> | null;

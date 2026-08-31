@@ -1,231 +1,425 @@
 "use server";
 
 import {
-  getBankDetails,
-  getCompanies,
   getCurrencyCodes,
-  getEmployeesByCompany,
-  getExpenseCompanies,
-  getProjectInfo,
-  getProjectsByCompany,
-  getUserInfo,
-  openCempPortalSession,
+  getIsoCountries,
 } from "@/src/lib/ifs/cemp-portal";
-import { formatIfsError, IfsApiError } from "@/src/lib/ifs/errors";
+import {
+  getGeoMunicipalities,
+  getGeoStates,
+  listCempPortalEntitySets,
+  type GeoOption,
+} from "@/src/lib/ifs/address-geo";
+import { formatIfsError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
   withValidIfsSession,
 } from "@/src/lib/ifs/ifs-session-runtime";
 import {
-  companyLabel,
-  mapIfsBank,
-  mapIfsCompanyToLov,
-  mapIfsCurrency,
-  mapIfsEmployee,
-  mapIfsProjectToLov,
-  mergeCompanyLovs,
-  type AnticiposDivisaOption,
-  type AnticiposIfsProfile,
-} from "@/src/lib/ifs/anticipos-catalog";
-import type { EmpleadoAnticipo, LovItem } from "@/src/lib/mis-anticipos-mock";
+  flattenGeoDestinos,
+  flattenLocalDestinos,
+  mapCurrencyCodesToDivisas,
+  mapIsoCountriesToDestinos,
+  type DivisaOption,
+} from "@/src/lib/anticipos-ifs-catalog";
+import type { DestinoSel } from "@/src/lib/anticipos-catalog";
+import {
+  DEST_CATALOG,
+  DIVISAS_POR_COMPANIA,
+} from "@/src/lib/anticipos-catalog";
 
-function expiredOrError(err: unknown): {
-  sessionExpired?: boolean;
-  error: string;
-} {
-  if (err instanceof IfsSessionExpiredError) {
-    return { sessionExpired: true, error: err.message };
-  }
-  return { error: formatIfsError(err) };
-}
-
-export async function fetchAnticiposBootstrapAction(): Promise<{
-  connected: boolean;
-  sessionExpired?: boolean;
+export async function fetchDivisasAnticipoAction(companyId: string): Promise<{
+  divisas: DivisaOption[];
+  fromIfs: boolean;
   error?: string;
-  profile?: AnticiposIfsProfile;
-  companies: LovItem[];
+  sessionExpired?: boolean;
 }> {
+  const company = companyId.trim();
+  const fallback = (
+    DIVISAS_POR_COMPANIA[company] || DIVISAS_POR_COMPANIA.HMVINGCO
+  ).map((d) => ({ code: d.code, label: d.label, pre: d.pre }));
+
+  if (!company) {
+    return { divisas: fallback, fromIfs: false, error: "Sin compañía" };
+  }
+
   try {
     return await withValidIfsSession(async (session) => {
-      let ifs;
       try {
-        ifs = await openCempPortalSession(session.email, session.accessToken);
+        const rows = await getCurrencyCodes(session.accessToken, company);
+        const divisas = mapCurrencyCodesToDivisas(rows);
+        if (!divisas.length) {
+          return {
+            divisas: fallback,
+            fromIfs: false,
+            error: `Sin divisas IFS para ${company}`,
+          };
+        }
+        return { divisas, fromIfs: true };
       } catch (err) {
-        if (err instanceof IfsApiError && err.status === 401) throw err;
         return {
-          connected: false,
-          companies: [],
-          error: `CEmpPortalUserSet (${session.email}): ${formatIfsError(err)}`,
+          divisas: fallback,
+          fromIfs: false,
+          error: formatIfsError(err),
         };
       }
-
-      const info = await getUserInfo(ifs);
-      const companyId = (info.CompanyId || ifs.user.CompanyId || "").trim();
-      const empNo = (info.EmpNo || ifs.user.EmpId || "").trim();
-      const companyName = (info.CompanyName || companyId).trim();
-
-      const [companiesRaw, bankRaw, expenseRaw] = await Promise.all([
-        getCompanies(session.accessToken).catch(() => []),
-        empNo && companyId
-          ? getBankDetails(session.accessToken, companyId, empNo).catch(() => [])
-          : Promise.resolve([]),
-        info.SupplierId?.trim()
-          ? getExpenseCompanies(session.accessToken, info.SupplierId.trim()).catch(
-              () => [],
-            )
-          : Promise.resolve([]),
-      ]);
-
-      const companies = mergeCompanyLovs([
-        companyId
-          ? { id: companyId, nombre: companyName, sub: companyId }
-          : null,
-        ...companiesRaw.map(mapIfsCompanyToLov),
-        ...expenseRaw.map(mapIfsCompanyToLov),
-      ]);
-
-      const bank = mapIfsBank(bankRaw);
-      const companiasGasto = mergeCompanyLovs([
-        companyId
-          ? { id: companyId, nombre: companyName, sub: companyId }
-          : null,
-        ...expenseRaw.map(mapIfsCompanyToLov),
-      ]).map((c) => ({
-        id: c.id,
-        label: c.nombre ? `${c.id} – ${c.nombre}` : c.id,
-      }));
-
-      const profile: AnticiposIfsProfile = {
-        empNo,
-        empName: (info.EmpName || "").trim() || session.email,
-        companyId,
-        companyName,
-        personId: (info.PersonId || empNo).trim(),
-        supplierId: info.SupplierId?.trim(),
-        banco: bank.banco,
-        tipoCuenta: bank.tipo,
-        cuenta: bank.cuenta,
-        companiasGasto:
-          companiasGasto.length > 0
-            ? companiasGasto
-            : companyId
-              ? [{ id: companyId, label: companyLabel({ Company: companyId, Name: companyName }) }]
-              : [],
+    });
+  } catch (err) {
+    if (err instanceof IfsSessionExpiredError) {
+      return {
+        divisas: fallback,
+        fromIfs: false,
+        sessionExpired: true,
+        error: err.message,
       };
-
-      return { connected: true, profile, companies };
-    });
-  } catch (err) {
-    const extra = expiredOrError(err);
-    return { connected: false, companies: [], ...extra };
+    }
+    return {
+      divisas: fallback,
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
   }
 }
 
-export async function fetchAnticiposEmployeesAction(companyId: string): Promise<{
-  employees: EmpleadoAnticipo[];
+function mockPaises(): GeoOption[] {
+  return Object.entries(DEST_CATALOG).map(([code, data]) => ({
+    code,
+    name: data.nombre,
+    label: `${data.nombre} (${code})`,
+  }));
+}
+
+function mockRegiones(countryCode: string): GeoOption[] {
+  const pais = DEST_CATALOG[countryCode];
+  if (!pais) return [];
+  return Object.entries(pais.departamentos).map(([code, d]) => ({
+    code,
+    name: d.nombre,
+    label: d.nombre,
+  }));
+}
+
+function mockMunicipios(countryCode: string, regionCode: string): GeoOption[] {
+  const dpto = DEST_CATALOG[countryCode]?.departamentos[regionCode];
+  if (!dpto) return [];
+  return dpto.ciudades.map((ciudad) => ({
+    code: ciudad,
+    name: ciudad,
+    label: ciudad,
+  }));
+}
+
+/** País (IsoCountry) — 1.er factor del destino. */
+export async function fetchPaisesDestinoAction(): Promise<{
+  options: GeoOption[];
+  fromIfs: boolean;
   error?: string;
   sessionExpired?: boolean;
 }> {
-  const company = companyId.trim();
-  if (!company) return { employees: [] };
   try {
     return await withValidIfsSession(async (session) => {
-      const rows = await getEmployeesByCompany(session.accessToken, company);
-      const label =
-        rows.find((r) => r.Company?.trim() === company)?.Company?.trim() ||
-        company;
-      const employees = rows
-        .map((row) => mapIfsEmployee(row, label))
-        .filter((e): e is EmpleadoAnticipo => e !== null);
-      return { employees };
+      try {
+        const countries = await getIsoCountries(session.accessToken);
+        const destinos = mapIsoCountriesToDestinos(countries);
+        const options: GeoOption[] = destinos.map((d) => ({
+          code: d.pCode,
+          name: d.pais,
+          label: d.label,
+        }));
+        if (!options.length) {
+          return {
+            options: mockPaises(),
+            fromIfs: false,
+            error: "Lookup_IsoCountry vacío",
+          };
+        }
+        return { options, fromIfs: true };
+      } catch (err) {
+        return {
+          options: mockPaises(),
+          fromIfs: false,
+          error: formatIfsError(err),
+        };
+      }
     });
   } catch (err) {
-    return { employees: [], ...expiredOrError(err) };
+    if (err instanceof IfsSessionExpiredError) {
+      return {
+        options: mockPaises(),
+        fromIfs: false,
+        sessionExpired: true,
+        error: err.message,
+      };
+    }
+    return {
+      options: mockPaises(),
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
   }
 }
 
-export async function fetchAnticiposProjectsAction(companyId: string): Promise<{
-  projects: LovItem[];
+/** Región / estado (StateCode) — 2.º factor. */
+export async function fetchRegionesDestinoAction(
+  countryCode: string,
+): Promise<{
+  options: GeoOption[];
+  fromIfs: boolean;
+  projection?: string;
   error?: string;
   sessionExpired?: boolean;
 }> {
-  const company = companyId.trim();
-  if (!company) return { projects: [] };
+  const country = countryCode.trim().toUpperCase();
+  const fallback = mockRegiones(country);
+
+  if (!country) return { options: [], fromIfs: false, error: "Sin país" };
+
   try {
     return await withValidIfsSession(async (session) => {
-      const rows = await getProjectsByCompany(session.accessToken, company);
-      const projects = rows
-        .map(mapIfsProjectToLov)
-        .filter((p): p is LovItem => p !== null);
-      return { projects };
+      try {
+        const result = await getGeoStates(session.accessToken, country);
+        if (result.options.length) {
+          return {
+            options: result.options,
+            fromIfs: true,
+            projection: result.projection,
+          };
+        }
+        return {
+          options: fallback,
+          fromIfs: false,
+          projection: result.projection,
+          error:
+            result.error ||
+            "Sin StateCode en IFS — se usó catálogo local si existe",
+        };
+      } catch (err) {
+        return {
+          options: fallback,
+          fromIfs: false,
+          error: formatIfsError(err),
+        };
+      }
     });
   } catch (err) {
-    return { projects: [], ...expiredOrError(err) };
+    if (err instanceof IfsSessionExpiredError) {
+      return {
+        options: fallback,
+        fromIfs: false,
+        sessionExpired: true,
+        error: err.message,
+      };
+    }
+    return {
+      options: fallback,
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
   }
 }
 
-export async function fetchAnticiposCurrenciesAction(companyId: string): Promise<{
-  currencies: AnticiposDivisaOption[];
+/** Municipio / ciudad / zona (CityCode o CountyCode) — 3.er factor. */
+export async function fetchMunicipiosDestinoAction(
+  countryCode: string,
+  regionCode: string,
+): Promise<{
+  options: GeoOption[];
+  fromIfs: boolean;
+  projection?: string;
   error?: string;
   sessionExpired?: boolean;
 }> {
-  const company = companyId.trim();
-  if (!company) return { currencies: [] };
+  const country = countryCode.trim().toUpperCase();
+  const region = regionCode.trim();
+  const fallback = mockMunicipios(country, region);
+
+  if (!country || !region) {
+    return { options: [], fromIfs: false, error: "Falta país o región" };
+  }
+
   try {
     return await withValidIfsSession(async (session) => {
-      const rows = await getCurrencyCodes(session.accessToken, company);
-      const currencies = rows
-        .map(mapIfsCurrency)
-        .filter((c): c is AnticiposDivisaOption => c !== null);
-      return { currencies };
+      try {
+        const result = await getGeoMunicipalities(
+          session.accessToken,
+          country,
+          region,
+        );
+        if (result.options.length) {
+          return {
+            options: result.options,
+            fromIfs: true,
+            projection: result.projection,
+          };
+        }
+        return {
+          options: fallback,
+          fromIfs: false,
+          projection: result.projection,
+          error:
+            result.error ||
+            "Sin CityCode/CountyCode en IFS — se usó catálogo local si existe",
+        };
+      } catch (err) {
+        return {
+          options: fallback,
+          fromIfs: false,
+          error: formatIfsError(err),
+        };
+      }
     });
   } catch (err) {
-    return { currencies: [], ...expiredOrError(err) };
+    if (err instanceof IfsSessionExpiredError) {
+      return {
+        options: fallback,
+        fromIfs: false,
+        sessionExpired: true,
+        error: err.message,
+      };
+    }
+    return {
+      options: fallback,
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
   }
 }
 
-export async function fetchAnticiposBankAction(input: {
-  companyId: string;
-  empNo: string;
-}): Promise<{
-  banco: string;
-  tipo: string;
-  cuenta: string;
+/** Diagnóstico: qué EntitySets trae CEmpPortalServices (país/región/ciudad). */
+export async function probeDestinoIfsAction(): Promise<{
+  entitySets: string[];
+  geoRelated: string[];
   error?: string;
   sessionExpired?: boolean;
 }> {
-  const companyId = input.companyId.trim();
-  const empNo = input.empNo.trim();
-  if (!companyId || !empNo) {
-    return { banco: "", tipo: "", cuenta: "" };
-  }
   try {
     return await withValidIfsSession(async (session) => {
-      const rows = await getBankDetails(session.accessToken, companyId, empNo);
-      return mapIfsBank(rows);
+      try {
+        const entitySets = await listCempPortalEntitySets(session.accessToken);
+        const geoRelated = entitySets.filter((n) =>
+          /country|state|city|county|region|address|iso|zip|geo/i.test(n),
+        );
+        return { entitySets, geoRelated };
+      } catch (err) {
+        return {
+          entitySets: [],
+          geoRelated: [],
+          error: formatIfsError(err),
+        };
+      }
     });
   } catch (err) {
-    return { banco: "", tipo: "", cuenta: "", ...expiredOrError(err) };
+    if (err instanceof IfsSessionExpiredError) {
+      return {
+        entitySets: [],
+        geoRelated: [],
+        sessionExpired: true,
+        error: err.message,
+      };
+    }
+    return {
+      entitySets: [],
+      geoRelated: [],
+      error: formatIfsError(err),
+    };
   }
 }
 
-export async function fetchAnticiposAprobadorAction(projectId: string): Promise<{
-  codigo?: string;
-  nombre?: string;
+/** Destinos planos "País, Región, Municipio" para un solo input de búsqueda. */
+export async function fetchDestinosAnticipoAction(): Promise<{
+  destinos: DestinoSel[];
+  fromIfs: boolean;
+  projection?: string;
   error?: string;
   sessionExpired?: boolean;
 }> {
-  const id = projectId.trim();
-  if (!id) return {};
+  const local = flattenLocalDestinos();
+
   try {
     return await withValidIfsSession(async (session) => {
-      const info = await getProjectInfo(session.accessToken, id);
-      const manager = info.Manager?.trim();
-      if (!manager) return { error: "Sin gerente en IFS para este proyecto" };
-      return { codigo: manager, nombre: manager };
+      try {
+        const countries = await getIsoCountries(session.accessToken);
+        const paisMap = new Map(
+          mapIsoCountriesToDestinos(countries).map(
+            (d) => [d.pCode.toUpperCase(), d.pais] as const,
+          ),
+        );
+
+        // IFS geo solo para países prioritarios (evita cientos de llamadas).
+        const priority = ["CO", "MX", "PE", "US"];
+        const flat: DestinoSel[] = [];
+        let projection: string | undefined;
+
+        for (const code of priority) {
+          const paisName =
+            paisMap.get(code) || DEST_CATALOG[code]?.nombre || code;
+          const states = await getGeoStates(session.accessToken, code);
+          if (!states.options.length) continue;
+
+          projection = states.projection ?? projection;
+          const byRegion = new Map<string, GeoOption[]>();
+
+          // Limitar regiones en paralelo (máx. 12) para no saturar IFS
+          const regions = states.options.slice(0, 40);
+          await Promise.all(
+            regions.map(async (region) => {
+              const mun = await getGeoMunicipalities(
+                session.accessToken,
+                code,
+                region.code,
+              );
+              byRegion.set(region.code, mun.options);
+              if (mun.projection) projection = mun.projection;
+            }),
+          );
+
+          flat.push(
+            ...flattenGeoDestinos(code, paisName, regions, byRegion),
+          );
+        }
+
+        const merged = flattenLocalDestinos(paisMap);
+        if (flat.length) {
+          const keys = new Set(flat.map((d) => d.label.toLowerCase()));
+          for (const d of merged) {
+            if (!keys.has(d.label.toLowerCase())) flat.push(d);
+          }
+          return {
+            destinos: flat.sort((a, b) =>
+              a.label.localeCompare(b.label, "es"),
+            ),
+            fromIfs: true,
+            projection,
+          };
+        }
+
+        return {
+          destinos: merged,
+          fromIfs: false,
+          error:
+            "Portal sin State/City — catálogo local con nombres de país IFS",
+        };
+      } catch (err) {
+        return {
+          destinos: local,
+          fromIfs: false,
+          error: formatIfsError(err),
+        };
+      }
     });
   } catch (err) {
-    return expiredOrError(err);
+    if (err instanceof IfsSessionExpiredError) {
+      return {
+        destinos: local,
+        fromIfs: false,
+        sessionExpired: true,
+        error: err.message,
+      };
+    }
+    return {
+      destinos: local,
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
   }
 }

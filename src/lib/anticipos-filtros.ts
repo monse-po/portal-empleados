@@ -1,11 +1,11 @@
 import { format, parse } from "date-fns";
 import type { IconName } from "@/src/components/ui/Icon";
 import { dmyToSortKey } from "@/src/lib/tiempo-bridge";
-import type { Anticipo, AnticipoTab } from "@/src/lib/mis-anticipos-mock";
+import type { Anticipo, AnticipoTab } from "@/src/lib/anticipos-registro";
 import {
   filterAnticiposByTab,
   getBeneficiarioNombre,
-} from "@/src/lib/mis-anticipos-mock";
+} from "@/src/lib/anticipos-registro";
 
 export type AnticipoFilterColumn =
   | "codigo"
@@ -224,7 +224,7 @@ export function createEmptyRule(column: AnticipoFilterColumn): AnticipoFilterRul
 export function getAnticiposRegistrosTab(
   anticipos: Record<string, Anticipo>,
   tab: AnticipoTab,
-  sessionIds?: string | string[],
+  sessionEmpleadoId: string,
 ): Anticipo[] {
-  return filterAnticiposByTab(anticipos, tab, sessionIds);
+  return filterAnticiposByTab(anticipos, tab, sessionEmpleadoId);
 }

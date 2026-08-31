@@ -27,7 +27,7 @@ import {
   type AproAntFilterColumn,
   type AproAntFilterRule,
 } from "@/src/lib/aprobacion-anticipos-filtros";
-import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-mock";
+import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-registro";
 import type { IconName } from "@/src/components/ui/Icon";
 
 type AprobacionAnticiposFilterBarProps = {

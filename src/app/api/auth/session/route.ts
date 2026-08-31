@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerIfsSession } from "@/src/lib/ifs/session";
+import { getPortalUserProfile } from "@/src/server/portal-user-profile";
 
 export async function GET() {
-  const session = await getServerIfsSession();
-  if (!session) {
+  const profile = await getPortalUserProfile();
+  if (!profile) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
-  return NextResponse.json({ ok: true, email: session.email });
+  return NextResponse.json({ ok: true, ...profile });
 }

@@ -42,10 +42,22 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+function isStalePrismaClient(client: PrismaClient | undefined): boolean {
+  return !client || !("anticipo" in client);
 }
+
+function getPrismaClient(): PrismaClient {
+  if (!isStalePrismaClient(globalForPrisma.prisma)) {
+    return globalForPrisma.prisma!;
+  }
+
+  const client = createPrismaClient();
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = client;
+  }
+  return client;
+}
+
+export const prisma = getPrismaClient();
 
 export { createPrismaClient };

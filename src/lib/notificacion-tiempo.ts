@@ -1,5 +1,4 @@
-import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
-import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
+import type { RegistroMock } from "@/src/lib/tiempo-registro";
 import {
   formatProyectoAprobacion,
   formatProyectoAprobacionPorCod,
@@ -7,6 +6,11 @@ import {
   isoToDmy,
   proyCodAprobacion,
 } from "@/src/lib/tiempo-bridge";
+
+export type NotificacionEmpleado = {
+  empleadoId: string;
+  empleadoNombre: string;
+};
 
 export type NotificacionUi = {
   id: string;
@@ -75,6 +79,7 @@ function miTiempoHref(): string {
 /** Una notificación por envío (clic en "Enviar a aprobación"), no por línea. */
 export function buildNotificacionesTiempoEnvio(
   registros: RegistroMock[],
+  empleado: NotificacionEmpleado,
 ): Array<{
   tipo: string;
   titulo: string;
@@ -89,8 +94,7 @@ export function buildNotificacionesTiempoEnvio(
 }> {
   if (!registros.length) return [];
 
-  const empleadoId = SESSION_EMPLEADO.cedula.replace(/\./g, "");
-  const empleadoNombre = SESSION_EMPLEADO.nombre;
+  const { empleadoId, empleadoNombre } = empleado;
   const fechaIso = registros[0].fecha;
   const fechaLegible = isoToDmy(fechaIso);
   const count = registros.length;

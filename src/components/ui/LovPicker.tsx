@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/src/components/ui/Icon";
 import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
-import type { LovItem } from "@/src/lib/mis-anticipos-mock";
+import type { LovItem } from "@/src/lib/anticipos-registro";
 
 type LovPickerProps = {
   value: LovItem | null;
@@ -56,7 +56,7 @@ export function LovPicker({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
-        className={`flex h-9 w-full cursor-pointer items-center justify-between rounded-[5px] border px-2.5 text-left text-[13px] transition-colors ${
+        className={`flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-[5px] border px-2.5 text-left text-[13px] transition-colors ${
           error
             ? "border-red"
             : value

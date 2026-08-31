@@ -39,6 +39,8 @@ export {
   getBankDetails,
   getCurrencyCodes,
   getExpenseCompanies,
+  getIsoCountries,
+  resolvePersonDisplayName,
   type CempPortalSession,
 } from "@/src/lib/ifs/cemp-portal";
 export type {

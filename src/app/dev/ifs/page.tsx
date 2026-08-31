@@ -21,6 +21,8 @@ import {
   getValidEmpPrjAct,
   openCempPortalActor,
 } from "@/src/lib/ifs/cemp-portal";
+import { probeHistoricoIfsAction } from "@/src/server/historico-ifs-probe";
+import { probeDestinoIfsAction } from "@/src/server/anticipos-catalog-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -185,6 +187,8 @@ async function probeIfs(): Promise<ProbeResult[]> {
 
 export default async function IfsDevPage() {
   const steps = await probeIfs();
+  const historicoProbe = await probeHistoricoIfsAction();
+  const destinoProbe = await probeDestinoIfsAction();
   const session = await getServerIfsSession();
   const allOk = steps.every((s) => s.ok);
   const showPasteForm = isLocalDevRuntime() && !session;
@@ -228,6 +232,108 @@ export default async function IfsDevPage() {
         </strong>
       </p>
 
+      {session && (
+        <div className="mt-8 rounded-lg border border-[#c7d9ed] bg-[#f8fafc] px-4 py-4 text-sm">
+          <h2 className="font-semibold text-navy">Mi Histórico — qué lee la API</h2>
+          <p className="mt-1 text-xs text-muted">
+            Compara con lo que ves en IFS Aurena. EmpNo {historicoProbe.empNo ?? "?"} ·
+            ventana desde {historicoProbe.desdeIso}
+          </p>
+          <ul className="mt-3 space-y-1.5 font-mono text-[11px] text-[#374151]">
+            <li>ActivePeriod: {historicoProbe.activePeriod ?? "?"}</li>
+            <li>ConfirmedHours (IFS): {historicoProbe.confirmedHours ?? "?"}</li>
+            <li>
+              GetEmployeeTimesheet: raw={historicoProbe.timesheetRaw} mapped=
+              {historicoProbe.timesheetMapped} aprobados=
+              {historicoProbe.timesheetAprobados}
+            </li>
+            <li>
+              ReportItemSet: raw={historicoProbe.reportItemRaw} (sin expand=
+              {historicoProbe.reportItemNoExpandRaw}) aprobados=
+              {historicoProbe.reportItemAprobados}
+            </li>
+            <li>
+              Reference_EmpReportItem: raw={historicoProbe.referenceRaw}{" "}
+              aprobados={historicoProbe.referenceAprobados}
+            </li>
+            <li>
+              ProjectTransaction Confirmado (lista):{" "}
+              {historicoProbe.confirmedProjectTxCount ?? "?"}
+            </li>
+            <li>
+              Canal /main/: {historicoProbe.mainChannelDetail ?? "?"}
+            </li>
+          </ul>
+          {historicoProbe.bySeqProjectTx && (
+            <p className="mt-2 break-all text-xs text-muted">
+              Por seq Aurena (ProjectTransaction): {historicoProbe.bySeqProjectTx}
+            </p>
+          )}
+          {historicoProbe.bySeqEmpReport && (
+            <p className="mt-2 break-all text-xs text-muted">
+              Por seq Aurena (EmpReportItem): {historicoProbe.bySeqEmpReport}
+            </p>
+          )}
+          {historicoProbe.sampleReportItem && (
+            <p className="mt-2 text-xs text-muted">
+              Muestra ReportItem: {JSON.stringify(historicoProbe.sampleReportItem)}
+            </p>
+          )}
+          {historicoProbe.sampleTimesheet && historicoProbe.timesheetRaw > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              Muestra Timesheet: {JSON.stringify(historicoProbe.sampleTimesheet)}
+            </p>
+          )}
+          {historicoProbe.errors.length > 0 && (
+            <ul className="mt-2 text-xs text-[#b91c1c]">
+              {historicoProbe.errors.map((e) => (
+                <li key={e}>{e}</li>
+              ))}
+            </ul>
+          )}
+          {historicoProbe.timesheetJsonPreview &&
+            historicoProbe.timesheetRaw === 0 && (
+              <pre className="mt-2 max-h-32 overflow-auto rounded bg-white p-2 text-[10px] text-muted">
+                {historicoProbe.timesheetJsonPreview}
+              </pre>
+            )}
+        </div>
+      )}
+
+      {session && (
+        <div className="mt-8 rounded-lg border border-[#c7d9ed] bg-[#f8fafc] px-4 py-4 text-sm">
+          <h2 className="font-semibold text-navy">
+            Destino anticipos — EntitySets en CEmpPortalServices
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            País / región / municipio deben salir de aquí si el portal los
+            expone. Buscamos StateCode, CityCode, CountyCode.
+          </p>
+          {destinoProbe.error ? (
+            <p className="mt-2 text-xs text-[#b91c1c]">{destinoProbe.error}</p>
+          ) : (
+            <>
+              <p className="mt-2 text-xs text-[#374151]">
+                Relacionados a geo:{" "}
+                <strong>
+                  {destinoProbe.geoRelated.length
+                    ? destinoProbe.geoRelated.join(", ")
+                    : "ninguno (solo lo documentado: IsoCountry)"}
+                </strong>
+              </p>
+              <p className="mt-1 text-[10px] text-muted">
+                Total EntitySets: {destinoProbe.entitySets.length}
+              </p>
+              {destinoProbe.entitySets.length > 0 && (
+                <pre className="mt-2 max-h-40 overflow-auto rounded bg-white p-2 text-[10px] text-muted">
+                  {destinoProbe.entitySets.join("\n")}
+                </pre>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {!session && isIfsAuthReady() && (
         <p className="mt-4 rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-3 text-sm text-[#92400e]">
           No hay cookie de sesión.{" "}
@@ -260,8 +366,8 @@ export default async function IfsDevPage() {
         <Link href="/hoja-tiempo" className="text-navy underline">
           Mi Tiempo
         </Link>
-        <Link href="/" className="text-navy underline">
-          Inicio
+        <Link href="/historico-tiempo" className="text-navy underline">
+          Mi Histórico
         </Link>
       </div>
     </div>

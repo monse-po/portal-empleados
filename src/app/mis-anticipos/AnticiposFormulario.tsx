@@ -2,79 +2,66 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
+import { Card, CardBody } from "@/src/components/ui/Card";
 import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
-import { Icon } from "@/src/components/ui/Icon";
+import { Icon, type IconName } from "@/src/components/ui/Icon";
 import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SelectControl } from "@/src/components/ui/DropdownAffordance";
-import {
-  FormGrid,
-  FormHint,
-  FormNote,
-  FormSection,
-  FormStack,
-  SolicitudFormCard,
-  SolicitudFormFooter,
-} from "@/src/components/ui/SolicitudFormLayout";
 import {
   TIPO_ANTICIPO_SEGMENTED_OPTIONS,
 } from "@/src/components/ui/TipoAnticipoPill";
 import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
 import { useToast } from "@/src/components/ui/Toast";
 import { EnviarAnticipoModal } from "@/src/app/mis-anticipos/AnticiposModals";
-import { useAnticiposIfsCatalog } from "@/src/app/mis-anticipos/useAnticiposIfsCatalog";
 import type { LanzarAnticipoInput } from "@/src/app/mis-anticipos/AnticiposContext";
-import type { AnticiposDivisaOption } from "@/src/lib/ifs/anticipos-catalog";
 import {
   COMPANIAS,
   COMPANIAS_HMV,
-  DIVISAS_POR_COMPANIA,
-  EMP_DET,
   EMPLEADOS_ANT,
   fmtMontoInput,
-  getDirectorProyecto,
-  getEmpleadosOtroPorEmpresa,
+  getEmpleadosPorEmpresa,
+  parseMontoInput,
+  type DestinoSel,
+  type EmpleadoAnticipo,
+} from "@/src/lib/anticipos-catalog";
+import {
+  flattenLocalDestinos,
+  searchDestinosConfig,
+  type DivisaOption,
+} from "@/src/lib/anticipos-ifs-catalog";
+import {
   hoyDMY,
   hoyIso,
   isoToDmy,
-  parseMontoInput,
-  PRE_MAP,
-  PROYECTOS_ANT,
-  searchDestinos,
-  SESSION_EMPLEADO,
+  validarFechaIdaViaje,
   type AnticipoTipo,
-  type DestinoSel,
-  type EmpleadoAnticipo,
   type LovItem,
-} from "@/src/lib/mis-anticipos-mock";
+} from "@/src/lib/anticipos-registro";
+import {
+  resolveAprobadorLabel,
+  type TiempoCatalog,
+} from "@/src/lib/ifs/tiempo-catalog";
+import type { PortalUserProfile } from "@/src/lib/portal-user-profile";
+import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
+import {
+  fetchDestinosAnticipoAction,
+  fetchDivisasAnticipoAction,
+} from "@/src/server/anticipos-catalog-actions";
+import {
+  fetchProjectAprobadorAction,
+  fetchTiempoCatalogAction,
+} from "@/src/server/mi-tiempo-catalog-actions";
 
 type AnticiposFormularioProps = {
   onVolver: () => void;
-  onLanzar: (
-    input: LanzarAnticipoInput,
-  ) => Promise<{ no: string | null; error?: string }>;
+  onLanzar: (input: LanzarAnticipoInput) => Promise<string | null>;
   onLanzarOtro: (beneficiario: string) => void;
-  inicial?: { tipo?: AnticipoTipo; proyId?: string };
 };
 
-const PROYECTOS_LOV: LovItem[] = PROYECTOS_ANT.map((p) => ({
-  id: p.id,
-  nombre: p.nombre,
-  sub: p.sub,
-}));
-
-const SESSION_EMP_ID = SESSION_EMPLEADO.cedula.replace(/\./g, "");
-
 function RoInput({ value }: { value: string }) {
-  return (
-    <input
-      readOnly
-      value={value}
-      title={value || undefined}
-      className="ant-ro-input truncate"
-    />
-  );
+  return <input readOnly value={value} className="ant-ro-input" />;
 }
 
 function fmtCedulaSinPuntos(cedula: string): string {
@@ -101,19 +88,112 @@ function getCompaniaGastoLabel(
   return id;
 }
 
+function FormGrid({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 ${className}`.trim()}
+    >
+      {children}
+    </div>
+  );
+}
+
+function FormGridSpan({
+  children,
+  span = 1,
+  className = "",
+}: {
+  children: React.ReactNode;
+  span?: 1 | 2 | 3;
+  className?: string;
+}) {
+  const spanClass =
+    span === 3 ? "md:col-span-3" : span === 2 ? "md:col-span-2" : "";
+  return (
+    <div className={`min-w-0 ${spanClass} ${className}`.trim()}>{children}</div>
+  );
+}
+
+function FormSection({
+  icon,
+  title,
+  hint,
+  children,
+}: {
+  icon: IconName;
+  title: string;
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h2 className="mb-3 flex items-center gap-2 text-[13px] font-bold text-navy">
+        <Icon name={icon} size="sm" className="text-navy" />
+        {title}
+      </h2>
+      {hint ? <div className="mb-3">{hint}</div> : null}
+      {children}
+    </section>
+  );
+}
+
+function FormHint({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="inline-flex w-fit max-w-full items-start gap-2 rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-3 py-2 text-[12px] leading-snug text-[#1e40af]">
+      <Icon name="info" size="xs" className="mt-0.5 shrink-0 text-[#1e40af]" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+/** Hint operativo / regla de negocio — misma familia visual que FormHint */
+function FormNote({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`inline-flex w-fit max-w-full items-start gap-2 rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-3 py-2 text-[12px] leading-snug text-[#1e40af] ${className}`.trim()}
+    >
+      <Icon name="info" size="xs" className="mt-0.5 shrink-0 text-[#1e40af]" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
 function DestinoPicker({
   value,
   onChange,
-  error,
+  destinos,
+  loading,
 }: {
   value: DestinoSel | null;
   onChange: (dest: DestinoSel | null) => void;
-  error?: boolean;
+  destinos: DestinoSel[];
+  loading?: boolean;
 }) {
   const [q, setQ] = useState(value?.label || "");
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const resultados = useMemo(() => searchDestinos(q), [q]);
+  const resultados = useMemo(
+    () => searchDestinosConfig(destinos, q),
+    [destinos, q],
+  );
+
+  useEffect(() => {
+    if (value?.label && value.label !== q) setQ(value.label);
+    // Solo sincronizar cuando cambia la selección externa
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value?.label]);
 
   useEffect(() => {
     if (!open) return;
@@ -123,15 +203,6 @@ function DestinoPicker({
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
-
-  const porPais = useMemo(() => {
-    const map: Record<string, DestinoSel[]> = {};
-    resultados.forEach((r) => {
-      if (!map[r.pais]) map[r.pais] = [];
-      map[r.pais].push(r);
-    });
-    return map;
-  }, [resultados]);
 
   return (
     <div ref={wrapRef} className="relative">
@@ -144,57 +215,45 @@ function DestinoPicker({
         <input
           type="text"
           value={q}
+          disabled={loading}
           onChange={(e) => {
             setQ(e.target.value);
             onChange(null);
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Municipio, región o país…"
-          title={q || undefined}
+          placeholder={
+            loading
+              ? "Cargando destinos…"
+              : "Ej: Bello, Antioquia, Colombia…"
+          }
           autoComplete="off"
-          className={`ant-field-input truncate !pl-[30px] ${error ? "!border-red" : ""}`}
+          className="ant-field-input !pl-[30px]"
         />
       </div>
-      {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+3px)] z-[200] max-h-[260px] overflow-y-auto rounded-lg border border-border bg-white shadow-[0_4px_16px_rgba(0,0,0,0.10)]">
-          {Object.keys(porPais).length === 0 ? (
+      {open && !loading && (
+        <div className="absolute left-0 right-0 top-[calc(100%+3px)] z-[200] max-h-[280px] overflow-y-auto rounded-lg border border-border bg-white shadow-[0_4px_16px_rgba(0,0,0,0.10)]">
+          {resultados.length === 0 ? (
             <div className="px-3.5 py-3 text-[12px] text-[#9ca3af]">
               Sin resultados
             </div>
           ) : (
-            Object.entries(porPais).map(([pais, items]) => (
-              <div key={pais}>
-                <div className="border-t border-[#f3f4f6] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#9ca3af] first:border-t-0">
-                  {pais}
-                </div>
-                {items.map((r) => (
-                  <button
-                    key={`${r.pCode}-${r.dpto}-${r.ciudad}`}
-                    type="button"
-                    onClick={() => {
-                      onChange(r);
-                      setQ(r.label);
-                      setOpen(false);
-                    }}
-                    className="flex w-full cursor-pointer items-start gap-2 px-3.5 py-[7px] text-left hover:bg-[#f5f7fa]"
-                  >
-                    <Icon
-                      name="mapPin"
-                      size="xs"
-                      className="mt-0.5 shrink-0 text-navy"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12.5px] font-medium text-[#1a1a2e]">
-                        {r.ciudad}
-                      </span>
-                      <span className="block truncate text-[11px] text-[#9ca3af]">
-                        {r.dpto} · {r.pais}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
+            resultados.map((r) => (
+              <button
+                key={`${r.pCode}-${r.dpto}-${r.ciudad}`}
+                type="button"
+                onClick={() => {
+                  onChange(r);
+                  setQ(r.label);
+                  setOpen(false);
+                }}
+                className="flex w-full cursor-pointer items-center gap-2 px-3.5 py-[8px] text-left hover:bg-[#f5f7fa]"
+              >
+                <Icon name="mapPin" size="xs" className="shrink-0 text-navy" />
+                <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-[#1a1a2e]">
+                  {r.label}
+                </span>
+              </button>
             ))
           )}
         </div>
@@ -207,21 +266,26 @@ export function AnticiposFormulario({
   onVolver,
   onLanzar,
   onLanzarOtro,
-  inicial,
 }: AnticiposFormularioProps) {
   const { toast } = useToast();
-  const ifsCat = useAnticiposIfsCatalog();
+  const [profile, setProfile] = useState<PortalUserProfile | null>(null);
+  const [catalog, setCatalog] = useState<TiempoCatalog | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [proyectosLov, setProyectosLov] = useState<LovItem[]>([]);
+  const [aprobadorIfs, setAprobadorIfs] = useState<string | null>(null);
+  const [aprobadorLoading, setAprobadorLoading] = useState(false);
   const [paraOtro, setParaOtro] = useState(false);
-  const [tipo, setTipo] = useState<AnticipoTipo | "">(inicial?.tipo ?? "");
-  const [companiaId, setCompaniaId] = useState(SESSION_EMPLEADO.companiaDefault);
+  const [tipo, setTipo] = useState<AnticipoTipo | "">("");
+  const [companiaId, setCompaniaId] = useState("");
   const [companiaGastoOtro, setCompaniaGastoOtro] = useState("");
-  const [proySel, setProySel] = useState<LovItem | null>(() => {
-    if (!inicial?.proyId) return null;
-    return PROYECTOS_LOV.find((p) => p.id === inicial.proyId) ?? null;
-  });
+  const [proySel, setProySel] = useState<LovItem | null>(null);
   const [compBenef, setCompBenef] = useState<LovItem | null>(null);
   const [empOtro, setEmpOtro] = useState<EmpleadoAnticipo | null>(null);
   const [divisa, setDivisa] = useState("COP");
+  const [divisas, setDivisas] = useState<DivisaOption[]>([]);
+  const [destinos, setDestinos] = useState<DestinoSel[]>([]);
+  const [destinosLoading, setDestinosLoading] = useState(true);
   const [monto, setMonto] = useState("");
   const [motivo, setMotivo] = useState("");
   const [fechaIda, setFechaIda] = useState("");
@@ -232,81 +296,159 @@ export function AnticiposFormulario({
   );
   const [envioOpen, setEnvioOpen] = useState(false);
   const [resumenHtml, setResumenHtml] = useState("");
-  const [ifsEmployees, setIfsEmployees] = useState<EmpleadoAnticipo[]>([]);
-  const [ifsProjects, setIfsProjects] = useState<LovItem[]>([]);
-  const [ifsDivisas, setIfsDivisas] = useState<AnticiposDivisaOption[]>([]);
-  const [ifsDirector, setIfsDirector] = useState<{
-    codigo: string;
-    nombre: string;
-  } | null>(null);
-  const [enviando, setEnviando] = useState(false);
 
-  const empresasLov =
-    ifsCat.connected && ifsCat.companies.length > 0
-      ? ifsCat.companies
-      : COMPANIAS_HMV;
+  useEffect(() => {
+    void fetch("/api/auth/session")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.ok) return;
+        const p = data as PortalUserProfile & { ok?: boolean };
+        setProfile(p);
+        if (p.companyId) setCompaniaId(p.companyId);
+      });
+  }, []);
 
-  const sessionEmpId = fmtCedulaSinPuntos(
-    ifsCat.profile?.personId || SESSION_EMPLEADO.cedula,
-  );
-  const sessionEmpNo = ifsCat.profile?.empNo || "";
+  useEffect(() => {
+    const hoy = hoyIso();
+    setCatalogLoading(true);
+    setCatalogError(null);
+    void fetchTiempoCatalogAction(hoy).then((result) => {
+      setCatalogLoading(false);
+      if (!result.catalog) {
+        setCatalog(null);
+        setProyectosLov([]);
+        setCatalogError(
+          result.error ??
+            "No se pudieron cargar tus proyectos desde IFS. Vuelve a iniciar sesión.",
+        );
+        return;
+      }
+      setCatalog(result.catalog);
+      setProyectosLov(
+        result.catalog.proyectos.map((p) => ({
+          id: p.id,
+          nombre: p.nombre,
+          sub: p.projectId !== p.id ? p.projectId : "",
+        })),
+      );
+    });
+  }, []);
+
+  useEffect(() => {
+    setDestinos(flattenLocalDestinos());
+    setDestinosLoading(false);
+    void fetchDestinosAnticipoAction().then((result) => {
+      if (result.destinos.length) setDestinos(result.destinos);
+    });
+  }, []);
+
+  const aprobadorLabel = useMemo(() => {
+    if (!proySel) return "";
+    if (aprobadorLoading) return "Consultando aprobador en IFS…";
+    return (
+      aprobadorIfs ??
+      resolveAprobadorLabel(catalog, proySel.id) ??
+      TIEMPO_UI_COPY.approverFallback
+    );
+  }, [proySel, aprobadorLoading, aprobadorIfs, catalog]);
+
+  useEffect(() => {
+    if (!proySel || !catalog) {
+      setAprobadorIfs(null);
+      setAprobadorLoading(false);
+      return;
+    }
+
+    const entry = catalog.porProyecto[proySel.id];
+    if (!entry) {
+      setAprobadorIfs(null);
+      setAprobadorLoading(false);
+      return;
+    }
+
+    // Si el catálogo solo tiene código (abreviación IFS), igual consultar
+    // ProjectInfo + EmployeeInfo para intentar el nombre completo.
+    const cachedName = entry.aprobador?.name?.trim();
+    if (cachedName) {
+      setAprobadorIfs(cachedName);
+      setAprobadorLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setAprobadorLoading(true);
+    setAprobadorIfs(entry.aprobador?.code?.trim() || null);
+
+    void fetchProjectAprobadorAction({
+      shortName: proySel.id,
+      projectId: entry.projectId,
+      companyId: entry.companyId,
+    }).then((result) => {
+      if (cancelled) return;
+      setAprobadorLoading(false);
+      setAprobadorIfs(
+        result.aprobador ?? entry.aprobador?.code?.trim() ?? null,
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [proySel, catalog]);
 
   const companiaDivisa = paraOtro ? companiaGastoOtro || companiaId : companiaId;
-  const divisasMock =
-    DIVISAS_POR_COMPANIA[companiaDivisa] || DIVISAS_POR_COMPANIA.HMVINGCO;
-  const divisas = ifsDivisas.length > 0 ? ifsDivisas : divisasMock;
+
+  useEffect(() => {
+    if (!companiaDivisa) return;
+    let cancelled = false;
+    void fetchDivisasAnticipoAction(companiaDivisa).then((result) => {
+      if (cancelled) return;
+      setDivisas(result.divisas);
+      setDivisa((prev) => {
+        if (result.divisas.some((d) => d.code === prev)) return prev;
+        return result.divisas[0]?.code || "COP";
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [companiaDivisa]);
+
+  const divisaPre = useMemo(
+    () => divisas.find((d) => d.code === divisa)?.pre || "$",
+    [divisas, divisa],
+  );
   const hoy = hoyIso();
   const empLogueado = useMemo(
     () =>
-      EMPLEADOS_ANT.find((e) => e.id === fmtCedulaSinPuntos(EMP_DET.cedula)),
-    [],
+      profile
+        ? EMPLEADOS_ANT.find((e) => e.id === profile.empleadoDbId.replace(/\D/g, ""))
+        : undefined,
+    [profile],
   );
   const companiasPropias = useMemo(() => {
-    if (ifsCat.profile?.companiasGasto.length) {
-      return ifsCat.profile.companiasGasto;
+    if (profile?.companyId) {
+      const label =
+        COMPANIAS.find((c) => c.id === profile.companyId)?.label ??
+        profile.companyName ??
+        profile.companyId;
+      return [{ id: profile.companyId, label }];
     }
     return (
       empLogueado?.companias ?? [
         {
-          id: SESSION_EMPLEADO.companiaDefault,
+          id: companiaId || "HMVINGCO",
           label:
-            COMPANIAS.find((c) => c.id === SESSION_EMPLEADO.companiaDefault)
-              ?.label ?? SESSION_EMPLEADO.companiaDefault,
+            COMPANIAS.find((c) => c.id === (companiaId || "HMVINGCO"))?.label ??
+            companiaId,
         },
       ]
     );
-  }, [empLogueado, ifsCat.profile]);
+  }, [profile, empLogueado, companiaId]);
   const montoNum = useMemo(() => parseMontoInput(monto), [monto]);
-  const directorMock = useMemo(
-    () => getDirectorProyecto(proySel?.id),
-    [proySel],
-  );
-  const directorProyecto = ifsDirector ?? directorMock;
+  const empleadosOtro = compBenef ? getEmpleadosPorEmpresa(compBenef.id) : [];
   const showEmpOtroBenefRows = paraOtro && !!compBenef;
-  const empleadosOtroLov = useMemo(() => {
-    if (ifsCat.connected) {
-      return ifsEmployees
-        .filter((e) => {
-          const id = fmtCedulaSinPuntos(e.id);
-          const empNo = (e.empNo || "").replace(/\D/g, "");
-          if (sessionEmpId && id === sessionEmpId) return false;
-          if (sessionEmpNo && (empNo === sessionEmpNo.replace(/\D/g, "") || e.empNo === sessionEmpNo)) {
-            return false;
-          }
-          return true;
-        })
-        .map((e) => ({ id: e.id, nombre: e.nombre, sub: e.sub }));
-    }
-    return compBenef
-      ? getEmpleadosOtroPorEmpresa(compBenef.id, SESSION_EMP_ID)
-      : [];
-  }, [compBenef, ifsCat.connected, ifsEmployees, sessionEmpId, sessionEmpNo]);
-  const proyectosLov = ifsCat.connected ? ifsProjects : PROYECTOS_LOV;
-  const sessionCedula = ifsCat.profile?.personId
-    ? fmtCedulaSinPuntos(ifsCat.profile.personId)
-    : fmtCedulaSinPuntos(EMP_DET.cedula);
-  const sessionNombre = ifsCat.profile?.empName || EMP_DET.nombre;
-  const sessionCuenta = ifsCat.profile?.cuenta || EMP_DET.cuenta;
+  const showEmpOtroDatos = showEmpOtroBenefRows && !!empOtro;
   const companiaGastoOtroOpciones = useMemo(() => {
     if (empOtro) return empOtro.companias;
     if (compBenef) {
@@ -319,80 +461,6 @@ export function AnticiposFormulario({
     }
     return [];
   }, [empOtro, compBenef]);
-
-  useEffect(() => {
-    if (!ifsCat.profile?.companyId) return;
-    setCompaniaId((prev) => prev || ifsCat.profile!.companyId);
-  }, [ifsCat.profile]);
-
-  useEffect(() => {
-    if (!ifsCat.connected) {
-      setIfsProjects([]);
-      setIfsDivisas([]);
-      return;
-    }
-    const company = paraOtro
-      ? compBenef?.id || companiaGastoOtro
-      : companiaId;
-    if (!company) {
-      setIfsProjects([]);
-      setIfsDivisas([]);
-      return;
-    }
-    let cancelled = false;
-    void Promise.all([
-      ifsCat.loadProjects(company),
-      ifsCat.loadCurrencies(company),
-    ]).then(([projects, currencies]) => {
-      if (cancelled) return;
-      setIfsProjects(projects);
-      setIfsDivisas(currencies);
-      if (currencies.length) {
-        setDivisa((prev) =>
-          currencies.some((c) => c.code === prev) ? prev : currencies[0].code,
-        );
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    ifsCat.connected,
-    ifsCat.loadProjects,
-    ifsCat.loadCurrencies,
-    paraOtro,
-    compBenef?.id,
-    companiaGastoOtro,
-    companiaId,
-  ]);
-
-  useEffect(() => {
-    if (!ifsCat.connected || !compBenef?.id) {
-      setIfsEmployees([]);
-      return;
-    }
-    let cancelled = false;
-    void ifsCat.loadEmployees(compBenef.id).then((employees) => {
-      if (!cancelled) setIfsEmployees(employees);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [ifsCat.connected, ifsCat.loadEmployees, compBenef?.id]);
-
-  useEffect(() => {
-    if (!proySel?.id || !ifsCat.connected) {
-      setIfsDirector(null);
-      return;
-    }
-    let cancelled = false;
-    void ifsCat.loadAprobador(proySel.id).then((dir) => {
-      if (!cancelled) setIfsDirector(dir);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [ifsCat.connected, ifsCat.loadAprobador, proySel?.id]);
 
   const setTipoSol = (val: AnticipoTipo) => {
     setTipo(val);
@@ -415,87 +483,42 @@ export function AnticiposFormulario({
   const handleCompBenefChange = (item: LovItem | null) => {
     setCompBenef(item);
     setProySel(null);
-    const compId = item?.id ?? "";
-    setCompaniaGastoOtro(compId);
-    if (item) {
-      setDivisa(DIVISAS_POR_COMPANIA[item.id]?.[0]?.code || "COP");
-      setEmpOtro((prev) => {
-        if (!prev) return null;
-        const ok =
-          prev.empresa === item.id ||
-          prev.companias.some((c) => c.id === item.id);
-        return ok ? prev : null;
-      });
-    } else {
-      setEmpOtro(null);
-    }
+    setEmpOtro(null);
+    setCompaniaGastoOtro(item?.id ?? "");
   };
 
   const handleProyOtroChange = (item: LovItem | null) => {
     setProySel(item);
-    // No limpiar empOtro: el proyecto no invalida al beneficiario ya elegido.
-    if (!companiaGastoOtro && compBenef?.id) {
-      setCompaniaGastoOtro(compBenef.id);
-    }
+    setEmpOtro(null);
+    setCompaniaGastoOtro(compBenef?.id ?? "");
   };
 
   const handleEmpOtroChange = (item: LovItem | null) => {
-    const emp =
-      ifsEmployees.find((e) => e.id === item?.id) ||
-      EMPLEADOS_ANT.find((e) => e.id === item?.id) ||
-      null;
+    const emp = EMPLEADOS_ANT.find((e) => e.id === item?.id) || null;
     setEmpOtro(emp);
-    if (!emp) {
-      setCompaniaGastoOtro(compBenef?.id ?? "");
-      return;
-    }
-    const gastoId = emp.companias.some((c) => c.id === compBenef?.id)
-      ? (compBenef?.id ?? emp.empresa)
-      : emp.empresa;
-    setCompaniaGastoOtro(gastoId);
-    setDivisa(DIVISAS_POR_COMPANIA[gastoId]?.[0]?.code || "COP");
-    setProySel((prev) => (prev && empOtro?.id === emp.id ? prev : null));
-
-    const empNo = emp.empNo || emp.sub;
-    const company = emp.empresa || compBenef?.id || "";
-    if (ifsCat.connected && empNo && company) {
-      void ifsCat.loadBank(company, empNo).then((bank) => {
-        setEmpOtro((prev) =>
-          prev && prev.id === emp.id
-            ? { ...prev, banco: bank.banco, tipo: bank.tipo, cuenta: bank.cuenta }
-            : prev,
-        );
-      });
-    }
+    setCompaniaGastoOtro(emp?.empresa ?? compBenef?.id ?? "");
   };
 
   const handleCompaniaPropiaChange = (id: string) => {
     setCompaniaId(id);
     setProySel(null);
-    setDivisa(DIVISAS_POR_COMPANIA[id]?.[0]?.code || "COP");
   };
 
   const handleCompaniaGastoOtroChange = (id: string) => {
     setCompaniaGastoOtro(id);
-    setDivisa(DIVISAS_POR_COMPANIA[id]?.[0]?.code || "COP");
   };
 
   const handleDestinoChange = (dest: DestinoSel | null) => {
     setSelDest(dest);
     if (dest) {
-      setTipoViaje(dest.pCode === "CO" ? "nacional" : "internacional");
+      const code = dest.pCode.toUpperCase();
+      setTipoViaje(
+        code === "CO" || code === "COL" ? "nacional" : "internacional",
+      );
     }
   };
 
   const validarYAbrirEnvio = () => {
-    if (!ifsCat.connected) {
-      toast(
-        ifsCat.error ||
-          "Sin sesión IFS. Inicia sesión para enviar el anticipo a Employee Advances.",
-        "danger",
-      );
-      return;
-    }
     if (paraOtro) {
       if (!compBenef) {
         toast("Selecciona la empresa del empleado beneficiario", "danger");
@@ -531,12 +554,11 @@ export function AnticiposFormulario({
       return;
     }
     if (tipo === "Viaje") {
-      if (!fechaIda) {
-        toast("Indica la fecha de salida", "danger");
-        return;
-      }
-      if (fechaIda < hoy) {
-        toast("La fecha de salida no puede ser anterior a hoy", "danger");
+      if (!fechaIda || !validarFechaIdaViaje(fechaIda)) {
+        toast(
+          "La fecha de salida requiere al menos 2 días hábiles de anticipación",
+          "danger",
+        );
         return;
       }
       if (!fechaRegreso || fechaRegreso < fechaIda) {
@@ -549,7 +571,7 @@ export function AnticiposFormulario({
       }
     }
 
-    const pre = PRE_MAP[divisa] || "$";
+    const pre = divisaPre;
     let viajeDet = "";
     if (tipo === "Viaje" && selDest) {
       const tvColor =
@@ -570,8 +592,7 @@ export function AnticiposFormulario({
       : "mí";
     const empCoLabel = paraOtro
       ? `${compBenef!.id} – ${compBenef!.nombre}`
-      : ifsCat.profile?.companyName ||
-        EMP_DET.empresa.split("–")[0].trim();
+      : profile?.companyName ?? profile?.companyId ?? companiaId;
 
     setResumenHtml(`
       <div class="mb-4 rounded-lg border border-border bg-[#f8fafc] p-4">
@@ -589,7 +610,7 @@ export function AnticiposFormulario({
       <div class="space-y-2 text-[12.5px]">
         <div class="flex justify-between gap-4"><span class="text-muted">Para</span><span class="font-medium">${empLabel}</span></div>
         <div class="flex justify-between gap-4"><span class="text-muted">Proyecto</span><span class="font-medium">${proySel!.id}</span></div>
-        <div class="flex justify-between gap-4"><span class="text-muted">Director de proyecto</span><span class="font-medium">${directorProyecto ? `${directorProyecto.nombre} (${directorProyecto.codigo})` : "—"}</span></div>
+        <div class="flex justify-between gap-4"><span class="text-muted">Director de proyecto</span><span class="font-medium">${aprobadorLabel || "—"}</span></div>
         <div class="flex justify-between gap-4"><span class="text-muted">Compañía que asume el gasto</span><span class="font-medium">${compLabel.split("–")[0].trim()}</span></div>
         <div class="flex justify-between gap-4"><span class="text-muted">Empresa del empleado</span><span class="font-medium">${empCoLabel}</span></div>
       </div>
@@ -598,223 +619,235 @@ export function AnticiposFormulario({
   };
 
   const ejecutarEnvio = async () => {
-    if (enviando) return;
-    if (!ifsCat.connected) {
-      toast(
-        ifsCat.error ||
-          "Sin conexión a IFS. Inicia sesión para enviar el anticipo a Employee Advances.",
-        "danger",
-      );
-      return;
-    }
-    setEnviando(true);
     setEnvioOpen(false);
     const compLabel = paraOtro
       ? empOtro!.companias.find((c) => c.id === companiaGastoOtro)?.label ||
         companiaGastoOtro
       : companiasPropias.find((c) => c.id === companiaId)?.label || companiaId;
-    const proyNombre =
-      proySel!.nombre ||
-      PROYECTOS_ANT.find((p) => p.id === proySel!.id)?.nombre ||
-      proySel!.id;
 
-    const companyId = paraOtro ? companiaGastoOtro : companiaId;
-    const invCompanyId = paraOtro
-      ? compBenef?.id
-      : ifsCat.profile?.companyId || companyId;
-    const input: LanzarAnticipoInput = {
+  const aprobadorPersistible =
+    aprobadorIfs?.trim() ||
+    (proySel
+      ? resolveAprobadorLabel(catalog, proySel.id).trim()
+      : "");
+  // No guardar el texto genérico de fallback
+  const aprobadorParaGuardar =
+    aprobadorPersistible &&
+    aprobadorPersistible !== TIEMPO_UI_COPY.approverFallback
+      ? aprobadorPersistible
+      : undefined;
+
+  const input: LanzarAnticipoInput = {
       tipo: tipo as AnticipoTipo,
       proyId: proySel!.id,
-      proyN: proyNombre,
+      proyN: proySel!.nombre,
       monto: montoNum,
       div: divisa,
       motivo: motivo.trim(),
       compania: compLabel,
       empCompania: paraOtro
         ? `${compBenef!.id} – ${compBenef!.nombre}`
-        : ifsCat.profile
-          ? `${ifsCat.profile.companyId} – ${ifsCat.profile.companyName}`
-          : EMP_DET.empresa,
-      companyId,
-      invCompanyId,
-      createdBy: ifsCat.profile?.personId,
-      beneficiarioEmpNo: paraOtro
-        ? empOtro?.empNo
-        : ifsCat.profile?.empNo,
-      beneficiarioSupplierId: paraOtro
-        ? empOtro?.supplierId
-        : ifsCat.profile?.supplierId,
+        : profile?.companyName ?? profile?.companyId ?? companiaId,
+      aprobador: aprobadorParaGuardar,
       paraOtro,
       beneficiarioId: paraOtro ? empOtro!.id : undefined,
       beneficiarioNombre: paraOtro ? empOtro!.nombre : undefined,
       beneficiarioCedula: paraOtro ? empOtro!.id : undefined,
-      beneficiarioCuenta: paraOtro ? empOtro?.cuenta : sessionCuenta,
-      beneficiarioBanco: paraOtro
-        ? empOtro?.banco
-        : ifsCat.profile?.banco || EMP_DET.banco,
-      beneficiarioTipoCuenta: paraOtro
-        ? empOtro?.tipo
-        : ifsCat.profile?.tipoCuenta || EMP_DET.tipoCuenta,
-      aprobador: directorProyecto?.codigo || directorProyecto?.nombre,
-      fechaIda: tipo === "Viaje" ? fechaIda : undefined,
-      fechaRegreso: tipo === "Viaje" ? fechaRegreso : undefined,
+      fechaIda: tipo === "Viaje" ? isoToDmy(fechaIda) : undefined,
+      fechaRegreso: tipo === "Viaje" ? isoToDmy(fechaRegreso) : undefined,
       destino: tipo === "Viaje" ? selDest?.label : undefined,
-      destinoCodigo:
-        tipo === "Viaje" && selDest && selDest.ciudad.length <= 20
-          ? selDest.ciudad
-          : undefined,
       tipoViaje,
     };
 
-    try {
-      const result = await onLanzar(input);
-      if (!result.no) {
-        toast(result.error || "No se pudo registrar la solicitud en IFS", "danger");
-        return;
-      }
-      if (paraOtro) {
-        onLanzarOtro(empOtro!.nombre);
-        onVolver();
-        return;
-      }
-      toast(
-        `Solicitud ${result.no} enviada — notificamos al director de proyecto`,
-        "green",
-      );
+    if (paraOtro) {
+      await onLanzar(input);
+      onLanzarOtro(empOtro!.nombre);
+      return;
+    }
+
+    const codigo = await onLanzar(input);
+    if (codigo) {
+      toast(`Solicitud ${codigo} lanzada`, "green");
       onVolver();
-    } finally {
-      setEnviando(false);
     }
   };
+
+  const empleadoNombre = profile?.name ?? "—";
+  const empleadoIdDisplay = profile?.empleadoDbId ?? "—";
 
   return (
     <>
       <div className="content-standard">
         <PortalSubpageHeader
-          parentLabel="Mis Anticipos"
+          parentLabel="Anticipos"
           onVolver={onVolver}
-          title="Nueva solicitud"
+          title="Solicitar anticipo"
         />
-        {ifsCat.connected ? (
-          <p className="mb-3 text-[11px] font-medium text-muted">
-            Catálogos IFS · {ifsCat.profile?.empName || ifsCat.profile?.companyId}
-          </p>
-        ) : (
-          <p className="mb-3 text-[11px] font-medium text-red">
-            Sin sesión IFS — el envío no llega a Employee Advances.
-            {ifsCat.error ? ` ${ifsCat.error}` : " Inicia sesión y recarga."}
-          </p>
-        )}
 
-        <SolicitudFormCard>
-          <FormSection icon="send" title="Solicitud para">
-            <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-              <div className="w-fit min-w-0">
-                <SegmentedControl
-                  aria-label="Solicitud para"
-                  value={paraOtro ? "otro" : "mi"}
-                  onChange={(v) => handleParaOtroChange(v === "otro")}
-                  options={[
-                    { value: "mi", label: "Para mí" },
-                    { value: "otro", label: "Para otro empleado" },
-                  ]}
-                />
-              </div>
-              <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
-                <span className="text-[12px] font-semibold text-[#374151]">
-                  Fecha de solicitud
-                </span>
-                <span className="flex h-9 items-center text-[13px] text-muted">
-                  {hoyDMY()}
-                </span>
-              </div>
-            </div>
-          </FormSection>
-        </SolicitudFormCard>
+        <Card className="mb-3 overflow-visible">
+          <CardBody className="py-4">
+            <FormSection icon="send" title="Solicitud para">
+              <FormGrid>
+                <div className="flex w-fit min-w-0 flex-col gap-1.5">
+                  <span
+                    className="text-[12px] font-semibold text-transparent select-none"
+                    aria-hidden
+                  >
+                    &nbsp;
+                  </span>
+                  <SegmentedControl
+                    aria-label="Solicitud para"
+                    value={paraOtro ? "otro" : "mi"}
+                    onChange={(v) => handleParaOtroChange(v === "otro")}
+                    options={[
+                      { value: "mi", label: "Para mí" },
+                      { value: "otro", label: "Para otro empleado" },
+                    ]}
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <span className="text-[12px] font-semibold text-[#374151]">
+                    Fecha de solicitud
+                  </span>
+                  <span className="flex h-9 items-center text-[13px] text-muted">
+                    {hoyDMY()}
+                  </span>
+                </div>
+              </FormGrid>
+            </FormSection>
+          </CardBody>
+        </Card>
 
-        <SolicitudFormCard>
-          <FormSection icon="userCircle" title="Empleado beneficiario">
-            {paraOtro ? (
-              <FormStack>
+        <Card className="mb-3 overflow-visible">
+          <CardBody className="py-4">
+            <FormSection icon="userCircle" title="Empleado beneficiario">
+              {catalogError && (
                 <FormHint>
-                  <strong>
-                    Estás solicitando este anticipo a nombre de otra persona.
-                  </strong>{" "}
-                  Tú figurarás como solicitante; el dinero se acreditará a la
-                  cuenta del empleado destinatario.
+                  <strong>Proyectos IFS:</strong> {catalogError}
                 </FormHint>
-                <FormGrid>
-                  <Field label="Empresa del empleado beneficiario" required>
-                    <LovPicker
-                      value={compBenef}
-                      onChange={handleCompBenefChange}
-                      items={empresasLov}
-                      placeholder="Seleccionar empresa"
-                      searchPlaceholder="Buscar empresa o país..."
-                    />
-                  </Field>
-                  {compBenef ? (
-                    <Field label="Empleado beneficiario" required>
+              )}
+              {!catalogLoading && !catalogError && proyectosLov.length === 0 && (
+                <FormHint>
+                  IFS no devolvió proyectos asociados a tu empleado. Revisa
+                  GetValidEmpPrjAct en /dev/ifs.
+                </FormHint>
+              )}
+              {paraOtro ? (
+                <>
+                  <FormHint>
+                    <strong>
+                      Estás solicitando este anticipo a nombre de otra persona.
+                    </strong>{" "}
+                    Tú figurarás como solicitante; el dinero se acreditará a la
+                    cuenta del empleado destinatario.
+                  </FormHint>
+                  <FormGrid className="mt-3">
+                    <Field label="Empresa del empleado beneficiario">
                       <LovPicker
-                        value={
-                          empOtro
-                            ? {
-                                id: empOtro.id,
-                                nombre: empOtro.nombre,
-                                sub: empOtro.sub,
-                              }
-                            : null
-                        }
-                        onChange={handleEmpOtroChange}
-                        items={empleadosOtroLov}
-                        placeholder="Seleccionar empleado"
-                        searchPlaceholder="Buscar por cédula o nombre…"
-                        valueLabel={(it) => it.nombre}
+                        value={compBenef}
+                        onChange={handleCompBenefChange}
+                        items={COMPANIAS_HMV}
+                        placeholder="Seleccionar empresa"
+                        searchPlaceholder="Buscar empresa o país..."
                       />
                     </Field>
-                  ) : null}
-                </FormGrid>
-                {empOtro ? (
-                  <FormGrid>
-                    <Field label="Cédula">
-                      <RoInput value={fmtCedulaSinPuntos(empOtro.id)} />
-                    </Field>
-                    <Field label="Nombre">
-                      <RoInput value={empOtro.nombre} />
-                    </Field>
-                    <Field label="Cuenta">
-                      <RoInput value={maskCuenta(empOtro.cuenta)} />
-                    </Field>
                   </FormGrid>
-                ) : null}
-                {showEmpOtroBenefRows ? (
+                  {showEmpOtroBenefRows && (
+                    <>
+                      <FormGrid className="mt-3">
+                        <Field label="Proyecto asociado" required>
+                          <LovPicker
+                            value={proySel}
+                            onChange={handleProyOtroChange}
+                            items={proyectosLov}
+                            placeholder={
+                              catalogLoading
+                                ? "Cargando proyectos IFS…"
+                                : "Seleccionar proyecto"
+                            }
+                            searchPlaceholder="Buscar proyecto…"
+                            disabled={catalogLoading || proyectosLov.length === 0}
+                          />
+                        </Field>
+                        <Field label="Aprobador">
+                          <RoInput value={aprobadorLabel} />
+                        </Field>
+                        <Field label="Compañía que asume el gasto">
+                          <SelectControl
+                            value={companiaGastoOtro}
+                            onChange={(e) =>
+                              handleCompaniaGastoOtroChange(e.target.value)
+                            }
+                            className="ant-field-input"
+                          >
+                            {companiaGastoOtroOpciones.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.label}
+                              </option>
+                            ))}
+                          </SelectControl>
+                        </Field>
+                      </FormGrid>
+                      <FormGrid className="mt-3">
+                        <Field label="Cédula">
+                          <LovPicker
+                            value={
+                              empOtro
+                                ? {
+                                    id: empOtro.id,
+                                    nombre: empOtro.nombre,
+                                    sub: empOtro.sub,
+                                  }
+                                : null
+                            }
+                            onChange={handleEmpOtroChange}
+                            items={empleadosOtro}
+                            placeholder="Seleccionar"
+                            searchPlaceholder="Buscar por cédula o nombre..."
+                            valueLabel={(it) => fmtCedulaSinPuntos(it.id)}
+                          />
+                        </Field>
+                        <Field label="Nombre">
+                          <RoInput value={empOtro?.nombre || ""} />
+                        </Field>
+                        <Field label="Cuenta">
+                          <RoInput
+                            value={empOtro ? maskCuenta(empOtro.cuenta) : ""}
+                          />
+                        </Field>
+                      </FormGrid>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
                   <FormGrid>
                     <Field label="Proyecto asociado" required>
                       <LovPicker
                         value={proySel}
-                        onChange={handleProyOtroChange}
+                        onChange={setProySel}
                         items={proyectosLov}
-                        placeholder="Seleccionar proyecto"
+                        placeholder={
+                          catalogLoading
+                            ? "Cargando proyectos IFS…"
+                            : "Seleccionar proyecto"
+                        }
+                        searchPlaceholder="Buscar proyecto…"
+                        disabled={catalogLoading || proyectosLov.length === 0}
                       />
                     </Field>
                     <Field label="Aprobador">
-                      <RoInput
-                        value={
-                          directorProyecto
-                            ? `${directorProyecto.nombre} (${directorProyecto.codigo})`
-                            : ""
-                        }
-                      />
+                      <RoInput value={aprobadorLabel} />
                     </Field>
                     <Field label="Compañía que asume el gasto">
                       <SelectControl
-                        value={companiaGastoOtro}
+                        value={companiaId}
                         onChange={(e) =>
-                          handleCompaniaGastoOtroChange(e.target.value)
+                          handleCompaniaPropiaChange(e.target.value)
                         }
                         className="ant-field-input"
                       >
-                        {companiaGastoOtroOpciones.map((c) => (
+                        {companiasPropias.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.label}
                           </option>
@@ -822,80 +855,42 @@ export function AnticiposFormulario({
                       </SelectControl>
                     </Field>
                   </FormGrid>
-                ) : null}
-              </FormStack>
-            ) : (
-              <FormStack>
-                <FormGrid>
-                  <Field label="Proyecto asociado" required>
-                    <LovPicker
-                      value={proySel}
-                      onChange={setProySel}
-                      items={proyectosLov}
-                      placeholder="Seleccionar proyecto"
-                    />
-                  </Field>
-                  <Field label="Aprobador">
-                    <RoInput
-                      value={
-                        directorProyecto
-                          ? `${directorProyecto.nombre} (${directorProyecto.codigo})`
-                          : ""
-                      }
-                    />
-                  </Field>
-                  <Field label="Compañía que asume el gasto">
-                    <SelectControl
-                      value={companiaId}
-                      onChange={(e) =>
-                        handleCompaniaPropiaChange(e.target.value)
-                      }
-                      className="ant-field-input"
-                    >
-                      {companiasPropias.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </SelectControl>
-                  </Field>
-                </FormGrid>
-                <FormGrid>
-                  <Field label="Cédula">
-                    <RoInput value={sessionCedula} />
-                  </Field>
-                  <Field label="Nombre">
-                    <RoInput value={sessionNombre} />
-                  </Field>
-                  <Field label="Cuenta">
-                    <RoInput value={maskCuenta(sessionCuenta)} />
-                  </Field>
-                </FormGrid>
-              </FormStack>
-            )}
-          </FormSection>
-        </SolicitudFormCard>
+                  <FormGrid className="mt-3">
+                    <Field label="Identificador">
+                      <RoInput value={empleadoIdDisplay} />
+                    </Field>
+                    <Field label="Nombre">
+                      <RoInput value={empleadoNombre} />
+                    </Field>
+                    <Field label="Cuenta">
+                      <RoInput value="Consultar en IFS" />
+                    </Field>
+                  </FormGrid>
+                </>
+              )}
+            </FormSection>
+          </CardBody>
+        </Card>
 
-        <SolicitudFormCard>
-          <FormSection
-            icon="wallet"
-            title="Tipo y monto de la solicitud"
-            hint={
-              tipo === "Gasto" ? (
-                <FormNote>
-                  Las solicitudes se procesan en{" "}
-                  <strong>2 días hábiles</strong> desde su aprobación.
-                </FormNote>
-              ) : tipo === "Viaje" ? (
-                <FormNote>
-                  Se recomienda solicitar con al menos{" "}
-                  <strong>2 días hábiles</strong> antes del viaje; también
-                  puedes registrar salidas el mismo día.
-                </FormNote>
-              ) : undefined
-            }
-          >
-            <FormStack>
+        <Card className="mb-3 overflow-visible">
+          <CardBody className="py-4">
+            <FormSection
+              icon="wallet"
+              title="Tipo y monto de la solicitud"
+              hint={
+                tipo === "Gasto" ? (
+                  <FormNote>
+                    Las solicitudes se procesan en{" "}
+                    <strong>2 días hábiles</strong> desde su aprobación.
+                  </FormNote>
+                ) : tipo === "Viaje" ? (
+                  <FormNote>
+                    Solicita con al menos <strong>2 días hábiles</strong> antes de
+                    la fecha de inicio del viaje.
+                  </FormNote>
+                ) : undefined
+              }
+            >
               <FormGrid>
                 <div className="w-fit min-w-0">
                   <p className="mb-1.5 text-[12px] font-semibold text-[#374151]">
@@ -924,7 +919,7 @@ export function AnticiposFormulario({
                 <Field label="Monto" required>
                   <div className="flex h-9 w-full overflow-hidden rounded-[5px] border border-border bg-white focus-within:border-navy">
                     <span className="flex min-w-[34px] items-center justify-center border-r border-border bg-[#f3f4f6] px-2 text-[13px] font-medium text-muted">
-                      {PRE_MAP[divisa] || "$"}
+                      {divisaPre}
                     </span>
                     <input
                       type="text"
@@ -942,8 +937,8 @@ export function AnticiposFormulario({
                 </Field>
               </FormGrid>
 
-              {tipo === "Viaje" ? (
-                <FormGrid>
+              {tipo === "Viaje" && (
+                <FormGrid className="mt-3">
                   <Field label="Fecha salida" required>
                     <DateInput
                       min={hoy}
@@ -956,11 +951,7 @@ export function AnticiposFormulario({
                         }
                         if (next < hoy) return;
                         setFechaIda(next);
-                        if (
-                          fechaRegreso &&
-                          next &&
-                          fechaRegreso < next
-                        ) {
+                        if (fechaRegreso && next && fechaRegreso < next) {
                           setFechaRegreso(next);
                         }
                       }}
@@ -979,12 +970,14 @@ export function AnticiposFormulario({
                     <DestinoPicker
                       value={selDest}
                       onChange={handleDestinoChange}
+                      destinos={destinos}
+                      loading={destinosLoading}
                     />
                   </Field>
                 </FormGrid>
-              ) : null}
+              )}
 
-              <FormGrid>
+              <FormGrid className="mt-3">
                 <Field label="Motivo" required>
                   <textarea
                     value={motivo}
@@ -995,19 +988,25 @@ export function AnticiposFormulario({
                   />
                 </Field>
               </FormGrid>
-            </FormStack>
-          </FormSection>
-        </SolicitudFormCard>
+            </FormSection>
+          </CardBody>
+        </Card>
 
-        <SolicitudFormFooter note="El director de proyecto aprueba esta solicitud.">
-          <Button variant="tertiary" onClick={onVolver}>
-            Descartar
-          </Button>
-          <Button variant="success" onClick={validarYAbrirEnvio}>
-            <Icon name="send" size="xs" />
-            Enviar a Aprobación
-          </Button>
-        </SolicitudFormFooter>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white px-5 py-3.5">
+            <span className="flex items-center gap-1.5 text-[11.5px] text-muted">
+              <Icon name="info" size="xs" className="text-muted" />
+              El director de proyecto aprueba esta solicitud.
+            </span>
+            <div className="flex gap-2.5">
+              <Button variant="tertiary" onClick={onVolver}>
+                Descartar
+              </Button>
+              <Button variant="success" onClick={validarYAbrirEnvio}>
+                <Icon name="send" size="xs" />
+                Enviar a Aprobación
+              </Button>
+            </div>
+          </div>
       </div>
 
       <EnviarAnticipoModal
@@ -1025,11 +1024,6 @@ export function AnticiposFormulario({
           border: 1px solid #e5e9f0;
           padding: 0 10px;
           font-size: 13px;
-        }
-        .ant-ro-input {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
         }
         .ant-form-textarea {
           width: 100%;

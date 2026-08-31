@@ -130,6 +130,11 @@ export function UserMenu() {
           <div className="border-b border-[#f1f5f9] px-3.5 py-2.5">
             <div className="text-[13px] font-semibold text-navy">{title}</div>
             <div className="text-[11px] text-muted">{subtitle}</div>
+            {profile?.connected && profile.companyId ? (
+              <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-green">
+                IFS · {profile.companyId}
+              </div>
+            ) : null}
             {profile?.error ? (
               <div className="mt-1 text-[11px] text-[#b45309]">{profile.error}</div>
             ) : null}

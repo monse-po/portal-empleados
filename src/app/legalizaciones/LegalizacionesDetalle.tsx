@@ -20,10 +20,9 @@ import {
   getPaymentReference,
   labelCostCategory,
   labelVoucherType,
-  resolveCompaniaId,
   type Legalizacion,
 } from "@/src/lib/legalizaciones-mock";
-import { EMP_DET, formatMonto } from "@/src/lib/mis-anticipos-mock";
+import { formatMonto, SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
 
 type LegalizacionesDetalleProps = {
   legalizacion: Legalizacion;
@@ -39,7 +38,7 @@ export function LegalizacionesDetalle({
     : null;
   const companiaId = paymentRef
     ? paymentRef.companiaId
-    : resolveCompaniaId(EMP_DET.empresa);
+    : SESSION_EMPLEADO.companiaDefault;
 
   return (
     <div className="view-wide">

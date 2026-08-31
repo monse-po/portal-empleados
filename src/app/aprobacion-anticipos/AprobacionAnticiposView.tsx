@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { AprobacionAnticiposDetalle } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposDetalle";
 import { AprobacionAnticiposLista } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposLista";
 import {
@@ -11,15 +10,15 @@ import {
 } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposModals";
 import { useAprobacionAnticipos } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposContext";
 import { useToast } from "@/src/components/ui/Toast";
-import { formatMonto } from "@/src/lib/mis-anticipos-mock";
+import { formatMonto } from "@/src/lib/anticipos-registro";
 
 type Vista = "lista" | "detalle";
 
 function toastAprobados(nos: string[]) {
   if (nos.length === 1) {
-    return `Solicitud ${nos[0]} aprobada y pagada · Historial del empleado`;
+    return `Solicitud ${nos[0]} aprobada · IFS procesará el pago`;
   }
-  return `${nos.length} solicitudes aprobadas y pagadas`;
+  return `${nos.length} solicitudes aprobadas · IFS procesará los pagos`;
 }
 
 function toastRechazados(nos: string[]) {
@@ -30,10 +29,7 @@ function toastRechazados(nos: string[]) {
 }
 
 export function AprobacionAnticiposView() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { getSolicitud, aprobar, rechazar, solicitudes } =
-    useAprobacionAnticipos();
+  const { getSolicitud, aprobar, rechazar } = useAprobacionAnticipos();
   const { toast } = useToast();
   const [vista, setVista] = useState<Vista>("lista");
   const [detalleNo, setDetalleNo] = useState<string | null>(null);
@@ -41,16 +37,6 @@ export function AprobacionAnticiposView() {
   const [rechazarTargets, setRechazarTargets] = useState<string[]>([]);
   const [comentarioAprobar, setComentarioAprobar] = useState("");
   const [comentarioRechazarDetalle, setComentarioRechazarDetalle] = useState("");
-  const deepLinkNo = searchParams.get("no");
-  const deepLinkHandled = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!deepLinkNo || deepLinkHandled.current === deepLinkNo) return;
-    if (!solicitudes[deepLinkNo]) return;
-    deepLinkHandled.current = deepLinkNo;
-    setDetalleNo(deepLinkNo);
-    setVista("detalle");
-  }, [deepLinkNo, solicitudes]);
 
   const solicitud = detalleNo ? getSolicitud(detalleNo) : undefined;
   const enDetalle = vista === "detalle" && !!solicitud;
@@ -101,8 +87,6 @@ export function AprobacionAnticiposView() {
     setRechazarTargets([]);
     setComentarioAprobar("");
     setComentarioRechazarDetalle("");
-    deepLinkHandled.current = deepLinkNo ?? "dismissed";
-    router.replace("/aprobacion-anticipos");
   };
 
   const solicitarAprobacion = (nos: string[]) => {
@@ -114,39 +98,37 @@ export function AprobacionAnticiposView() {
   };
 
   const confirmarAprobacion = async () => {
-    const nos = [...aprobarTargets];
-    const result = await aprobar(nos, comentarioAprobar);
-    if (!result.ok) {
-      toast(result.error || "No se pudo aprobar en IFS", "danger");
-      return;
+    try {
+      await aprobar(aprobarTargets, comentarioAprobar);
+      toast(toastAprobados(aprobarTargets), "green");
+      setAprobarTargets([]);
+      setComentarioAprobar("");
+      if (enDetalle) volverLista();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Error al aprobar", "danger");
     }
-    toast(toastAprobados(nos), "green");
-    setAprobarTargets([]);
-    setComentarioAprobar("");
-    if (enDetalle) volverLista();
   };
 
   const confirmarRechazoLote = async (motivo: string) => {
-    const nos = [...rechazarTargets];
-    const result = await rechazar(nos, motivo);
-    if (!result.ok) {
-      toast(result.error || "No se pudo rechazar en IFS", "danger");
-      return;
+    try {
+      await rechazar(rechazarTargets, motivo);
+      toast(toastRechazados(rechazarTargets), "danger");
+      setRechazarTargets([]);
+      if (enDetalle) volverLista();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Error al rechazar", "danger");
     }
-    toast(toastRechazados(nos), "danger");
-    setRechazarTargets([]);
-    if (enDetalle) volverLista();
   };
 
   const confirmarRechazoDetalle = async () => {
     if (!solicitud) return;
-    const result = await rechazar([solicitud.no], comentarioRechazarDetalle);
-    if (!result.ok) {
-      toast(result.error || "No se pudo rechazar en IFS", "danger");
-      return;
+    try {
+      await rechazar([solicitud.no], comentarioRechazarDetalle);
+      toast(toastRechazados([solicitud.no]), "danger");
+      volverLista();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Error al rechazar", "danger");
     }
-    toast(toastRechazados([solicitud.no]), "danger");
-    volverLista();
   };
 
   if (enDetalle && solicitud) {

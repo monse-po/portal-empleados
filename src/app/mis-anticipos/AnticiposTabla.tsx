@@ -15,7 +15,6 @@ import {
   TABLE_PAGE_SIZE,
 } from "@/src/components/ui/DataTable";
 import { TablePagination } from "@/src/components/ui/TablePagination";
-import { AnticiposMobileCards } from "@/src/app/mis-anticipos/AnticiposMobileCards";
 import {
   ANTICIPOS_COLS_HIST,
   ANTICIPOS_COLS_PEND,
@@ -24,7 +23,7 @@ import {
   getBeneficiarioSolicitante,
   nombreAprobador,
   type Anticipo,
-} from "@/src/lib/mis-anticipos-mock";
+} from "@/src/lib/anticipos-registro";
 
 type AnticiposTablaProps = {
   registros: Anticipo[];
@@ -50,7 +49,7 @@ export function AnticiposTabla({
   hasFilters,
   onOpenDetalle,
 }: AnticiposTablaProps) {
-  const { tab, sessionIds } = useAnticipos();
+  const { tab, empleadoId } = useAnticipos();
   const esHistorial = tab === "disponibles";
 
   const [page, setPage] = useState(1);
@@ -138,14 +137,7 @@ export function AnticiposTabla({
 
   return (
     <div>
-      <div className="md:hidden">
-        <AnticiposMobileCards
-          registros={visibles}
-          sessionIds={sessionIds}
-          onOpenDetalle={onOpenDetalle}
-        />
-      </div>
-      <div className="hidden overflow-x-auto md:block">
+      <div className="overflow-x-auto">
         <DataTable
           className={esHistorial ? "min-w-[1380px]" : "min-w-[1280px]"}
           colWidths={[
@@ -167,7 +159,9 @@ export function AnticiposTabla({
         </thead>
         <tbody>
           {visibles.map((s) => {
-            const solicitanteBenef = getBeneficiarioSolicitante(s, sessionIds);
+            const solicitanteBenef = empleadoId
+              ? getBeneficiarioSolicitante(s, empleadoId)
+              : null;
             const nombreBenef = getBeneficiarioNombre(s);
             return (
               <tr

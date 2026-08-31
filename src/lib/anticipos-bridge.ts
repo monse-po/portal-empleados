@@ -1,113 +1,88 @@
-import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-mock";
-import { GERENTE_APROBADOR } from "@/src/lib/aprobacion-anticipos-mock";
-import {
-  getBeneficiarioDetalle,
-  hoyDMY,
-  type Anticipo,
-  type AnticipoEstado,
-  type AnticipoExtra,
-  type TimelineItem,
-} from "@/src/lib/mis-anticipos-mock";
+import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-registro";
+import type { Anticipo } from "@/src/lib/anticipos-registro";
+import type { AnticipoExtra } from "@/src/lib/anticipos-registro";
+import type { Anticipo as AnticipoRow } from "@/src/generated/prisma/client";
+import { toAnticipo, toAnticipoExtra } from "@/src/lib/registro-anticipos-db";
 
-export type SyncAnticipoAccion = "aprobado" | "rechazado";
+export function anticipoRowToAprobacion(row: AnticipoRow): AnticipoAprobacion {
+  const a = toAnticipo(row);
+  const ex = toAnticipoExtra(row);
+  const estadoApro =
+    row.estado === "APROBADO"
+      ? "Aprobado"
+      : row.estado === "RECHAZADO"
+        ? "Rechazado"
+        : "";
 
-export type SyncAnticipoHandler = (
-  no: string,
-  accion: SyncAnticipoAccion,
-  comentario?: string,
-) => void;
-
-export type IngresarAnticipoHandler = (solicitud: AnticipoAprobacion) => void;
-
-export type RetirarAnticipoHandler = (no: string) => void;
-
-/**
- * Mapea decisión del gerente al estado visible en Mis Anticipos.
- * Pagado lo pone Tesorería/IFS, no el botón de aprobar.
- */
-export function estadoEmpleadoDesdeAccion(
-  accion: SyncAnticipoAccion,
-): Extract<AnticipoEstado, "Aprobado" | "Rechazado"> {
-  return accion === "aprobado" ? "Aprobado" : "Rechazado";
-}
-
-/** Convierte anticipo empleado → fila de cola de aprobación */
-export function anticipoToAprobacion(
-  a: Anticipo,
-  extra?: AnticipoExtra,
-): AnticipoAprobacion {
-  const benef = getBeneficiarioDetalle(a, extra);
   return {
     no: a.no,
     fecha: a.fecha,
-    compania: extra?.compania || "HMVINGCO",
-    empCompania: extra?.empCompania || extra?.compania || "HMVINGCO",
+    compania: ex.compania,
+    empCompania: ex.empCompania,
     proy: a.proy,
     proyN: a.proyN,
     tipo: a.tipo,
-    solicitante: a.solicitante || "—",
-    cedula: benef.cedula,
-    nombre: benef.nombre,
-    cuenta: benef.cuenta,
-    banco: benef.banco,
-    tipoCuenta: benef.tipoCuenta,
+    solicitante: a.solicitante ?? "—",
+    cedula: a.cedula ?? "—",
+    nombre: a.beneficiarioNombre ?? "—",
+    cuenta: row.cuenta ?? "—",
+    banco: row.banco ?? "—",
+    tipoCuenta: row.tipoCuenta ?? "—",
     divisa: a.div,
     monto: a.monto,
     motivo: a.motivo,
     esViaje: a.tipo === "Viaje",
-    fechaIda: extra?.fechaIda,
-    fechaReg: extra?.fechaRegreso,
-    destino: extra?.destino,
-    creadoMeta: `${a.fecha} · enviado`,
-    estadoApro: "",
-    comentarioApro: "",
-    fechaApro: "",
-    aprobador: "",
+    fechaIda: ex.fechaIda,
+    fechaReg: ex.fechaRegreso,
+    destino: ex.destino,
+    creadoMeta: a.fecha,
+    estadoApro,
+    comentarioApro: row.comentarioAprobacion,
+    fechaApro: a.fechaAprob ?? "",
+    aprobador: row.aprobadorNombre ?? "",
   };
 }
 
-export function aplicarTimelineAprobacion(
-  extra: AnticipoExtra,
-  accion: SyncAnticipoAccion,
-  comentario: string,
-  fecha = hoyDMY(),
-  aprobadorNombre = GERENTE_APROBADOR,
-): AnticipoExtra {
-  const tlBase = extra.tl.filter((t) => !t.accion.startsWith("Esperando"));
-  const entries: TimelineItem[] =
-    accion === "aprobado"
-      ? [
-          {
-            accion: comentario.trim()
-              ? `Aprobada — ${comentario.trim()}`
-              : "Aprobada",
-            usuario: aprobadorNombre,
-            fecha,
-            icon: "check",
-            color: "#15803d",
-          },
-          {
-            accion: "Pago procesado por Tesorería",
-            usuario: "Sistema (IFS)",
-            fecha,
-            icon: "info",
-            color: "#7c3aed",
-          },
-        ]
-      : [
-          {
-            accion: `Rechazada — ${comentario.trim() || "Sin motivo"}`,
-            usuario: aprobadorNombre,
-            fecha,
-            icon: "x",
-            color: "#b91c1c",
-          },
-        ];
+export function anticipoToAprobacion(
+  a: Anticipo,
+  ex: AnticipoExtra,
+  row?: Pick<
+    AnticipoRow,
+    "cuenta" | "banco" | "tipoCuenta" | "comentarioAprobacion" | "aprobadorNombre"
+  >,
+): AnticipoAprobacion {
+  const estadoApro =
+    a.estado === "Aprobado"
+      ? "Aprobado"
+      : a.estado === "Rechazado"
+        ? "Rechazado"
+        : "";
 
   return {
-    ...extra,
-    aprobadoPor:
-      accion === "aprobado" ? `${aprobadorNombre} (Gerente)` : extra.aprobadoPor,
-    tl: [...tlBase, ...entries],
+    no: a.no,
+    fecha: a.fecha,
+    compania: ex.compania,
+    empCompania: ex.empCompania,
+    proy: a.proy,
+    proyN: a.proyN,
+    tipo: a.tipo,
+    solicitante: a.solicitante ?? "—",
+    cedula: a.cedula ?? "—",
+    nombre: a.beneficiarioNombre ?? "—",
+    cuenta: row?.cuenta ?? "—",
+    banco: row?.banco ?? "—",
+    tipoCuenta: row?.tipoCuenta ?? "—",
+    divisa: a.div,
+    monto: a.monto,
+    motivo: a.motivo,
+    esViaje: a.tipo === "Viaje",
+    fechaIda: ex.fechaIda,
+    fechaReg: ex.fechaRegreso,
+    destino: ex.destino,
+    creadoMeta: a.fecha,
+    estadoApro,
+    comentarioApro: row?.comentarioAprobacion ?? "",
+    fechaApro: a.fechaAprob ?? "",
+    aprobador: row?.aprobadorNombre ?? "",
   };
 }

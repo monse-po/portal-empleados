@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useToast } from "@/src/components/ui/Toast";
 import { AnticiposDetalle } from "@/src/app/mis-anticipos/AnticiposDetalle";
 import { AnticiposFormulario } from "@/src/app/mis-anticipos/AnticiposFormulario";
 import { AnticiposLista } from "@/src/app/mis-anticipos/AnticiposLista";
 import { CancelarAnticipoModal } from "@/src/app/mis-anticipos/AnticiposModals";
-import { useAnticipos } from "@/src/app/mis-anticipos/AnticiposContext";
-
-import type { AnticipoTipo } from "@/src/lib/mis-anticipos-mock";
+import {
+  AnticiposProvider,
+  useAnticipos,
+} from "@/src/app/mis-anticipos/AnticiposContext";
 
 type Vista = "lista" | "detalle" | "form";
 
@@ -18,40 +19,13 @@ function AnticiposViewInner() {
     getExtra,
     lanzarAnticipo,
     cancelarAnticipo,
-    sessionIds,
     loaded,
+    loadError,
   } = useAnticipos();
   const { toast } = useToast();
   const [vista, setVista] = useState<Vista>("lista");
   const [detalleNo, setDetalleNo] = useState<string | null>(null);
   const [cancelarNo, setCancelarNo] = useState<string | null>(null);
-  const [formInicial, setFormInicial] = useState<{
-    tipo?: AnticipoTipo;
-    proyId?: string;
-  }>();
-  const queryOpened = useRef(false);
-
-  useEffect(() => {
-    if (queryOpened.current) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("nueva") === "1") {
-      queryOpened.current = true;
-      const tipo = params.get("tipo");
-      const proyId = params.get("proy") || undefined;
-      setFormInicial({
-        tipo: tipo === "Viaje" || tipo === "Gasto" ? tipo : undefined,
-        proyId,
-      });
-      setVista("form");
-      return;
-    }
-    if (!loaded) return;
-    const no = params.get("no");
-    if (!no || !getAnticipo(no)) return;
-    queryOpened.current = true;
-    setDetalleNo(no);
-    setVista("detalle");
-  }, [loaded, getAnticipo]);
 
   const anticipoDetalle = detalleNo ? getAnticipo(detalleNo) : undefined;
   const extraDetalle = detalleNo ? getExtra(detalleNo) : undefined;
@@ -59,27 +33,59 @@ function AnticiposViewInner() {
   const volverLista = () => {
     setVista("lista");
     setDetalleNo(null);
-    setFormInicial(undefined);
   };
 
   const handleCancelar = async () => {
     if (!cancelarNo) return;
-    const ok = await cancelarAnticipo(cancelarNo);
-    if (!ok) {
-      toast("No se pudo cancelar la solicitud", "danger");
-      return;
+    try {
+      await cancelarAnticipo(cancelarNo);
+      toast(
+        `Solicitud ${cancelarNo} cancelada`,
+        "danger",
+      );
+      setCancelarNo(null);
+      volverLista();
+    } catch (error) {
+      toast(
+        error instanceof Error ? error.message : "No se pudo cancelar",
+        "danger",
+      );
     }
-    toast(`Solicitud ${cancelarNo} cancelada — queda en el historial`, "danger");
-    setCancelarNo(null);
-    volverLista();
   };
+
+  if (!loaded) {
+    return (
+      <div className="view-wide flex min-h-[240px] items-center justify-center text-[13px] text-muted">
+        Cargando anticipos…
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="view-wide flex min-h-[240px] flex-col items-center justify-center gap-2 text-center text-[13px]">
+        <p className="text-[#374151]">{loadError}</p>
+        <p className="text-muted">Inicia sesión con tu correo @h-mv.com</p>
+      </div>
+    );
+  }
 
   if (vista === "form") {
     return (
       <AnticiposFormulario
         onVolver={volverLista}
-        onLanzar={lanzarAnticipo}
-        inicial={formInicial}
+        onLanzar={async (input) => {
+          try {
+            const codigo = await lanzarAnticipo(input);
+            return codigo;
+          } catch (error) {
+            toast(
+              error instanceof Error ? error.message : "No se pudo lanzar",
+              "danger",
+            );
+            return null;
+          }
+        }}
         onLanzarOtro={(nombre) => {
           toast(
             `Solicitud registrada para ${nombre} — visible en tu lista`,
@@ -97,7 +103,6 @@ function AnticiposViewInner() {
         <AnticiposDetalle
           anticipo={anticipoDetalle}
           extra={extraDetalle}
-          sessionIds={sessionIds}
           onVolver={volverLista}
           onCancelar={
             anticipoDetalle.estado === "Lanzado"
@@ -127,5 +132,9 @@ function AnticiposViewInner() {
 }
 
 export function AnticiposView() {
-  return <AnticiposViewInner />;
+  return (
+    <AnticiposProvider>
+      <AnticiposViewInner />
+    </AnticiposProvider>
+  );
 }

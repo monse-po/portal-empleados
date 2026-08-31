@@ -5,7 +5,7 @@ export type IfsRequestInit = Omit<RequestInit, "headers"> & {
   headers?: Record<string, string>;
   accessToken: string;
   ifMatch?: string;
-  /** Si se omite, usa CEmpPortalServices (`int`). */
+  /** Si se omite, usa CEmpPortalServices (`int`). Sobrescribe IFS_CEMP_PORTAL_BASE_URL (p. ej. canal /main/ vs /int/). */
   baseUrl?: string;
 };
 
@@ -29,8 +29,7 @@ export async function ifsFetch<T>(
     headers["If-Match"] = init.ifMatch;
   }
 
-  const { accessToken: _token, ifMatch: _etag, baseUrl: _base, ...rest } =
-    init;
+  const { accessToken: _token, ifMatch: _etag, baseUrl: _base, ...rest } = init;
 
   const res = await fetch(url, { ...rest, headers });
   const text = await res.text();
@@ -38,6 +37,20 @@ export async function ifsFetch<T>(
 
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
+}
+
+/** Convierte …/int/… → …/main/… (canal UI Aurena). */
+export function cempPortalMainBaseUrl(intBaseUrl?: string): string {
+  const { cempPortalBaseUrl } = getIfsConfig();
+  const base = intBaseUrl ?? cempPortalBaseUrl;
+  return base.replace("/int/ifsapplications/", "/main/ifsapplications/");
+}
+
+/** Base URL de otra proyección en el mismo host (p. ej. AddressInfoHandling.svc). */
+export function projectionSiblingBaseUrl(serviceName: string): string {
+  const { cempPortalBaseUrl } = getIfsConfig();
+  const svc = serviceName.endsWith(".svc") ? serviceName : `${serviceName}.svc`;
+  return cempPortalBaseUrl.replace(/\/[^/]+\.svc\/?$/, `/${svc}`);
 }
 
 /** Escapa comillas simples en literales OData entre comillas. */

@@ -18,10 +18,25 @@ enum NotificacionModuloDb {
   TIEMPO
 }
 
+enum AnticipoEstadoDb {
+  BORRADOR
+  LANZADO
+  APROBADO
+  PAGADO
+  RECHAZADO
+  CANCELADO
+}
+
+enum AnticipoTipoDb {
+  GASTO
+  VIAJE
+}
+
 model Empleado {
   id        String           @id
   nombre    String
   registros RegistroTiempo[]
+  anticipos Anticipo[]       @relation("AnticipoBeneficiario")
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 }
@@ -80,20 +95,6 @@ model Notificacion {
   @@index([destinatarioRol, leida, createdAt])
 }
 
-enum AnticipoEstadoDb {
-  BORRADOR
-  LANZADO
-  APROBADO
-  PAGADO
-  RECHAZADO
-  CANCELADO
-}
-
-enum AnticipoTipoDb {
-  GASTO
-  VIAJE
-}
-
 model Anticipo {
   id                   String           @id @default(cuid())
   codigo               String           @unique
@@ -128,6 +129,8 @@ model Anticipo {
   timelineJson         Json             @default("[]")
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
+
+  empleado Empleado @relation("AnticipoBeneficiario", fields: [empleadoId], references: [id])
 
   @@index([empleadoId, estado])
   @@index([estado])

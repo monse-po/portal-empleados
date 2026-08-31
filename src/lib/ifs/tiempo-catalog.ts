@@ -2,7 +2,7 @@ import type {
   LovReportCostCodeRow,
   ValidEmpPrjActRow,
 } from "@/src/lib/ifs/types";
-import { TIPO_HORA, type TipoHoraMeta } from "@/src/lib/mi-tiempo-mock";
+import { TIPO_HORA, type TipoHoraMeta } from "@/src/lib/tiempo-registro";
 
 export type TiempoCatalogProyecto = {
   id: string;

@@ -1,14 +1,16 @@
 import {
+  cempPortalMainBaseUrl,
   cempPortalUserPath,
   ifsFetch,
   odataStringKey,
   type IfsRequestInit,
 } from "@/src/lib/ifs/client";
+import { getIfsConfig } from "@/src/lib/ifs/config";
 import { IfsApiError } from "@/src/lib/ifs/errors";
 import { getIfsTargetEmpNo } from "@/src/lib/ifs/config";
 import type {
   CempPortalUser,
-  CurrencyCodesQuery,
+  CurrencyCodeRow,
   CutOffDateParams,
   EmployeeInfoQuery,
   EmpTimeApproval,
@@ -17,6 +19,7 @@ import type {
   EmpTimeUpdate,
   HoursSummary,
   IfsCompany,
+  IsoCountryRow,
   PaymentAddress,
   ProjectInfoQuery,
   UserInfo,
@@ -128,6 +131,222 @@ export async function getEmployeeTimesheet(
   session: CempPortalSession,
 ): Promise<unknown> {
   return ifsFetch(fnPath(session, FN.getEmployeeTimesheet), sessionRequest(session));
+}
+
+const HISTORICO_EXPAND = encodeURIComponent(
+  "ProjectTransactionRef,ActivityRef,ReportCostRef",
+);
+
+/** ReportItemSet filtrado por fecha — histórico de varios meses (solo lectura, sin If-Match). */
+export async function getEmployeeReportItemsHistorico(
+  session: CempPortalSession,
+  desdeIso: string,
+): Promise<unknown> {
+  const base = `${cempPortalUserPath(session.emailId)}/ReportItemSet`;
+  const common = `$orderby=AccountDate desc&$expand=${HISTORICO_EXPAND}&$top=5000`;
+  const filters = [
+    `AccountDate ge date'${desdeIso}'`,
+    `AccountDate ge ${desdeIso}`,
+  ];
+  const attempts = [
+    ...filters.map((filter) => `${base}?$filter=${encodeURIComponent(filter)}&${common}`),
+    `${base}?${common}`,
+  ];
+
+  let lastErr: unknown;
+  for (const path of attempts) {
+    for (const init of [
+      sessionRequest(session),
+      { accessToken: session.accessToken },
+    ]) {
+      try {
+        return await ifsFetch(path, init);
+      } catch (err) {
+        lastErr = err;
+        if (!(err instanceof IfsApiError)) throw err;
+      }
+    }
+  }
+
+  throw lastErr;
+}
+
+/** Reference_EmpReportItem — histórico por EmpNo (+ CompanyId) con filtro OData. */
+export async function getReferenceEmpReportItemsHistorico(
+  session: CempPortalSession,
+  companyId: string,
+  empNo: string,
+  desdeIso: string,
+): Promise<unknown> {
+  const company = odataStringKey(companyId);
+  const emp = odataStringKey(empNo);
+  const common = `$orderby=AccountDate desc&$expand=${HISTORICO_EXPAND}&$top=5000`;
+  const filters = [
+    `CompanyId eq '${company}' and EmpNo eq '${emp}' and AccountDate ge date'${desdeIso}'`,
+    `CompanyId eq '${company}' and EmpNo eq '${emp}' and AccountDate ge ${desdeIso}`,
+    `CompanyId eq '${company}' and EmpNo eq '${emp}'`,
+    `EmpNo eq '${emp}' and AccountDate ge date'${desdeIso}'`,
+    `EmpNo eq '${emp}'`,
+  ];
+
+  let lastErr: unknown;
+  for (const filter of filters) {
+    const path = `/Reference_EmpReportItem?$filter=${encodeURIComponent(filter)}&${common}`;
+    for (const init of [
+      sessionRequest(session),
+      { accessToken: session.accessToken },
+    ]) {
+      try {
+        return await ifsFetch(path, init);
+      } catch (err) {
+        lastErr = err;
+        if (!(err instanceof IfsApiError)) throw err;
+      }
+    }
+  }
+
+  throw lastErr;
+}
+
+/**
+ * Lectura puntual de EmpReportItem / ProjectTransaction por secuencia
+ * (la pantalla Aurena "Transacciones Proyecto").
+ */
+export async function getEmpReportItemByProjectTransactionSeq(
+  session: CempPortalSession,
+  projectTransactionSeq: number,
+): Promise<unknown> {
+  const expand = HISTORICO_EXPAND;
+  const filters = [
+    `ProjectTransactionSeq eq ${projectTransactionSeq}`,
+  ];
+  let lastErr: unknown;
+  for (const filter of filters) {
+    const path = `/Reference_EmpReportItem?$filter=${encodeURIComponent(filter)}&$expand=${expand}&$top=10`;
+    for (const init of [
+      sessionRequest(session),
+      { accessToken: session.accessToken },
+    ]) {
+      try {
+        return await ifsFetch(path, init);
+      } catch (err) {
+        lastErr = err;
+        if (!(err instanceof IfsApiError)) throw err;
+      }
+    }
+  }
+  throw lastErr;
+}
+
+export async function getReferenceProjectTransactionBySeq(
+  session: CempPortalSession,
+  projectTransactionSeq: number,
+): Promise<unknown> {
+  const path = `/Reference_ProjectTransaction(ProjectTransactionSeq=${projectTransactionSeq})`;
+  let lastErr: unknown;
+  for (const init of [
+    sessionRequest(session),
+    { accessToken: session.accessToken },
+  ]) {
+    try {
+      return await ifsFetch(path, init);
+    } catch (err) {
+      lastErr = err;
+      if (!(err instanceof IfsApiError)) throw err;
+    }
+  }
+  throw lastErr;
+}
+
+/** Filtra Reference_ProjectTransaction por estado Confirmado (sin EmpNo en el entity). */
+export async function getReferenceProjectTransactionsConfirmed(
+  session: CempPortalSession,
+  top = 50,
+): Promise<unknown> {
+  const filters = [
+    `CStatus eq IfsApp.CEmpPortalServices.CEmpProjTimeStatus'Confirmed'`,
+    `CStatusDb eq 'Confirmed'`,
+    `CStatus eq 'Confirmed'`,
+  ];
+  let lastErr: unknown;
+  for (const filter of filters) {
+    const path = `/Reference_ProjectTransaction?$filter=${encodeURIComponent(filter)}&$top=${top}&$orderby=ProjectTransactionSeq desc`;
+    for (const init of [
+      sessionRequest(session),
+      { accessToken: session.accessToken },
+    ]) {
+      try {
+        return await ifsFetch(path, init);
+      } catch (err) {
+        lastErr = err;
+        if (!(err instanceof IfsApiError)) throw err;
+      }
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Intenta leer EmpReportItem / ReportItemSet por canal /main/ (el de Aurena).
+ * En /int/ a veces llega vacío aunque Transacciones Proyecto tenga data.
+ */
+export async function getEmployeeReportItemsHistoricoMainChannel(
+  session: CempPortalSession,
+  companyId: string,
+  empNo: string,
+  desdeIso: string,
+): Promise<unknown> {
+  const mainBase = cempPortalMainBaseUrl();
+  const intBase = getIfsConfig().cempPortalBaseUrl.replace(/\/$/, "");
+  if (mainBase.replace(/\/$/, "") === intBase) {
+    throw new IfsApiError("Canal main igual a int — skip", 0, "");
+  }
+
+  const company = odataStringKey(companyId);
+  const emp = odataStringKey(empNo);
+  const expand = HISTORICO_EXPAND;
+  const common = `$orderby=AccountDate desc&$expand=${expand}&$top=5000`;
+  const filters = [
+    `CompanyId eq '${company}' and EmpNo eq '${emp}' and AccountDate ge date'${desdeIso}'`,
+    `CompanyId eq '${company}' and EmpNo eq '${emp}'`,
+    `EmpNo eq '${emp}'`,
+  ];
+
+  let lastErr: unknown;
+  for (const filter of filters) {
+    const path = `/Reference_EmpReportItem?$filter=${encodeURIComponent(filter)}&${common}`;
+    try {
+      return await ifsFetch(path, {
+        accessToken: session.accessToken,
+        baseUrl: mainBase,
+      });
+    } catch (err) {
+      lastErr = err;
+      if (!(err instanceof IfsApiError)) throw err;
+    }
+  }
+
+  const reportBase = `${cempPortalUserPath(session.emailId)}/ReportItemSet`;
+  for (const filter of [
+    `AccountDate ge date'${desdeIso}'`,
+    "",
+  ]) {
+    const path = filter
+      ? `${reportBase}?$filter=${encodeURIComponent(filter)}&${common}`
+      : `${reportBase}?${common}`;
+    try {
+      return await ifsFetch(path, {
+        accessToken: session.accessToken,
+        ifMatch: session.etag,
+        baseUrl: mainBase,
+      });
+    } catch (err) {
+      lastErr = err;
+      if (!(err instanceof IfsApiError)) throw err;
+    }
+  }
+
+  throw lastErr;
 }
 
 export async function getApprovalTimesheets(
@@ -367,7 +586,7 @@ export async function getProjectInfo(
   projectId: string,
 ): Promise<ProjectInfoQuery> {
   return ifsFetch<ProjectInfoQuery>(
-    `/Reference_ProjectInfoQuery(ProjectId='${odataStringKey(projectId)}')?$select=ProjectId,Manager,Name`,
+    `/Reference_ProjectInfoQuery(ProjectId='${odataStringKey(projectId)}')?$select=ProjectId,Manager,Name,Company`,
     { accessToken },
   );
 }
@@ -426,18 +645,6 @@ export async function getBankDetails(
   return odataCollection<PaymentAddress>(data);
 }
 
-/** Divisas de la compañía (GetCurrencyCodes). */
-export async function getCurrencyCodes(
-  accessToken: string,
-  company: string,
-): Promise<CurrencyCodesQuery[]> {
-  const data = await ifsFetch<ODataCollection<CurrencyCodesQuery>>(
-    `/GetCurrencyCodes(Company='${odataStringKey(company)}')`,
-    { accessToken },
-  );
-  return odataCollection<CurrencyCodesQuery>(data);
-}
-
 /** Compañías de gasto del proveedor/empleado (GetExpenseCompany). */
 export async function getExpenseCompanies(
   accessToken: string,
@@ -448,4 +655,89 @@ export async function getExpenseCompanies(
     { accessToken },
   );
   return odataCollection<IfsCompany>(data);
+}
+
+/**
+ * Resuelve Identity/PersonId (p. ej. JCORREA) → EmpName completo.
+ * Manager de ProjectInfo es la abreviación IFS, no el nombre.
+ */
+export async function resolvePersonDisplayName(
+  accessToken: string,
+  identity: string,
+  companyId?: string,
+): Promise<string | null> {
+  const id = identity.trim();
+  if (!id) return null;
+
+  const filters = [
+    `PersonId eq '${odataStringKey(id)}'`,
+    `Identity eq '${odataStringKey(id)}'`,
+  ];
+  if (companyId?.trim()) {
+    const company = odataStringKey(companyId.trim());
+    filters.unshift(
+      `Company eq '${company}' and PersonId eq '${odataStringKey(id)}'`,
+      `Company eq '${company}' and Identity eq '${odataStringKey(id)}'`,
+    );
+  }
+
+  for (const filter of filters) {
+    try {
+      const path =
+        `/Reference_EmployeeInfoQuery?$filter=${encodeURIComponent(filter)}` +
+        `&$select=EmpName,Identity,PersonId,Company&$top=5`;
+      const raw = await ifsFetch<ODataCollection<EmployeeInfoQuery>>(path, {
+        accessToken,
+      });
+      const rows = raw.value ?? [];
+      const name = rows
+        .map((r) => r.EmpName?.trim())
+        .find((n) => Boolean(n));
+      if (name) return name;
+    } catch (err) {
+      if (!(err instanceof IfsApiError)) throw err;
+    }
+  }
+  return null;
+}
+
+/** Divisas habilitadas por compañía (GetCurrencyCodes + fallback Reference). */
+export async function getCurrencyCodes(
+  accessToken: string,
+  companyId: string,
+): Promise<CurrencyCodeRow[]> {
+  const company = odataStringKey(companyId);
+  const attempts = [
+    `/GetCurrencyCodes(Company='${company}')`,
+    `/Reference_CurrencyCodesQuery?$filter=${encodeURIComponent(`Company eq '${company}'`)}&$orderby=CurrencyCode&$top=200`,
+    `/Reference_CurrencyCodesQuery?$filter=${encodeURIComponent(`Company eq '${company}'`)}&$top=200`,
+  ];
+
+  let lastErr: unknown;
+  for (const path of attempts) {
+    try {
+      const raw = await ifsFetch<ODataCollection<CurrencyCodeRow> | CurrencyCodeRow[]>(
+        path,
+        { accessToken },
+      );
+      if (Array.isArray(raw)) return raw;
+      return raw.value ?? [];
+    } catch (err) {
+      lastErr = err;
+      if (!(err instanceof IfsApiError)) throw err;
+    }
+  }
+  throw lastErr;
+}
+
+/** Países ISO (destinos de viaje). */
+export async function getIsoCountries(
+  accessToken: string,
+): Promise<IsoCountryRow[]> {
+  const path =
+    "/Lookup_IsoCountry_EntitySet?$select=Id,Description&$orderby=Description&$top=500";
+  const raw = await ifsFetch<ODataCollection<IsoCountryRow>>(path, {
+    accessToken,
+  });
+  return raw.value ?? [];
 }

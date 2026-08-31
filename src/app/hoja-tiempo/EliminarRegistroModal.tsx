@@ -5,7 +5,7 @@ import { Modal } from "@/src/components/ui/Modal";
 import { ModalConfirmFooter } from "@/src/components/ui/ModalConfirmFooter";
 import { EstadoTiempoPill } from "@/src/components/ui/Pill";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
-import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroMock } from "@/src/lib/tiempo-registro";
 import { formatProyectoEmpleado } from "@/src/lib/tiempo-bridge";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 

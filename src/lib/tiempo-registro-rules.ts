@@ -1,4 +1,4 @@
-import type { RegistroEstado, RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import type { RegistroEstado, RegistroMock } from "@/src/lib/tiempo-registro";
 
 /** Registrado: ya está en IFS; el aprobador aún no confirma. */
 export function isRegistroEnviado(estado: RegistroEstado): boolean {

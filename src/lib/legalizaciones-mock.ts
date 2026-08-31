@@ -2,13 +2,13 @@ import { HOY_MOCK, JER_TIEMPO } from "@/src/lib/mi-tiempo-mock";
 import {
   cloneInitialAnticipos,
   cloneInitialExtras,
-  EMP_DET,
+  COMPANIAS,
   getAnticipoBeneficiarioId,
   normalizeAnticipoId,
   PROYECTOS_ANT,
+  SESSION_EMPLEADO,
   parseMontoInput,
   isoToDmy,
-  SESSION_EMPLEADO,
   type Anticipo,
   type AnticipoTipo,
 } from "@/src/lib/mis-anticipos-mock";
@@ -536,10 +536,17 @@ export function getPaymentReference(
 
   return {
     paymentReferenceId: a.no,
-    empleadoNombre: a.beneficiarioNombre ?? EMP_DET.nombre,
-    empleadoIdentificacion: a.cedula ?? EMP_DET.cedula,
-    compania: extra?.compania ?? EMP_DET.empresa,
-    companiaId: resolveCompaniaId(extra?.compania ?? EMP_DET.empresa),
+    empleadoNombre: a.beneficiarioNombre ?? SESSION_EMPLEADO.nombre,
+    empleadoIdentificacion: a.cedula ?? SESSION_EMPLEADO.cedula,
+    compania:
+      extra?.compania ??
+      COMPANIAS.find((c) => c.id === SESSION_EMPLEADO.companiaDefault)?.label ??
+      SESSION_EMPLEADO.companiaDefault,
+    companiaId: resolveCompaniaId(
+      extra?.compania ??
+        COMPANIAS.find((c) => c.id === SESSION_EMPLEADO.companiaDefault)?.label ??
+        SESSION_EMPLEADO.companiaDefault,
+    ),
     montoPagado: a.monto,
     moneda: a.div,
     fechaPago,
