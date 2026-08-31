@@ -103,7 +103,7 @@ import { DateRangePicker } from "@/src/components/ui/DateRangePicker";
 <DateRangePicker from={from} to={to} onChange={setFecha} compact onRangeComplete={() => setOpen(false)} />
 ```
 
-**Por módulo:** Mi Tiempo (`MonthDateInput`), Anticipos viaje (`DateInput`), Legalizaciones factura (`DateInput`), filtros de aprobación/listas (`DateRangePicker` en `Dropdown` `fitContent`, ancho 252px).
+**Por módulo:** Mi Tiempo alta (`FechaDiaORangoInput`: 1 clic = un día; doble clic = inicio de rango + clic en el fin), Anticipos viaje (`DateInput`), Legalizaciones factura (`DateInput`), filtros de aprobación/listas (`DateRangePicker` en `Dropdown` `fitContent`, ancho 252px).
 
 ---
 

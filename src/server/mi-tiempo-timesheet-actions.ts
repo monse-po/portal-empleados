@@ -2,6 +2,7 @@
 
 import {
   getEmployeeTimesheetForEmp,
+  getUserInfo,
   openCempPortalActor,
 } from "@/src/lib/ifs/cemp-portal";
 import { IfsApiError } from "@/src/lib/ifs/errors";
@@ -19,6 +20,7 @@ import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 
 export async function fetchRegistrosFromIfsAction(): Promise<{
   grouped: Record<string, RegistroMock[]> | null;
+  activePeriod?: string | null;
   sessionExpired?: boolean;
   error?: string;
 }> {
@@ -26,17 +28,23 @@ export async function fetchRegistrosFromIfsAction(): Promise<{
   if (!session) return { grouped: null };
 
   try {
-    const grouped = await withValidIfsSession(async (liveSession) => {
+    const result = await withValidIfsSession(async (liveSession) => {
       const ifs = await openCempPortalActor(
         liveSession.email,
         liveSession.accessToken,
       );
       const targetEmpNo = getIfsTargetEmpNo();
-      const raw = await getEmployeeTimesheetForEmp(ifs, targetEmpNo);
+      const [raw, info] = await Promise.all([
+        getEmployeeTimesheetForEmp(ifs, targetEmpNo),
+        getUserInfo(ifs).catch(() => null),
+      ]);
       const registros = mapEmployeeTimesheetToRegistros(raw, targetEmpNo);
-      return groupRegistrosMockByFecha(registros);
+      return {
+        grouped: groupRegistrosMockByFecha(registros),
+        activePeriod: info?.ActivePeriod?.trim() || null,
+      };
     });
-    return { grouped };
+    return result;
   } catch (err) {
     if (err instanceof IfsSessionExpiredError) {
       return { grouped: null, sessionExpired: true, error: err.message };

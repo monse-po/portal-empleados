@@ -45,6 +45,7 @@ export type IfsPortalProfile = {
   empNo?: string;
   companyId?: string;
   companyName?: string;
+  activePeriod?: string;
   error?: string;
 };
 
@@ -69,6 +70,7 @@ export async function fetchIfsPortalProfileAction(): Promise<IfsPortalProfile> {
           empNo: empNo || undefined,
           companyId: companyId || undefined,
           companyName: companyName || undefined,
+          activePeriod: info.ActivePeriod?.trim() || undefined,
         };
       } catch (err) {
         if (err instanceof IfsApiError && err.status === 401) throw err;

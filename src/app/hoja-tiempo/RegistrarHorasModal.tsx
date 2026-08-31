@@ -28,11 +28,11 @@ import {
   findRegistroById,
   formatFechaLegible,
   getHorasNormales,
-  getMesActualBounds,
   TIPO_HORA_CODIGO_DEFAULT,
   inferSubproyecto,
   resolveFechaMes,
   tipoCat,
+  type MesActualBounds,
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
 import {
@@ -106,9 +106,9 @@ function buildInitialForm(
   defaultFecha: string | undefined,
   registros: Record<string, RegistroMock[]>,
   catalog: TiempoCatalog | null,
+  bounds: MesActualBounds,
   plantilla?: RegistroHorasFormProps["plantilla"],
 ): FormState {
-  const bounds = getMesActualBounds();
 
   if (editId) {
     const reg = findRegistroById(registros, editId);
@@ -323,7 +323,7 @@ function RegistroHorasForm({
   onRangeDaysChange,
   saving = false,
 }: RegistroHorasFormProps) {
-  const bounds = getMesActualBounds();
+  const { mesBounds: bounds } = useMiTiempo();
   const isEdit = Boolean(editId);
   const [catalog, setCatalog] = useState<TiempoCatalog | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -347,6 +347,7 @@ function RegistroHorasForm({
       defaultFecha,
       registros,
       null,
+      bounds,
       plantilla,
     );
     // Alta con jornada ya al tope: no preseleccionar DN (la lista real viene de IFS).
@@ -399,6 +400,7 @@ function RegistroHorasForm({
             defaultFecha,
             registros,
             result.catalog,
+            bounds,
             plantilla,
           ),
         );
@@ -408,7 +410,7 @@ function RegistroHorasForm({
     return () => {
       cancelled = true;
     };
-  }, [useIfsCatalog, form.fecha, editId, defaultFecha, registros]);
+  }, [useIfsCatalog, form.fecha, editId, defaultFecha, registros, bounds]);
 
   useEffect(() => {
     if (!form.fecha) return;
@@ -693,12 +695,8 @@ function RegistroHorasForm({
   };
 
   const handleFechaRangoChange = (fecha: string, fechaHasta: string) => {
-    const prevFecha = form.fecha;
-    patch(
-      useIfsCatalogLive && fecha !== prevFecha
-        ? { fecha, fechaHasta, proy: "", sub: "", act: "" }
-        : { fecha, fechaHasta },
-    );
+    // Proyecto / sub / actividad se mantienen al cambiar fecha o rango.
+    patch({ fecha, fechaHasta });
     clearError("fecha");
     clearError("fechaHasta");
     clearError("tipo");

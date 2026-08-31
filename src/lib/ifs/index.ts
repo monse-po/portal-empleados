@@ -3,6 +3,7 @@ export {
   fetchIfsAccessToken,
   type IfsAccessToken,
 } from "@/src/lib/ifs/auth";
+export { parseIfsActivePeriod } from "@/src/lib/ifs/active-period";
 export {
   getIfsConfig,
   isIfsAuthEnabled,

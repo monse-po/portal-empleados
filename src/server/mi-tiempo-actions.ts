@@ -115,6 +115,7 @@ async function resolveIfsMeta(
 export async function getRegistrosGroupedAction(): Promise<{
   registros: Record<string, RegistroMock[]>;
   fromIfs: boolean;
+  activePeriod?: string | null;
   warning?: string;
   sessionExpired?: boolean;
 }> {
@@ -124,6 +125,7 @@ export async function getRegistrosGroupedAction(): Promise<{
     return {
       registros: {},
       fromIfs: false,
+      activePeriod: ifsResult.activePeriod ?? null,
       warning: ifsResult.error,
       sessionExpired: ifsResult.sessionExpired,
     };
@@ -132,6 +134,7 @@ export async function getRegistrosGroupedAction(): Promise<{
   return {
     registros: ifsResult.grouped,
     fromIfs: true,
+    activePeriod: ifsResult.activePeriod ?? null,
   };
 }
 

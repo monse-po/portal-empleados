@@ -532,19 +532,68 @@ export function findRegistroById(
   return null;
 }
 
-export function getMesActualBounds(hoy: Date = HOY_MOCK) {
-  const y = hoy.getFullYear();
-  const m = hoy.getMonth();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const lastDay = new Date(y, m + 1, 0).getDate();
+import { parseIfsActivePeriod } from "@/src/lib/ifs/active-period";
+
+export type MesActualBounds = {
+  min: string;
+  max: string;
+  defaultFecha: string;
+};
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function toIsoDateLocal(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+/** Primer/último día del mes de `year`/`month` (1-12). Hoy se recorta a ese mes. */
+export function getMesBoundsFromYm(
+  year: number,
+  month: number,
+  hoy: Date = HOY_MOCK,
+): MesActualBounds {
+  const lastDay = new Date(year, month, 0).getDate();
+  const min = `${year}-${pad2(month)}-01`;
+  const max = `${year}-${pad2(month)}-${pad2(lastDay)}`;
+  const hoyIso = toIsoDateLocal(hoy);
   return {
-    min: `${y}-${pad(m + 1)}-01`,
-    max: `${y}-${pad(m + 1)}-${pad(lastDay)}`,
-    defaultFecha: `${y}-${pad(m + 1)}-${pad(hoy.getDate())}`,
+    min,
+    max,
+    defaultFecha: hoyIso < min ? min : hoyIso > max ? max : hoyIso,
   };
 }
 
-export type MesActualBounds = ReturnType<typeof getMesActualBounds>;
+export function getMesActualBounds(hoy: Date = HOY_MOCK) {
+  return getMesBoundsFromYm(hoy.getFullYear(), hoy.getMonth() + 1, hoy);
+}
+
+/** Mes registrable según IFS ActivePeriod; si no hay periodo, mes del reloj. */
+export function getMesBoundsFromIfsPeriod(
+  activePeriod: string | null | undefined,
+  hoy: Date = HOY_MOCK,
+): MesActualBounds {
+  const parsed = parseIfsActivePeriod(activePeriod);
+  if (!parsed) return getMesActualBounds(hoy);
+  return getMesBoundsFromYm(parsed.year, parsed.month, hoy);
+}
+
+export function mesRefFromBounds(bounds: MesActualBounds): Date {
+  const [y, m] = bounds.min.split("-").map(Number);
+  return new Date(y, m - 1, 1, 12, 0, 0, 0);
+}
+
+export function filterRegistrosPorMes(
+  registros: Record<string, RegistroMock[]>,
+  bounds: MesActualBounds,
+): Record<string, RegistroMock[]> {
+  const out: Record<string, RegistroMock[]> = {};
+  for (const [fecha, arr] of Object.entries(registros)) {
+    if (fecha >= bounds.min && fecha <= bounds.max) out[fecha] = arr;
+  }
+  return out;
+}
 
 export function clampFechaMes(
   fecha: string,
@@ -561,11 +610,6 @@ export function resolveFechaMes(
   bounds: MesActualBounds = getMesActualBounds(),
 ): string {
   return clampFechaMes(fecha ?? bounds.defaultFecha, bounds);
-}
-
-function toIsoDateLocal(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 /** Suma días a una fecha ISO (yyyy-mm-dd) sin salir del mes actual. */

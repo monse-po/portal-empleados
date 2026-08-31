@@ -17,7 +17,12 @@ import {
   type SyncRegistroAccion,
 } from "@/src/lib/tiempo-bridge";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
-import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
+import {
+  getMesActualBounds,
+  getMesBoundsFromIfsPeriod,
+  type MesActualBounds,
+  type RegistroMock,
+} from "@/src/lib/mi-tiempo-mock";
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 import { isIfsRegistroId } from "@/src/lib/ifs/tiempo-timesheet";
 import { isRegistroEnviado } from "@/src/lib/tiempo-registro-rules";
@@ -35,7 +40,7 @@ export type RegistrarModalState = {
   fecha?: string;
   /** Desde dónde se abrió el modal (afecta copy del hint). */
   origen?: "lista" | "dia";
-  /** Alta rápida: rellena proyecto/sub/actividad (la fecha sigue siendo hoy). */
+  /** Alta rápida: rellena proyecto/sub/actividad (la fecha sigue el periodo IFS). */
   plantilla?: {
     proy: string;
     sub: string;
@@ -81,6 +86,10 @@ type MiTiempoContextValue = {
   registrosFromIfs: boolean;
   ifsConnected: boolean;
   ifsEmail: string | null;
+  /** Periodo IFS (YYYYMM). Null si no hay sesión o IFS no lo mandó. */
+  activePeriod: string | null;
+  /** Mes registrable: ActivePeriod de IFS, o mes del reloj si no hay periodo. */
+  mesBounds: MesActualBounds;
   reloadRegistros: () => Promise<void>;
   upsertRegistro: (reg: RegistroMock) => Promise<void>;
   /** Crea/actualiza registros en IFS (estado Registrado). */
@@ -130,6 +139,10 @@ export function MiTiempoProvider({
   const [registrosFromIfs, setRegistrosFromIfs] = useState(false);
   const [ifsConnected, setIfsConnected] = useState(false);
   const [ifsEmail, setIfsEmail] = useState<string | null>(null);
+  const [activePeriod, setActivePeriod] = useState<string | null>(null);
+  const [mesBounds, setMesBounds] = useState<MesActualBounds>(() =>
+    getMesActualBounds(),
+  );
   const [modal, setModal] = useState<RegistrarModalState>(null);
   const registroGuardadoHandler = useRef<RegistroGuardadoHandler | undefined>(
     undefined,
@@ -147,6 +160,9 @@ export function MiTiempoProvider({
           : null,
       );
       setRegistrosError(null);
+      const period = result.activePeriod?.trim() || null;
+      setActivePeriod(period);
+      setMesBounds(getMesBoundsFromIfsPeriod(period));
     },
     [],
   );
@@ -295,6 +311,8 @@ export function MiTiempoProvider({
       registrosFromIfs,
       ifsConnected,
       ifsEmail,
+      activePeriod,
+      mesBounds,
       reloadRegistros,
       upsertRegistro,
       upsertRegistros,
@@ -313,6 +331,8 @@ export function MiTiempoProvider({
       registrosFromIfs,
       ifsConnected,
       ifsEmail,
+      activePeriod,
+      mesBounds,
       reloadRegistros,
       upsertRegistro,
       upsertRegistros,

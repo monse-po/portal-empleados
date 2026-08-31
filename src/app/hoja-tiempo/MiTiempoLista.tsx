@@ -24,10 +24,12 @@ import { TiempoRegistroMobileCard } from "@/src/app/hoja-tiempo/TiempoRegistroMo
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import {
   buildCalendarioGrid,
+  filterRegistrosPorMes,
   formatFechaLegible,
   getMesLabel,
   getResumenHoras,
   getTipoHoraMeta,
+  mesRefFromBounds,
   type RegistroEstado,
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
@@ -123,8 +125,8 @@ type MiTiempoListaProps = {
 };
 
 function HorasResumenBar() {
-  const { registros } = useMiTiempo();
-  const resumen = getResumenHoras(registros);
+  const { registros, mesBounds } = useMiTiempo();
+  const resumen = getResumenHoras(filterRegistrosPorMes(registros, mesBounds));
 
   return (
     <div className="mb-4 flex gap-4 max-md:hidden">
@@ -169,18 +171,19 @@ function HorasResumenBar() {
 function CalendarioTab({
   onSelectDia,
 }: Pick<MiTiempoListaProps, "onSelectDia">) {
-  const { registros, openRegistrarModal } = useMiTiempo();
-  const resumen = getResumenHoras(registros);
+  const { registros, mesBounds, openRegistrarModal } = useMiTiempo();
+  const registrosMes = useMemo(
+    () => filterRegistrosPorMes(registros, mesBounds),
+    [registros, mesBounds],
+  );
+  const resumen = getResumenHoras(registrosMes);
   const hoy = useMemo(() => {
     const d = new Date();
     d.setHours(12, 0, 0, 0);
     return d;
   }, []);
-  const mesRef = useMemo(
-    () => new Date(hoy.getFullYear(), hoy.getMonth(), 1),
-    [hoy],
-  );
-  const celdas = buildCalendarioGrid(mesRef, registros, hoy);
+  const mesRef = useMemo(() => mesRefFromBounds(mesBounds), [mesBounds]);
+  const celdas = buildCalendarioGrid(mesRef, registrosMes, hoy);
   const weekRows = Math.max(1, Math.ceil(celdas.length / 7));
 
   return (
@@ -361,11 +364,14 @@ function CalendarioTab({
 function ListaTab({
   onSelectDia,
 }: Pick<MiTiempoListaProps, "onSelectDia">) {
-  const { registros, openRegistrarModal, deleteRegistro } = useMiTiempo();
+  const { registros, mesBounds, openRegistrarModal, deleteRegistro } =
+    useMiTiempo();
   const { toast } = useToast();
   const [registroAEliminar, setRegistroAEliminar] =
     useState<RegistroMock | null>(null);
-  const dias = getListaRegistrosPorDia(registros);
+  const dias = getListaRegistrosPorDia(
+    filterRegistrosPorMes(registros, mesBounds),
+  );
   const hayFilasEditables = dias.some((dia) =>
     dia.registros.some((r) => isRegistroEditable(r.estado)),
   );

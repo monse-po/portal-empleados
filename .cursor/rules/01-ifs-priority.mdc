@@ -47,3 +47,4 @@ Cuando una regla de negocio, tope, catálogo o lista de valores **ya está defin
 | Tope diarias | `GetHoursSummary` / ScheduleHours del día | Constante 8.5 si IFS ya mandó el tope |
 | Proyectos / actividades | Catálogo IFS del empleado | Mock de proyectos cuando hay sesión IFS válida |
 | Fecha vencida (cutoff) | “Esa fecha ya no admite horas extras. Elige una más reciente.” | Pegar `CEmpOverTimeCutOff…` o “pide a TI” |
+| Mes registrable | `GetUserInfo.ActivePeriod` | Mes del reloj si IFS ya mandó el periodo |

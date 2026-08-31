@@ -8,12 +8,14 @@ alwaysApply: false
 
 ## Fechas registrables
 
-- El empleado puede registrar horas en **cualquier día del mes** (pasado, hoy o futuro).
+- El empleado puede registrar horas en **cualquier día del periodo activo IFS** (pasado, hoy o futuro dentro de ese mes).
+- El mes lo define **`GetUserInfo.ActivePeriod`** (YYYYMM). Si IFS no responde, se usa el mes del reloj.
 - **No** en **festivos** (`FESTIVOS_2026`) — esos días quedan bloqueados en el calendario.
 
 Implementación:
 
-- `getMesActualBounds()` → `min`/`max` = primer y último día del mes (`MonthDateInput`, `clampFechaMes`).
+- `getMesBoundsFromIfsPeriod()` / `mesBounds` en `MiTiempoContext` → `min`/`max` del periodo IFS (`MonthDateInput`, `clampFechaMes`).
+- `getMesActualBounds()` solo como fallback sin periodo IFS.
 - `buildCalendarioGrid()` → `bloqueado = esFestivo` (solo festivos).
 
 ## Tope de horas normales por día

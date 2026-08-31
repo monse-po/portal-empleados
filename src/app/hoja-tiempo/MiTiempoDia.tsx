@@ -23,7 +23,6 @@ import {
   formatFechaCorta,
   formatFechaLegible,
   getHorasNormales,
-  getMesActualBounds,
   getRegistrosDia,
   shiftFechaMes,
   type RegistroMock,
@@ -90,7 +89,8 @@ export function MiTiempoDia({
   onVolver,
   onCambiarDia,
 }: MiTiempoDiaProps) {
-  const { registros, openRegistrarModal, deleteRegistro } = useMiTiempo();
+  const { registros, mesBounds, openRegistrarModal, deleteRegistro } =
+    useMiTiempo();
   const { toast } = useToast();
   const [registroAEliminar, setRegistroAEliminar] = useState<RegistroMock | null>(
     null,
@@ -135,7 +135,6 @@ export function MiTiempoDia({
     diaRegs.some((r) => isRegistroEditable(r.estado));
   const fechaLabel = formatFechaLegible(fecha);
   const fechaCorta = formatFechaCorta(fecha);
-  const mesBounds = getMesActualBounds();
   const fechaAnterior = shiftFechaMes(fecha, -1, mesBounds);
   const fechaSiguiente = shiftFechaMes(fecha, 1, mesBounds);
   const puedeDiaAnterior = Boolean(
