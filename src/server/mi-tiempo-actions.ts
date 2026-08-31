@@ -46,6 +46,7 @@ import type {
   RegistroIfsMeta,
   RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
+import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
 import {
   SESSION_EMPLEADO_ID,
   dayRange,
@@ -224,7 +225,10 @@ async function registrarNuevosEnIfs(
 
   const enviados = (matches.length ? matches : toSend).map(asRegistrado);
   try {
-    await createNotificacionesTiempoEnvioAction(enviados);
+    await createNotificacionesTiempoEnvioAction(enviados, {
+      empleadoId: SESSION_EMPLEADO_ID,
+      empleadoNombre: SESSION_EMPLEADO.nombre,
+    });
   } catch (error) {
     console.error("[notificaciones] error al crear envío", error);
   }
@@ -427,7 +431,10 @@ export async function enviarFechasAction(
 
   if (sentToIfs && ifsVisible) {
     try {
-      await createNotificacionesTiempoEnvioAction(enviadosBase);
+      await createNotificacionesTiempoEnvioAction(enviadosBase, {
+        empleadoId: SESSION_EMPLEADO_ID,
+        empleadoNombre: SESSION_EMPLEADO.nombre,
+      });
     } catch (error) {
       console.error("[notificaciones] error al crear envío", error);
     }
@@ -455,7 +462,10 @@ export async function enviarFechasAction(
 
   const enviados = ifsVisible ? enviadosBase : updated.map(toRegistroMock);
   try {
-    await createNotificacionesTiempoEnvioAction(enviados);
+    await createNotificacionesTiempoEnvioAction(enviados, {
+      empleadoId: SESSION_EMPLEADO_ID,
+      empleadoNombre: SESSION_EMPLEADO.nombre,
+    });
   } catch (error) {
     console.error("[notificaciones] error al crear envío", error);
   }

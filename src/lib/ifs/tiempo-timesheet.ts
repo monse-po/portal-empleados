@@ -134,6 +134,93 @@ export function mapEmployeeTimesheetToRegistros(
     .filter((row): row is RegistroMock => row !== null);
 }
 
+/** Fila GetEmployeeReportItems (histórico) con refs OData expandibles. */
+type ReportItemExpanded = EmpReportItemRow & {
+  ProjectTransactionRef?:
+    | Partial<EmpReportItemRow>
+    | { value?: Partial<EmpReportItemRow>[] };
+  ActivityRef?:
+    | (Partial<EmpReportItemRow> & { Description?: string })
+    | { value?: (Partial<EmpReportItemRow> & { Description?: string })[] };
+  ReportCostRef?:
+    | { ReportCostCode?: string }
+    | { value?: { ReportCostCode?: string }[] };
+};
+
+function pickExpanded<T>(ref: T | { value?: T[] } | undefined): T | undefined {
+  if (!ref) return undefined;
+  if (typeof ref === "object" && "value" in ref && Array.isArray(ref.value)) {
+    return ref.value[0];
+  }
+  return ref as T;
+}
+
+export function flattenReportItemRow(item: ReportItemExpanded): EmpReportItemRow {
+  const pt = pickExpanded(item.ProjectTransactionRef);
+  const act = pickExpanded(item.ActivityRef);
+  const cost = pickExpanded(item.ReportCostRef);
+
+  return {
+    CompanyId: item.CompanyId ?? pt?.CompanyId,
+    EmpNo: item.EmpNo,
+    ProjectTransactionSeq:
+      item.ProjectTransactionSeq ?? pt?.ProjectTransactionSeq,
+    ActivitySeq: item.ActivitySeq ?? act?.ActivitySeq,
+    AccountDate: item.AccountDate,
+    Module: item.Module,
+    Hours: item.Hours ?? pt?.Hours,
+    InternalComments: pt?.InternalComments ?? item.InternalComments,
+    CStatus: pt?.CStatus ?? item.CStatus,
+    CStatusDb: pt?.CStatusDb ?? item.CStatusDb,
+    CRejectNote: pt?.CRejectNote ?? item.CRejectNote,
+    CApprover: pt?.CApprover ?? item.CApprover,
+    CApproverName: pt?.CApproverName ?? item.CApproverName,
+    CAutoApproverName: pt?.CAutoApproverName ?? item.CAutoApproverName,
+    ProjectId: pt?.ProjectId ?? act?.ProjectId ?? item.ProjectId,
+    SubProjectId: pt?.SubProjectId ?? act?.SubProjectId ?? item.SubProjectId,
+    SubProjectDesc: pt?.SubProjectDesc ?? act?.SubProjectDesc ?? item.SubProjectDesc,
+    ActivityNo: act?.ActivityNo ?? item.ActivityNo,
+    ActDescription:
+      act?.ActDescription ?? act?.Description ?? item.ActDescription,
+    ShortName:
+      act?.ShortName ??
+      pt?.ShortName ??
+      item.ShortName ??
+      item.Col2 ??
+      pt?.ProjectId ??
+      act?.ProjectId ??
+      item.ProjectId,
+    ReportCostCode: cost?.ReportCostCode ?? item.ReportCostCode,
+    Objid: item.Objid,
+    Objversion: item.Objversion,
+  };
+}
+
+export function dedupeRegistros(rows: RegistroMock[]): RegistroMock[] {
+  const byKey = new Map<string, RegistroMock>();
+  for (const row of rows) {
+    const key =
+      row.codigo?.startsWith("IFS-")
+        ? row.codigo
+        : isIfsRegistroId(row.id)
+          ? row.id
+          : `${row.fecha}|${row.proy}|${row.horas}|${row.act}|${row.tipo}`;
+    const existing = byKey.get(key);
+    if (!existing || isIfsRegistroId(row.id)) {
+      byKey.set(key, row);
+    }
+  }
+  return [...byKey.values()];
+}
+
+export function mapReportItemsHistoricoToRegistros(raw: unknown): RegistroMock[] {
+  return parseEmpReportItems(raw)
+    .map((row, index) =>
+      mapEmpReportItemToRegistro(flattenReportItemRow(row as ReportItemExpanded), index),
+    )
+    .filter((row): row is RegistroMock => row !== null);
+}
+
 export function groupRegistrosMockByFecha(
   registros: RegistroMock[],
 ): Record<string, RegistroMock[]> {

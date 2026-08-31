@@ -4,6 +4,7 @@ import type { IconName } from "@/src/components/ui/Icon";
 export type RegistroEstado =
   | "Borrador"
   | "Registrado"
+  | "Lanzado"
   | "Aprobado"
   | "Rechazado";
 

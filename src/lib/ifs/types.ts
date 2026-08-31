@@ -123,16 +123,6 @@ export type ProjectInfoQuery = {
   Manager?: string;
 };
 
-/** Empleado (Reference_EmployeeInfoQuery) — para resolver nombre del Manager. */
-export type EmployeeInfoQuery = {
-  Company?: string;
-  Identity?: string;
-  EmpName?: string;
-  PersonId?: string;
-  CEmpNo?: string;
-  SupplierName?: string;
-};
-
 /** Fila de GetEmployeeTimesheet (EmpReportItemStructure). */
 export type EmpReportItemRow = {
   CompanyId?: string;
@@ -195,7 +185,7 @@ export type IfsCompany = {
   Name?: string;
 };
 
-/** GetEmployees(Company). */
+/** GetEmployees(Company) / Reference_EmployeeInfoQuery. */
 export type EmployeeInfoQuery = {
   Company?: string;
   Identity?: string;

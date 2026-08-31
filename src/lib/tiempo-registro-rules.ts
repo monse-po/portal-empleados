@@ -41,6 +41,7 @@ export function normalizeRegistroEstado(estado: string): RegistroEstado {
 }
 
 const ORDEN_ESTADO_LISTA: Record<RegistroEstado, number> = {
+  Borrador: 0,
   Registrado: 0,
   Lanzado: 0,
   Rechazado: 1,

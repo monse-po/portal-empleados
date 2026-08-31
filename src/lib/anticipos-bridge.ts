@@ -1,8 +1,56 @@
 import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-registro";
-import type { Anticipo } from "@/src/lib/anticipos-registro";
-import type { AnticipoExtra } from "@/src/lib/anticipos-registro";
+import type {
+  Anticipo,
+  AnticipoExtra,
+  TimelineItem,
+} from "@/src/lib/anticipos-registro";
 import type { Anticipo as AnticipoRow } from "@/src/generated/prisma/client";
 import { toAnticipo, toAnticipoExtra } from "@/src/lib/registro-anticipos-db";
+
+export type SyncAnticipoAccion = "aprobado" | "rechazado";
+
+export type SyncAnticipoHandler = (
+  no: string,
+  accion: SyncAnticipoAccion,
+  comentario?: string,
+) => void;
+
+export function aplicarTimelineAprobacion(
+  extra: AnticipoExtra,
+  accion: SyncAnticipoAccion,
+  comentario: string,
+  fecha: string,
+  aprobador: string,
+): AnticipoExtra {
+  const filtered = extra.tl.filter((t) => !t.accion.startsWith("Esperando"));
+  const item: TimelineItem =
+    accion === "aprobado"
+      ? {
+          accion: "Aprobado",
+          usuario: aprobador,
+          fecha,
+          icon: "check",
+          color: "#166534",
+        }
+      : {
+          accion: "Rechazado",
+          usuario: aprobador,
+          fecha,
+          icon: "x",
+          color: "#991b1b",
+        };
+  const tl = [...filtered, item];
+  if (comentario.trim()) {
+    tl.push({
+      accion: comentario.trim(),
+      usuario: aprobador,
+      fecha,
+      icon: "info",
+      color: "#374151",
+    });
+  }
+  return { ...extra, tl, aprobadoPor: aprobador };
+}
 
 export function anticipoRowToAprobacion(row: AnticipoRow): AnticipoAprobacion {
   const a = toAnticipo(row);

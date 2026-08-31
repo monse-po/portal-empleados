@@ -131,7 +131,11 @@ export async function probeHistoricoIfsAction(): Promise<HistoricoIfsProbeResult
       );
       const info = await getUserInfo(ifs).catch((e) => {
         errors.push(`GetUserInfo: ${formatIfsError(e)}`);
-        return {};
+        return {
+          CompanyId: undefined,
+          EmpNo: undefined,
+          ActivePeriod: undefined,
+        };
       });
 
       let confirmedHours: number | undefined;

@@ -1,3 +1,4 @@
+import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
 import type { RegistroMock } from "@/src/lib/tiempo-registro";
 import {
   formatProyectoAprobacion,

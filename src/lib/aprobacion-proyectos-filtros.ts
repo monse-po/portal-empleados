@@ -104,7 +104,7 @@ export function isRuleComplete(rule: AproProyFilterRule): boolean {
     }
     return !Number.isNaN(rule.value);
   }
-  return rule.values.length > 0;
+  return "values" in rule && rule.values.length > 0;
 }
 
 export function hayFiltrosActivos(filters: AproProyFilterRule[]): boolean {

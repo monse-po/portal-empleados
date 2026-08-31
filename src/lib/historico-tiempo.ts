@@ -1,7 +1,32 @@
+import { format, subMonths } from "date-fns";
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import type { TiempoCatalog } from "@/src/lib/ifs/tiempo-catalog";
 import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
 import { normalizeRegistroEstado } from "@/src/lib/tiempo-registro-rules";
+
+/** Meses hacia atrás para histórico IFS / Neon. */
+export const HISTORICO_MESES_VENTANA = 12;
+
+export function getHistoricoFechaMinimaIso(base = new Date()): string {
+  return format(subMonths(base, HISTORICO_MESES_VENTANA), "yyyy-MM-dd");
+}
+
+/** Histórico confirmado = Aprobado (IFS Confirmed). */
+export function isRegistroHistoricoConfirmado(estado: string): boolean {
+  return normalizeRegistroEstado(estado) === "Aprobado";
+}
+
+export function sortRegistrosHistorico(rows: RegistroMock[]): RegistroMock[] {
+  const minFecha = getHistoricoFechaMinimaIso();
+  return rows
+    .filter((r) => isRegistroHistoricoConfirmado(r.estado))
+    .filter((r) => r.fecha >= minFecha)
+    .sort((a, b) => {
+      const byFecha = b.fecha.localeCompare(a.fecha);
+      if (byFecha !== 0) return byFecha;
+      return a.id.localeCompare(b.id);
+    });
+}
 
 export type HistoricoProyectoResumen = {
   proyId: string;

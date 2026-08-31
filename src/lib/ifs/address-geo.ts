@@ -460,13 +460,13 @@ export async function getGeoMunicipalities(
       ...CITY_PATHS.filter((p) => p !== discovered.citiesPath),
     ];
     const hit = await trySource(discovered.source, discovered.baseUrl, paths);
-    if ("options" in hit) return hit;
+    if ("options" in hit && hit.options) return hit;
   }
 
   let lastErr = "";
   for (const src of GEO_SOURCES) {
     const hit = await trySource(src.label, src.baseUrl(), CITY_PATHS);
-    if ("options" in hit) return hit;
+    if ("options" in hit && hit.options) return hit;
     if ("error" in hit) lastErr = hit.error;
   }
 

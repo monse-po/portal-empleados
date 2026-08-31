@@ -140,6 +140,7 @@ export async function fetchTiempoCatalogAction(accountDate: string): Promise<{
 export async function fetchProjectAprobadorAction(input: {
   shortName: string;
   projectId: string;
+  companyId?: string;
 }): Promise<{
   aprobador?: string;
   error?: string;

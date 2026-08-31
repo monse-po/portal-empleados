@@ -1,4 +1,5 @@
 export type RegistroEstado =
+  | "Borrador"
   | "Registrado"
   | "Lanzado"
   | "Aprobado"
