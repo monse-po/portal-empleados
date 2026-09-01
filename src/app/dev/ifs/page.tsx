@@ -363,6 +363,9 @@ export default async function IfsDevPage() {
       )}
 
       <div className="mt-6 flex gap-4 text-sm">
+        <Link href="/consola" className="text-navy underline">
+          Consola UAT
+        </Link>
         <Link href="/login" className="text-navy underline">
           Login IFS
         </Link>

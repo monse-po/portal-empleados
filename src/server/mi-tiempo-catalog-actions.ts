@@ -7,9 +7,8 @@ import {
   getValidActReportCode,
   getUserInfo,
   getValidEmpPrjAct,
-  openCempPortalActor,
-  openCempPortalSession,
 } from "@/src/lib/ifs/cemp-portal";
+import { openPortalActor, openPortalSession } from "@/src/server/portal-actor";
 import { formatIfsError, IfsApiError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
@@ -26,6 +25,7 @@ import type {
   ValidEmpPrjActRow,
 } from "@/src/lib/ifs/types";
 import { getServerIfsSession } from "@/src/lib/ifs/session";
+import { resolveEffectivePortalIdentity } from "@/src/server/portal-impersonation";
 import { getJornadaLimiteFromSistema } from "@/src/lib/tiempo-config";
 import { resolveScheduleHoursLimit } from "@/src/lib/tiempo-schedule";
 import type { TiempoJornadaSource } from "@/src/lib/tiempo-config";
@@ -51,10 +51,8 @@ export type IfsPortalProfile = {
 };
 
 /**
- * Perfil del menú de usuario: siempre el EmailId de la sesión OAuth
- * → CEmpPortalUserSet → GetUserInfo (empleado HMV asociado en IFS).
- * No usa IFS_DEV_EMP_NO / openCempPortalActor, para reflejar el remap
- * Veyron↔HMV que se cambia en pruebas.
+ * Perfil del menú: CEmpPortalUserSet del email efectivo
+ * (sesión OAuth, o impersonación UAT si hay cookie de operador).
  */
 export async function fetchIfsPortalProfileAction(): Promise<IfsPortalProfile> {
   const session = await getServerIfsSession();
@@ -62,8 +60,13 @@ export async function fetchIfsPortalProfileAction(): Promise<IfsPortalProfile> {
 
   try {
     return await withValidIfsSession(async (live) => {
+      const identity = await resolveEffectivePortalIdentity();
+      const email =
+        identity.impersonating && identity.effectiveEmail
+          ? identity.effectiveEmail
+          : live.email;
       try {
-        const ifs = await openCempPortalSession(live.email, live.accessToken);
+        const ifs = await openPortalSession(live.email, live.accessToken);
         const info = await getUserInfo(ifs);
         const empName = (info.EmpName || "").trim();
         const empNo = (info.EmpNo || ifs.user.EmpId || "").trim();
@@ -71,7 +74,7 @@ export async function fetchIfsPortalProfileAction(): Promise<IfsPortalProfile> {
         const companyName = (info.CompanyName || "").trim();
         return {
           connected: true,
-          email: live.email,
+          email,
           empName: empName || undefined,
           empNo: empNo || undefined,
           companyId: companyId || undefined,
@@ -82,7 +85,7 @@ export async function fetchIfsPortalProfileAction(): Promise<IfsPortalProfile> {
         if (err instanceof IfsApiError && err.status === 401) throw err;
         return {
           connected: true,
-          email: live.email,
+          email,
           error: formatIfsError(err),
         };
       }
@@ -104,7 +107,7 @@ export async function fetchTiempoCatalogAction(accountDate: string): Promise<{
     return await withValidIfsSession(async (session) => {
       let ifs;
       try {
-        ifs = await openCempPortalActor(session.email, session.accessToken);
+        ifs = await openPortalActor(session.email, session.accessToken);
       } catch (err) {
         if (err instanceof IfsApiError && err.status === 401) throw err;
         return {
@@ -184,7 +187,7 @@ export async function fetchTiposHoraAction(input: {
   try {
     return await withValidIfsSession(async (session) => {
       try {
-        const ifs = await openCempPortalActor(
+        const ifs = await openPortalActor(
           session.email,
           session.accessToken,
         );
@@ -238,7 +241,7 @@ export async function fetchScheduleHoursAction(accountDate: string): Promise<{
   try {
     return await withValidIfsSession(async (liveSession) => {
       try {
-        const ifs = await openCempPortalActor(
+        const ifs = await openPortalActor(
           liveSession.email,
           liveSession.accessToken,
         );
@@ -297,7 +300,7 @@ export async function fetchEmployeeScheduleAction(): Promise<{
   try {
     return await withValidIfsSession(async (liveSession) => {
       try {
-        const ifs = await openCempPortalActor(
+        const ifs = await openPortalActor(
           liveSession.email,
           liveSession.accessToken,
         );

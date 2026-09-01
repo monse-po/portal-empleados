@@ -1,4 +1,4 @@
-import { getUserInfo, openCempPortalSession } from "@/src/lib/ifs/cemp-portal";
+import { getUserInfo } from "@/src/lib/ifs/cemp-portal";
 import { isIfsAuthEnabled } from "@/src/lib/ifs/config";
 import {
   IfsSessionExpiredError,
@@ -12,6 +12,8 @@ import {
   type PortalUserProfile,
   type TiempoEmpleadoContext,
 } from "@/src/lib/portal-user-profile";
+import { openPortalSession } from "@/src/server/portal-actor";
+import { resolveEffectivePortalIdentity } from "@/src/server/portal-impersonation";
 
 const DEMO_EMPLEADO_DB_ID = SESSION_EMPLEADO.cedula.replace(/\./g, "");
 
@@ -55,19 +57,24 @@ export async function getPortalUserProfile(): Promise<PortalUserProfile | null> 
     return isIfsAuthEnabled() ? null : DEMO_PROFILE;
   }
 
+  const identity = await resolveEffectivePortalIdentity();
+  const effectiveEmail =
+    identity.effectiveEmail || session.email;
+
   try {
     return await withValidIfsSession(async (liveSession) => {
-      const ifs = await openCempPortalSession(
+      const ifs = await openPortalSession(
         liveSession.email,
         liveSession.accessToken,
       );
       const info = await getUserInfo(ifs);
       return {
-        email: liveSession.email,
+        email: effectiveEmail,
         name:
           info.EmpName?.trim() ||
+          identity.targetNombre?.trim() ||
           liveSession.name?.trim() ||
-          displayNameFromEmail(liveSession.email),
+          displayNameFromEmail(effectiveEmail),
         companyId: info.CompanyId ?? ifs.user.CompanyId,
         companyName: info.CompanyName,
         empNo: info.EmpNo,
@@ -75,17 +82,20 @@ export async function getPortalUserProfile(): Promise<PortalUserProfile | null> 
         empleadoDbId: resolveEmpleadoDbId({
           ifsEmpId: ifs.user.EmpId,
           empNo: info.EmpNo,
-          email: liveSession.email,
+          email: effectiveEmail,
         }),
         source: "ifs",
+        operatorEmail: identity.operatorEmail || liveSession.email,
+        impersonating: identity.impersonating,
       };
     });
   } catch (err) {
     if (err instanceof IfsSessionExpiredError) return null;
-    return profileFromSession(
-      session.email,
-      session.name,
-    );
+    return {
+      ...profileFromSession(effectiveEmail, session.name),
+      operatorEmail: identity.operatorEmail || session.email,
+      impersonating: identity.impersonating,
+    };
   }
 }
 

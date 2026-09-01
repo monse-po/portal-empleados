@@ -1,9 +1,16 @@
 "use server";
 
 import {
+  getBankDetails,
+  getCompanies,
   getCurrencyCodes,
+  getExpenseCompanies,
   getIsoCountries,
+  getProjectsByCompany,
+  getUserInfo,
+  resolvePersonDisplayName,
 } from "@/src/lib/ifs/cemp-portal";
+import { openPortalActor } from "@/src/server/portal-actor";
 import {
   getGeoMunicipalities,
   getGeoStates,
@@ -23,12 +30,332 @@ import {
   mergeCurrencyRounding,
   type DivisaOption,
 } from "@/src/lib/anticipos-ifs-catalog";
+import { mapIfsBank } from "@/src/lib/ifs/anticipos-catalog";
 import type { DestinoSel } from "@/src/lib/anticipos-catalog";
 import {
   DEST_CATALOG,
   DIVISAS_POR_COMPANIA,
 } from "@/src/lib/anticipos-catalog";
 import { getCompanyCurrencyFormats } from "@/src/lib/ifs/currency-codes-handling";
+
+/** Proyecto de GetProjects(Company) para el form Employee Advances. */
+export type AnticiposProyectoOption = {
+  id: string;
+  nombre: string;
+  companyId: string;
+  /** PersonId / Identity del Manager en IFS (p. ej. JCORREA). */
+  managerCode: string | null;
+};
+
+export type AnticiposFormBootstrap = {
+  companyId: string;
+  companyName: string;
+  empNo: string;
+  empName: string;
+  companiasGasto: { id: string; label: string }[];
+  proyectos: AnticiposProyectoOption[];
+  divisas: DivisaOption[];
+  banco: string;
+  tipoCuenta: string;
+  cuenta: string;
+  cuentaLabel: string;
+};
+
+function fallbackDivisas(company: string): DivisaOption[] {
+  return (DIVISAS_POR_COMPANIA[company] || DIVISAS_POR_COMPANIA.HMVINGCO).map(
+    (d) => ({
+      code: d.code,
+      label: d.label,
+      pre: d.pre,
+      decimals: null,
+      roundingFromIfs: false,
+    }),
+  );
+}
+
+function formatCuentaLabel(bank: {
+  banco: string;
+  tipo: string;
+  cuenta: string;
+}): string {
+  if (!bank.cuenta) return "";
+  const raw = bank.cuenta.replace(/[\s-]/g, "");
+  const masked =
+    raw.length > 4 ? `${"•".repeat(raw.length - 4)}${raw.slice(-4)}` : raw;
+  const bits = [bank.banco, bank.tipo, masked].filter(Boolean);
+  return bits.join(" · ");
+}
+
+async function loadCompanyBundle(
+  accessToken: string,
+  companyId: string,
+  empNo: string,
+): Promise<{
+  proyectos: AnticiposProyectoOption[];
+  divisas: DivisaOption[];
+  banco: string;
+  tipoCuenta: string;
+  cuenta: string;
+  cuentaLabel: string;
+}> {
+  const company = companyId.trim();
+  const [projectsSettled, currenciesSettled, bankSettled, roundingSettled] =
+    await Promise.allSettled([
+      getProjectsByCompany(accessToken, company),
+      getCurrencyCodes(accessToken, company),
+      empNo
+        ? getBankDetails(accessToken, company, empNo)
+        : Promise.resolve([]),
+      getCompanyCurrencyFormats(accessToken, company),
+    ]);
+
+  const proyectos: AnticiposProyectoOption[] = [];
+  if (projectsSettled.status === "fulfilled") {
+    for (const row of projectsSettled.value) {
+      const id = row.ProjectId?.trim();
+      if (!id) continue;
+      proyectos.push({
+        id,
+        nombre: row.Name?.trim() || row.Description?.trim() || id,
+        companyId: row.Company?.trim() || company,
+        managerCode: row.Manager?.trim() || null,
+      });
+    }
+    proyectos.sort((a, b) => a.id.localeCompare(b.id, "es"));
+  }
+
+  let divisas = fallbackDivisas(company);
+  if (currenciesSettled.status === "fulfilled") {
+    const mapped = mapCurrencyCodesToDivisas(currenciesSettled.value);
+    if (mapped.length) divisas = mapped;
+  }
+  if (roundingSettled.status === "fulfilled" && roundingSettled.value.formats.length) {
+    divisas = mergeCurrencyRounding(divisas, roundingSettled.value.formats);
+  }
+
+  const bank =
+    bankSettled.status === "fulfilled"
+      ? mapIfsBank(bankSettled.value)
+      : { banco: "", tipo: "", cuenta: "" };
+
+  return {
+    proyectos,
+    divisas,
+    banco: bank.banco,
+    tipoCuenta: bank.tipo,
+    cuenta: bank.cuenta,
+    cuentaLabel: formatCuentaLabel(bank),
+  };
+}
+
+/**
+ * Bootstrap del formulario Anticipos = catálogos de la ventana Employee Advances:
+ * GetExpenseCompany / CompanySet, GetProjects, GetCurrencyCodes, GetBankDetails.
+ * Una sola sesión IFS; no usa GetValidEmpPrjAct (eso es Tiempo).
+ */
+export async function fetchAnticiposFormBootstrapAction(): Promise<{
+  catalog: AnticiposFormBootstrap | null;
+  fromIfs: boolean;
+  error?: string;
+  sessionExpired?: boolean;
+}> {
+  try {
+    return await withValidIfsSession(async (session) => {
+      try {
+        const portal = await openPortalActor(
+          session.email,
+          session.accessToken,
+        );
+        const info = await getUserInfo(portal);
+        const companyId =
+          info.CompanyId?.trim() || portal.user.CompanyId?.trim() || "";
+        const empNo = info.EmpNo?.trim() || portal.user.EmpId?.trim() || "";
+        const empName = info.EmpName?.trim() || "";
+        const companyName = info.CompanyName?.trim() || companyId;
+        const supplierId = info.SupplierId?.trim() || empNo;
+
+        if (!companyId) {
+          return {
+            catalog: null,
+            fromIfs: false,
+            error: "IFS no devolvió compañía para el empleado",
+          };
+        }
+
+        let companiasGasto: { id: string; label: string }[] = [];
+        try {
+          const expense = supplierId
+            ? await getExpenseCompanies(session.accessToken, supplierId)
+            : [];
+          companiasGasto = expense
+            .map((c) => {
+              const id = c.Company?.trim();
+              if (!id) return null;
+              const name = c.Name?.trim();
+              return { id, label: name ? `${id} – ${name}` : id };
+            })
+            .filter((c): c is { id: string; label: string } => Boolean(c));
+        } catch {
+          /* fallback CompanySet abajo */
+        }
+
+        if (!companiasGasto.length) {
+          try {
+            const all = await getCompanies(session.accessToken);
+            companiasGasto = all
+              .map((c) => {
+                const id = c.Company?.trim();
+                if (!id) return null;
+                const name = c.Name?.trim();
+                return { id, label: name ? `${id} – ${name}` : id };
+              })
+              .filter((c): c is { id: string; label: string } => Boolean(c));
+          } catch {
+            companiasGasto = [
+              {
+                id: companyId,
+                label: companyName
+                  ? `${companyId} – ${companyName}`
+                  : companyId,
+              },
+            ];
+          }
+        }
+
+        if (!companiasGasto.some((c) => c.id === companyId)) {
+          companiasGasto = [
+            {
+              id: companyId,
+              label: companyName ? `${companyId} – ${companyName}` : companyId,
+            },
+            ...companiasGasto,
+          ];
+        }
+
+        const bundle = await loadCompanyBundle(
+          session.accessToken,
+          companyId,
+          empNo,
+        );
+
+        return {
+          catalog: {
+            companyId,
+            companyName,
+            empNo,
+            empName,
+            companiasGasto,
+            ...bundle,
+          },
+          fromIfs: true,
+        };
+      } catch (err) {
+        return {
+          catalog: null,
+          fromIfs: false,
+          error: formatIfsError(err),
+        };
+      }
+    });
+  } catch (err) {
+    if (err instanceof IfsSessionExpiredError) {
+      return {
+        catalog: null,
+        fromIfs: false,
+        sessionExpired: true,
+        error: err.message,
+      };
+    }
+    return {
+      catalog: null,
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
+  }
+}
+
+/** Recarga proyectos + divisas + banco al cambiar compañía de gasto. */
+export async function fetchAnticiposCompanyBundleAction(
+  companyId: string,
+  empNo: string,
+): Promise<{
+  proyectos: AnticiposProyectoOption[];
+  divisas: DivisaOption[];
+  banco: string;
+  tipoCuenta: string;
+  cuenta: string;
+  cuentaLabel: string;
+  fromIfs: boolean;
+  error?: string;
+  sessionExpired?: boolean;
+}> {
+  const company = companyId.trim();
+  const empty = {
+    proyectos: [] as AnticiposProyectoOption[],
+    divisas: fallbackDivisas(company || "HMVINGCO"),
+    banco: "",
+    tipoCuenta: "",
+    cuenta: "",
+    cuentaLabel: "",
+    fromIfs: false,
+  };
+  if (!company) {
+    return { ...empty, error: "Sin compañía" };
+  }
+
+  try {
+    return await withValidIfsSession(async (session) => {
+      try {
+        const bundle = await loadCompanyBundle(
+          session.accessToken,
+          company,
+          empNo.trim(),
+        );
+        return { ...bundle, fromIfs: true };
+      } catch (err) {
+        return { ...empty, error: formatIfsError(err) };
+      }
+    });
+  } catch (err) {
+    if (err instanceof IfsSessionExpiredError) {
+      return { ...empty, sessionExpired: true, error: err.message };
+    }
+    return { ...empty, error: formatIfsError(err) };
+  }
+}
+
+/** Resuelve Manager (PersonId) → nombre para el campo Aprobador. */
+export async function resolveAnticipoAprobadorAction(input: {
+  managerCode: string;
+  companyId?: string;
+}): Promise<{
+  aprobador: string | null;
+  error?: string;
+  sessionExpired?: boolean;
+}> {
+  const code = input.managerCode.trim();
+  if (!code) return { aprobador: null };
+
+  try {
+    return await withValidIfsSession(async (session) => {
+      try {
+        const name = await resolvePersonDisplayName(
+          session.accessToken,
+          code,
+          input.companyId,
+        );
+        return { aprobador: name || code };
+      } catch (err) {
+        return { aprobador: code, error: formatIfsError(err) };
+      }
+    });
+  } catch (err) {
+    if (err instanceof IfsSessionExpiredError) {
+      return { aprobador: code, sessionExpired: true, error: err.message };
+    }
+    return { aprobador: code, error: formatIfsError(err) };
+  }
+}
 
 export async function fetchDivisasAnticipoAction(companyId: string): Promise<{
   divisas: DivisaOption[];

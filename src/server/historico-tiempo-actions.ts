@@ -9,9 +9,9 @@ import {
   getProjectTransactionsHistorico,
   getReferenceEmpReportItemsHistorico,
   getUserInfo,
-  openCempPortalActor,
   resolveActorEmpNo,
 } from "@/src/lib/ifs/cemp-portal";
+import { openPortalActor } from "@/src/server/portal-actor";
 import { IfsApiError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
@@ -95,7 +95,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
     const payload = await withValidIfsSession(async (liveSession) => {
       const collected: RegistroMock[] = [];
       // Empleado HMV asociado al EmailId de la sesión (mismo actor que Mi Tiempo).
-      const ifs = await openCempPortalActor(
+      const ifs = await openPortalActor(
         liveSession.email,
         liveSession.accessToken,
       );

@@ -8,6 +8,10 @@ export type PortalUserProfile = {
   /** Clave en Empleado / RegistroTiempo.empleadoId */
   empleadoDbId: string;
   source: "ifs" | "demo";
+  /** Sesión real (operador) cuando hay impersonación UAT. */
+  operatorEmail?: string;
+  /** True si el portal actúa como otro EmailId vía ?u= / cookie. */
+  impersonating?: boolean;
 };
 
 export type TiempoEmpleadoContext = Pick<

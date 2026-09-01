@@ -1,8 +1,9 @@
 "use client";
 
+import { Suspense, useCallback, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useCallback, useState } from "react";
 import { AppProviders } from "@/src/components/layout/AppProviders";
+import { ImpersonationGate } from "@/src/components/layout/ImpersonationGate";
 import { RoleProvider } from "@/src/components/layout/RoleContext";
 import { ToastProvider } from "@/src/components/ui/Toast";
 import { FocusGuard } from "@/src/components/layout/FocusGuard";
@@ -50,6 +51,9 @@ export function PortalShell({ children }: PortalShellProps) {
             }}
           >
             <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
+              <Suspense fallback={null}>
+                <ImpersonationGate />
+              </Suspense>
               <Topbar />
               <div className="flex min-h-0 flex-1 overflow-hidden">
                 <Sidebar />

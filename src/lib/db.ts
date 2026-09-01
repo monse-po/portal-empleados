@@ -43,7 +43,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function isStalePrismaClient(client: PrismaClient | undefined): boolean {
-  return !client || !("anticipo" in client);
+  return !client || !("anticipo" in client) || !("portalAcceso" in client);
 }
 
 function getPrismaClient(): PrismaClient {

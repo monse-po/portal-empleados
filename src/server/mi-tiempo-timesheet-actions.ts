@@ -3,9 +3,9 @@
 import {
   getEmployeeTimesheetForEmp,
   getUserInfo,
-  openCempPortalActor,
   resolveActorEmpNo,
 } from "@/src/lib/ifs/cemp-portal";
+import { openPortalActor } from "@/src/server/portal-actor";
 import { IfsApiError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
@@ -31,7 +31,7 @@ export async function fetchRegistrosFromIfsAction(): Promise<{
 
   try {
     const result = await withValidIfsSession(async (liveSession) => {
-      const ifs = await openCempPortalActor(
+      const ifs = await openPortalActor(
         liveSession.email,
         liveSession.accessToken,
       );

@@ -65,6 +65,7 @@ export function UserMenu() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<IfsPortalProfile | null>(null);
+  const [canManageAccesos, setCanManageAccesos] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const prevEmpNoRef = useRef<string | undefined>(undefined);
 
@@ -81,6 +82,31 @@ export function UserMenu() {
         setLoading(false);
       });
   };
+
+  useEffect(() => {
+    const onChanged = () => {
+      void reloadProfile();
+    };
+    window.addEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onChanged);
+    return () => {
+      window.removeEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onChanged);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/auth/impersonate")
+      .then((r) => r.json())
+      .then((data: { canManageAccesos?: boolean }) => {
+        if (!cancelled) setCanManageAccesos(Boolean(data.canManageAccesos));
+      })
+      .catch(() => {
+        if (!cancelled) setCanManageAccesos(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -217,6 +243,24 @@ export function UserMenu() {
               Mi perfil
             </button>
           )}
+
+          {canManageAccesos ? (
+            <>
+              <div className="my-1 h-px bg-[#f1f5f9]" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  router.push("/consola");
+                }}
+                className="flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-3.5 py-2 text-left text-[12.5px] font-semibold text-navy hover:bg-[#f4f7fb]"
+              >
+                <Icon name="shieldCheck" size="sm" className="text-navy" />
+                Consola UAT
+              </button>
+            </>
+          ) : null}
 
           <div className="my-1 h-px bg-[#f1f5f9]" />
 

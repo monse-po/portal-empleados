@@ -166,6 +166,7 @@ export function getVisibleModules(): ModuleDef[] {
 export function isUtilityPath(pathname: string): boolean {
   return (
     pathname.startsWith("/dev") ||
+    pathname.startsWith("/consola") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/notificaciones") ||

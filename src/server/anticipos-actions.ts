@@ -16,10 +16,8 @@ import {
   GERENTE_APROBADOR,
   type AnticipoAprobacion,
 } from "@/src/lib/aprobacion-anticipos-mock";
-import {
-  getUserInfo,
-  openCempPortalSession,
-} from "@/src/lib/ifs/cemp-portal";
+import { getUserInfo } from "@/src/lib/ifs/cemp-portal";
+import { openPortalSession } from "@/src/server/portal-actor";
 import {
   approveEmpAdvance,
   cancelEmpAdvance,
@@ -76,7 +74,7 @@ async function resolveActor(): Promise<AnticiposActor> {
   try {
     return await withValidIfsSession(async (session) => {
       try {
-        const ifs = await openCempPortalSession(
+        const ifs = await openPortalSession(
           session.email,
           session.accessToken,
         );

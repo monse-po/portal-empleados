@@ -41,6 +41,31 @@ model Empleado {
   updatedAt DateTime         @updatedAt
 }
 
+/// Rol UAT en la consola: solicitar horas vs autorizar horas.
+enum PortalAccesoRol {
+  EMPLEADO
+  AUTORIZADOR
+  AMBOS
+}
+
+/// Accesos UAT: login (EmailId IFS) → persona que Monse puede impersonar con ?u=
+/// Andamiaje de pruebas; en prod cada usuario entra con su propio SSO.
+model PortalAcceso {
+  id        String          @id @default(cuid())
+  /// EmailId IFS / correo de login (minúsculas).
+  email     String          @unique
+  nombre    String?
+  empNo     String?
+  /// EMPLEADO = solicitar horas · AUTORIZADOR = aprobar · AMBOS = los dos.
+  rol       PortalAccesoRol @default(EMPLEADO)
+  activo    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([activo])
+  @@index([rol])
+}
+
 model Proyecto {
   id        String           @id
   nombre    String

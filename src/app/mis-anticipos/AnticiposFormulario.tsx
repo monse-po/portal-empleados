@@ -40,21 +40,15 @@ import {
   type AnticipoTipo,
   type LovItem,
 } from "@/src/lib/anticipos-registro";
-import {
-  resolveAprobadorLabel,
-  type TiempoCatalog,
-} from "@/src/lib/ifs/tiempo-catalog";
 import type { PortalUserProfile } from "@/src/lib/portal-user-profile";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 import {
+  fetchAnticiposCompanyBundleAction,
+  fetchAnticiposFormBootstrapAction,
   fetchDestinosAnticipoAction,
-  fetchDivisasAnticipoAction,
+  resolveAnticipoAprobadorAction,
+  type AnticiposProyectoOption,
 } from "@/src/server/anticipos-catalog-actions";
-import {
-  fetchProjectAprobadorAction,
-  fetchTiempoCatalogAction,
-} from "@/src/server/mi-tiempo-catalog-actions";
-
 type AnticiposFormularioProps = {
   onVolver: () => void;
   onLanzar: (input: LanzarAnticipoInput) => Promise<string | null>;
@@ -270,10 +264,15 @@ export function AnticiposFormulario({
 }: AnticiposFormularioProps) {
   const { toast } = useToast();
   const [profile, setProfile] = useState<PortalUserProfile | null>(null);
-  const [catalog, setCatalog] = useState<TiempoCatalog | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
-  const [proyectosLov, setProyectosLov] = useState<LovItem[]>([]);
+  const [proyectos, setProyectos] = useState<AnticiposProyectoOption[]>([]);
+  const [companiasGastoIfs, setCompaniasGastoIfs] = useState<
+    { id: string; label: string }[]
+  >([]);
+  const [empNoIfs, setEmpNoIfs] = useState("");
+  const [empNameIfs, setEmpNameIfs] = useState("");
+  const [cuentaLabel, setCuentaLabel] = useState("");
   const [aprobadorIfs, setAprobadorIfs] = useState<string | null>(null);
   const [aprobadorLoading, setAprobadorLoading] = useState(false);
   const [paraOtro, setParaOtro] = useState(false);
@@ -286,7 +285,8 @@ export function AnticiposFormulario({
   const [divisa, setDivisa] = useState("COP");
   const [divisas, setDivisas] = useState<DivisaOption[]>([]);
   const [destinos, setDestinos] = useState<DestinoSel[]>([]);
-  const [destinosLoading, setDestinosLoading] = useState(true);
+  const [destinosLoading, setDestinosLoading] = useState(false);
+  const [destinosFetched, setDestinosFetched] = useState(false);
   const [monto, setMonto] = useState("");
   const [motivo, setMotivo] = useState("");
   const [fechaIda, setFechaIda] = useState("");
@@ -298,122 +298,129 @@ export function AnticiposFormulario({
   const [envioOpen, setEnvioOpen] = useState(false);
   const [resumenHtml, setResumenHtml] = useState("");
 
-  useEffect(() => {
-    void fetch("/api/auth/session")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!data?.ok) return;
-        const p = data as PortalUserProfile & { ok?: boolean };
-        setProfile(p);
-        if (p.companyId) setCompaniaId(p.companyId);
-      });
-  }, []);
+  const applyCompanyBundle = (bundle: {
+    proyectos: AnticiposProyectoOption[];
+    divisas: DivisaOption[];
+    cuentaLabel: string;
+  }) => {
+    setProyectos(bundle.proyectos);
+    setDivisas(bundle.divisas);
+    setCuentaLabel(bundle.cuentaLabel);
+    setDivisa((prev) => {
+      if (bundle.divisas.some((d) => d.code === prev)) return prev;
+      return bundle.divisas[0]?.code || "COP";
+    });
+  };
 
+  /** Employee Advances: GetExpenseCompany + GetProjects + GetCurrencyCodes + GetBankDetails. */
   useEffect(() => {
-    const hoy = hoyIso();
+    let cancelled = false;
     setCatalogLoading(true);
     setCatalogError(null);
-    void fetchTiempoCatalogAction(hoy).then((result) => {
+    void fetchAnticiposFormBootstrapAction().then((result) => {
+      if (cancelled) return;
       setCatalogLoading(false);
       if (!result.catalog) {
-        setCatalog(null);
-        setProyectosLov([]);
+        setProyectos([]);
         setCatalogError(
           result.error ??
-            "No se pudieron cargar tus proyectos desde IFS. Vuelve a iniciar sesión.",
+            "No se pudieron cargar los catálogos de Anticipos desde IFS.",
         );
         return;
       }
-      setCatalog(result.catalog);
-      setProyectosLov(
-        result.catalog.proyectos.map((p) => ({
-          id: p.id,
-          nombre: p.nombre,
-          sub: "",
-        })),
-      );
+      const c = result.catalog;
+      setEmpNoIfs(c.empNo);
+      setEmpNameIfs(c.empName);
+      setCompaniaId(c.companyId);
+      setCompaniasGastoIfs(c.companiasGasto);
+      applyCompanyBundle(c);
+      setProfile((prev) => ({
+        email: prev?.email ?? "",
+        name: c.empName || prev?.name || "",
+        companyId: c.companyId,
+        companyName: c.companyName,
+        empNo: c.empNo,
+        empleadoDbId: prev?.empleadoDbId || c.empNo.replace(/\D/g, "") || c.empNo,
+        source: "ifs",
+      }));
+      void fetch("/api/auth/session")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (cancelled || !data?.ok) return;
+          const p = data as PortalUserProfile & { ok?: boolean };
+          setProfile((prev) => ({
+            ...p,
+            companyId: prev?.companyId || p.companyId,
+            companyName: prev?.companyName || p.companyName,
+            empNo: prev?.empNo || p.empNo,
+            name: prev?.name || p.name,
+          }));
+        });
     });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  /** Destinos solo cuando el tipo es Viaje (evita 100+ llamadas IFS al abrir). */
   useEffect(() => {
+    if (tipo !== "Viaje") return;
     setDestinos(flattenLocalDestinos());
-    setDestinosLoading(false);
+    if (destinosFetched) return;
+    let cancelled = false;
+    setDestinosLoading(true);
     void fetchDestinosAnticipoAction().then((result) => {
+      if (cancelled) return;
+      setDestinosLoading(false);
+      setDestinosFetched(true);
       if (result.destinos.length) setDestinos(result.destinos);
     });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [tipo, destinosFetched]);
+
+  const proyectoById = useMemo(() => {
+    const map = new Map<string, AnticiposProyectoOption>();
+    for (const p of proyectos) map.set(p.id, p);
+    return map;
+  }, [proyectos]);
 
   const aprobadorLabel = useMemo(() => {
     if (!proySel) return "";
     if (aprobadorLoading) return "Cargando datos…";
-    return (
-      aprobadorIfs ??
-      resolveAprobadorLabel(catalog, proySel.id) ??
-      TIEMPO_UI_COPY.approverFallback
-    );
-  }, [proySel, aprobadorLoading, aprobadorIfs, catalog]);
+    return aprobadorIfs || TIEMPO_UI_COPY.approverFallback;
+  }, [proySel, aprobadorLoading, aprobadorIfs]);
 
   useEffect(() => {
-    if (!proySel || !catalog) {
+    if (!proySel) {
       setAprobadorIfs(null);
       setAprobadorLoading(false);
       return;
     }
-
-    const entry = catalog.porProyecto[proySel.id];
-    if (!entry) {
+    const entry = proyectoById.get(proySel.id);
+    const managerCode = entry?.managerCode?.trim();
+    if (!managerCode) {
       setAprobadorIfs(null);
-      setAprobadorLoading(false);
-      return;
-    }
-
-    // Si el catálogo solo tiene código (abreviación IFS), igual consultar
-    // ProjectInfo + EmployeeInfo para intentar el nombre completo.
-    const cachedName = entry.aprobador?.name?.trim();
-    if (cachedName) {
-      setAprobadorIfs(cachedName);
       setAprobadorLoading(false);
       return;
     }
 
     let cancelled = false;
     setAprobadorLoading(true);
-    setAprobadorIfs(entry.aprobador?.code?.trim() || null);
-
-    void fetchProjectAprobadorAction({
-      shortName: proySel.id,
-      projectId: entry.projectId,
-      companyId: entry.companyId,
+    setAprobadorIfs(managerCode);
+    void resolveAnticipoAprobadorAction({
+      managerCode,
+      companyId: entry?.companyId || companiaId,
     }).then((result) => {
       if (cancelled) return;
       setAprobadorLoading(false);
-      setAprobadorIfs(
-        result.aprobador ?? entry.aprobador?.code?.trim() ?? null,
-      );
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [proySel, catalog]);
-
-  const companiaDivisa = paraOtro ? companiaGastoOtro || companiaId : companiaId;
-
-  useEffect(() => {
-    if (!companiaDivisa) return;
-    let cancelled = false;
-    void fetchDivisasAnticipoAction(companiaDivisa).then((result) => {
-      if (cancelled) return;
-      setDivisas(result.divisas);
-      setDivisa((prev) => {
-        if (result.divisas.some((d) => d.code === prev)) return prev;
-        return result.divisas[0]?.code || "COP";
-      });
+      setAprobadorIfs(result.aprobador || managerCode);
     });
     return () => {
       cancelled = true;
     };
-  }, [companiaDivisa]);
+  }, [proySel, proyectoById, companiaId]);
 
   const divisaOpt = useMemo(
     () => divisas.find((d) => d.code === divisa) ?? null,
@@ -430,6 +437,7 @@ export function AnticiposFormulario({
     [profile],
   );
   const companiasPropias = useMemo(() => {
+    if (companiasGastoIfs.length) return companiasGastoIfs;
     if (profile?.companyId) {
       const label =
         COMPANIAS.find((c) => c.id === profile.companyId)?.label ??
@@ -447,7 +455,7 @@ export function AnticiposFormulario({
         },
       ]
     );
-  }, [profile, empLogueado, companiaId]);
+  }, [companiasGastoIfs, profile, empLogueado, companiaId]);
   const montoNum = useMemo(
     () => parseMontoInput(monto, divisaDecimals),
     [monto, divisaDecimals],
@@ -506,20 +514,36 @@ export function AnticiposFormulario({
 
   const proyectoOptions = useMemo(
     () =>
-      proyectosLov.map((p) => ({
+      proyectos.map((p) => ({
         value: p.id,
         label: `${p.id} – ${p.nombre}`,
       })),
-    [proyectosLov],
+    [proyectos],
   );
 
   const handleProyectoIdChange = (id: string) => {
-    const item = proyectosLov.find((p) => p.id === id) ?? null;
+    const p = proyectos.find((x) => x.id === id);
+    const item: LovItem | null = p
+      ? { id: p.id, nombre: p.nombre, sub: p.companyId }
+      : null;
     if (paraOtro) {
       handleProyOtroChange(item);
       return;
     }
     setProySel(item);
+  };
+
+  const reloadCompanyBundle = (company: string) => {
+    if (!company) return;
+    setCatalogLoading(true);
+    setProySel(null);
+    void fetchAnticiposCompanyBundleAction(company, empNoIfs).then((result) => {
+      setCatalogLoading(false);
+      applyCompanyBundle(result);
+      if (result.error && !result.proyectos.length) {
+        setCatalogError(result.error);
+      }
+    });
   };
 
   const handleEmpOtroChange = (item: LovItem | null) => {
@@ -531,10 +555,12 @@ export function AnticiposFormulario({
   const handleCompaniaPropiaChange = (id: string) => {
     setCompaniaId(id);
     setProySel(null);
+    reloadCompanyBundle(id);
   };
 
   const handleCompaniaGastoOtroChange = (id: string) => {
     setCompaniaGastoOtro(id);
+    reloadCompanyBundle(id);
   };
 
   const handleDestinoChange = (dest: DestinoSel | null) => {
@@ -701,8 +727,9 @@ export function AnticiposFormulario({
     }
   };
 
-  const empleadoNombre = profile?.name ?? "—";
-  const empleadoIdDisplay = profile?.empleadoDbId ?? "—";
+  const empleadoNombre = empNameIfs || profile?.name || "—";
+  const empleadoIdDisplay =
+    empNoIfs || profile?.empNo || profile?.empleadoDbId || "—";
 
   return (
     <>
@@ -755,7 +782,7 @@ export function AnticiposFormulario({
                   <strong>Proyectos IFS:</strong> {catalogError}
                 </FormHint>
               )}
-              {!catalogLoading && !catalogError && proyectosLov.length === 0 && (
+              {!catalogLoading && !catalogError && proyectos.length === 0 && (
                 <FormHint>
                   IFS no devolvió proyectos asociados a tu empleado. Revisa
                   GetValidEmpPrjAct en /dev/ifs.
@@ -796,7 +823,7 @@ export function AnticiposFormulario({
                             }
                             searchPlaceholder={TIEMPO_UI_COPY.searchProject}
                             disabled={
-                              catalogLoading || proyectosLov.length === 0
+                              catalogLoading || proyectos.length === 0
                             }
                           />
                         </Field>
@@ -864,7 +891,7 @@ export function AnticiposFormulario({
                             : TIEMPO_UI_COPY.selectProject
                         }
                         searchPlaceholder={TIEMPO_UI_COPY.searchProject}
-                        disabled={catalogLoading || proyectosLov.length === 0}
+                        disabled={catalogLoading || proyectos.length === 0}
                       />
                     </Field>
                     <Field label="Aprobador">
@@ -894,7 +921,13 @@ export function AnticiposFormulario({
                       <RoInput value={empleadoNombre} />
                     </Field>
                     <Field label="Cuenta">
-                      <RoInput value="Consultar en IFS" />
+                      <RoInput
+                        value={
+                          catalogLoading
+                            ? "Cargando datos…"
+                            : cuentaLabel || "Sin cuenta en IFS"
+                        }
+                      />
                     </Field>
                   </FormGrid>
                 </>

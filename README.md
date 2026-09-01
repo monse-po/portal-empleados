@@ -45,6 +45,10 @@ Los catálogos (proyectos, jerarquía) siguen en mocks hasta integrar IFS. Los *
 
 Rol de prueba en `sessionStorage` (`hmv-usuario-rol`).
 
+## Consola UAT (empleados y autorizadores)
+
+Andamiaje de pruebas (no es login). Monse (operador) administra correos en **`/consola`**: empleados para solicitar horas y autorizadores para aprobarlas. Ver **[docs/uat-impersonacion.md](./docs/uat-impersonacion.md)**.
+
 ## Módulos y ramas Git
 
 Ver **[docs/MODULES.md](./docs/MODULES.md)** — mapa de módulos, ramas `cursor/modulo-*`, flujo de merge a `main`.

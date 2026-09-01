@@ -2,9 +2,9 @@
 
 import {
   getEmployeeTimesheet,
-  openCempPortalSession,
   registerTimeEntries,
 } from "@/src/lib/ifs/cemp-portal";
+import { openPortalSession } from "@/src/server/portal-actor";
 import { formatIfsError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
@@ -34,7 +34,7 @@ export async function sendRegistrosToIfsAction(
 
   try {
     return await withValidIfsSession(async (liveSession) => {
-      const ifs = await openCempPortalSession(
+      const ifs = await openPortalSession(
         liveSession.email,
         liveSession.accessToken,
       );
@@ -73,7 +73,7 @@ export async function probeRegisterTimeIfsAction(): Promise<{
 }> {
   try {
     await withValidIfsSession(async (liveSession) => {
-      await openCempPortalSession(liveSession.email, liveSession.accessToken);
+      await openPortalSession(liveSession.email, liveSession.accessToken);
     });
     return {
       ok: true,

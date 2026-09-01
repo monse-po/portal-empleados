@@ -7,12 +7,12 @@ import {
   deleteTimeEntries,
   getApprovalTimesheets,
   getEmployeeTimesheetForEmp,
-  openCempPortalActor,
   registerTimeEntries,
   resolveActorEmpNo,
   updateTimeEntries,
   type CempPortalSession,
 } from "@/src/lib/ifs/cemp-portal";
+import { openPortalActor } from "@/src/server/portal-actor";
 import { formatIfsError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
@@ -88,7 +88,7 @@ async function withIfsPortalSession<T>(
   fn: (ifs: CempPortalSession) => Promise<T>,
 ): Promise<T> {
   return withValidIfsSession(async (liveSession) => {
-    const ifs = await openCempPortalActor(
+    const ifs = await openPortalActor(
       liveSession.email,
       liveSession.accessToken,
     );
