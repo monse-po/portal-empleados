@@ -24,7 +24,16 @@ Promoción DEV → TEST → PROD = mismo código, otro `.env` (`IFS_SYSTEM_URL`,
 | IFS | Keycloak realm, **no IDCS**. M2M `PORTAL_HMV_M2M`. Compañía `HMVINGCO`. |
 | Auth empleado | apagado hasta Entra ID de HMV |
 
-## Antes de entrar a la VM
+## Doble clic desde tu Mac (recomendado)
+
+No crees sesiones a mano en la consola. En el Escritorio:
+
+1. **Una vez:** `1-setup-OCI-DEV.command` (OCI CLI + 3 OCIDs)
+2. **Cada deploy:** `Desplegar-OCI-DEV.command`
+
+Detalle: [`local/README.md`](./local/README.md)
+
+## Antes de entrar a la VM (manual, si no usas el .command)
 
 La persona de Bastion necesita:
 
