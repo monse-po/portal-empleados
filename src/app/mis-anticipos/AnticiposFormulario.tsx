@@ -680,11 +680,13 @@ export function AnticiposFormulario({
         companiaGastoOtro
       : companiasPropias.find((c) => c.id === companiaId)?.label || companiaId;
 
-  const aprobadorPersistible =
+  const aprobadorPersistible = (
     aprobadorIfs?.trim() ||
-    (proySel
-      ? resolveAprobadorLabel(catalog, proySel.id).trim()
-      : "");
+    (aprobadorLabel !== TIEMPO_UI_COPY.approverFallback &&
+    aprobadorLabel !== "Cargando datos…"
+      ? aprobadorLabel.trim()
+      : "")
+  ).trim();
   // No guardar el texto genérico de fallback
   const aprobadorParaGuardar =
     aprobadorPersistible &&
