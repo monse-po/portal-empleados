@@ -7,6 +7,8 @@ type IfsStatusBannerProps = {
   loginNext?: string;
 };
 
+const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
+
 function loginHref(
   surface: IfsStatusBannerProps["surface"],
   loginNext?: string,
@@ -25,6 +27,15 @@ export function IfsStatusBanner({
   surface,
   loginNext,
 }: IfsStatusBannerProps) {
+  if (!IFS_AUTH_ENABLED) {
+    return (
+      <p className="mb-2 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-1.5 text-[13px] text-[#1e40af]">
+        <strong>Ambiente DEMO (DEV).</strong> Puedes registrar y probar sin
+        login IFS. Los datos son locales de este ambiente.
+      </p>
+    );
+  }
+
   if (connected && fromIfs && !warning) {
     return (
       <p className="mb-2 rounded-lg border border-green-border bg-green-bg px-3 py-1.5 text-[13px] text-[#15803d]">

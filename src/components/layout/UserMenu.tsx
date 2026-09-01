@@ -16,6 +16,7 @@ import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
 
 function profileTitle(profile: IfsPortalProfile | null, loading: boolean): string {
+  if (!IFS_AUTH_ENABLED) return "Usuario DEMO";
   if (loading && !profile) return "…";
   if (profile?.connected && profile.empName) return profile.empName;
   if (profile?.connected && profile.empNo) return `EmpNo ${profile.empNo}`;
@@ -211,7 +212,7 @@ export function UserMenu() {
             ) : null}
           </div>
 
-          {!profile?.connected && !loading ? (
+          {IFS_AUTH_ENABLED && !profile?.connected && !loading ? (
             <button
               type="button"
               role="menuitem"
@@ -231,9 +232,11 @@ export function UserMenu() {
               onClick={() => {
                 setOpen(false);
                 toast(
-                  profile?.empNo
-                    ? `Empleado IFS ${profile.empNo}`
-                    : "Perfil IFS",
+                  !IFS_AUTH_ENABLED
+                    ? "Ambiente DEMO"
+                    : profile?.empNo
+                      ? `Empleado IFS ${profile.empNo}`
+                      : "Perfil IFS",
                   "navy",
                 );
               }}
@@ -244,7 +247,7 @@ export function UserMenu() {
             </button>
           )}
 
-          {canManageAccesos ? (
+          {IFS_AUTH_ENABLED && canManageAccesos ? (
             <>
               <div className="my-1 h-px bg-[#f1f5f9]" />
               <button

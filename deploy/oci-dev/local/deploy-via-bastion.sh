@@ -3,6 +3,7 @@
 # Uso:
 #   ./deploy-via-bastion.sh deploy
 #   ./deploy-via-bastion.sh restart
+#   ./deploy-via-bastion.sh tunnel   # localhost:3001 → VM (si IFS manda a localhost)
 #   ./deploy-via-bastion.sh shell
 # No hace falta Create session en la consola web.
 
@@ -174,6 +175,22 @@ if [[ "${MODE}" == "restart" ]]; then
   exit 0
 fi
 
+if [[ "${MODE}" == "tunnel" ]]; then
+  info "Túnel local: http://localhost:3001 → VM 127.0.0.1:3001"
+  info "Deja esta ventana abierta. Ctrl+C para cerrar."
+  info "Prueba preferida: https://hmv-empleados-dev.nubeportal.com/login"
+  ssh -i "${OCI_SSH_KEY}" \
+    -o IdentitiesOnly=yes \
+    -o StrictHostKeyChecking=accept-new \
+    -o ServerAliveInterval=15 \
+    -o "ProxyCommand=${PROXY_CMD}" \
+    -L "3001:127.0.0.1:3001" \
+    -N \
+    -p 22 \
+    "${OCI_SSH_USER}@${OCI_INSTANCE_IP}"
+  exit 0
+fi
+
 info "Desplegando rama ${APP_BRANCH}…"
 ssh_vm "export APP_HOME='${APP_HOME}' APP_BRANCH='${APP_BRANCH}' OP_EMAIL='${PORTAL_OPERATOR_EMAIL}'; bash -s" <<'REMOTE'
 set -euo pipefail
@@ -193,13 +210,18 @@ sudo -u portalnext -H bash -lc "
   git checkout -f -B '${APP_BRANCH}' FETCH_HEAD
 "
 
-echo "--- env operador (${OP_EMAIL}) ---"
+echo "--- env DEMO compartible (sin login IFS) ---"
 ENVF="${APP_HOME}/.env"
 sudo -u portalnext test -f "${ENVF}"
-if sudo -u portalnext grep -q '^PORTAL_IMPERSONATION_OPERATORS=' "${ENVF}"; then
-  sudo -u portalnext sed -i "s|^PORTAL_IMPERSONATION_OPERATORS=.*|PORTAL_IMPERSONATION_OPERATORS=${OP_EMAIL}|" "${ENVF}"
+# Prioridad: ambiente usable para el equipo (sin OAuth / consola).
+if sudo -u portalnext grep -q '^IFS_AUTH_ENABLED=' "${ENVF}"; then
+  sudo -u portalnext sed -i 's|^IFS_AUTH_ENABLED=.*|IFS_AUTH_ENABLED=false|' "${ENVF}"
 else
-  echo "PORTAL_IMPERSONATION_OPERATORS=${OP_EMAIL}" | sudo -u portalnext tee -a "${ENVF}" >/dev/null
+  echo 'IFS_AUTH_ENABLED=false' | sudo -u portalnext tee -a "${ENVF}" >/dev/null
+fi
+# Quitar allowlist de consola/impersonación si existía.
+if sudo -u portalnext grep -q '^PORTAL_IMPERSONATION_OPERATORS=' "${ENVF}"; then
+  sudo -u portalnext sed -i '/^PORTAL_IMPERSONATION_OPERATORS=/d' "${ENVF}"
 fi
 
 echo "--- npm + migrate + build ---"
@@ -222,5 +244,5 @@ curl -sS -o /dev/null -w 'local HTTP %{http_code}\n' http://127.0.0.1:3001/ || t
 echo "DEPLOY OK"
 REMOTE
 
-info "Listo → https://hmv-empleados-dev.nubeportal.com/consola"
+info "Listo → https://hmv-empleados-dev.nubeportal.com/hoja-tiempo"
 info "La sesión Bastion se cierra sola al terminar."

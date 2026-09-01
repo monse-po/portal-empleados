@@ -27,9 +27,11 @@ import {
   getRegistrosHistoricoAprobados,
   sortRegistrosHistorico,
 } from "@/src/lib/historico-tiempo";
+import { isIfsAuthEnabled } from "@/src/lib/ifs/config";
 import { getServerIfsSession } from "@/src/lib/ifs/session";
 import type { RegistroMock } from "@/src/lib/tiempo-registro";
 import {
+  SESSION_EMPLEADO_ID,
   groupRegistrosByFecha,
   toRegistroMock,
 } from "@/src/lib/registro-tiempo-db";
@@ -75,6 +77,17 @@ export async function getHistoricoRegistrosAction(): Promise<{
   const desdeIso = getHistoricoFechaMinimaIso();
 
   if (!session) {
+    if (!isIfsAuthEnabled()) {
+      const registros = await getApprovedFromNeon(
+        SESSION_EMPLEADO_ID,
+        desdeIso,
+      );
+      return {
+        registros: sortRegistrosHistorico(registros),
+        desdeIso,
+        empName: "Usuario DEMO",
+      };
+    }
     return {
       registros: [],
       desdeIso,

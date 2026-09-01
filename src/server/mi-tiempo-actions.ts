@@ -18,6 +18,7 @@ import {
   IfsSessionExpiredError,
   withValidIfsSession,
 } from "@/src/lib/ifs/ifs-session-runtime";
+import { isIfsAuthEnabled } from "@/src/lib/ifs/config";
 import { getServerIfsSession } from "@/src/lib/ifs/session";
 import {
   approvalEventsForDecision,
@@ -50,7 +51,10 @@ import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
 import {
   SESSION_EMPLEADO_ID,
   dayRange,
+  ensureRegistroTiempoRefs,
   estadoUiToDb,
+  groupRegistrosByFecha,
+  nextRegistroCodigo,
   toRegistroMock,
 } from "@/src/lib/registro-tiempo-db";
 import { createNotificacionesTiempoEnvioAction } from "@/src/server/notificacion-actions";
@@ -113,6 +117,55 @@ async function resolveIfsMeta(
   return meta;
 }
 
+async function getRegistrosGroupedFromNeon(): Promise<
+  Record<string, RegistroMock[]>
+> {
+  const rows = await prisma.registroTiempo.findMany({
+    where: { empleadoId: SESSION_EMPLEADO_ID },
+    orderBy: [{ fecha: "asc" }, { createdAt: "asc" }],
+  });
+  return groupRegistrosByFecha(rows);
+}
+
+async function upsertRegistroNeon(reg: RegistroMock): Promise<RegistroMock> {
+  if (!isRegistroEditable(reg.estado)) {
+    throw new Error("Los registros aprobados no se pueden modificar.");
+  }
+  await ensureRegistroTiempoRefs(
+    SESSION_EMPLEADO_ID,
+    SESSION_EMPLEADO.nombre,
+    reg.proy,
+  );
+  const existing = await findRowByPublicId(reg.id);
+  const data = {
+    proyectoId: reg.proy,
+    subproyecto: reg.subproy ?? null,
+    actividad: reg.act,
+    tipoHora: reg.tipo,
+    horas: reg.horas,
+    fecha: new Date(`${reg.fecha}T12:00:00.000Z`),
+    comentario: reg.comentario ?? "",
+    estado: estadoUiToDb(reg.estado),
+  };
+  if (existing) {
+    const updated = await prisma.registroTiempo.update({
+      where: { id: existing.id },
+      data,
+    });
+    return toRegistroMock(updated);
+  }
+  const codigo = await nextRegistroCodigo();
+  const created = await prisma.registroTiempo.create({
+    data: {
+      legacyId: reg.id,
+      codigo,
+      empleadoId: SESSION_EMPLEADO_ID,
+      ...data,
+    },
+  });
+  return toRegistroMock(created);
+}
+
 export async function getRegistrosGroupedAction(): Promise<{
   registros: Record<string, RegistroMock[]>;
   fromIfs: boolean;
@@ -120,6 +173,15 @@ export async function getRegistrosGroupedAction(): Promise<{
   warning?: string;
   sessionExpired?: boolean;
 }> {
+  // DEV compartible: sin OAuth, leer/escribir Neon (perfil demo).
+  if (!isIfsAuthEnabled()) {
+    return {
+      registros: await getRegistrosGroupedFromNeon(),
+      fromIfs: false,
+      activePeriod: null,
+    };
+  }
+
   const ifsResult = await fetchRegistrosFromIfsAction();
 
   if (!ifsResult.grouped) {
@@ -197,6 +259,13 @@ async function registrarNuevosEnIfs(
   regs: RegistroMock[],
 ): Promise<RegistroMock[]> {
   if (!regs.length) return [];
+  if (!isIfsAuthEnabled()) {
+    const out: RegistroMock[] = [];
+    for (const reg of regs) {
+      out.push(await upsertRegistroNeon(asRegistrado(reg)));
+    }
+    return out;
+  }
   if (!(await getServerIfsSession())) {
     throw new Error("Sin sesión IFS. Entra con IFS para registrar horas.");
   }
@@ -239,6 +308,9 @@ async function registrarNuevosEnIfs(
 export async function upsertRegistroAction(
   reg: RegistroMock,
 ): Promise<RegistroMock> {
+  if (!isIfsAuthEnabled()) {
+    return upsertRegistroNeon(reg);
+  }
   if (isIfsRegistroId(reg.id) || reg.ifs) {
     await upsertRegistroIfs(reg);
     try {
@@ -333,14 +405,6 @@ export async function enviarFechasAction(
     return { enviados: [], sentToIfs: false };
   }
 
-  if (!(await getServerIfsSession())) {
-    return {
-      enviados: [],
-      sentToIfs: false,
-      error: "Sin sesión IFS. Entra con IFS para enviar a aprobación.",
-    };
-  }
-
   const min = fechasUnicas[0];
   const max = fechasUnicas[fechasUnicas.length - 1];
   const fechaSet = new Set(fechasUnicas);
@@ -359,6 +423,30 @@ export async function enviarFechasAction(
   const rows = allRows.filter((row) => fechaSet.has(toRegistroMock(row).fecha));
   if (!rows.length) {
     return { enviados: [], sentToIfs: false };
+  }
+
+  // DEV sin OAuth: marcar en revisión en Neon (sin enviar a IFS).
+  if (!isIfsAuthEnabled()) {
+    await prisma.registroTiempo.updateMany({
+      where: { id: { in: rows.map((r) => r.id) } },
+      data: { estado: RegistroEstadoDb.EN_REVISION },
+    });
+    const updated = await prisma.registroTiempo.findMany({
+      where: { id: { in: rows.map((r) => r.id) } },
+    });
+    return {
+      enviados: updated.map(toRegistroMock),
+      sentToIfs: false,
+      warning: "Ambiente DEMO: enviado a revisión local (sin IFS).",
+    };
+  }
+
+  if (!(await getServerIfsSession())) {
+    return {
+      enviados: [],
+      sentToIfs: false,
+      error: "Sin sesión IFS. Entra con IFS para enviar a aprobación.",
+    };
   }
 
   const locales = rows.map(toRegistroMock);
