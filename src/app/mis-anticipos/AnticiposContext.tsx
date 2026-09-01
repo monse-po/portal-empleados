@@ -19,10 +19,12 @@ import {
 } from "@/src/lib/anticipos-registro";
 import {
   cancelarAnticipoAction,
-  getAnticiposAction,
   lanzarAnticipoAction,
-} from "@/src/server/mis-anticipos-actions";
+  listMisAnticiposAction,
+} from "@/src/server/anticipos-actions";
 import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
+
+const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
 
 export type LanzarAnticipoInput = {
   tipo: AnticipoTipo;
@@ -75,10 +77,15 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(async () => {
     setLoadError(null);
     try {
-      const result = await getAnticiposAction();
-      setAnticipos(result.anticipos);
-      setExtras(result.extras);
-      setEmpleadoId(result.empleadoId);
+      const result = await listMisAnticiposAction();
+      setAnticipos(result.anticipos as Record<string, Anticipo>);
+      setExtras(result.extras as Record<string, AnticipoExtra>);
+      setEmpleadoId(result.sessionIds[0] ?? null);
+      if (IFS_AUTH_ENABLED && !result.fromIfs) {
+        setLoadError(
+          "No hay sesión IFS. Entra con IFS para ver y crear anticipos en Employee Advances.",
+        );
+      }
     } catch (error) {
       setLoadError(
         error instanceof Error
@@ -109,16 +116,24 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
 
   const lanzarAnticipo = useCallback(
     async (input: LanzarAnticipoInput): Promise<string | null> => {
-      const { codigo } = await lanzarAnticipoAction(input);
+      const { no, error } = await lanzarAnticipoAction(input);
+      if (error || !no) {
+        throw new Error(
+          error || "No se pudo crear el anticipo en IFS (Employee Advances).",
+        );
+      }
       await reload();
-      return codigo;
+      return no;
     },
     [reload],
   );
 
   const cancelarAnticipo = useCallback(
     async (no: string) => {
-      await cancelarAnticipoAction(no);
+      const result = await cancelarAnticipoAction(no);
+      if (!result.ok) {
+        throw new Error(result.error || "No se pudo cancelar el anticipo en IFS.");
+      }
       await reload();
     },
     [reload],
