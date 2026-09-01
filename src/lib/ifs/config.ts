@@ -1,11 +1,5 @@
-const DEFAULT_BASE =
-  "https://hmvdev.ifs360.cloud/int/ifsapplications/projection/v1/CEmpPortalServices.svc";
-
 const DEFAULT_REALM = "hmvdev";
 const DEFAULT_SYSTEM = "https://hmvdev.ifs360.cloud";
-
-const DEFAULT_OPENID =
-  `${DEFAULT_SYSTEM}/auth/realms/${DEFAULT_REALM}/.well-known/openid-configuration`;
 
 const DEFAULT_SCOPE = "openid email profile microprofile-jwt";
 /** Scope Oracle IDCS para client_credentials (distinto del realm IFS). */
@@ -19,10 +13,16 @@ function envFirst(...keys: string[]): string {
   return "";
 }
 
+function ifsSystemUrl(): string {
+  return (envFirst("IFS_SYSTEM_URL") || DEFAULT_SYSTEM).replace(/\/$/, "");
+}
+
+function ifsRealm(): string {
+  return envFirst("IFS_REALM") || DEFAULT_REALM;
+}
+
 function defaultIfsTokenUrl(): string {
-  const system = envFirst("IFS_SYSTEM_URL") || DEFAULT_SYSTEM;
-  const realm = envFirst("IFS_REALM") || DEFAULT_REALM;
-  return `${system.replace(/\/$/, "")}/auth/realms/${realm}/protocol/openid-connect/token`;
+  return `${ifsSystemUrl()}/auth/realms/${ifsRealm()}/protocol/openid-connect/token`;
 }
 
 export type IfsConfig = {
@@ -60,14 +60,22 @@ export function getIfsConfig(): IfsConfig {
   const usingIdcs =
     Boolean(idcsDomainUrl) &&
     !useRealm &&
+    !explicitTokenUrl &&
     oauthTokenUrl.includes("identity.oraclecloud.com");
 
+  const system = ifsSystemUrl();
+  const realm = ifsRealm();
+
   return {
-    cempPortalBaseUrl: envFirst("IFS_CEMP_PORTAL_BASE_URL") || DEFAULT_BASE,
+    cempPortalBaseUrl:
+      envFirst("IFS_CEMP_PORTAL_BASE_URL") ||
+      `${system}/int/ifsapplications/projection/v1/CEmpPortalServices.svc`,
     cempAdvanceBaseUrl:
       envFirst("IFS_CEMP_ADVANCE_BASE_URL") ||
-      `${DEFAULT_SYSTEM}/main/ifsapplications/projection/v1/CEmpAdvanceHandling.svc`,
-    openIdConfigUrl: envFirst("IFS_OPENID_CONFIG_URL") || DEFAULT_OPENID,
+      `${system}/main/ifsapplications/projection/v1/CEmpAdvanceHandling.svc`,
+    openIdConfigUrl:
+      envFirst("IFS_OPENID_CONFIG_URL") ||
+      `${system}/auth/realms/${realm}/.well-known/openid-configuration`,
     oauthClientId: portalClientId,
     oauthClientSecret: envFirst(
       "IFS_OAUTH_CLIENT_SECRET",

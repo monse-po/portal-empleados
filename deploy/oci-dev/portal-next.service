@@ -1,0 +1,25 @@
+[Unit]
+Description=Portal Empleados HMV (Next.js)
+After=network-online.target postgresql-16.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=portalnext
+Group=portalnext
+WorkingDirectory=/opt/portal-next
+EnvironmentFile=/opt/portal-next/.env
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3001
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=60
+
+# No abrir el puerto fuera de localhost: cloudflared habla con 127.0.0.1:3001
+# Limitación de memoria en VM 6 GB (Postgres + Node)
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

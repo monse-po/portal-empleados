@@ -14,7 +14,7 @@ let cachedToken: { value: IfsAccessToken; expiresAt: number } | null = null;
 export async function fetchIfsAccessToken(): Promise<IfsAccessToken> {
   if (!isIfsConfigured()) {
     throw new Error(
-      "IFS no configurado: faltan IFS_IDCS_CLIENT_ID, IFS_IDCS_CLIENT_SECRET o token URL",
+      "IFS no configurado: faltan IFS_OAUTH_CLIENT_ID, IFS_OAUTH_CLIENT_SECRET o token URL",
     );
   }
 
@@ -45,7 +45,7 @@ export async function fetchIfsAccessToken(): Promise<IfsAccessToken> {
   const text = await res.text();
   if (!res.ok) {
     throw new IfsApiError(
-      `IDCS token ${res.status} ${res.statusText}`,
+      `IFS token ${res.status} ${res.statusText}`,
       res.status,
       text,
     );
@@ -59,7 +59,7 @@ export async function fetchIfsAccessToken(): Promise<IfsAccessToken> {
   };
 
   if (!json.access_token) {
-    throw new Error("IDCS: respuesta sin access_token");
+    throw new Error("IFS OAuth: respuesta sin access_token");
   }
 
   const value: IfsAccessToken = {

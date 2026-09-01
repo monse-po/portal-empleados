@@ -415,10 +415,12 @@ export function AnticiposFormulario({
     };
   }, [companiaDivisa]);
 
-  const divisaPre = useMemo(
-    () => divisas.find((d) => d.code === divisa)?.pre || "$",
+  const divisaOpt = useMemo(
+    () => divisas.find((d) => d.code === divisa) ?? null,
     [divisas, divisa],
   );
+  const divisaPre = divisaOpt?.pre || "$";
+  const divisaDecimals = divisaOpt?.decimals ?? null;
   const hoy = hoyIso();
   const empLogueado = useMemo(
     () =>
@@ -446,7 +448,15 @@ export function AnticiposFormulario({
       ]
     );
   }, [profile, empLogueado, companiaId]);
-  const montoNum = useMemo(() => parseMontoInput(monto), [monto]);
+  const montoNum = useMemo(
+    () => parseMontoInput(monto, divisaDecimals),
+    [monto, divisaDecimals],
+  );
+
+  useEffect(() => {
+    if (!monto.trim()) return;
+    setMonto((prev) => fmtMontoInput(prev, divisaDecimals));
+  }, [divisa, divisaDecimals]);
   const empleadosOtro = compBenef ? getEmpleadosPorEmpresa(compBenef.id) : [];
   const showEmpOtroBenefRows = paraOtro && !!compBenef;
   const showEmpOtroDatos = showEmpOtroBenefRows && !!empOtro;
@@ -944,14 +954,32 @@ export function AnticiposFormulario({
                     </span>
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={monto}
                       onChange={(e) =>
                         setMonto(e.target.value.replace(/[^\d.,]/g, ""))
                       }
-                      onFocus={() => setMonto(monto.replace(/[.,]/g, ""))}
-                      onBlur={() => setMonto(fmtMontoInput(monto))}
+                      onFocus={() => {
+                        const n = parseMontoInput(monto, divisaDecimals);
+                        if (!(n > 0)) {
+                          setMonto("");
+                          return;
+                        }
+                        if (divisaDecimals == null) {
+                          setMonto(String(n));
+                          return;
+                        }
+                        setMonto(n.toFixed(divisaDecimals));
+                      }}
+                      onBlur={() =>
+                        setMonto(fmtMontoInput(monto, divisaDecimals))
+                      }
                       placeholder="0"
+                      title={
+                        divisaOpt?.roundingFromIfs && divisaDecimals != null
+                          ? `Decimales según IFS CurrencyRounding: ${divisaDecimals}`
+                          : "Formato de decimales según configuración IFS de la divisa (cuando hay permiso)"
+                      }
                       className="min-w-0 flex-1 border-0 px-2 text-[13px] outline-none"
                     />
                   </div>

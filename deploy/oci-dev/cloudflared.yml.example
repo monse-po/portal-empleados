@@ -1,0 +1,11 @@
+# Instalar como /etc/cloudflared/config.yml cuando el túnel ya existe.
+# El token / Tunnel ID los genera la persona en el dashboard de Cloudflare.
+# Hostname público: hmv-empleados-dev.nubeportal.com
+
+tunnel: TUNNEL_ID
+credentials-file: /etc/cloudflared/TUNNEL_ID.json
+
+ingress:
+  - hostname: hmv-empleados-dev.nubeportal.com
+    service: http://127.0.0.1:3001
+  - service: http_status:404

@@ -20,6 +20,7 @@ import {
   flattenLocalDestinos,
   mapCurrencyCodesToDivisas,
   mapIsoCountriesToDestinos,
+  mergeCurrencyRounding,
   type DivisaOption,
 } from "@/src/lib/anticipos-ifs-catalog";
 import type { DestinoSel } from "@/src/lib/anticipos-catalog";
@@ -27,17 +28,26 @@ import {
   DEST_CATALOG,
   DIVISAS_POR_COMPANIA,
 } from "@/src/lib/anticipos-catalog";
+import { getCompanyCurrencyFormats } from "@/src/lib/ifs/currency-codes-handling";
 
 export async function fetchDivisasAnticipoAction(companyId: string): Promise<{
   divisas: DivisaOption[];
   fromIfs: boolean;
+  /** True si CurrencyRounding vino de CurrencyCodesHandling. */
+  roundingFromIfs?: boolean;
   error?: string;
   sessionExpired?: boolean;
 }> {
   const company = companyId.trim();
-  const fallback = (
+  const fallback: DivisaOption[] = (
     DIVISAS_POR_COMPANIA[company] || DIVISAS_POR_COMPANIA.HMVINGCO
-  ).map((d) => ({ code: d.code, label: d.label, pre: d.pre }));
+  ).map((d) => ({
+    code: d.code,
+    label: d.label,
+    pre: d.pre,
+    decimals: null,
+    roundingFromIfs: false,
+  }));
 
   if (!company) {
     return { divisas: fallback, fromIfs: false, error: "Sin compañía" };
@@ -47,7 +57,7 @@ export async function fetchDivisasAnticipoAction(companyId: string): Promise<{
     return await withValidIfsSession(async (session) => {
       try {
         const rows = await getCurrencyCodes(session.accessToken, company);
-        const divisas = mapCurrencyCodesToDivisas(rows);
+        let divisas = mapCurrencyCodesToDivisas(rows);
         if (!divisas.length) {
           return {
             divisas: fallback,
@@ -55,7 +65,28 @@ export async function fetchDivisasAnticipoAction(companyId: string): Promise<{
             error: `Sin divisas IFS para ${company}`,
           };
         }
-        return { divisas, fromIfs: true };
+
+        // Decimales nativos: CurrencyCodesHandling.CurrencyRounding (puede 403).
+        const detailed = await getCompanyCurrencyFormats(
+          session.accessToken,
+          company,
+        );
+        if (detailed.formats.length) {
+          divisas = mergeCurrencyRounding(divisas, detailed.formats);
+        }
+
+        const roundingFromIfs = divisas.some((d) => d.roundingFromIfs);
+        return {
+          divisas,
+          fromIfs: true,
+          roundingFromIfs,
+          error:
+            !roundingFromIfs && detailed.unauthorized
+              ? "Divisas IFS OK; sin permiso a CurrencyCodesHandling (CurrencyRounding)."
+              : detailed.error && !roundingFromIfs
+                ? detailed.error
+                : undefined,
+        };
       } catch (err) {
         return {
           divisas: fallback,

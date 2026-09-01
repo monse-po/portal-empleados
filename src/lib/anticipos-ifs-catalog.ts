@@ -7,6 +7,13 @@ export type DivisaOption = {
   code: string;
   label: string;
   pre: string;
+  /**
+   * Decimales de monto desde IFS CurrencyCodesHandling.CurrencyRounding.
+   * `null` = aún no disponible (p. ej. 403 / sin permiso).
+   */
+  decimals?: number | null;
+  /** True si `decimals` vino de CurrencyCodesHandling. */
+  roundingFromIfs?: boolean;
 };
 
 const FALLBACK_PREFIX: Record<string, string> = {
@@ -35,9 +42,33 @@ export function mapCurrencyCodesToDivisas(
       code,
       label: desc ? `${code} – ${desc}` : code,
       pre: currencyPrefix(code),
+      decimals: null,
+      roundingFromIfs: false,
     });
   }
   return out.sort((a, b) => a.code.localeCompare(b.code));
+}
+
+/** Enriquecer divisas del portal con CurrencyRounding nativo de IFS. */
+export function mergeCurrencyRounding(
+  divisas: DivisaOption[],
+  formats: Array<{ code: string; description?: string; decimals: number | null }>,
+): DivisaOption[] {
+  if (!formats.length) return divisas;
+  const byCode = new Map(formats.map((f) => [f.code, f]));
+  return divisas.map((d) => {
+    const fmt = byCode.get(d.code);
+    if (!fmt) return d;
+    return {
+      ...d,
+      label:
+        fmt.description && !d.label.includes("–")
+          ? `${d.code} – ${fmt.description}`
+          : d.label,
+      decimals: fmt.decimals,
+      roundingFromIfs: fmt.decimals != null,
+    };
+  });
 }
 
 /** País, Región, Municipio — orden de negocio. */

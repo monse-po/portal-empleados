@@ -148,13 +148,75 @@ export function searchDestinos(query: string): DestinoSel[] {
   return resultados.filter((r) => r.pCode === "CO").slice(0, 8);
 }
 
-export function fmtMontoInput(value: string): string {
-  const v = parseFloat(value.replace(/[.,]/g, "")) || 0;
-  return v > 0 ? v.toLocaleString("es-CO") : "";
+/**
+ * Parsea monto respetando el último separador como decimal (locale-agnóstico).
+ * Los decimales permitidos vienen de IFS CurrencyRounding cuando existen.
+ */
+export function parseMontoInput(
+  value: string,
+  decimals?: number | null,
+): number {
+  const s = value.trim().replace(/\s/g, "").replace(/[^\d.,-]/g, "");
+  if (!s || s === "-" || s === "." || s === ",") return 0;
+
+  const lastComma = s.lastIndexOf(",");
+  const lastDot = s.lastIndexOf(".");
+  let normalized: string;
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    // El último separador es el decimal; el otro, miles.
+    if (lastComma > lastDot) {
+      normalized = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      normalized = s.replace(/,/g, "");
+    }
+  } else if (lastComma >= 0) {
+    const frac = s.slice(lastComma + 1);
+    const treatAsDecimal =
+      decimals == null ? frac.length > 0 && frac.length <= 6 : frac.length <= decimals;
+    normalized = treatAsDecimal
+      ? s.replace(",", ".")
+      : s.replace(/,/g, "");
+  } else if (lastDot >= 0) {
+    const frac = s.slice(lastDot + 1);
+    const treatAsDecimal =
+      decimals == null ? frac.length > 0 && frac.length <= 6 : frac.length <= decimals;
+    normalized = treatAsDecimal ? s : s.replace(/\./g, "");
+  } else {
+    normalized = s;
+  }
+
+  const n = Number(normalized);
+  if (!Number.isFinite(n)) return 0;
+  if (decimals != null && decimals >= 0) {
+    const f = 10 ** decimals;
+    return Math.round(n * f) / f;
+  }
+  return n;
 }
 
-export function parseMontoInput(value: string): number {
-  return parseFloat(value.replace(/[.,]/g, "")) || 0;
+/**
+ * Formatea el monto para el input.
+ * Si IFS dio CurrencyRounding, fija esa cantidad de decimales.
+ * Separadores: locale del runtime (no hardcode es-CO).
+ */
+export function fmtMontoInput(
+  value: string,
+  decimals?: number | null,
+): string {
+  const v = parseMontoInput(value, decimals);
+  if (!(v > 0)) return "";
+  if (decimals == null) {
+    return v.toLocaleString(undefined, {
+      useGrouping: true,
+      maximumFractionDigits: 20,
+    });
+  }
+  return v.toLocaleString(undefined, {
+    useGrouping: true,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 }
 
 export const APROBADORES: Record<string, string> = {
