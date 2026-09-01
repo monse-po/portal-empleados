@@ -32,13 +32,48 @@ function getOAuthRealmConfig() {
   return { systemUrl, realm };
 }
 
+/** Origen público (Cloudflare / https://localhost). */
+export function resolvePublicOrigin(request: Request): string {
+  const url = new URL(request.url);
+  const xfHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const xfProto = request.headers
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim();
+  if (xfHost) {
+    return `${xfProto || "https"}://${xfHost}`;
+  }
+  return url.origin;
+}
+
+/**
+ * redirect_uri del flujo actual.
+ * - localhost → https://localhost:PORT/api/auth/callback/ifs (túnel)
+ * - resto → IFS_OAUTH_REDIRECT_URI o origen público
+ */
+export function resolveOAuthRedirectUri(request: Request): string {
+  const configured = getIfsConfig().oauthRedirectUri?.trim();
+  const origin = resolvePublicOrigin(request).replace(/\/$/, "");
+  const derived = `${origin}/api/auth/callback/ifs`;
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+    // Forzar https en callback local (IFS a veces manda https://localhost:3001)
+    if (origin.startsWith("http://")) {
+      return `https://${origin.slice("http://".length)}/api/auth/callback/ifs`;
+    }
+    return derived;
+  }
+  return configured || derived;
+}
+
 export function buildAuthorizationUrl(input: {
   state: string;
   codeChallenge: string;
   loginHint?: string;
+  redirectUri?: string;
 }): string {
   const { oauthClientId, oauthRedirectUri, oauthScope } = getIfsConfig();
-  if (!oauthClientId || !oauthRedirectUri) {
+  const redirectUri = input.redirectUri || oauthRedirectUri;
+  if (!oauthClientId || !redirectUri) {
     throw new Error("Faltan IFS_OAUTH_CLIENT_ID o IFS_OAUTH_REDIRECT_URI");
   }
 
@@ -46,7 +81,7 @@ export function buildAuthorizationUrl(input: {
     client_id: oauthClientId,
     response_type: "code",
     scope: oauthScope,
-    redirect_uri: oauthRedirectUri,
+    redirect_uri: redirectUri,
     state: input.state,
     code_challenge: input.codeChallenge,
     code_challenge_method: "S256",
@@ -103,16 +138,21 @@ export async function fetchOidcUserInfo(accessToken: string): Promise<{
 export async function exchangeAuthorizationCode(input: {
   code: string;
   codeVerifier: string;
+  redirectUri?: string;
 }): Promise<OAuthTokens> {
   const { oauthClientId, oauthClientSecret, oauthTokenUrl, oauthRedirectUri } =
     getIfsConfig();
+  const redirectUri = input.redirectUri || oauthRedirectUri;
+  if (!redirectUri) {
+    throw new Error("Falta redirect_uri para canjear el código OAuth");
+  }
 
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     client_id: oauthClientId,
     client_secret: oauthClientSecret,
     code: input.code,
-    redirect_uri: oauthRedirectUri,
+    redirect_uri: redirectUri,
     code_verifier: input.codeVerifier,
   });
 

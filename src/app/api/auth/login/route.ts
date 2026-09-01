@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { isIfsAuthReady } from "@/src/lib/ifs/config";
+import { LEGACY_SESSION_COOKIE } from "@/src/lib/ifs/constants";
 import {
   buildAuthorizationUrl,
   createOAuthState,
   createPkcePair,
+  resolveOAuthRedirectUri,
 } from "@/src/lib/ifs/oauth-user";
 import { sessionCookieOptions, resolveSessionEmail } from "@/src/lib/ifs/session";
 
 const PKCE_COOKIE = "hmv_oauth_pkce";
 const STATE_COOKIE = "hmv_oauth_state";
 const EMAIL_COOKIE = "hmv_oauth_email";
+const REDIRECT_COOKIE = "hmv_oauth_redirect";
 
 export async function GET(request: Request) {
   if (!isIfsAuthReady()) {
@@ -33,16 +36,20 @@ export async function GET(request: Request) {
         username: loginHint,
       })
     : undefined;
+  const redirectUri = resolveOAuthRedirectUri(request);
   const authUrl = buildAuthorizationUrl({
     state,
     codeChallenge: challenge,
     loginHint: loginEmail ?? loginHint,
+    redirectUri,
   });
   const response = NextResponse.redirect(authUrl);
 
-  // Cookies en la respuesta de redirect (cookies() del jar no siempre viajan en Vercel).
   response.cookies.set(PKCE_COOKIE, verifier, opts);
   response.cookies.set(STATE_COOKIE, state, opts);
+  response.cookies.set(REDIRECT_COOKIE, redirectUri, opts);
+  // Expira cookie JWT vieja (causa del 400).
+  response.cookies.set(LEGACY_SESSION_COOKIE, "", { ...opts, maxAge: 0 });
   if (next?.startsWith("/")) {
     response.cookies.set("hmv_oauth_next", next, opts);
   }

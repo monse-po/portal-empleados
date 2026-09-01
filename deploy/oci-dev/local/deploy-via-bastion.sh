@@ -175,16 +175,19 @@ if [[ "${MODE}" == "restart" ]]; then
   exit 0
 fi
 
-if [[ "${MODE}" == "tunnel" ]]; then
-  info "Túnel local: http://localhost:3001 → VM 127.0.0.1:3001"
-  info "Deja esta ventana abierta. Ctrl+C para cerrar."
-  info "Prueba preferida: https://hmv-empleados-dev.nubeportal.com/login"
+if [[ "${MODE}" == "tunnel" || "${MODE}" == "tunnel-http" ]]; then
+  # HTTP en 13001 para que https-localhost-proxy.mjs sirva HTTPS en 3001
+  LOCAL_PORT=13001
+  info "Túnel HTTP local: http://127.0.0.1:${LOCAL_PORT} → VM 127.0.0.1:3001"
+  info "Luego en OTRA terminal: node https-localhost-proxy.mjs"
+  info "URL: https://localhost:3001/login  (acepta certificado)"
+  info "También: https://hmv-empleados-dev.nubeportal.com/login"
   ssh -i "${OCI_SSH_KEY}" \
     -o IdentitiesOnly=yes \
     -o StrictHostKeyChecking=accept-new \
     -o ServerAliveInterval=15 \
     -o "ProxyCommand=${PROXY_CMD}" \
-    -L "3001:127.0.0.1:3001" \
+    -L "${LOCAL_PORT}:127.0.0.1:3001" \
     -N \
     -p 22 \
     "${OCI_SSH_USER}@${OCI_INSTANCE_IP}"

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { IMPERSONATE_COOKIE, SESSION_COOKIE } from "@/src/lib/ifs/constants";
+import {
+  IMPERSONATE_COOKIE,
+  LEGACY_SESSION_COOKIE,
+  SESSION_COOKIE,
+} from "@/src/lib/ifs/constants";
 import { destroyPersistedIfsSession } from "@/src/lib/ifs/session";
 import { expiredSessionCookieOptions } from "@/src/lib/ifs/session-cookie";
 import { cookies } from "next/headers";
@@ -21,6 +25,7 @@ export async function GET(request: Request) {
   const response = NextResponse.redirect(new URL("/login", url.origin));
   const expired = expiredSessionCookieOptions();
   response.cookies.set(SESSION_COOKIE, "", expired);
+  response.cookies.set(LEGACY_SESSION_COOKIE, "", expired);
   response.cookies.set(IMPERSONATE_COOKIE, "", expired);
   for (const name of OAUTH_COOKIES) {
     response.cookies.set(name, "", expired);

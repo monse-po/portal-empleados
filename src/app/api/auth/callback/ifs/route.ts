@@ -9,12 +9,13 @@ import {
   resolveSessionEmail,
   sessionCookieOptions,
 } from "@/src/lib/ifs/session";
-import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
+import { LEGACY_SESSION_COOKIE, SESSION_COOKIE } from "@/src/lib/ifs/constants";
 
 const PKCE_COOKIE = "hmv_oauth_pkce";
 const STATE_COOKIE = "hmv_oauth_state";
 const NEXT_COOKIE = "hmv_oauth_next";
 const EMAIL_COOKIE = "hmv_oauth_email";
+const REDIRECT_COOKIE = "hmv_oauth_redirect";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -32,6 +33,11 @@ export async function GET(request: Request) {
     response.cookies.delete(STATE_COOKIE);
     response.cookies.delete(NEXT_COOKIE);
     response.cookies.delete(EMAIL_COOKIE);
+    response.cookies.delete(REDIRECT_COOKIE);
+    response.cookies.set(LEGACY_SESSION_COOKIE, "", {
+      ...sessionCookieOptions(0),
+      maxAge: 0,
+    });
     return response;
   };
 
@@ -51,11 +57,15 @@ export async function GET(request: Request) {
 
   const next = jar.get(NEXT_COOKIE)?.value;
   const loginEmail = jar.get(EMAIL_COOKIE)?.value;
+  const redirectUri =
+    jar.get(REDIRECT_COOKIE)?.value ||
+    `${url.origin.replace(/\/$/, "")}/api/auth/callback/ifs`;
 
   try {
     const tokens = await exchangeAuthorizationCode({
       code,
       codeVerifier: verifier,
+      redirectUri,
     });
 
     const idClaims = tokens.idToken ? parseIdTokenClaims(tokens.idToken) : {};
@@ -99,12 +109,22 @@ export async function GET(request: Request) {
       cookieValue,
       sessionCookieOptions(expiresIn),
     );
+    response.cookies.set(LEGACY_SESSION_COOKIE, "", {
+      ...sessionCookieOptions(0),
+      maxAge: 0,
+    });
     response.cookies.delete(PKCE_COOKIE);
     response.cookies.delete(STATE_COOKIE);
     response.cookies.delete(NEXT_COOKIE);
     response.cookies.delete(EMAIL_COOKIE);
+    response.cookies.delete(REDIRECT_COOKIE);
     return response;
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[auth/callback/ifs] fallo al completar login:", message);
+    if (message.includes("PortalIfsSession") || message.includes("prisma")) {
+      return redirectToLogin("session_store");
+    }
     return redirectToLogin("token_exchange");
   }
 }
