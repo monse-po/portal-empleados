@@ -272,7 +272,12 @@ export function AnticiposFormulario({
   >([]);
   const [empNoIfs, setEmpNoIfs] = useState("");
   const [empNameIfs, setEmpNameIfs] = useState("");
+  const [personIdIfs, setPersonIdIfs] = useState("");
+  const [supplierIdIfs, setSupplierIdIfs] = useState("");
   const [cuentaLabel, setCuentaLabel] = useState("");
+  /** PersonId/Identity del gerente (lo que IFS espera en ProjectManager). */
+  const [aprobadorCode, setAprobadorCode] = useState<string | null>(null);
+  /** Nombre legible del gerente (solo UI). */
   const [aprobadorIfs, setAprobadorIfs] = useState<string | null>(null);
   const [aprobadorLoading, setAprobadorLoading] = useState(false);
   const [paraOtro, setParaOtro] = useState(false);
@@ -331,6 +336,8 @@ export function AnticiposFormulario({
       const c = result.catalog;
       setEmpNoIfs(c.empNo);
       setEmpNameIfs(c.empName);
+      setPersonIdIfs(c.personId || c.empNo);
+      setSupplierIdIfs(c.supplierId || c.empNo);
       setCompaniaId(c.companyId);
       setCompaniasGastoIfs(c.companiasGasto);
       applyCompanyBundle(c);
@@ -394,6 +401,7 @@ export function AnticiposFormulario({
 
   useEffect(() => {
     if (!proySel) {
+      setAprobadorCode(null);
       setAprobadorIfs(null);
       setAprobadorLoading(false);
       return;
@@ -401,6 +409,7 @@ export function AnticiposFormulario({
     const entry = proyectoById.get(proySel.id);
     const managerCode = entry?.managerCode?.trim();
     if (!managerCode) {
+      setAprobadorCode(null);
       setAprobadorIfs(null);
       setAprobadorLoading(false);
       return;
@@ -408,6 +417,7 @@ export function AnticiposFormulario({
 
     let cancelled = false;
     setAprobadorLoading(true);
+    setAprobadorCode(managerCode);
     setAprobadorIfs(managerCode);
     void resolveAnticipoAprobadorAction({
       managerCode,
@@ -415,6 +425,7 @@ export function AnticiposFormulario({
     }).then((result) => {
       if (cancelled) return;
       setAprobadorLoading(false);
+      // UI: nombre; IFS: managerCode (PersonId)
       setAprobadorIfs(result.aprobador || managerCode);
     });
     return () => {
@@ -680,19 +691,9 @@ export function AnticiposFormulario({
         companiaGastoOtro
       : companiasPropias.find((c) => c.id === companiaId)?.label || companiaId;
 
-  const aprobadorPersistible = (
-    aprobadorIfs?.trim() ||
-    (aprobadorLabel !== TIEMPO_UI_COPY.approverFallback &&
-    aprobadorLabel !== "Cargando datos…"
-      ? aprobadorLabel.trim()
-      : "")
-  ).trim();
-  // No guardar el texto genérico de fallback
-  const aprobadorParaGuardar =
-    aprobadorPersistible &&
-    aprobadorPersistible !== TIEMPO_UI_COPY.approverFallback
-      ? aprobadorPersistible
-      : undefined;
+  // IFS ProjectManager = PersonId del gerente (no el nombre legible).
+  const aprobadorParaGuardar = aprobadorCode?.trim() || undefined;
+  const companyCode = paraOtro ? companiaGastoOtro : companiaId;
 
   const input: LanzarAnticipoInput = {
       tipo: tipo as AnticipoTipo,
@@ -705,6 +706,13 @@ export function AnticiposFormulario({
       empCompania: paraOtro
         ? `${compBenef!.id} – ${compBenef!.nombre}`
         : profile?.companyName ?? profile?.companyId ?? companiaId,
+      companyId: companyCode,
+      invCompanyId: companyCode,
+      createdBy: personIdIfs || empNoIfs || undefined,
+      beneficiarioEmpNo: paraOtro ? empOtro!.id : empNoIfs || undefined,
+      beneficiarioSupplierId: paraOtro
+        ? empOtro!.id
+        : supplierIdIfs || empNoIfs || undefined,
       aprobador: aprobadorParaGuardar,
       paraOtro,
       beneficiarioId: paraOtro ? empOtro!.id : undefined,
@@ -713,6 +721,10 @@ export function AnticiposFormulario({
       fechaIda: tipo === "Viaje" ? isoToDmy(fechaIda) : undefined,
       fechaRegreso: tipo === "Viaje" ? isoToDmy(fechaRegreso) : undefined,
       destino: tipo === "Viaje" ? selDest?.label : undefined,
+      destinoCodigo:
+        tipo === "Viaje"
+          ? selDest?.ciudad?.trim() || selDest?.label?.slice(0, 20)
+          : undefined,
       tipoViaje,
     };
 

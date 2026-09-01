@@ -30,7 +30,11 @@ function dmyToIso(dmy?: string): string | undefined {
 function companyIdFrom(value: string | undefined): string {
   const raw = (value || "").trim();
   if (!raw) return "";
-  return raw.split("–")[0].trim();
+  // Preferir código puro (HMVINGCO) o prefijo antes de "–" / "-"
+  if (/^[A-Za-z0-9_]{2,20}$/.test(raw)) return raw;
+  const byDash = raw.split(/\s*[–-]\s*/)[0]?.trim() || "";
+  if (/^[A-Za-z0-9_]{2,20}$/.test(byDash)) return byDash;
+  return byDash.slice(0, 20);
 }
 
 function clip(value: string, max: number): string {

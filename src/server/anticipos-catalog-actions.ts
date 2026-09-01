@@ -52,6 +52,10 @@ export type AnticiposFormBootstrap = {
   companyName: string;
   empNo: string;
   empName: string;
+  /** PersonId / Identity IFS (CreatedBy / GetYourRequests). */
+  personId: string;
+  /** SupplierId para GetExpenseCompany / CEmpAdvances. */
+  supplierId: string;
   companiasGasto: { id: string; label: string }[];
   proyectos: AnticiposProyectoOption[];
   divisas: DivisaOption[];
@@ -172,7 +176,44 @@ export async function fetchAnticiposFormBootstrapAction(): Promise<{
         const empNo = info.EmpNo?.trim() || portal.user.EmpId?.trim() || "";
         const empName = info.EmpName?.trim() || "";
         const companyName = info.CompanyName?.trim() || companyId;
-        const supplierId = info.SupplierId?.trim() || empNo;
+        let personId = info.PersonId?.trim() || "";
+        let supplierId = info.SupplierId?.trim() || "";
+
+        // Completar PersonId / SupplierId desde GetEmployees si GetUserInfo no los trae.
+        if (companyId && empNo && (!personId || !supplierId)) {
+          try {
+            const { getEmployeesByCompany } = await import(
+              "@/src/lib/ifs/cemp-portal"
+            );
+            const employees = await getEmployeesByCompany(
+              session.accessToken,
+              companyId,
+            );
+            const match = employees.find(
+              (e) =>
+                e.CEmpNo?.trim() === empNo ||
+                e.PersonId?.trim() === empNo ||
+                e.Identity?.trim() === empNo,
+            );
+            if (match) {
+              personId =
+                personId ||
+                match.PersonId?.trim() ||
+                match.Identity?.trim() ||
+                "";
+              // SupplierId suele coincidir con EmpNo / Identity en portal empleados.
+              supplierId =
+                supplierId ||
+                match.CEmpNo?.trim() ||
+                match.Identity?.trim() ||
+                empNo;
+            }
+          } catch {
+            /* best-effort */
+          }
+        }
+        if (!supplierId) supplierId = empNo;
+        if (!personId) personId = empNo;
 
         if (!companyId) {
           return {
@@ -244,6 +285,8 @@ export async function fetchAnticiposFormBootstrapAction(): Promise<{
             companyName,
             empNo,
             empName,
+            personId,
+            supplierId,
             companiasGasto,
             ...bundle,
           },

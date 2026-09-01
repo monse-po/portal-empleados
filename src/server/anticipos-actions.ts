@@ -16,7 +16,10 @@ import {
   GERENTE_APROBADOR,
   type AnticipoAprobacion,
 } from "@/src/lib/aprobacion-anticipos-mock";
-import { getUserInfo } from "@/src/lib/ifs/cemp-portal";
+import {
+  getEmployeesByCompany,
+  getUserInfo,
+} from "@/src/lib/ifs/cemp-portal";
 import { openPortalSession } from "@/src/server/portal-actor";
 import {
   approveEmpAdvance,
@@ -80,7 +83,39 @@ async function resolveActor(): Promise<AnticiposActor> {
         );
         const info = await getUserInfo(ifs);
         const empNo = (info.EmpNo || ifs.user.EmpId || "").trim();
-        const personId = (info.PersonId || "").trim();
+        let personId = (info.PersonId || "").trim();
+        let supplierId = (info.SupplierId || "").trim();
+        const companyId = (info.CompanyId || ifs.user.CompanyId || "").trim();
+
+        if (companyId && empNo && (!personId || !supplierId)) {
+          try {
+            const employees = await getEmployeesByCompany(
+              session.accessToken,
+              companyId,
+            );
+            const match = employees.find(
+              (e) =>
+                e.CEmpNo?.trim() === empNo ||
+                e.PersonId?.trim() === empNo ||
+                e.Identity?.trim() === empNo,
+            );
+            if (match) {
+              personId =
+                personId ||
+                match.PersonId?.trim() ||
+                match.Identity?.trim() ||
+                "";
+              supplierId =
+                supplierId ||
+                match.CEmpNo?.trim() ||
+                match.Identity?.trim() ||
+                empNo;
+            }
+          } catch {
+            /* best-effort */
+          }
+        }
+
         const personDigits = personId.replace(/\D/g, "");
         const empDigits = empNo.replace(/\D/g, "");
         const ids = [
@@ -91,9 +126,9 @@ async function resolveActor(): Promise<AnticiposActor> {
           ids: ids.length ? ids : [normalizeAnticipoId(session.email)],
           nombre: (info.EmpName || session.email).trim(),
           empNo: empNo || personDigits,
-          companyId: (info.CompanyId || ifs.user.CompanyId || "").trim(),
+          companyId,
           personId: personId || personDigits || empNo,
-          supplierId: (info.SupplierId || "").trim(),
+          supplierId: supplierId || empNo,
           accessToken: session.accessToken,
         };
       } catch {

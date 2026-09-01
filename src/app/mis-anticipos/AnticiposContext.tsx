@@ -35,7 +35,12 @@ export type LanzarAnticipoInput = {
   motivo: string;
   compania: string;
   empCompania: string;
-  /** Código o nombre del aprobador/gerente IFS del proyecto. */
+  companyId?: string;
+  invCompanyId?: string;
+  createdBy?: string;
+  beneficiarioEmpNo?: string;
+  beneficiarioSupplierId?: string;
+  /** PersonId del gerente IFS (ProjectManager). */
   aprobador?: string;
   paraOtro: boolean;
   beneficiarioId?: string;
@@ -44,6 +49,7 @@ export type LanzarAnticipoInput = {
   fechaIda?: string;
   fechaRegreso?: string;
   destino?: string;
+  destinoCodigo?: string;
   tipoViaje?: "nacional" | "internacional";
 };
 
