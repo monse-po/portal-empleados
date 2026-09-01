@@ -201,11 +201,11 @@ export async function fetchAnticiposFormBootstrapAction(): Promise<{
                 match.PersonId?.trim() ||
                 match.Identity?.trim() ||
                 "";
-              // SupplierId suele coincidir con EmpNo / Identity en portal empleados.
+              // Identity = proveedor vinculado; CEmpNo solo como último respaldo.
               supplierId =
                 supplierId ||
-                match.CEmpNo?.trim() ||
                 match.Identity?.trim() ||
+                match.CEmpNo?.trim() ||
                 empNo;
             }
           } catch {

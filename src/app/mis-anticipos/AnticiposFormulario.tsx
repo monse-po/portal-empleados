@@ -691,11 +691,21 @@ export function AnticiposFormulario({
         companiaGastoOtro
       : companiasPropias.find((c) => c.id === companiaId)?.label || companiaId;
 
-  // IFS ProjectManager = PersonId del gerente (no el nombre legible).
-  const aprobadorParaGuardar = aprobadorCode?.trim() || undefined;
-  const companyCode = paraOtro ? companiaGastoOtro : companiaId;
+    // IFS ProjectManager = PersonId del gerente (no el nombre legible).
+    const aprobadorParaGuardar = aprobadorCode?.trim() || undefined;
+    const companyCode = paraOtro ? companiaGastoOtro : companiaId;
+    const destinoCodigo =
+      tipo === "Viaje"
+        ? (() => {
+            const city = selDest?.ciudad?.trim() || "";
+            if (city && city.length <= 20) return city;
+            const code = selDest?.pCode?.trim() || "";
+            if (code && code.length <= 20) return code;
+            return selDest?.label?.slice(0, 20);
+          })()
+        : undefined;
 
-  const input: LanzarAnticipoInput = {
+    const input: LanzarAnticipoInput = {
       tipo: tipo as AnticipoTipo,
       proyId: proySel!.id,
       proyN: proySel!.nombre,
@@ -709,9 +719,11 @@ export function AnticiposFormulario({
       companyId: companyCode,
       invCompanyId: companyCode,
       createdBy: personIdIfs || empNoIfs || undefined,
-      beneficiarioEmpNo: paraOtro ? empOtro!.id : empNoIfs || undefined,
+      beneficiarioEmpNo: paraOtro
+        ? empOtro!.empNo || empOtro!.id
+        : empNoIfs || undefined,
       beneficiarioSupplierId: paraOtro
-        ? empOtro!.id
+        ? empOtro!.supplierId || empOtro!.empNo || empOtro!.id
         : supplierIdIfs || empNoIfs || undefined,
       aprobador: aprobadorParaGuardar,
       paraOtro,
@@ -721,24 +733,18 @@ export function AnticiposFormulario({
       fechaIda: tipo === "Viaje" ? isoToDmy(fechaIda) : undefined,
       fechaRegreso: tipo === "Viaje" ? isoToDmy(fechaRegreso) : undefined,
       destino: tipo === "Viaje" ? selDest?.label : undefined,
-      destinoCodigo:
-        tipo === "Viaje"
-          ? selDest?.ciudad?.trim() || selDest?.label?.slice(0, 20)
-          : undefined,
+      destinoCodigo,
       tipoViaje,
     };
 
+    const codigo = await onLanzar(input);
+    if (!codigo) return;
     if (paraOtro) {
-      await onLanzar(input);
       onLanzarOtro(empOtro!.nombre);
       return;
     }
-
-    const codigo = await onLanzar(input);
-    if (codigo) {
-      toast(`Solicitud ${codigo} lanzada`, "green");
-      onVolver();
-    }
+    toast(`Solicitud ${codigo} lanzada`, "green");
+    onVolver();
   };
 
   const empleadoNombre = empNameIfs || profile?.name || "—";

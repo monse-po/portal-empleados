@@ -38,6 +38,8 @@ export type EmpleadoAnticipo = LovItem & {
   cuenta: string;
   empresa: string;
   companias: { id: string; label: string }[];
+  empNo?: string;
+  supplierId?: string;
 };
 
 /** Catálogo estático para "solicitar para otro" hasta integrar IFS HR */

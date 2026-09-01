@@ -107,8 +107,8 @@ async function resolveActor(): Promise<AnticiposActor> {
                 "";
               supplierId =
                 supplierId ||
-                match.CEmpNo?.trim() ||
                 match.Identity?.trim() ||
+                match.CEmpNo?.trim() ||
                 empNo;
             }
           } catch {
@@ -186,9 +186,21 @@ export async function listMisAnticiposAction(): Promise<{
       };
     }
     try {
-      const rows = await getYourRequests(actor.accessToken, actor.personId);
+      const keys = [...new Set([actor.personId, actor.empNo].filter(Boolean))];
+      const byNo = new Map<string, CEmpAdvanceQuery>();
+      for (const key of keys) {
+        try {
+          const rows = await getYourRequests(actor.accessToken, key);
+          for (const row of rows) {
+            const no = row.RequestNo?.trim();
+            if (no && !byNo.has(no)) byNo.set(no, row);
+          }
+        } catch (err) {
+          console.error("[anticipos] GetYourRequests failed", key, err);
+        }
+      }
       return {
-        ...recordsFromQueries(rows),
+        ...recordsFromQueries([...byNo.values()]),
         sessionIds: actor.ids,
         sessionNombre: actor.nombre,
         fromIfs: true,
