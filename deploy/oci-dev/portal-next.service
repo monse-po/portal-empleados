@@ -12,7 +12,9 @@ EnvironmentFile=/opt/portal-next/.env
 Environment=NODE_ENV=production
 Environment=PORT=3001
 Environment=HOSTNAME=127.0.0.1
-ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3001
+# Cookies IFS/legacy pueden superar el default de Node (16KB) → 431/400 Cookie Too Large
+Environment=NODE_OPTIONS=--max-http-header-size=65536
+ExecStart=/usr/bin/node --max-http-header-size=65536 node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3001
 Restart=on-failure
 RestartSec=5
 TimeoutStartSec=60
