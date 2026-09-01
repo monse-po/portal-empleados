@@ -7,13 +7,17 @@ export function isSessionCookieAlive(raw: string | undefined): boolean {
   try {
     const json = Buffer.from(raw.slice(0, dot), "base64url").toString("utf8");
     const payload = JSON.parse(json) as {
+      sid?: string;
       email?: string;
       accessToken?: string;
       expiresAt?: number;
     };
+    // Cookie nueva (sid) o legacy (accessToken). Legacy viva sigue contando
+    // hasta que el usuario vuelva a autenticarse.
+    const hasIdentity = Boolean(payload.sid || payload.accessToken);
     return (
       Boolean(payload.email) &&
-      Boolean(payload.accessToken) &&
+      hasIdentity &&
       typeof payload.expiresAt === "number" &&
       payload.expiresAt > Date.now()
     );

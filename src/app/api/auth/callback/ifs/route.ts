@@ -2,11 +2,11 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { exchangeAuthorizationCode, fetchOidcUserInfo } from "@/src/lib/ifs/oauth-user";
 import {
+  createPersistedIfsSession,
   isSystemPortalEmail,
   parseAccessTokenClaims,
   parseIdTokenClaims,
   resolveSessionEmail,
-  sealSession,
   sessionCookieOptions,
 } from "@/src/lib/ifs/session";
 import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     }
 
     const expiresIn = Math.max(tokens.expiresIn || 0, 3600);
-    const sealed = sealSession({
+    const { cookieValue } = await createPersistedIfsSession({
       email,
       name: mergedClaims.name,
       accessToken: tokens.accessToken,
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
     const response = NextResponse.redirect(new URL(dest, url.origin));
     response.cookies.set(
       SESSION_COOKIE,
-      sealed,
+      cookieValue,
       sessionCookieOptions(expiresIn),
     );
     response.cookies.delete(PKCE_COOKIE);

@@ -1,5 +1,6 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { prisma } from "@/src/lib/db";
 import {
   getIfsDevBypassCredentials,
   isIfsAuthEnabled,
@@ -8,10 +9,19 @@ import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
 import { expiredSessionCookieOptions } from "@/src/lib/ifs/session-cookie";
 
 export type IfsUserSession = {
+  /** Id de fila en PortalIfsSession (cookie solo guarda esto). */
+  sid?: string;
   email: string;
   name?: string;
   accessToken: string;
   refreshToken?: string;
+  expiresAt: number;
+};
+
+/** Cookie firmada pequeña: { sid, email, expiresAt } — sin JWTs. */
+type SessionCookieRef = {
+  sid: string;
+  email: string;
   expiresAt: number;
 };
 
@@ -24,13 +34,14 @@ function sessionSecret(): string {
   return "dev-only-insecure-session-secret";
 }
 
-export function sealSession(session: IfsUserSession): string {
-  const payload = Buffer.from(JSON.stringify(session)).toString("base64url");
-  const sig = createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
+function signPayload(payload: string): string {
+  const sig = createHmac("sha256", sessionSecret())
+    .update(payload)
+    .digest("base64url");
   return `${payload}.${sig}`;
 }
 
-export function unsealSession(token: string): IfsUserSession | null {
+function verifySigned(token: string): string | null {
   const dot = token.lastIndexOf(".");
   if (dot < 0) return null;
 
@@ -50,25 +61,111 @@ export function unsealSession(token: string): IfsUserSession | null {
   } catch {
     return null;
   }
+  return payload;
+}
 
+function sealCookieRef(ref: SessionCookieRef): string {
+  const payload = Buffer.from(JSON.stringify(ref)).toString("base64url");
+  return signPayload(payload);
+}
+
+function unsealCookieRef(token: string): SessionCookieRef | null {
+  const payload = verifySigned(token);
+  if (!payload) return null;
   try {
-    const session = JSON.parse(
+    const ref = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
-    ) as IfsUserSession;
-    if (!session.email || !session.accessToken || !session.expiresAt) return null;
-    if (session.expiresAt < Date.now()) return null;
-    return session;
+    ) as Partial<SessionCookieRef> & { accessToken?: string };
+    // Cookie legacy con JWT embebido: ya no la usamos (provoca Cookie Too Large).
+    if (ref.accessToken) return null;
+    if (!ref.sid || !ref.email || typeof ref.expiresAt !== "number") return null;
+    if (ref.expiresAt < Date.now()) return null;
+    return { sid: ref.sid, email: ref.email, expiresAt: ref.expiresAt };
   } catch {
     return null;
   }
+}
+
+/** @deprecated Prefer createPersistedIfsSession — no meter tokens en la cookie. */
+export function sealSession(session: IfsUserSession): string {
+  if (session.sid) {
+    return sealCookieRef({
+      sid: session.sid,
+      email: session.email,
+      expiresAt: session.expiresAt,
+    });
+  }
+  // Compat local/dev: si no hay sid, aún firma email+expires (sin token).
+  const payload = Buffer.from(
+    JSON.stringify({
+      email: session.email,
+      expiresAt: session.expiresAt,
+    }),
+  ).toString("base64url");
+  return signPayload(payload);
+}
+
+export function unsealSession(_token: string): IfsUserSession | null {
+  // Tokens ya no viven en la cookie; usar getServerIfsSession.
+  return null;
+}
+
+async function loadSessionRow(sid: string): Promise<IfsUserSession | null> {
+  const row = await prisma.portalIfsSession.findUnique({ where: { id: sid } });
+  if (!row) return null;
+  if (row.expiresAt.getTime() < Date.now()) {
+    await prisma.portalIfsSession.delete({ where: { id: sid } }).catch(() => {});
+    return null;
+  }
+  return {
+    sid: row.id,
+    email: row.email,
+    name: row.name ?? undefined,
+    accessToken: row.accessToken,
+    refreshToken: row.refreshToken ?? undefined,
+    expiresAt: row.expiresAt.getTime(),
+  };
+}
+
+/** Crea fila en DB y devuelve cookie firmada pequeña. */
+export async function createPersistedIfsSession(
+  session: Omit<IfsUserSession, "sid">,
+): Promise<{ cookieValue: string; sid: string }> {
+  const sid = randomBytes(24).toString("base64url");
+  await prisma.portalIfsSession.create({
+    data: {
+      id: sid,
+      email: session.email.toLowerCase(),
+      name: session.name,
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+      expiresAt: new Date(session.expiresAt),
+    },
+  });
+  // Limpieza oportunista de sesiones vencidas (no bloquea el login).
+  void prisma.portalIfsSession
+    .deleteMany({ where: { expiresAt: { lt: new Date() } } })
+    .catch(() => {});
+
+  return {
+    sid,
+    cookieValue: sealCookieRef({
+      sid,
+      email: session.email.toLowerCase(),
+      expiresAt: session.expiresAt,
+    }),
+  };
 }
 
 export async function getServerIfsSession(): Promise<IfsUserSession | null> {
   const jar = await cookies();
   const raw = jar.get(SESSION_COOKIE)?.value;
   if (raw) {
-    const session = unsealSession(raw);
-    if (session) return session;
+    const ref = unsealCookieRef(raw);
+    if (ref) {
+      const session = await loadSessionRow(ref.sid);
+      if (session) return session;
+    }
   }
 
   const bypass = getIfsDevBypassCredentials();
@@ -90,16 +187,73 @@ export async function persistIfsSession(session: IfsUserSession): Promise<void> 
     60,
     Math.floor((session.expiresAt - Date.now()) / 1000),
   );
-  jar.set(
-    SESSION_COOKIE,
-    sealSession(session),
-    sessionCookieOptions(maxAgeSec),
-  );
+
+  let sid = session.sid;
+  if (!sid) {
+    const raw = jar.get(SESSION_COOKIE)?.value;
+    const ref = raw ? unsealCookieRef(raw) : null;
+    sid = ref?.sid;
+  }
+
+  if (sid) {
+    await prisma.portalIfsSession.upsert({
+      where: { id: sid },
+      create: {
+        id: sid,
+        email: session.email.toLowerCase(),
+        name: session.name,
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        expiresAt: new Date(session.expiresAt),
+      },
+      update: {
+        email: session.email.toLowerCase(),
+        name: session.name,
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        expiresAt: new Date(session.expiresAt),
+      },
+    });
+    jar.set(
+      SESSION_COOKIE,
+      sealCookieRef({
+        sid,
+        email: session.email.toLowerCase(),
+        expiresAt: session.expiresAt,
+      }),
+      sessionCookieOptions(maxAgeSec),
+    );
+    return;
+  }
+
+  const created = await createPersistedIfsSession(session);
+  jar.set(SESSION_COOKIE, created.cookieValue, sessionCookieOptions(maxAgeSec));
 }
 
 export async function clearServerIfsSession(): Promise<void> {
   const jar = await cookies();
+  const raw = jar.get(SESSION_COOKIE)?.value;
+  if (raw) {
+    const ref = unsealCookieRef(raw);
+    if (ref) {
+      await prisma.portalIfsSession
+        .delete({ where: { id: ref.sid } })
+        .catch(() => {});
+    }
+  }
   jar.set(SESSION_COOKIE, "", expiredSessionCookieOptions());
+}
+
+/** Borra la sesión de DB a partir del valor crudo de cookie (rutas de logout). */
+export async function destroyPersistedIfsSession(
+  cookieValue: string | undefined,
+): Promise<void> {
+  if (!cookieValue) return;
+  const ref = unsealCookieRef(cookieValue);
+  if (!ref) return;
+  await prisma.portalIfsSession
+    .delete({ where: { id: ref.sid } })
+    .catch(() => {});
 }
 
 export function sessionCookieOptions(maxAgeSec: number) {

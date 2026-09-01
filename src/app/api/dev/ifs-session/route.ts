@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { parseBearerToken, isLocalDevRuntime } from "@/src/lib/ifs/dev-local";
 import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
-import { resolveSessionEmail, sealSession, sessionCookieOptions } from "@/src/lib/ifs/session";
+import {
+  createPersistedIfsSession,
+  resolveSessionEmail,
+  sessionCookieOptions,
+} from "@/src/lib/ifs/session";
 
 export async function POST(request: Request) {
   if (!isLocalDevRuntime()) {
@@ -29,13 +33,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const sealed = sealSession({
+  const { cookieValue } = await createPersistedIfsSession({
     email,
     accessToken,
     expiresAt: Date.now() + 3600_000,
   });
 
   const response = NextResponse.json({ ok: true, email });
-  response.cookies.set(SESSION_COOKIE, sealed, sessionCookieOptions(3600));
+  response.cookies.set(SESSION_COOKIE, cookieValue, sessionCookieOptions(3600));
   return response;
 }
