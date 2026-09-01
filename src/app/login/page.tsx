@@ -15,9 +15,11 @@ const LOGIN_ERRORS: Record<string, string> = {
   system_account_email:
     "IFS devolvió una cuenta técnica, no un empleado. Entra con el correo asociado al empleado en DEV (ventana de incógnito).",
   token_exchange:
-    "No se pudo canjear el código de IFS. Vuelve a intentar o revisa /dev/ifs.",
+    "No se pudo canjear el código de IFS. Vuelve a intentar desde este login (no pegues la URL de IFS a mano).",
+  session_store:
+    "IFS respondió bien, pero el portal no pudo guardar la sesión. Avisa a soporte (tabla PortalIfsSession).",
   invalid_state:
-    "La sesión de login expiró o se abrió en otra pestaña. Vuelve a entrar desde aquí.",
+    "La sesión de login expiró o se abrió la URL de IFS en otra pestaña. No copies/pegues el link de IFS: vuelve a pulsar «Entrar con IFS» aquí.",
   missing_code: "IFS no devolvió el código de autorización. Vuelve a intentar.",
 };
 
@@ -39,8 +41,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       </p>
       <h1 className="mt-2 text-2xl font-semibold text-navy">Conexión IFS</h1>
       <p className="mt-2 text-sm text-muted">
-        El registro y la aprobación de tiempo solo muestran datos reales cuando
-        hay sesión IFS. Sin sesión, las pantallas quedan vacías a propósito.
+        Con sesión IFS, las horas se guardan en <strong>IFS Cloud DEV</strong>{" "}
+        (hmvdev), no en localhost. Sin sesión, el portal no escribe datos reales.
       </p>
 
       {errorText ? (

@@ -210,16 +210,23 @@ sudo -u portalnext -H bash -lc "
   git checkout -f -B '${APP_BRANCH}' FETCH_HEAD
 "
 
-echo "--- env DEMO compartible (sin login IFS) ---"
+echo "--- env IFS DEV (datos reales en hmvdev) ---"
 ENVF="${APP_HOME}/.env"
 sudo -u portalnext test -f "${ENVF}"
-# Prioridad: ambiente usable para el equipo (sin OAuth / consola).
+# Login OAuth obligatorio: las horas van a IFS Cloud DEV.
 if sudo -u portalnext grep -q '^IFS_AUTH_ENABLED=' "${ENVF}"; then
-  sudo -u portalnext sed -i 's|^IFS_AUTH_ENABLED=.*|IFS_AUTH_ENABLED=false|' "${ENVF}"
+  sudo -u portalnext sed -i 's|^IFS_AUTH_ENABLED=.*|IFS_AUTH_ENABLED=true|' "${ENVF}"
 else
-  echo 'IFS_AUTH_ENABLED=false' | sudo -u portalnext tee -a "${ENVF}" >/dev/null
+  echo 'IFS_AUTH_ENABLED=true' | sudo -u portalnext tee -a "${ENVF}" >/dev/null
 fi
-# Quitar allowlist de consola/impersonación si existía.
+# Callback público DEV (nunca localhost).
+DEV_REDIRECT='https://hmv-empleados-dev.nubeportal.com/api/auth/callback/ifs'
+if sudo -u portalnext grep -q '^IFS_OAUTH_REDIRECT_URI=' "${ENVF}"; then
+  sudo -u portalnext sed -i "s|^IFS_OAUTH_REDIRECT_URI=.*|IFS_OAUTH_REDIRECT_URI=${DEV_REDIRECT}|" "${ENVF}"
+else
+  echo "IFS_OAUTH_REDIRECT_URI=${DEV_REDIRECT}" | sudo -u portalnext tee -a "${ENVF}" >/dev/null
+fi
+# Consola/impersonación fuera del camino crítico.
 if sudo -u portalnext grep -q '^PORTAL_IMPERSONATION_OPERATORS=' "${ENVF}"; then
   sudo -u portalnext sed -i '/^PORTAL_IMPERSONATION_OPERATORS=/d' "${ENVF}"
 fi
@@ -244,5 +251,5 @@ curl -sS -o /dev/null -w 'local HTTP %{http_code}\n' http://127.0.0.1:3001/ || t
 echo "DEPLOY OK"
 REMOTE
 
-info "Listo → https://hmv-empleados-dev.nubeportal.com/hoja-tiempo"
+info "Listo → https://hmv-empleados-dev.nubeportal.com/login"
 info "La sesión Bastion se cierra sola al terminar."

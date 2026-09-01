@@ -257,9 +257,12 @@ export async function destroyPersistedIfsSession(
 }
 
 export function sessionCookieOptions(maxAgeSec: number) {
+  const redirect = process.env.IFS_OAUTH_REDIRECT_URI?.trim() || "";
+  const secure =
+    process.env.NODE_ENV === "production" || redirect.startsWith("https://");
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax" as const,
     path: "/",
     maxAge: maxAgeSec,
