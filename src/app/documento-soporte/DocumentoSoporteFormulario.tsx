@@ -8,7 +8,7 @@ import { FileAttachmentField } from "@/src/components/ui/FileAttachmentField";
 import { Icon } from "@/src/components/ui/Icon";
 import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
-import { SelectControl } from "@/src/components/ui/DropdownAffordance";
+import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
 import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
 import {
   FormContextNote,
@@ -394,24 +394,22 @@ export function DocumentoSoporteFormulario({
 
               <FormGrid>
                 <Field label="Divisa" required>
-                  <SelectControl
+                  <SearchableSelect
                     value={divisa}
-                    onChange={(e) => {
-                      const next = e.target.value;
+                    onChange={(next) => {
                       const n = parseMontoInputDs(montoRaw, divisa);
                       setDivisa(next);
                       if (n !== null && n !== 0) {
                         setMontoRaw(fmtMontoInputDs(n, next));
                       }
                     }}
-                    className="ant-field-input"
-                  >
-                    {DIVISAS_DS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </SelectControl>
+                    options={DIVISAS_DS.map((d) => ({
+                      value: d,
+                      label: d,
+                    }))}
+                    placeholder="Seleccionar divisa…"
+                    searchPlaceholder="Buscar divisa…"
+                  />
                 </Field>
                 <Field label="Monto" required>
                   <div className="flex h-9 w-full overflow-hidden rounded-[5px] border border-border bg-white focus-within:border-navy">

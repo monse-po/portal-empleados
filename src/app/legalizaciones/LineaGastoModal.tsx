@@ -6,7 +6,6 @@ import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 import { Modal } from "@/src/components/ui/Modal";
-import { SelectControl } from "@/src/components/ui/DropdownAffordance";
 import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
 import { useAsyncAction } from "@/src/lib/use-async-action";
 import { formatMonto, parseMontoInput, PROYECTOS_ANT } from "@/src/lib/mis-anticipos-mock";
@@ -294,18 +293,17 @@ export function LineaGastoModal({
         <ModalSection icon="receipt" title="Datos del documento">
           <ModalFieldGrid>
             <Field label="Tipo de documento" required error={errors.voucherType}>
-              <SelectControl
+              <SearchableSelect
                 value={draft.voucherType}
-                onChange={(e) => patch({ voucherType: e.target.value })}
-                className="ant-field-input"
-              >
-                <option value="">Seleccionar…</option>
-                {voucherTypes.map((t) => (
-                  <option key={t.code} value={t.code}>
-                    {t.label}
-                  </option>
-                ))}
-              </SelectControl>
+                onChange={(voucherType) => patch({ voucherType })}
+                options={voucherTypes.map((t) => ({
+                  value: t.code,
+                  label: t.label,
+                }))}
+                placeholder="Seleccionar…"
+                searchPlaceholder="Buscar tipo de documento…"
+                error={!!errors.voucherType}
+              />
             </Field>
 
             <Field label="Fecha factura" required error={errors.invoiceDate}>
@@ -338,18 +336,17 @@ export function LineaGastoModal({
             ) : null}
 
             <Field label="Categoría de costo" required error={errors.costCategory}>
-              <SelectControl
+              <SearchableSelect
                 value={draft.costCategory}
-                onChange={(e) => patch({ costCategory: e.target.value })}
-                className="ant-field-input"
-              >
-                <option value="">Seleccionar…</option>
-                {costCategories.map((t) => (
-                  <option key={t.code} value={t.code}>
-                    {t.label}
-                  </option>
-                ))}
-              </SelectControl>
+                onChange={(costCategory) => patch({ costCategory })}
+                options={costCategories.map((t) => ({
+                  value: t.code,
+                  label: t.label,
+                }))}
+                placeholder="Seleccionar…"
+                searchPlaceholder="Buscar categoría…"
+                error={!!errors.costCategory}
+              />
             </Field>
 
             <Field label="Monto" required error={errors.netAmount}>
@@ -372,16 +369,17 @@ export function LineaGastoModal({
 
             {!lockedCurrency ? (
               <Field label="Divisa línea" required error={errors.currencyCode}>
-                <SelectControl
+                <SearchableSelect
                   value={currency}
-                  onChange={(e) => patch({ currencyCode: e.target.value })}
-                  className="ant-field-input"
-                >
-                  <option value="COP">COP</option>
-                  <option value="USD">USD</option>
-                  <option value="MXN">MXN</option>
-                  <option value="PEN">PEN</option>
-                </SelectControl>
+                  onChange={(currencyCode) => patch({ currencyCode })}
+                  options={["COP", "USD", "MXN", "PEN"].map((code) => ({
+                    value: code,
+                    label: code,
+                  }))}
+                  placeholder="Seleccionar divisa…"
+                  searchPlaceholder="Buscar divisa…"
+                  error={!!errors.currencyCode}
+                />
               </Field>
             ) : null}
 
@@ -397,7 +395,6 @@ export function LineaGastoModal({
                   placeholder="Seleccionar proyecto…"
                   searchPlaceholder="Buscar proyecto…"
                   error={!!errors.proyectoId}
-                  className="ant-field-input"
                 />
               </Field>
             ) : null}

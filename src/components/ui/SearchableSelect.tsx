@@ -70,25 +70,18 @@ export function SearchableSelect({
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  const triggerClass = className
-    ? [
-        "flex w-full cursor-pointer items-center justify-between gap-2 text-left text-[13px] transition-colors",
-        className,
-        selected ? "border-navy bg-[#eef3f9]" : "bg-white hover:border-[#c7d2e0]",
-        error ? "!border-red" : "",
-        disabled ? "cursor-not-allowed opacity-55" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")
-    : [
-        "flex h-9 w-full cursor-pointer items-center justify-between rounded-[5px] border px-2.5 text-left text-[13px] transition-colors",
-        error
-          ? "border-red"
-          : selected
-            ? "border-navy bg-[#eef3f9]"
-            : "border-border bg-white hover:border-[#c7d2e0]",
-        disabled ? "cursor-not-allowed opacity-55" : "",
-      ].join(" ");
+  const triggerClass = [
+    "flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-[5px] border px-2.5 text-left text-[13px] transition-colors",
+    error
+      ? "border-red"
+      : selected
+        ? "border-navy bg-[#eef3f9]"
+        : "border-border bg-white hover:border-[#c7d2e0]",
+    disabled ? "cursor-not-allowed opacity-55" : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div

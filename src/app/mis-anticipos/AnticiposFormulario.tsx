@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody } from "@/src/components/ui/Card";
 import { DateInput } from "@/src/components/ui/DateInput";
@@ -9,7 +9,6 @@ import { Icon, type IconName } from "@/src/components/ui/Icon";
 import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
-import { SelectControl } from "@/src/components/ui/DropdownAffordance";
 import {
   TIPO_ANTICIPO_SEGMENTED_OPTIONS,
 } from "@/src/components/ui/TipoAnticipoPill";
@@ -29,7 +28,6 @@ import {
 } from "@/src/lib/anticipos-catalog";
 import {
   flattenLocalDestinos,
-  searchDestinosConfig,
   type DivisaOption,
 } from "@/src/lib/anticipos-ifs-catalog";
 import {
@@ -165,6 +163,10 @@ function FormNote({
   );
 }
 
+function destKey(dest: DestinoSel): string {
+  return `${dest.pCode}|${dest.dpto}|${dest.ciudad}`;
+}
+
 function DestinoPicker({
   value,
   onChange,
@@ -176,84 +178,21 @@ function DestinoPicker({
   destinos: DestinoSel[];
   loading?: boolean;
 }) {
-  const [q, setQ] = useState(value?.label || "");
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const resultados = useMemo(
-    () => searchDestinosConfig(destinos, q),
-    [destinos, q],
-  );
-
-  useEffect(() => {
-    if (value?.label && value.label !== q) setQ(value.label);
-    // Solo sincronizar cuando cambia la selección externa
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value?.label]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
-
   return (
-    <div ref={wrapRef} className="relative">
-      <div className="relative">
-        <Icon
-          name="search"
-          size="xs"
-          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9ca3af]"
-        />
-        <input
-          type="text"
-          value={q}
-          disabled={loading}
-          onChange={(e) => {
-            setQ(e.target.value);
-            onChange(null);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder={
-            loading
-              ? "Cargando datos…"
-              : "Ej: Bello, Antioquia, Colombia…"
-          }
-          autoComplete="off"
-          className="ant-field-input !pl-[30px]"
-        />
-      </div>
-      {open && !loading && (
-        <div className="absolute left-0 right-0 top-[calc(100%+3px)] z-[200] max-h-[280px] overflow-y-auto rounded-lg border border-border bg-white shadow-[0_4px_16px_rgba(0,0,0,0.10)]">
-          {resultados.length === 0 ? (
-            <div className="px-3.5 py-3 text-[12px] text-[#9ca3af]">
-              Sin resultados
-            </div>
-          ) : (
-            resultados.map((r) => (
-              <button
-                key={`${r.pCode}-${r.dpto}-${r.ciudad}`}
-                type="button"
-                onClick={() => {
-                  onChange(r);
-                  setQ(r.label);
-                  setOpen(false);
-                }}
-                className="flex w-full cursor-pointer items-center gap-2 px-3.5 py-[8px] text-left hover:bg-[#f5f7fa]"
-              >
-                <Icon name="mapPin" size="xs" className="shrink-0 text-navy" />
-                <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-[#1a1a2e]">
-                  {r.label}
-                </span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
+    <SearchableSelect
+      value={value ? destKey(value) : ""}
+      onChange={(key) =>
+        onChange(destinos.find((dest) => destKey(dest) === key) ?? null)
+      }
+      options={destinos.map((dest) => ({
+        value: destKey(dest),
+        label: dest.label,
+        hint: dest.ciudad,
+      }))}
+      placeholder={loading ? "Cargando datos…" : "Seleccionar destino…"}
+      searchPlaceholder="Buscar ciudad, departamento o país…"
+      disabled={loading}
+    />
   );
 }
 
@@ -851,19 +790,16 @@ export function AnticiposFormulario({
                           <RoInput value={aprobadorLabel} />
                         </Field>
                         <Field label="Compañía que asume el gasto">
-                          <SelectControl
+                          <SearchableSelect
                             value={companiaGastoOtro}
-                            onChange={(e) =>
-                              handleCompaniaGastoOtroChange(e.target.value)
-                            }
-                            className="ant-field-input"
-                          >
-                            {companiaGastoOtroOpciones.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.label}
-                              </option>
-                            ))}
-                          </SelectControl>
+                            onChange={handleCompaniaGastoOtroChange}
+                            options={companiaGastoOtroOpciones.map((c) => ({
+                              value: c.id,
+                              label: c.label,
+                            }))}
+                            placeholder="Seleccionar compañía…"
+                            searchPlaceholder="Buscar compañía…"
+                          />
                         </Field>
                       </FormGrid>
                       <FormGrid className="mt-3">
@@ -918,19 +854,16 @@ export function AnticiposFormulario({
                       <RoInput value={aprobadorLabel} />
                     </Field>
                     <Field label="Compañía que asume el gasto">
-                      <SelectControl
+                      <SearchableSelect
                         value={companiaId}
-                        onChange={(e) =>
-                          handleCompaniaPropiaChange(e.target.value)
-                        }
-                        className="ant-field-input"
-                      >
-                        {companiasPropias.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </SelectControl>
+                        onChange={handleCompaniaPropiaChange}
+                        options={companiasPropias.map((c) => ({
+                          value: c.id,
+                          label: c.label,
+                        }))}
+                        placeholder="Seleccionar compañía…"
+                        searchPlaceholder="Buscar compañía…"
+                      />
                     </Field>
                   </FormGrid>
                   <FormGrid className="mt-3">
@@ -988,17 +921,16 @@ export function AnticiposFormulario({
                   />
                 </div>
                 <Field label="Divisa" required>
-                  <SelectControl
+                  <SearchableSelect
                     value={divisa}
-                    onChange={(e) => setDivisa(e.target.value)}
-                    className="ant-field-input"
-                  >
-                    {divisas.map((d) => (
-                      <option key={d.code} value={d.code}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </SelectControl>
+                    onChange={setDivisa}
+                    options={divisas.map((d) => ({
+                      value: d.code,
+                      label: d.label,
+                    }))}
+                    placeholder="Seleccionar divisa…"
+                    searchPlaceholder="Buscar divisa…"
+                  />
                 </Field>
                 <Field label="Monto" required>
                   <div className="flex h-9 w-full overflow-hidden rounded-[5px] border border-border bg-white focus-within:border-navy">

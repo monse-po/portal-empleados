@@ -52,7 +52,6 @@ export function DestinoLegalizacionFields({
           }
           searchPlaceholder="Buscar subproyecto…"
           disabled={sinProyecto}
-          className="ant-field-input"
         />
       </Field>
 
@@ -68,7 +67,6 @@ export function DestinoLegalizacionFields({
           }
           searchPlaceholder="Buscar actividad…"
           disabled={!value.subproyecto}
-          className="ant-field-input"
         />
       </Field>
     </>
