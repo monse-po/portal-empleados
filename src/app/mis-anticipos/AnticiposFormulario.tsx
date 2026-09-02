@@ -757,7 +757,7 @@ export function AnticiposFormulario({
         <PortalSubpageHeader
           parentLabel="Anticipos"
           onVolver={onVolver}
-          title="Solicitar anticipo"
+          title="Nuevo anticipo"
         />
 
         <Card className="mb-3 overflow-visible">

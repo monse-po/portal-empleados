@@ -51,7 +51,7 @@ export function AnticiposLista({
         <FloatingActions>
           <Button variant="primary" onClick={onNuevaSolicitud}>
             <Icon name="plus" size="xs" />
-            Nueva solicitud
+            Nuevo anticipo
           </Button>
         </FloatingActions>
       </div>

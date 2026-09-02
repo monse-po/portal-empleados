@@ -272,7 +272,7 @@ export function DocumentoSoporteFormulario({
         <PortalSubpageHeader
           parentLabel="Mis DSE"
           onVolver={onVolver}
-          title={editNo ? `Editar ${editNo}` : "Nueva solicitud"}
+          title={editNo ? `Editar ${editNo}` : "Nuevo DSE"}
         />
         <FormContextNote>
           Solicitud a Contabilidad · documento de soporte electrónico (DSE).

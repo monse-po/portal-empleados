@@ -51,7 +51,7 @@ export function DocumentoSoporteLista({
         <FloatingActions>
           <Button variant="primary" onClick={onNuevo}>
             <Icon name="plus" size="xs" />
-            Nueva solicitud
+            Nuevo DSE
           </Button>
         </FloatingActions>
       </div>

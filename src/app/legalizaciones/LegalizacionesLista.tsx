@@ -51,7 +51,7 @@ export function LegalizacionesLista({
         <FloatingActions>
           <Button variant="primary" onClick={onNueva}>
             <Icon name="plus" size="xs" />
-            Nueva solicitud
+            Nueva legalización
           </Button>
         </FloatingActions>
       </div>

@@ -414,7 +414,7 @@ export function LegalizacionesFormulario({
         <PortalSubpageHeader
           parentLabel="Mis Legalizaciones"
           onVolver={onVolver}
-          title="Nueva solicitud"
+          title="Nueva legalización"
         />
 
         <SolicitudFormCard>
