@@ -287,15 +287,6 @@ export function DocumentoSoporteFormulario({
             empleado={empOtro}
             onEmpleadoChange={setEmpOtro}
             empleados={empleadosOtroLov}
-            hint={
-              <>
-                <strong>
-                  Estás registrando este DSE a nombre de otra persona.
-                </strong>{" "}
-                Tú figurarás como quien registra; el empleado seleccionado
-                queda como solicitado por.
-              </>
-            }
           />
         </SolicitudFormCard>
 

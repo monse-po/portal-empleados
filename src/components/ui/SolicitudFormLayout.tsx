@@ -116,7 +116,6 @@ type SolicitudParaSectionProps = {
   paraOtro: boolean;
   onParaOtroChange: (otro: boolean) => void;
   fecha: string;
-  hint?: ReactNode;
   empresa: LovItem | null;
   onEmpresaChange: (item: LovItem | null) => void;
   empresas: LovItem[];
@@ -133,7 +132,6 @@ export function SolicitudParaSection({
   paraOtro,
   onParaOtroChange,
   fecha,
-  hint,
   empresa,
   onEmpresaChange,
   empresas,
@@ -196,7 +194,12 @@ export function SolicitudParaSection({
             </span>
           </div>
         </div>
-        {paraOtro && hint ? <FormHint>{hint}</FormHint> : null}
+        {paraOtro ? (
+          <p className="text-[11.5px] leading-snug text-muted">
+            Queda a nombre del empleado seleccionado; tú figuras como
+            solicitante.
+          </p>
+        ) : null}
       </FormStack>
     </FormSection>
   );

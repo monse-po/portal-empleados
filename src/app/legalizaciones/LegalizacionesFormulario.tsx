@@ -427,13 +427,6 @@ export function LegalizacionesFormulario({
             empleado={empOtro}
             onEmpleadoChange={handleEmpOtroChange}
             empleados={empleadosOtroLov}
-            hint={
-              <>
-                <strong>Estás legalizando a nombre de otra persona.</strong> Tú
-                figurarás como solicitante; los gastos quedan a nombre del
-                empleado beneficiario.
-              </>
-            }
           />
         </SolicitudFormCard>
 

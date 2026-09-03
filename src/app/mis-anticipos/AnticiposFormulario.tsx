@@ -720,15 +720,6 @@ export function AnticiposFormulario({
             }
             onEmpleadoChange={handleEmpOtroChange}
             empleados={empleadosOtro}
-            hint={
-              <>
-                <strong>
-                  Estás solicitando este anticipo a nombre de otra persona.
-                </strong>{" "}
-                Tú figurarás como solicitante; el dinero se acreditará a la
-                cuenta del empleado destinatario.
-              </>
-            }
           />
         </SolicitudFormCard>
 
