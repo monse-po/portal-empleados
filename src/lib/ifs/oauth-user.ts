@@ -55,14 +55,20 @@ export function resolveOAuthRedirectUri(request: Request): string {
   const configured = getIfsConfig().oauthRedirectUri?.trim();
   const origin = resolvePublicOrigin(request).replace(/\/$/, "");
   const derived = `${origin}/api/auth/callback/ifs`;
-  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+
+  const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+
+  if (isLocal) {
     // Forzar https en callback local (IFS a veces manda https://localhost:3001)
     if (origin.startsWith("http://")) {
       return `https://${origin.slice("http://".length)}/api/auth/callback/ifs`;
     }
     return derived;
   }
-  return configured || derived;
+
+  // Origen público: siempre derivar del origin real para evitar
+  // que un .env con localhost override la URL pública.
+  return derived;
 }
 
 export function buildAuthorizationUrl(input: {
