@@ -13,6 +13,7 @@ import {
   ReadOnlyField,
 } from "@/src/components/ui/DetailView";
 import { GerenteAccionBar } from "@/src/components/ui/GerenteAccionBar";
+import { ProyectoCell } from "@/src/components/ui/DataTable";
 import { TipoAnticipoPill } from "@/src/components/ui/TipoAnticipoPill";
 import { useToast } from "@/src/components/ui/Toast";
 import { useAsyncAction } from "@/src/lib/use-async-action";
@@ -117,7 +118,7 @@ export function AprobacionAnticiposDetalle({
                 {solicitud.fecha}
               </ReadOnlyField>
               <ReadOnlyField label="Proyecto asociado">
-                {solicitud.proy} – {solicitud.proyN}
+                <ProyectoCell codigo={solicitud.proy} nombre={solicitud.proyN} />
               </ReadOnlyField>
               <ReadOnlyField label="Aprobador">{aprobadorLabel}</ReadOnlyField>
             </DetailGrid>

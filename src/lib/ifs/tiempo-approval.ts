@@ -121,6 +121,7 @@ export function mapApprovalRowToHoja(
         ? "Aprobado"
         : "Rechazado",
     comentarioApro: row.CRejectNote?.trim() || "",
+    fechaApro: pendiente ? "" : isoToDmy(fechaIso),
   };
 }
 
@@ -138,6 +139,7 @@ export type HorasProyectoAprobacion = {
   horasRechazadas: number;
   horasPendientes: number;
   registros: number;
+  empleados: number;
   /** Ids IFS (`ifs-pt-*`) pendientes de este proyecto, para aprobar/rechazar en lote. */
   pendienteIds: string[];
 };
@@ -154,18 +156,23 @@ function classifyApprovalHours(
 }
 
 function codigoProyectoDeFila(row: EmpReportItemRow): string | null {
-  const codigo = row.ProjectId?.trim() || row.ShortName?.trim();
-  return codigo || null;
+  const id = row.ProjectId?.trim();
+  if (id) return id;
+  const short = row.ShortName?.trim();
+  if (!short) return null;
+  return short.split(".")[0]?.trim() || short;
 }
 
 /**
  * Resumen por código de proyecto (ProjectId).
  * Solo este agrupado en el primer render: sin empleados.
  */
+type ProyectoAgg = HorasProyectoAprobacion & { empSet: Set<string> };
+
 export function mapApprovalTimesheetToProyectos(
   raw: unknown,
 ): HorasProyectoAprobacion[] {
-  const map = new Map<string, HorasProyectoAprobacion>();
+  const map = new Map<string, ProyectoAgg>();
 
   for (const row of parseEmpReportItems(raw)) {
     const codigo = codigoProyectoDeFila(row);
@@ -182,13 +189,17 @@ export function mapApprovalTimesheetToProyectos(
       horasRechazadas: 0,
       horasPendientes: 0,
       registros: 0,
+      empleados: 0,
       pendienteIds: [],
+      empSet: new Set<string>(),
     };
     if (row.ProjectName?.trim() && (cur.nombre === cur.codigo || !cur.nombre)) {
       cur.nombre = row.ProjectName.trim();
     }
     cur.horasAcumuladas += horas;
     cur.registros += 1;
+    const empKey = row.EmpNo?.trim() || row.EmployeeName?.trim();
+    if (empKey) cur.empSet.add(empKey);
     if (bucket === "aprobadas") cur.horasAprobadas += horas;
     else if (bucket === "rechazadas") cur.horasRechazadas += horas;
     else if (esPendienteAprobacion(row)) {
@@ -198,23 +209,37 @@ export function mapApprovalTimesheetToProyectos(
     map.set(codigo, cur);
   }
 
-  return [...map.values()].sort((a, b) => {
-    const byPendiente = Number(b.pendienteIds.length > 0) - Number(a.pendienteIds.length > 0);
-    if (byPendiente !== 0) return byPendiente;
-    return a.codigo.localeCompare(b.codigo, "es");
-  });
+  return [...map.values()]
+    .map(({ empSet, ...proy }) => ({
+      ...proy,
+      empleados: empSet.size,
+    }))
+    .sort((a, b) => {
+      const byPendiente =
+        Number(b.pendienteIds.length > 0) - Number(a.pendienteIds.length > 0);
+      if (byPendiente !== 0) return byPendiente;
+      return a.codigo.localeCompare(b.codigo, "es");
+    });
 }
 
 export type HorasEmpleadoAprobacion = {
   empNo: string;
   nombre: string;
+  actividad: string;
   horasAcumuladas: number;
   horasPendientes: number;
+  horasAprobadas: number;
+  horasRechazadas: number;
   pendienteIds: string[];
 };
 
+export function empleadoActividadKey(e: HorasEmpleadoAprobacion): string {
+  return `${e.empNo}::${e.actividad}`;
+}
+
 /**
- * Empleados de UN proyecto. Se llama al expandir la fila; no en el primer render.
+ * Empleados de UN proyecto, una fila por actividad (horas acumuladas).
+ * Se llama al expandir el proyecto; no hay tercer nivel de registros.
  */
 export function mapApprovalTimesheetToEmpleados(
   raw: unknown,
@@ -232,12 +257,19 @@ export function mapApprovalTimesheetToEmpleados(
 
     const empNo = row.EmpNo?.trim() || "";
     const nombre = row.EmployeeName?.trim() || empNo || "Empleado";
-    const key = empNo || nombre.toLowerCase();
+    const actividad =
+      row.ActDescription?.trim() ||
+      row.ActivityNo?.trim() ||
+      "Sin actividad";
+    const key = `${empNo || nombre.toLowerCase()}::${actividad}`;
     const cur = map.get(key) ?? {
-      empNo: empNo || key,
+      empNo: empNo || nombre,
       nombre,
+      actividad,
       horasAcumuladas: 0,
       horasPendientes: 0,
+      horasAprobadas: 0,
+      horasRechazadas: 0,
       pendienteIds: [],
     };
     if (row.EmployeeName?.trim() && (cur.nombre === cur.empNo || !cur.nombre)) {
@@ -245,11 +277,11 @@ export function mapApprovalTimesheetToEmpleados(
     }
     cur.horasAcumuladas += horas;
     const bucket = classifyApprovalHours(row);
-    if (
-      bucket !== "aprobadas" &&
-      bucket !== "rechazadas" &&
-      esPendienteAprobacion(row)
-    ) {
+    if (bucket === "aprobadas") {
+      cur.horasAprobadas += horas;
+    } else if (bucket === "rechazadas") {
+      cur.horasRechazadas += horas;
+    } else if (esPendienteAprobacion(row)) {
       cur.horasPendientes += horas;
       cur.pendienteIds.push(`ifs-pt-${row.ProjectTransactionSeq}`);
     }
@@ -260,8 +292,30 @@ export function mapApprovalTimesheetToEmpleados(
     const byPendiente =
       Number(b.pendienteIds.length > 0) - Number(a.pendienteIds.length > 0);
     if (byPendiente !== 0) return byPendiente;
-    return a.nombre.localeCompare(b.nombre, "es");
+    const byNombre = a.nombre.localeCompare(b.nombre, "es");
+    if (byNombre !== 0) return byNombre;
+    if (b.horasAcumuladas !== a.horasAcumuladas) {
+      return b.horasAcumuladas - a.horasAcumuladas;
+    }
+    return a.actividad.localeCompare(b.actividad, "es");
   });
+}
+
+/** Todas las líneas de UN proyecto (pendientes y resueltas). */
+export function mapApprovalTimesheetToHojasByProyecto(
+  raw: unknown,
+  codigoProyecto: string,
+): HojaAprobacion[] {
+  const wanted = codigoProyecto.trim().toLowerCase();
+  if (!wanted) return [];
+
+  return parseEmpReportItems(raw)
+    .filter((row) => {
+      const codigo = codigoProyectoDeFila(row);
+      return Boolean(codigo && codigo.toLowerCase() === wanted);
+    })
+    .map((row, index) => mapApprovalRowToHoja(row, index, { includeResolved: true }))
+    .filter((h): h is HojaAprobacion => h !== null);
 }
 
 /** Líneas de un empleado en un proyecto (pendientes y ya decididas). */

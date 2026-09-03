@@ -260,39 +260,47 @@ export function DatePickerInput({
   );
 }
 
-function formatFechaCampo(iso: string): string {
-  const short = formatFechaRangoCorto(iso, iso);
-  const d = isoToDate(iso);
-  if (!d) return short;
-  if (d.getFullYear() === new Date().getFullYear()) return short;
-  return `${short} ${d.getFullYear()}`;
+const MES_CORTO = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+] as const;
+
+function formatDiaMesAnio(d: Date): string {
+  return `${d.getDate()} ${MES_CORTO[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-/** Etiqueta corta: un día → «12 ago»; rango → «12 – 16». */
+function formatFechaCampo(iso: string): string {
+  return formatFechaRangoCorto(iso, iso);
+}
+
+/** Un día → «3 sep 2026»; rango → «3 – 10 sep 2026». */
 export function formatFechaRangoCorto(from?: string, to?: string): string {
   if (!from) return "Elegir fecha…";
   const dFrom = isoToDate(from);
   if (!dFrom) return "Elegir fecha…";
-  const dayFrom = dFrom.getDate();
-  if (!to || to === from) {
-    const mes = dFrom
-      .toLocaleDateString("es-ES", { month: "short" })
-      .replace(/\./g, "");
-    return `${dayFrom} ${mes}`;
-  }
+  if (!to || to === from) return formatDiaMesAnio(dFrom);
   const dTo = isoToDate(to);
-  if (!dTo) return `${dayFrom}`;
-  const dayTo = dTo.getDate();
-  if (
+  if (!dTo) return formatDiaMesAnio(dFrom);
+  const sameMonth =
     dFrom.getMonth() === dTo.getMonth() &&
-    dFrom.getFullYear() === dTo.getFullYear()
-  ) {
-    return `${dayFrom} – ${dayTo}`;
+    dFrom.getFullYear() === dTo.getFullYear();
+  if (sameMonth) {
+    return `${dFrom.getDate()} – ${dTo.getDate()} ${MES_CORTO[dTo.getMonth()]} ${dTo.getFullYear()}`;
   }
-  const mesTo = dTo
-    .toLocaleDateString("es-ES", { month: "short" })
-    .replace(/\./g, "");
-  return `${dayFrom} – ${dayTo} ${mesTo}`;
+  if (dFrom.getFullYear() === dTo.getFullYear()) {
+    return `${dFrom.getDate()} ${MES_CORTO[dFrom.getMonth()]} – ${dTo.getDate()} ${MES_CORTO[dTo.getMonth()]} ${dTo.getFullYear()}`;
+  }
+  return `${formatDiaMesAnio(dFrom)} – ${formatDiaMesAnio(dTo)}`;
 }
 
 type FechaDiaORangoInputProps = {
@@ -307,7 +315,7 @@ type FechaDiaORangoInputProps = {
   onChange: (from: string, to: string) => void;
 };
 
-type FechaPickPhase = "day" | "rangeEnd";
+type FechaPickPhase = "day" | "rangeEnd" | "preview";
 
 function useFechaMatchers(min?: string, max?: string) {
   return useMemo(() => {
@@ -333,13 +341,14 @@ function useFechaMatchers(min?: string, max?: string) {
   }, [min, max]);
 }
 
-/** Espera antes de confirmar un solo día; también ventana para detectar doble clic. */
-const SINGLE_CLICK_MS = 350;
+/** Tiempo para ver el rango resaltado antes de cerrar. */
+const RANGE_PREVIEW_MS = 750;
 
 /**
  * Fecha en Mi Tiempo (alta):
- * - 1 clic = un día (cierra el calendario).
- * - Doble clic = inicio de rango; el siguiente clic = fin del rango.
+ * - 1er clic = primer día (el calendario se queda abierto).
+ * - 2º clic = último día; se ve el rango y luego cierra.
+ * - Listo / clic fuera = un solo día.
  * Edición (`allowRange=false`): siempre un día.
  */
 export function FechaDiaORangoInput({
@@ -353,24 +362,20 @@ export function FechaDiaORangoInput({
 }: FechaDiaORangoInputProps) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<FechaPickPhase>("day");
-  const [pendingIso, setPendingIso] = useState<string | null>(null);
-  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastClickRef = useRef<{ iso: string; at: number } | null>(null);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const matchers = useFechaMatchers(bounds.min, bounds.max);
 
-  const clearPendingSingle = () => {
-    if (pendingTimerRef.current) {
-      clearTimeout(pendingTimerRef.current);
-      pendingTimerRef.current = null;
+  const clearPreview = () => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
     }
-    setPendingIso(null);
   };
 
-  useEffect(() => () => clearPendingSingle(), []);
+  useEffect(() => () => clearPreview(), []);
 
   const close = () => {
-    clearPendingSingle();
-    lastClickRef.current = null;
+    clearPreview();
     setOpen(false);
     setPhase("day");
   };
@@ -384,52 +389,42 @@ export function FechaDiaORangoInput({
     onChange(desde, hasta);
   };
 
+  const finishWithPreview = (nextFrom: string, nextTo: string) => {
+    commit(nextFrom, nextTo);
+    if (nextFrom !== nextTo) {
+      setPhase("preview");
+      clearPreview();
+      previewTimerRef.current = setTimeout(() => {
+        previewTimerRef.current = null;
+        close();
+      }, RANGE_PREVIEW_MS);
+      return;
+    }
+    close();
+  };
+
   const handleDayClick = (day: Date, _mods: unknown, event: MouseEvent) => {
     const iso = dateToIso(day);
     if (!iso) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!allowRange) {
+      commit(iso, iso);
+      close();
+      return;
+    }
+
+    if (phase === "preview") return;
 
     if (phase === "rangeEnd") {
       if (!from) return;
-      clearPendingSingle();
-      lastClickRef.current = null;
-      commit(from, iso);
-      close();
+      finishWithPreview(from, iso);
       return;
     }
 
-    if (!allowRange) {
-      clearPendingSingle();
-      lastClickRef.current = null;
-      commit(iso, iso);
-      close();
-      return;
-    }
-
-    const now = Date.now();
-    const prev = lastClickRef.current;
-    // detail>=2 (dblclick nativo) o dos clics rápidos en el mismo día.
-    const isDouble =
-      event.detail >= 2 ||
-      Boolean(prev && prev.iso === iso && now - prev.at < SINGLE_CLICK_MS + 80);
-
-    if (isDouble) {
-      clearPendingSingle();
-      lastClickRef.current = null;
-      commit(iso, iso);
-      setPhase("rangeEnd");
-      return;
-    }
-
-    lastClickRef.current = { iso, at: now };
-    clearPendingSingle();
-    setPendingIso(iso);
-    pendingTimerRef.current = setTimeout(() => {
-      pendingTimerRef.current = null;
-      setPendingIso(null);
-      lastClickRef.current = null;
-      commit(iso, iso);
-      close();
-    }, SINGLE_CLICK_MS);
+    commit(iso, iso);
+    setPhase("rangeEnd");
   };
 
   const label = formatFechaRangoCorto(from || undefined, to || undefined);
@@ -458,21 +453,22 @@ export function FechaDiaORangoInput({
   }, [phase, from]);
 
   const selectedDay = useMemo(() => {
-    if (phase === "rangeEnd") return undefined;
-    if (pendingIso) return isoToDate(pendingIso);
+    if (phase === "rangeEnd" || phase === "preview") return undefined;
     if (hasRange) return undefined;
     return isoToDate(from);
-  }, [phase, pendingIso, hasRange, from]);
+  }, [phase, hasRange, from]);
 
   return (
     <Dropdown
       open={open}
       onOpenChange={(next) => {
-        setOpen(next);
         if (!next) {
-          clearPendingSingle();
+          clearPreview();
           setPhase("day");
+          setOpen(false);
+          return;
         }
+        setOpen(true);
       }}
       portal
       fitContent
@@ -517,6 +513,11 @@ export function FechaDiaORangoInput({
                     </>
                   ) : null}
                 </>
+              ) : phase === "preview" ? (
+                <>
+                  Rango:{" "}
+                  <strong className="font-semibold text-navy">{label}</strong>
+                </>
               ) : allowRange ? (
                 TIEMPO_UI_COPY.fechaUnClic
               ) : (
@@ -525,18 +526,30 @@ export function FechaDiaORangoInput({
             </p>
             <div className="flex items-center justify-between gap-2">
               {phase === "rangeEnd" ? (
-                <button
-                  type="button"
-                  className="ds-date-picker-clear"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    clearPendingSingle();
-                    setPhase("day");
-                  }}
-                >
-                  Cancelar
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="ds-date-picker-clear"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setPhase("day");
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="text-[11px] font-semibold text-navy hover:underline"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (from) finishWithPreview(from, from);
+                    }}
+                  >
+                    Listo
+                  </button>
+                </>
               ) : (
                 <button
                   type="button"
@@ -544,7 +557,7 @@ export function FechaDiaORangoInput({
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    clearPendingSingle();
+                    clearPreview();
                     onChange("", "");
                     setPhase("day");
                   }}
@@ -573,7 +586,7 @@ export function FechaDiaORangoInput({
             festivo: matchers.festivo,
             finSemana: matchers.finSemana,
             ...(inicioMatcher ? { inicioRango: inicioMatcher } : {}),
-            ...(hasRange && phase === "day"
+            ...(hasRange && phase !== "rangeEnd"
               ? {
                   rangoStart: (date: Date) => dateToIso(date) === from,
                   rangoEnd: (date: Date) => dateToIso(date) === to,

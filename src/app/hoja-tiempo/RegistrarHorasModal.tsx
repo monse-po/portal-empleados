@@ -100,6 +100,7 @@ type RegistroHorasFormProps = {
   ifsConnected: boolean;
   onSave: (registros: RegistroMock[]) => void | Promise<void>;
   onRangeDaysChange?: (count: number) => void;
+  onReadyChange?: (ready: boolean) => void;
   saving?: boolean;
 };
 
@@ -327,6 +328,7 @@ function RegistroHorasForm({
   ifsConnected,
   onSave,
   onRangeDaysChange,
+  onReadyChange,
   saving = false,
 }: RegistroHorasFormProps) {
   const { mesBounds: bounds } = useMiTiempo();
@@ -459,6 +461,15 @@ function RegistroHorasForm({
   }, []);
 
   const useIfsCatalogLive = useIfsCatalog && Boolean(catalog) && !catalogError;
+  const catalogReady =
+    scheduleReady &&
+    (!useIfsCatalog || !!catalogError || (!catalogLoading && Boolean(catalog)));
+  const tiposReady = !useIfsCatalogLive || !form.act || !tiposLoading;
+  const formReady = catalogReady && tiposReady;
+
+  useEffect(() => {
+    onReadyChange?.(formReady);
+  }, [formReady, onReadyChange]);
 
   const proyEntry = form.proy ? catalog?.porProyecto[form.proy] : undefined;
   const subs = useIfsCatalogLive ? (proyEntry?.subs ?? []) : [];
@@ -720,7 +731,12 @@ function RegistroHorasForm({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (saving || !scheduleReady) return;
+    if (saving || !formReady) {
+      if (!formReady) {
+        toast("Espera a que cargue el catálogo IFS antes de registrar.", "warn");
+      }
+      return;
+    }
 
     const nextErrors = validateForm(
       form,
@@ -742,6 +758,14 @@ function RegistroHorasForm({
       } else if (nextErrors.tipo) {
         toast(nextErrors.tipo, "danger");
       }
+      return;
+    }
+
+    if (useIfsCatalogLive && !actMeta) {
+      toast(
+        "Esa actividad no está vigente para esta fecha. Revisa proyecto, subproyecto y actividad.",
+        "danger",
+      );
       return;
     }
 
@@ -782,6 +806,11 @@ function RegistroHorasForm({
   };
 
   const handleCopiarDiaAnterior = () => {
+    if (!catalogReady) {
+      toast("Espera a que cargue el catálogo IFS", "warn");
+      return;
+    }
+
     const fechas = Object.keys(registros).sort().reverse();
     const anterior = fechas.find(
       (f) => f < form.fecha && (registros[f]?.length ?? 0) > 0,
@@ -802,6 +831,14 @@ function RegistroHorasForm({
     const act = useIfsCatalogLive
       ? resolveActividadId(catalog, proy, sub, ultimo.act)
       : ultimo.act;
+
+    if (useIfsCatalogLive && !catalog?.porProyecto[proy]) {
+      toast(
+        "El proyecto del día anterior no está vigente en esta fecha. Elige otro.",
+        "warn",
+      );
+      return;
+    }
 
     patch({
       proy,
@@ -879,7 +916,13 @@ function RegistroHorasForm({
         <button
           type="button"
           onClick={handleCopiarDiaAnterior}
-          className="btn-link shrink-0"
+          disabled={!catalogReady}
+          title={
+            catalogReady
+              ? "Copia proyecto, actividad y horas del último día con registro"
+              : "Espera a que cargue el catálogo IFS"
+          }
+          className="btn-link shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Icon name="copy" size="xs" />
           Copiar día anterior
@@ -1175,10 +1218,15 @@ export function RegistrarHorasModal() {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [rangeDays, setRangeDays] = useState(1);
+  const [formReady, setFormReady] = useState(false);
 
   const formKey = modal
     ? `${modal.editId ?? "new"}:${modal.fecha ?? "hoy"}:${modal.plantilla?.proy ?? ""}:${modal.plantilla?.act ?? ""}:${modal.plantilla?.horas ?? ""}`
     : "closed";
+
+  useEffect(() => {
+    setFormReady(false);
+  }, [formKey]);
 
   const handleSave = async (payload: RegistroMock[]) => {
     if (!ifsConnected) {
@@ -1223,7 +1271,7 @@ export function RegistrarHorasModal() {
     closeRegistrarModal();
   };
 
-  const saveDisabled = saving || !ifsConnected;
+  const saveDisabled = saving || !ifsConnected || !formReady;
 
   return (
     <Modal
@@ -1271,6 +1319,7 @@ export function RegistrarHorasModal() {
           ifsConnected={ifsConnected}
           onSave={handleSave}
           onRangeDaysChange={setRangeDays}
+          onReadyChange={setFormReady}
           saving={saving}
         />
       )}

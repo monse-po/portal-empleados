@@ -24,7 +24,13 @@ function formatWhen(iso: string): string {
   });
 }
 
-function MobileBellLink({ unreadCount }: { unreadCount: number }) {
+function MobileBellLink({
+  unreadCount,
+  onNavy,
+}: {
+  unreadCount: number;
+  onNavy: boolean;
+}) {
   const pathname = usePathname();
   const active = pathname.startsWith("/notificaciones");
 
@@ -37,8 +43,14 @@ function MobileBellLink({ unreadCount }: { unreadCount: number }) {
           ? `Notificaciones, ${unreadCount} sin leer`
           : "Notificaciones"
       }
-      className={`relative inline-flex h-10 w-10 cursor-pointer touch-manipulation items-center justify-center rounded-md text-navy active:bg-[#f4f7fb] md:hidden ${
-        active ? "text-navy" : "text-[#4b5563]"
+      className={`relative inline-flex h-10 w-10 cursor-pointer touch-manipulation items-center justify-center rounded-md md:hidden ${
+        onNavy
+          ? active
+            ? "text-white active:bg-white/10"
+            : "text-white/80 active:bg-white/10"
+          : active
+            ? "text-navy active:bg-[#f4f7fb]"
+            : "text-[#4b5563] active:bg-[#f4f7fb]"
       }`}
     >
       <Icon name="bell" size="md" />
@@ -70,6 +82,7 @@ export function NotificationBell() {
   if (!roleReady || !ctx) return null;
 
   const { items, unreadCount, loading, markRead, markAllRead } = ctx;
+  const onNavy = isGerente;
   const subtitle = isGerente
     ? "Tiempo · envíos a aprobación"
     : "Tiempo · aprobaciones y rechazos";
@@ -82,7 +95,7 @@ export function NotificationBell() {
 
   return (
     <>
-      <MobileBellLink unreadCount={unreadCount} />
+      <MobileBellLink unreadCount={unreadCount} onNavy={onNavy} />
       <div ref={wrapRef} className="relative hidden md:block">
         <button
           type="button"
@@ -94,7 +107,11 @@ export function NotificationBell() {
           }
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
-          className="relative inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[#e5e9f0] bg-white text-navy transition-colors hover:border-[#c7d9ed] hover:bg-[#f4f7fb]"
+          className={`relative inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border transition-colors ${
+            onNavy
+              ? "border-white/20 bg-white/10 text-white hover:border-white/35 hover:bg-white/15"
+              : "border-[#e5e9f0] bg-white text-navy hover:border-[#c7d9ed] hover:bg-[#f4f7fb]"
+          }`}
         >
           <Icon name="bell" size="md" />
           {unreadCount > 0 && (

@@ -8,8 +8,8 @@ import { TipoAnticipoPill } from "@/src/components/ui/TipoAnticipoPill";
 import {
   DataTable,
   dataTd,
-  dataTdResPrimary,
   dataTdResSecondary,
+  ProyectoCell,
   dataTdTruncate,
   dataThWithAlign,
   TABLE_PAGE_SIZE,
@@ -179,10 +179,7 @@ export function AnticiposTabla({
                   {s.fecha}
                 </td>
                 <td className={dataTd}>
-                  <div className={dataTdResPrimary}>{s.proy}</div>
-                  <div className={dataTdResSecondary} title={s.proyN}>
-                    {s.proyN}
-                  </div>
+                  <ProyectoCell codigo={s.proy} nombre={s.proyN} />
                 </td>
                 <td className={dataTd}>
                   <TipoAnticipoPill tipo={s.tipo} />

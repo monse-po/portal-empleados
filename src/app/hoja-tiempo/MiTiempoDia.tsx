@@ -16,6 +16,7 @@ import {
   dataTdTruncate,
   dataThWithAlign,
   MI_TIEMPO_DIA_COLS,
+  ProyectoCell,
 } from "@/src/components/ui/DataTable";
 import { useToast } from "@/src/components/ui/Toast";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
@@ -27,7 +28,6 @@ import {
   shiftFechaMes,
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
-import { formatProyectoEmpleado } from "@/src/lib/tiempo-bridge";
 import { formatIfsError } from "@/src/lib/ifs/errors";
 import { fetchScheduleHoursAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
@@ -378,8 +378,8 @@ export function MiTiempoDia({
                     }
                     className={`transition-colors duration-100 ${esEditable && !esHistorial ? "cursor-pointer hover:bg-[#eef3f9] active:bg-[#dbeafe]" : "hover:bg-[#fafbfc]"}`}
                   >
-                    <td className={`${dataTd} font-medium ${dataTdTruncate}`}>
-                      {formatProyectoEmpleado(r.proy)}
+                    <td className={dataTd}>
+                      <ProyectoCell codigo={r.proy} nombre={r.proyNombre} />
                     </td>
                     <td className={`${dataTd} ${dataTdTruncate}`}>{r.act}</td>
                     <td className={dataTd}>

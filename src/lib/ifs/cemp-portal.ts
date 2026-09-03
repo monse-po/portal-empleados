@@ -2,6 +2,7 @@ import {
   cempPortalMainBaseUrl,
   cempPortalUserPath,
   ifsFetch,
+  ifsFetchAllPages,
   odataStringKey,
   projectionMainSiblingBaseUrl,
   type IfsRequestInit,
@@ -755,16 +756,36 @@ export async function getEmployeesByCompany(
   return odataCollection<EmployeeInfoQuery>(data);
 }
 
-/** Proyectos de una compañía (GetProjects). */
+/** Proyectos de una compañía (GetProjects). Pagina hasta agotar el LOV IFS. */
 export async function getProjectsByCompany(
   accessToken: string,
   company: string,
 ): Promise<ProjectInfoQuery[]> {
-  const data = await ifsFetch<ODataCollection<ProjectInfoQuery>>(
-    `/GetProjects(Company='${odataStringKey(company)}')?$select=ProjectId,Name,Description,Manager,Company&$top=500`,
-    { accessToken },
-  );
-  return odataCollection<ProjectInfoQuery>(data);
+  const select =
+    "$select=ProjectId,Name,Description,Manager,Company&$orderby=ProjectId";
+  const pageSize = 200;
+  const all: ProjectInfoQuery[] = [];
+  const seen = new Set<string>();
+
+  for (let skip = 0, n = 0; n < 40; n += 1, skip += pageSize) {
+    const path =
+      `/GetProjects(Company='${odataStringKey(company)}')?${select}` +
+      `&$top=${pageSize}&$skip=${skip}`;
+    const chunk = await ifsFetchAllPages<ProjectInfoQuery>(path, {
+      accessToken,
+    });
+    let added = 0;
+    for (const row of chunk) {
+      const id = row.ProjectId?.trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      all.push(row);
+      added += 1;
+    }
+    if (added === 0 || chunk.length < pageSize) break;
+  }
+
+  return all;
 }
 
 /** Cuenta bancaria del empleado (GetBankDetails). */

@@ -716,8 +716,8 @@ export function AnticiposFormulario({
               )}
               {!catalogLoading && !catalogError && proyectos.length === 0 && (
                 <FormHint>
-                  IFS no devolvió proyectos asociados a tu empleado. Revisa
-                  GetValidEmpPrjAct en /dev/ifs.
+                  IFS no devolvió proyectos para esta compañía. Revisa
+                  GetProjects en /dev/ifs.
                 </FormHint>
               )}
               <FormGrid>

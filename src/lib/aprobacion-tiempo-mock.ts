@@ -150,6 +150,60 @@ const SEED: Record<string, HojaAprobacion> = {
     fechaApro: "16/04/2026",
     aprobador: "Carlos Rivas Mora",
   },
+  HT20260080: {
+    no: "HT20260080",
+    fecha: "18/04/2026",
+    compania: "HMVINGCO",
+    proy: formatProyectoAprobacionPorCod("PRY2025001"),
+    subproy: "SUB-201 · Ingeniería de detalle",
+    tipo: "DN",
+    solicitante: "Ana Martínez",
+    cedula: "52.012.345",
+    nombre: "Ana Martínez Rueda",
+    actividad: "Entrega de planos",
+    horas: "4h",
+    comentarioEmpleado: "Entrega parcial de planos estructurales.",
+    estadoApro: "Aprobado",
+    comentarioApro: "Aprobado — avance conforme.",
+    fechaApro: "19/04/2026",
+    aprobador: "Carlos Rivas Mora",
+  },
+  HT20260076: {
+    no: "HT20260076",
+    fecha: "22/04/2026",
+    compania: "HMVINGCO",
+    proy: formatProyectoAprobacionPorCod("PRY2025001"),
+    subproy: "SUB-201 · Ingeniería de detalle",
+    tipo: "DN",
+    solicitante: "Ana Martínez",
+    cedula: "52.012.345",
+    nombre: "Ana Martínez Rueda",
+    actividad: "Diseño estructural",
+    horas: "8h",
+    comentarioEmpleado: "Planos estructurales del nivel 2, ya revisados.",
+    estadoApro: "Aprobado",
+    comentarioApro: "Aprobado — acumulado de la misma actividad.",
+    fechaApro: "23/04/2026",
+    aprobador: "Carlos Rivas Mora",
+  },
+  HT20260078: {
+    no: "HT20260078",
+    fecha: "17/04/2026",
+    compania: "HMVINGCO",
+    proy: formatProyectoAprobacionPorCod("PRY2025001"),
+    subproy: "SUB-201 · Ingeniería de detalle",
+    tipo: "HED",
+    solicitante: "Ana Martínez",
+    cedula: "52.012.345",
+    nombre: "Ana Martínez Rueda",
+    actividad: "Ajustes urgentes",
+    horas: "3h",
+    comentarioEmpleado: "Horas extra no coordinadas con el líder.",
+    estadoApro: "Rechazado",
+    comentarioApro: "Rechazado — falta autorización previa de horas extra.",
+    fechaApro: "18/04/2026",
+    aprobador: "Carlos Rivas Mora",
+  },
   HT20260079: {
     no: "HT20260079",
     fecha: "13/04/2026",
@@ -232,15 +286,15 @@ function generateBulk(): Record<string, HojaAprobacion> {
     formatProyectoAprobacionPorCod("PRY2025002"),
     formatProyectoAprobacionPorCod("PRY2024003"),
   ];
-  const emps: [string, string][] = [
-    ["Ana Martínez", "52.012.345"],
-    ["Luis Herrera", "80.234.567"],
-    ["Sandra López", "43.789.012"],
-    ["Jorge Peña", "79.456.789"],
-    ["María Camila Torres", "1.020.345.678"],
-    ["Diego Ramírez", "94.111.222"],
-    ["Paula Gómez", "63.555.444"],
-    ["Andrés Suárez", "80.777.888"],
+  const emps: [string, string, string][] = [
+    ["Ana Martínez", "52.012.345", "Ana Martínez Rueda"],
+    ["Luis Herrera", "80.234.567", "Luis Herrera Cano"],
+    ["Sandra López", "43.789.012", "Sandra López Mejía"],
+    ["Jorge Peña", "79.456.789", "Jorge Peña Quintero"],
+    ["María Camila Torres", "1.020.345.678", "María Camila Torres Vélez"],
+    ["Diego Ramírez", "94.111.222", "Diego Ramírez Soto"],
+    ["Paula Gómez", "63.555.444", "Paula Gómez Ardila"],
+    ["Andrés Suárez", "80.777.888", "Andrés Suárez León"],
   ];
   const subs = [
     "SUB-201 · Ingeniería de detalle",
@@ -279,6 +333,8 @@ function generateBulk(): Record<string, HojaAprobacion> {
       const e = emps[(i + pi * 3) % emps.length];
       const dia = String(((i * 3 + pi) % 27) + 1).padStart(2, "0");
       const no = `HT${id++}`;
+      const estado =
+        i % 7 === 0 ? "Rechazado" : i % 5 === 0 ? "Aprobado" : "";
       out[no] = {
         no,
         fecha: `${dia}/04/2026`,
@@ -288,11 +344,21 @@ function generateBulk(): Record<string, HojaAprobacion> {
         tipo: tipos[i % tipos.length],
         solicitante: e[0],
         cedula: e[1],
-        nombre: e[0],
+        nombre: e[2],
         actividad: acts[(i + pi) % acts.length],
         horas: hrs[i % hrs.length],
         comentarioEmpleado: coms[i % coms.length],
-        aprobador: "",
+        aprobador: estado ? "Carlos Rivas Mora" : "",
+        ...(estado
+          ? {
+              estadoApro: estado as "Aprobado" | "Rechazado",
+              comentarioApro:
+                estado === "Aprobado"
+                  ? "Aprobado — horas conformes."
+                  : "Rechazado — no autorizado.",
+              fechaApro: `${dia}/04/2026`,
+            }
+          : {}),
       };
     }
   });
@@ -300,8 +366,9 @@ function generateBulk(): Record<string, HojaAprobacion> {
   return out;
 }
 
+/** Seed local para UI (pendientes + resueltas) sin IFS. */
 export function cloneInitialHojas(): Record<string, HojaAprobacion> {
-  return {};
+  return { ...SEED, ...generateBulk() };
 }
 
 export function proyKey(proy: string): string {

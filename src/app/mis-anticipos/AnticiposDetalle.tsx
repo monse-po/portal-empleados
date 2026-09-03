@@ -13,6 +13,7 @@ import {
   ReadOnlyField,
 } from "@/src/components/ui/DetailView";
 import { Icon } from "@/src/components/ui/Icon";
+import { ProyectoCell } from "@/src/components/ui/DataTable";
 import { TipoAnticipoPill } from "@/src/components/ui/TipoAnticipoPill";
 import { useAnticipos } from "@/src/app/mis-anticipos/AnticiposContext";
 import {
@@ -85,7 +86,7 @@ export function AnticiposDetalle({
                 {anticipo.fecha}
               </ReadOnlyField>
               <ReadOnlyField label="Proyecto asociado">
-                {anticipo.proy} – {anticipo.proyN}
+                <ProyectoCell codigo={anticipo.proy} nombre={anticipo.proyN} />
               </ReadOnlyField>
               <ReadOnlyField label="Aprobador">{aprobadorLabel}</ReadOnlyField>
             </DetailGrid>

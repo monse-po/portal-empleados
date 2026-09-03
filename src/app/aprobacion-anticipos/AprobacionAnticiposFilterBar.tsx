@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { DateRangePicker } from "@/src/components/ui/DateRangePicker";
-import { Dropdown } from "@/src/components/ui/Dropdown";
-import { FilterChainRow } from "@/src/components/ui/FilterChainRow";
-import { Icon } from "@/src/components/ui/Icon";
+import {
+  FilterAddMenu,
+  FilterChipShell,
+  LinearFilterToolbar,
+  linearChipValue,
+  linearFechaChip,
+  linearTextChip,
+  useFilterAddState,
+} from "@/src/components/ui/LinearFilterBar";
 import {
   buildFilterMultiOptions,
-  FilterBarMultiDropdown,
-  FilterBarTextInput,
-  FilterBarTrigger,
+  FilterOptionsMenu,
   TableFilterSection,
   type FilterDropdownOption,
 } from "@/src/components/ui/TableFilterBar";
@@ -133,94 +137,66 @@ function useColumnFilterActions(
   return { toggleMulti, setFecha, setText };
 }
 
-function ColumnBarControl({
+function isMultiColumn(
+  column: AproAntFilterColumn,
+): column is "empleado" | "tipo" | "proyecto" | "estado" {
+  return (
+    column === "empleado" ||
+    column === "tipo" ||
+    column === "proyecto" ||
+    column === "estado"
+  );
+}
+
+function FilterValuePanel({
   column,
   registros,
   filters,
   onChange,
-  autoOpen = false,
+  onDone,
+  multiple = false,
 }: {
   column: AproAntFilterColumn;
   registros: AnticipoAprobacion[];
   filters: AproAntFilterRule[];
   onChange: Dispatch<SetStateAction<AproAntFilterRule[]>>;
-  autoOpen?: boolean;
+  onDone?: () => void;
+  multiple?: boolean;
 }) {
-  const [open, setOpen] = useState(autoOpen);
   const existing = getFilterForColumn(filters, column);
   const { toggleMulti, setFecha, setText } = useColumnFilterActions(
     column,
     onChange,
   );
 
-  if (
-    column === "empleado" ||
-    column === "tipo" ||
-    column === "proyecto" ||
-    column === "estado"
-  ) {
-    const values =
-      existing &&
-      (existing.column === "empleado" ||
-        existing.column === "tipo" ||
-        existing.column === "proyecto" ||
-        existing.column === "estado")
-        ? existing.values
-        : [];
+  if (isMultiColumn(column)) {
+    const values = existing?.column === column ? existing.values : [];
     return (
-      <FilterBarMultiDropdown
+      <FilterOptionsMenu
         options={multiOptions(column, registros)}
         selected={values}
         onToggle={toggleMulti}
-        placeholder="elegir…"
-        embedded
-        defaultOpen={autoOpen}
         searchable={column === "empleado" || column === "proyecto"}
         searchPlaceholder={
           column === "proyecto" ? "Buscar proyecto…" : "Buscar empleado…"
         }
+        multiple={multiple}
+        closeOnSelect={!multiple}
+        onClose={onDone}
       />
     );
   }
 
   if (column === "fecha") {
     const f = existing?.column === "fecha" ? existing : undefined;
-    const from = f?.from ? isoToDmy(f.from) : "";
-    const to = f?.to ? isoToDmy(f.to) : "";
-    const display =
-      from && to
-        ? `${from} – ${to}`
-        : from
-          ? `desde ${from}`
-          : to
-            ? `hasta ${to}`
-            : undefined;
     return (
-      <Dropdown
-        open={open}
-        onOpenChange={setOpen}
-        portal
-        fitContent
-        menuClassName="w-[252px] overflow-hidden border-border p-0 shadow-[0_4px_16px_rgba(0,0,0,0.10)]"
-        trigger={
-          <FilterBarTrigger
-            active={!!display}
-            isOpen={open}
-            displayValue={display}
-            placeholder="elegir…"
-            embedded
-            onClick={() => setOpen((o) => !o)}
-          />
-        }
-      >
-        <DateRangePicker
-          from={f?.from}
-          to={f?.to}
-          onChange={setFecha}
-          onRangeComplete={() => setOpen(false)}
-          compact
-        />
-      </Dropdown>
+      <DateRangePicker
+        from={f?.from}
+        to={f?.to}
+        onChange={setFecha}
+        onRangeComplete={onDone}
+        compact
+      />
     );
   }
 
@@ -229,12 +205,74 @@ function ColumnBarControl({
       ? existing.text
       : "";
   return (
-    <FilterBarTextInput
-      value={text}
-      placeholder="texto…"
-      onChange={setText}
-      embedded
-    />
+    <div className="p-1.5">
+      <input
+        autoFocus
+        type="text"
+        value={text}
+        placeholder="Contiene…"
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onDone?.();
+        }}
+        className="h-8 w-full rounded-[6px] border border-border px-2 text-[13px] focus:border-navy focus:outline-none"
+      />
+    </div>
+  );
+}
+
+function chipSummary(
+  column: AproAntFilterColumn,
+  rule: AproAntFilterRule | undefined,
+  options: FilterDropdownOption[],
+): ReactNode {
+  if (!rule) return null;
+  if (isMultiColumn(column) && rule.column === column) {
+    return linearChipValue(rule.values, options);
+  }
+  if (rule.column === "fecha") return linearFechaChip(rule.from, rule.to, isoToDmy);
+  if (rule.column === "codigo" || rule.column === "motivo") {
+    return linearTextChip(rule.text);
+  }
+  return null;
+}
+
+function FilterChip({
+  column,
+  registros,
+  filters,
+  onChange,
+  onRemove,
+}: {
+  column: AproAntFilterColumn;
+  registros: AnticipoAprobacion[];
+  filters: AproAntFilterRule[];
+  onChange: Dispatch<SetStateAction<AproAntFilterRule[]>>;
+  onRemove: () => void;
+}) {
+  const def = getFilterColumnDef(column);
+  const rule = getFilterForColumn(filters, column);
+  const options = isMultiColumn(column) ? multiOptions(column, registros) : [];
+  return (
+    <FilterChipShell
+      label={def.label}
+      icon={def.icon}
+      operator={filterOperatorLabel(column)}
+      value={chipSummary(column, rule, options)}
+      onRemove={onRemove}
+      fitContent={column === "fecha"}
+    >
+      {(close) => (
+        <FilterValuePanel
+          column={column}
+          registros={registros}
+          filters={filters}
+          onChange={onChange}
+          onDone={close}
+          multiple={isMultiColumn(column)}
+        />
+      )}
+    </FilterChipShell>
   );
 }
 
@@ -243,131 +281,64 @@ export function AprobacionAnticiposFilterBar({
   filters,
   onChange,
   tab,
-  shown,
-  total,
   actions,
 }: AprobacionAnticiposFilterBarProps) {
-  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
-  const [barColumns, setBarColumns] = useState<AproAntFilterColumn[]>([]);
-  const [autoOpenColumn, setAutoOpenColumn] = useState<AproAntFilterColumn | null>(
-    null,
-  );
-
+  const add = useFilterAddState<AproAntFilterColumn>(tab);
   const columns = getFilterColumns(tab);
-  const usedColumns = new Set(
-    filters.filter(isRuleComplete).map((f) => f.column),
-  );
+  const activeFilters = filters.filter(isRuleComplete);
+  const usedColumns = new Set(activeFilters.map((f) => f.column));
+  const availableColumns = columns.filter((col) => !usedColumns.has(col.id));
   const hasFilters = hayFiltrosActivos(filters);
-  const availableColumns = columns.filter(
-    (col) => !barColumns.includes(col.id),
-  );
-
-  const pickColumn = (col: AproAntFilterColumn) => {
-    setColumnMenuOpen(false);
-    setBarColumns((prev) => (prev.includes(col) ? prev : [...prev, col]));
-    setAutoOpenColumn(col);
-  };
-
-  const removeBarColumn = (col: AproAntFilterColumn) => {
-    setBarColumns((prev) => prev.filter((c) => c !== col));
-    onChange((prev) => removeFilterByColumn(prev, col));
-    if (autoOpenColumn === col) setAutoOpenColumn(null);
-  };
-
-  const clearAll = () => {
-    setBarColumns([]);
-    onChange([]);
-    setAutoOpenColumn(null);
-  };
+  const addColumn = add.column ? getFilterColumnDef(add.column) : null;
 
   return (
     <TableFilterSection>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <span className="shrink-0 text-[13px] font-medium text-[#374151]">
-            Filtrar por:
-          </span>
-
-          {barColumns.map((col) => {
-            const def = getFilterColumnDef(col);
-            const active =
-              !!getFilterForColumn(filters, col) && usedColumns.has(col);
-            return (
-              <FilterChainRow
-                key={col}
-                label={def.label}
-                icon={def.icon}
-                operator={filterOperatorLabel(col)}
-                active={active || !!getFilterForColumn(filters, col)}
-                onRemove={() => removeBarColumn(col)}
-              >
-                <ColumnBarControl
-                  column={col}
-                  registros={registros}
-                  filters={filters}
-                  onChange={onChange}
-                  autoOpen={autoOpenColumn === col}
-                />
-              </FilterChainRow>
-            );
-          })}
-
-          {availableColumns.length > 0 ? (
-          <Dropdown
-            open={columnMenuOpen}
-            onOpenChange={setColumnMenuOpen}
-            portal
-            menuClassName="shadow-[0_4px_16px_rgba(0,0,0,0.10)] min-w-[220px] border-[#E5E7EB] py-1"
-            trigger={
-              <button
-                type="button"
-                onClick={() => setColumnMenuOpen((o) => !o)}
-                className="inline-flex cursor-pointer items-center gap-1 rounded-[6px] border border-dashed border-[#c7d9ed] bg-white px-2.5 py-1 text-[12px] font-semibold text-navy hover:border-navy hover:bg-[#f4f7fb]"
-              >
-                <Icon name="plus" size="xs" />
-                Filtros
-              </button>
+      <LinearFilterToolbar
+        chips={activeFilters.map((rule) => (
+          <FilterChip
+            key={rule.column}
+            column={rule.column}
+            registros={registros}
+            filters={filters}
+            onChange={onChange}
+            onRemove={() =>
+              onChange((prev) => removeFilterByColumn(prev, rule.column))
             }
-          >
-            <div className="py-0">
-              {availableColumns.map((col) => (
-                <button
-                  key={col.id}
-                  type="button"
-                  onClick={() => pickColumn(col.id)}
-                  className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-2.5 text-left text-[14px] font-normal text-[#1F2937] hover:bg-[#F3F4F6]"
-                >
-                  <Icon
-                    name={col.icon}
-                    size="sm"
-                    className="h-4 w-4 shrink-0 text-navy"
-                  />
-                  <span className="min-w-0 truncate">{col.label}</span>
-                </button>
-              ))}
-            </div>
-          </Dropdown>
-          ) : null}
-
-          {hasFilters && (
-            <button
-              type="button"
-              onClick={clearAll}
-              className="cursor-pointer border-none bg-transparent px-1 text-[12px] font-semibold text-muted hover:text-navy"
+          />
+        ))}
+        add={
+          availableColumns.length > 0 ? (
+            <FilterAddMenu
+              fields={availableColumns}
+              stepLabel={addColumn?.label}
+              fitContent={add.column === "fecha"}
             >
-              Limpiar todo
-            </button>
-          )}
-        </div>
-        {actions ? <div className="shrink-0">{actions}</div> : null}
-      </div>
-
-      {hasFilters && shown !== undefined && total !== undefined && (
-        <p className="mt-2 text-[12px] text-muted">
-          Mostrando <b className="text-navy">{shown}</b> de{" "}
-          <b className="text-navy">{total}</b>
-        </p>
-      )}
+              {{
+                open: add.open,
+                onOpenChange: add.onOpenChange,
+                onPickField: (id) => add.pick(id as AproAntFilterColumn),
+                onBack: add.back,
+                panel: add.column ? (
+                  <FilterValuePanel
+                    column={add.column}
+                    registros={registros}
+                    filters={filters}
+                    onChange={onChange}
+                    onDone={add.close}
+                    multiple={false}
+                  />
+                ) : null,
+              }}
+            </FilterAddMenu>
+          ) : null
+        }
+        hasFilters={hasFilters}
+        onClear={() => {
+          onChange([]);
+          add.close();
+        }}
+        actions={actions}
+      />
     </TableFilterSection>
   );
 }

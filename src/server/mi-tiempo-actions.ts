@@ -21,6 +21,11 @@ import {
 import { isIfsAuthEnabled } from "@/src/lib/ifs/config";
 import { getServerIfsSession } from "@/src/lib/ifs/session";
 import {
+  applyDemoApprovalDecision,
+  getDemoApprovalRaw,
+  isDemoApprovalRegistroId,
+} from "@/src/lib/ifs/tiempo-approval-demo";
+import {
   approvalEventsForDecision,
   buildEmpTimeApproval,
   extractEmpTimeApprovalErrors,
@@ -29,6 +34,7 @@ import {
   mapApprovalTimesheetToProyectos,
   type HorasProyectoAprobacion,
 } from "@/src/lib/ifs/tiempo-approval";
+import { cloneInitialHojas } from "@/src/lib/aprobacion-tiempo-mock";
 import {
   parseEmpReportItems,
   extractEmpTimeDeleteErrors,
@@ -588,9 +594,27 @@ export type ResumenProyectosAprobacionResult = {
   warning?: string;
 };
 
+function demoApprovalPayload() {
+  const raw = getDemoApprovalRaw(cloneInitialHojas());
+  return {
+    hojas: mapApprovalTimesheetToHojas(raw),
+    proyectos: mapApprovalTimesheetToProyectos(raw),
+    raw,
+  };
+}
+
 /** Pendientes para bandeja gerente: solo IFS GetApprovalTimesheets. */
 export async function getHojasPendientesAprobacionAction(): Promise<HojasAprobacionResult> {
   const session = await getServerIfsSession();
+  const useDemo =
+    process.env.NODE_ENV === "development" &&
+    (!session || !isIfsAuthEnabled());
+
+  if (useDemo) {
+    const demo = demoApprovalPayload();
+    return { hojas: demo.hojas, fromIfs: false };
+  }
+
   if (!session) {
     return { hojas: [], fromIfs: false };
   }
@@ -598,11 +622,23 @@ export async function getHojasPendientesAprobacionAction(): Promise<HojasAprobac
   try {
     const raw = await withIfsPortalSession((ifs) => getApprovalTimesheets(ifs));
     const ifsHojas = mapApprovalTimesheetToHojas(raw);
+    if (!ifsHojas.length && process.env.NODE_ENV === "development") {
+      const demo = demoApprovalPayload();
+      return { hojas: demo.hojas, fromIfs: false };
+    }
     return {
       hojas: ifsHojas,
       fromIfs: true,
     };
   } catch (err) {
+    if (process.env.NODE_ENV === "development") {
+      const demo = demoApprovalPayload();
+      return {
+        hojas: demo.hojas,
+        fromIfs: false,
+        warning: "Demo local: no se pudo cargar IFS. Mostrando datos de prueba.",
+      };
+    }
     return {
       hojas: [],
       fromIfs: false,
@@ -617,18 +653,49 @@ export async function getHojasPendientesAprobacionAction(): Promise<HojasAprobac
 /** Horas acumuladas / aprobadas / rechazadas por código de proyecto. */
 export async function getResumenProyectosAprobacionAction(): Promise<ResumenProyectosAprobacionResult> {
   const session = await getServerIfsSession();
+  const useDemo =
+    process.env.NODE_ENV === "development" &&
+    (!session || !isIfsAuthEnabled());
+
+  if (useDemo) {
+    const demo = demoApprovalPayload();
+    return {
+      proyectos: demo.proyectos,
+      raw: demo.raw,
+      fromIfs: false,
+    };
+  }
+
   if (!session) {
     return { proyectos: [], raw: { value: [] }, fromIfs: false };
   }
 
   try {
     const raw = await withIfsPortalSession((ifs) => getApprovalTimesheets(ifs));
+    const proyectos = mapApprovalTimesheetToProyectos(raw);
+    if (!proyectos.length && process.env.NODE_ENV === "development") {
+      const demo = demoApprovalPayload();
+      return {
+        proyectos: demo.proyectos,
+        raw: demo.raw,
+        fromIfs: false,
+      };
+    }
     return {
-      proyectos: mapApprovalTimesheetToProyectos(raw),
+      proyectos,
       raw,
       fromIfs: true,
     };
   } catch (err) {
+    if (process.env.NODE_ENV === "development") {
+      const demo = demoApprovalPayload();
+      return {
+        proyectos: demo.proyectos,
+        raw: demo.raw,
+        fromIfs: false,
+        warning: "Demo local: no se pudo cargar IFS. Mostrando datos de prueba.",
+      };
+    }
     return {
       proyectos: [],
       raw: { value: [] },
@@ -660,7 +727,20 @@ export async function resolverAprobacionTiempoAction(input: {
   const neonIds = input.registroIds.filter((id) => !isIfsRegistroId(id));
 
   if (ifsIds.length) {
-    if (!(await getServerIfsSession())) {
+    const session = await getServerIfsSession();
+    const demoLocal =
+      process.env.NODE_ENV === "development" &&
+      ifsIds.every(isDemoApprovalRegistroId) &&
+      (!session || !isIfsAuthEnabled());
+    if (demoLocal) {
+      applyDemoApprovalDecision(
+        ifsIds,
+        input.decision,
+        input.comentario || "",
+      );
+      return { ok: true, sentToIfs: false };
+    }
+    if (!session) {
       return {
         ok: false,
         sentToIfs: false,

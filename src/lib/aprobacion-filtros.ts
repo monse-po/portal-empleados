@@ -136,6 +136,33 @@ export function getDistinctValues(
   return [...set].sort((a, b) => a.localeCompare(b, "es"));
 }
 
+export type DistinctValueStat = {
+  value: string;
+  count: number;
+  horas: number;
+};
+
+/** Totales de la data ya filtrada (p. ej. horas por actividad). */
+export function getDistinctValueStats(
+  hojas: HojaAprobacion[],
+  col: "empleado" | "tipo" | "proyecto" | "subproy" | "actividad" | "estado",
+): DistinctValueStat[] {
+  const map = new Map<string, DistinctValueStat>();
+  for (const h of hojas) {
+    const value = getFieldValue(h, col);
+    if (!value) continue;
+    const cur = map.get(value) ?? { value, count: 0, horas: 0 };
+    cur.count += 1;
+    cur.horas += horasNum(h.horas);
+    map.set(value, cur);
+  }
+  return [...map.values()].sort((a, b) => {
+    if (b.horas !== a.horas) return b.horas - a.horas;
+    if (b.count !== a.count) return b.count - a.count;
+    return a.value.localeCompare(b.value, "es");
+  });
+}
+
 function matchRule(h: HojaAprobacion, rule: AproFilterRule): boolean {
   switch (rule.column) {
     case "fecha": {

@@ -2,7 +2,7 @@
 
 import { EstadoTiempoPill } from "@/src/components/ui/Pill";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
-import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
+import { ProyectoCell } from "@/src/components/ui/DataTable";
 import {
   isRegistroEditable,
   isRegistroEliminable,
@@ -23,7 +23,6 @@ export function TiempoRegistroMobileCard({
   onDelete,
   deleteDisabled,
 }: TiempoRegistroMobileCardProps) {
-  const proy = getProyectoListaParts(registro.proy, registro.proyNombre);
   const editable = isRegistroEditable(registro.estado);
   const canDelete = isRegistroEliminable(registro.estado) && onDelete;
   const clickable = Boolean(editable && onOpen);
@@ -49,14 +48,10 @@ export function TiempoRegistroMobileCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate font-semibold text-navy">
-            {proy.codigo || "Sin proyecto"}
-          </div>
-          {proy.nombre ? (
-            <div className="mt-0.5 truncate text-[11px] text-muted">
-              {proy.nombre}
-            </div>
-          ) : null}
+          <ProyectoCell
+            codigo={registro.proy}
+            nombre={registro.proyNombre}
+          />
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <EstadoTiempoPill estado={registro.estado} />

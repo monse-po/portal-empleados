@@ -16,6 +16,9 @@ import {
   dataTdClamp,
   dataTdNumeric,
   dataTdResAction,
+  dataTdResPrimary,
+  dataTdResSecondary,
+  ProyectoCell,
   dataTdTruncate,
   dataTh,
   dataThCheck,
@@ -89,31 +92,20 @@ export function AprobacionTabla({
   const idsFiltrados = registros.map((r) => r.no);
   const { allSelected, someSelected } = getSelectionState(seleccion, idsFiltrados);
 
-  const renderProy = (proy: string) => {
-    const code = proyKey(proy);
-    const name = proyNombre(proy);
-    return (
-      <>
-        <div className={dataTdTruncate}>{code || proy || "—"}</div>
-        {name && (
-          <div className={`text-[11px] text-[#9ca3af] ${dataTdTruncate}`}>
-            {name}
-          </div>
-        )}
-      </>
-    );
-  };
+  const renderProy = (proy: string) => (
+    <ProyectoCell codigo={proyKey(proy) || proy} nombre={proyNombre(proy)} />
+  );
 
   const renderSubproy = (subproy: string) => {
     const sp = splitSubproy(subproy);
     return (
       <>
-        <div className={dataTdTruncate}>{sp.code}</div>
-        {sp.name && (
-          <div className={`text-[11px] text-[#9ca3af] ${dataTdTruncate}`}>
+        <div className={dataTdResPrimary}>{sp.code}</div>
+        {sp.name ? (
+          <div className={dataTdResSecondary} title={sp.name}>
             {sp.name}
           </div>
-        )}
+        ) : null}
       </>
     );
   };
@@ -172,11 +164,15 @@ export function AprobacionTabla({
       </td>
       <td className={dataTd}>
         <EstadoTiempoPill estado={s.estadoApro || ""} />
+        <div className={`${dataTdResSecondary} text-muted`}>
+          {s.fechaApro || "—"}
+        </div>
       </td>
       <td
-        className={`${dataTd} ${s.estadoApro === "Rechazado" ? "text-[#b91c1c]" : "text-muted"}`}
+        className={`${dataTd} ${s.estadoApro === "Rechazado" ? "text-[#b91c1c]" : "text-muted"} ${dataTdTruncate}`}
+        title={s.comentarioApro}
       >
-        <div className={dataTdClamp}>{s.comentarioApro || "—"}</div>
+        {s.comentarioApro || "—"}
       </td>
       <td className={dataTdResAction} onClick={(e) => e.stopPropagation()}>
         <TableActionWrap>

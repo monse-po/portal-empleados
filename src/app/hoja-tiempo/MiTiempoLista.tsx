@@ -15,8 +15,7 @@ import {
   dataTdNumeric,
   dataTdTruncate,
   dataThWithAlign,
-  dataTdResPrimary,
-  dataTdResSecondary,
+  ProyectoCell,
   MI_TIEMPO_LISTA_COLS,
 } from "@/src/components/ui/DataTable";
 import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
@@ -38,7 +37,6 @@ import {
   isRegistroEditable,
   isRegistroEliminable,
 } from "@/src/lib/tiempo-registro-rules";
-import { getProyectoListaParts } from "@/src/lib/tiempo-bridge";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
@@ -519,22 +517,7 @@ function ListaTab({
                         className={`transition-colors duration-100 ${esEditable ? "cursor-pointer hover:bg-[#eef3f9] active:bg-[#dbeafe]" : "hover:bg-[#fafbfc]"}`}
                       >
                         <td className={dataTd}>
-                          {(() => {
-                            const proy = getProyectoListaParts(r.proy, r.proyNombre);
-                            return (
-                              <div className="min-w-0">
-                                <div className={dataTdResPrimary}>{proy.codigo}</div>
-                                {proy.nombre ? (
-                                  <div
-                                    className={dataTdResSecondary}
-                                    title={proy.nombreFull}
-                                  >
-                                    {proy.nombre}
-                                  </div>
-                                ) : null}
-                              </div>
-                            );
-                          })()}
+                          <ProyectoCell codigo={r.proy} nombre={r.proyNombre} />
                         </td>
                         <td className={`${dataTd} ${dataTdTruncate}`}>{r.act}</td>
                         <td className={dataTd}>

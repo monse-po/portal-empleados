@@ -1,4 +1,8 @@
 import type { ReactNode } from "react";
+import {
+  baseProyectoCodigo,
+  baseProyectoNombre,
+} from "@/src/lib/proyecto-display";
 
 type DataTableProps = {
   /** Column widths as CSS values, e.g. "10%", "72px" */
@@ -127,6 +131,33 @@ export const dataTdResPrimary = "truncate font-medium leading-snug";
 /** Segunda línea en celdas apiladas */
 export const dataTdResSecondary =
   "truncate text-[11px] leading-snug text-[#9ca3af]";
+
+/** Código base (ProjectId) + descripción. El código es la línea principal. */
+export function ProyectoCell({
+  codigo,
+  nombre,
+}: {
+  codigo?: string | null;
+  nombre?: string | null;
+}) {
+  const code = baseProyectoCodigo(codigo);
+  const desc = baseProyectoNombre(codigo, nombre);
+  if (!code && !desc) {
+    return <span className="text-muted">—</span>;
+  }
+  return (
+    <div className="min-w-0">
+      <div className={`${dataTdResPrimary} font-semibold`} title={code}>
+        {code || "—"}
+      </div>
+      {desc ? (
+        <div className={dataTdResSecondary} title={desc}>
+          {desc}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /** Mi Tiempo — vista día e historial (7 columnas de datos) */
 export const MI_TIEMPO_COLS = [

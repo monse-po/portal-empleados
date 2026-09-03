@@ -4,6 +4,10 @@ import {
   PROYECTOS,
   type RegistroEstado,
 } from "@/src/lib/mi-tiempo-mock";
+import {
+  baseProyectoCodigo,
+  baseProyectoNombre,
+} from "@/src/lib/proyecto-display";
 import type { RegistroMock } from "@/src/lib/tiempo-registro";
 
 export type SyncRegistroAccion = "aprobado" | "rechazado" | "anulado";
@@ -56,11 +60,10 @@ export function formatProyectoEmpleado(proyectoId: string): string {
 
 export const PROYECTO_NOMBRE_LISTA_MAX = 36;
 
-/** Código + nombre truncado para la tab Lista. */
+/** Código base + nombre truncado para la tab Lista. */
 export function getProyectoListaParts(proyectoId: string, nombreProy?: string) {
-  const codigo = proyectoId;
-  const raw = (nombreProy ?? "").trim();
-  const nombreFull = raw && raw !== proyectoId ? raw : "";
+  const codigo = baseProyectoCodigo(proyectoId);
+  const nombreFull = baseProyectoNombre(proyectoId, nombreProy);
   const nombre =
     nombreFull.length > PROYECTO_NOMBRE_LISTA_MAX
       ? `${nombreFull.slice(0, PROYECTO_NOMBRE_LISTA_MAX)}…`

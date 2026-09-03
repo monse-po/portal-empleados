@@ -9,6 +9,7 @@ export type AproProyFilterColumn =
   | "nombre"
   | "empleado"
   | "cedula"
+  | "actividad"
   | "porAprobar"
   | "acumulado";
 
@@ -24,7 +25,7 @@ export type AproProyFilterRule =
     }
   | {
       id: string;
-      column: "proyecto" | "empleado";
+      column: "proyecto" | "empleado" | "actividad";
       values: string[];
     }
   | {
@@ -44,15 +45,16 @@ export type AproProyFilterColumnDef = {
 const COLS_PROYECTO: AproProyFilterColumnDef[] = [
   { id: "proyecto", label: "Proyecto", icon: "folderOpen" },
   { id: "nombre", label: "Nombre", icon: "pencil" },
-  { id: "porAprobar", label: "Por aprobar", icon: "hourglass" },
-  { id: "acumulado", label: "Acumulado", icon: "clock" },
+  { id: "porAprobar", label: "Horas por aprobar", icon: "hourglass" },
+  { id: "acumulado", label: "Horas registradas", icon: "clock" },
 ];
 
 const COLS_EMPLEADO: AproProyFilterColumnDef[] = [
   { id: "empleado", label: "Empleado", icon: "user" },
+  { id: "actividad", label: "Actividad", icon: "flag" },
   { id: "cedula", label: "Cédula", icon: "copy" },
-  { id: "porAprobar", label: "Por aprobar", icon: "hourglass" },
-  { id: "acumulado", label: "Acumulado", icon: "clock" },
+  { id: "porAprobar", label: "Horas por aprobar", icon: "hourglass" },
+  { id: "acumulado", label: "Horas registradas", icon: "clock" },
 ];
 
 export function getFilterColumns(
@@ -152,6 +154,14 @@ export function getDistinctEmpleadoNombres(
   );
 }
 
+export function getDistinctActividades(
+  items: HorasEmpleadoAprobacion[],
+): string[] {
+  return [...new Set(items.map((e) => e.actividad).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b, "es"),
+  );
+}
+
 export function horasOpLabel(op: HorasFilterOp): string {
   switch (op) {
     case "gte":
@@ -231,6 +241,9 @@ export function applyEmpleadoFilters(
     active.every((rule) => {
       if (rule.column === "empleado") {
         return rule.values.includes(e.nombre);
+      }
+      if (rule.column === "actividad") {
+        return rule.values.includes(e.actividad);
       }
       if (rule.column === "cedula") {
         return e.empNo.toLowerCase().includes(rule.text.trim().toLowerCase());

@@ -60,7 +60,7 @@ function applyProfile(
 }
 
 export function UserMenu() {
-  const { rol, setRol, homePath } = useRole();
+  const { rol, setRol, homePath, roleReady } = useRole();
   const { toast } = useToast();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -167,6 +167,7 @@ export function UserMenu() {
 
   const title = profileTitle(profile, loading);
   const subtitle = profileSubtitle(profile, loading);
+  const onNavy = roleReady && rol === "gerente";
 
   return (
     <div ref={rootRef} className="relative">
@@ -178,19 +179,40 @@ export function UserMenu() {
         aria-haspopup="menu"
         aria-label="Menú de usuario"
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eef3f9]">
-          <Icon name="user" size="xs" className="text-navy" />
+        <div
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+            onNavy ? "bg-white/15" : "bg-[#eef3f9]"
+          }`}
+        >
+          <Icon
+            name="user"
+            size="xs"
+            className={onNavy ? "text-white" : "text-navy"}
+          />
         </div>
         <div className="hidden flex-col gap-px text-left md:flex">
-          <span className="text-[13px] font-semibold leading-tight text-navy">
+          <span
+            className={`text-[13px] font-semibold leading-tight ${
+              onNavy ? "text-white" : "text-navy"
+            }`}
+          >
             {title}
           </span>
-          <span className="text-[11px] leading-tight text-muted">{subtitle}</span>
+          <span
+            className={`text-[11px] leading-tight ${
+              onNavy ? "text-white/70" : "text-muted"
+            }`}
+          >
+            {subtitle}
+          </span>
         </div>
         <span
           className={`ml-0.5 hidden transition-transform md:inline-flex ${open ? "rotate-180" : ""}`}
         >
-          <DropdownChevron open={open} />
+          <DropdownChevron
+            open={open}
+            className={onNavy ? "text-white" : "text-muted"}
+          />
         </span>
       </button>
 

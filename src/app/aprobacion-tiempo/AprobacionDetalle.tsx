@@ -16,6 +16,7 @@ import {
 import { GerenteAccionBar } from "@/src/components/ui/GerenteAccionBar";
 import { Icon } from "@/src/components/ui/Icon";
 import { EstadoTiempoPill, estadoTiempoPillProps } from "@/src/components/ui/Pill";
+import { ProyectoCell } from "@/src/components/ui/DataTable";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import { useToast } from "@/src/components/ui/Toast";
 import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
@@ -77,9 +78,6 @@ export function AprobacionDetalle({
   const { loading: rechazando, run: runRechazar } =
     useAsyncAction(handleRechazar);
 
-  const proyCodigo = proyKey(hoja.proy) || hoja.proy;
-  const proyNombreTxt = proyNombre(hoja.proy);
-
   const campos = (
     <DetailGrid>
       <ReadOnlyField label="Fecha">{hoja.fecha}</ReadOnlyField>
@@ -90,12 +88,7 @@ export function AprobacionDetalle({
         {horasNum(hoja.horas)}
       </ReadOnlyField>
       <ReadOnlyField label="Proyecto" className="md:col-span-2">
-        <span className="block truncate">{proyCodigo}</span>
-        {proyNombreTxt ? (
-          <span className="block truncate text-[11px] font-normal text-[#9ca3af]">
-            {proyNombreTxt}
-          </span>
-        ) : null}
+        <ProyectoCell codigo={proyKey(hoja.proy) || hoja.proy} nombre={proyNombre(hoja.proy)} />
       </ReadOnlyField>
       <ReadOnlyField label="Subproyecto">{hoja.subproy || "—"}</ReadOnlyField>
       <ReadOnlyField label="Actividad">{hoja.actividad}</ReadOnlyField>

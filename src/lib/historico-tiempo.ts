@@ -194,14 +194,12 @@ export function getHistoricoResumenPorProyectoSub(
     const subproyId = r.subproyId?.trim();
     const actividad = r.act?.trim() || "—";
     const key = `${r.proy}::${subproyId || subproy}::${actividad}`;
-    const parts = getProyectoListaParts(r.proy, r.proyNombre);
-    const nombre =
-      r.proyNombre?.trim() ||
-      nombresPorProy?.[r.proy] ||
-      (parts.nombreFull !== parts.codigo ? parts.nombreFull : parts.codigo);
-    const codigo = parts.codigo.includes(".")
-      ? parts.codigo.split(".")[0] || parts.codigo
-      : parts.codigo;
+    const parts = getProyectoListaParts(
+      r.proy,
+      r.proyNombre ?? nombresPorProy?.[r.proy],
+    );
+    const nombre = parts.nombreFull || parts.codigo;
+    const codigo = parts.codigo;
     const cur = map.get(key) ?? {
       proyId: r.proy,
       codigo,

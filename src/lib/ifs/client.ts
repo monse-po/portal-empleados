@@ -9,6 +9,11 @@ export type IfsRequestInit = Omit<RequestInit, "headers"> & {
   baseUrl?: string;
 };
 
+type ODataPage<T> = {
+  value?: T[];
+  "@odata.nextLink"?: string;
+};
+
 export async function ifsFetch<T>(
   path: string,
   init: IfsRequestInit,
@@ -37,6 +42,43 @@ export async function ifsFetch<T>(
 
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
+}
+
+/**
+ * Recorre @odata.nextLink. IFS Cloud a menudo ignora $top grande y corta
+ * la primera página (20–25 filas) — sin esto el LOV parece “una categoría”.
+ */
+export async function ifsFetchAllPages<T>(
+  path: string,
+  init: IfsRequestInit,
+  maxPages = 40,
+): Promise<T[]> {
+  const rows: T[] = [];
+  const seen = new Set<string>();
+  let next: string | undefined = path;
+
+  for (let page = 0; next && page < maxPages; page += 1) {
+    if (seen.has(next)) break;
+    seen.add(next);
+    const data: ODataPage<T> | T[] = await ifsFetch<ODataPage<T> | T[]>(
+      next,
+      {
+        ...init,
+        headers: {
+          Prefer: "odata.maxpagesize=500",
+          ...init.headers,
+        },
+      },
+    );
+    if (Array.isArray(data)) {
+      rows.push(...data);
+      break;
+    }
+    rows.push(...(data.value ?? []));
+    next = data["@odata.nextLink"];
+  }
+
+  return rows;
 }
 
 /** Convierte …/int/… → …/main/… (canal UI Aurena). */

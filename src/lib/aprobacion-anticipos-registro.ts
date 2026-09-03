@@ -1,10 +1,7 @@
 import { dmyToSortKey } from "@/src/lib/tiempo-bridge";
 import type { AnticipoTipo } from "@/src/lib/anticipos-registro";
 import { formatMonto, hoyDMY } from "@/src/lib/anticipos-registro";
-import {
-  ACTION_COL_WIDTH,
-  CHECKBOX_COL_WIDTH,
-} from "@/src/components/ui/DataTable";
+import { CHECKBOX_COL_WIDTH } from "@/src/components/ui/DataTable";
 
 export type AnticipoAprobacionTab = "pendientes" | "resueltas";
 
@@ -40,14 +37,13 @@ export type AnticipoAprobacion = {
 
 export const APRO_ANT_COLS_PEND = [
   CHECKBOX_COL_WIDTH,
+  "10%",
   "9%",
-  "8%",
-  "12%",
-  "7%",
   "13%",
-  "24%",
-  "11%",
-  ACTION_COL_WIDTH,
+  "8%",
+  "14%",
+  "32%",
+  "14%",
 ] as const;
 
 export function filterAproAnticiposByTab(

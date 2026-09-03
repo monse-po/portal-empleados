@@ -1,17 +1,25 @@
 "use client";
 
-import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { DateRangePicker } from "@/src/components/ui/DateRangePicker";
-import { Dropdown } from "@/src/components/ui/Dropdown";
-import { SelectControl } from "@/src/components/ui/DropdownAffordance";
-import { FilterChainRow } from "@/src/components/ui/FilterChainRow";
-import { Icon } from "@/src/components/ui/Icon";
 import {
-  buildFilterMultiOptions,
-  FilterBarMultiDropdown,
-  FilterBarTextInput,
-  FilterBarTrigger,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
+import { DateRangePicker } from "@/src/components/ui/DateRangePicker";
+import { SelectControl } from "@/src/components/ui/DropdownAffordance";
+import {
+  FilterAddMenu,
+  FilterChipShell,
+  LinearFilterToolbar,
+  linearChipValue,
+  linearFechaChip,
+  linearTextChip,
+  useFilterAddState,
+} from "@/src/components/ui/LinearFilterBar";
+import {
+  FilterOptionsMenu,
   TableFilterSection,
+  buildFilterMultiOptions,
   type FilterDropdownOption,
 } from "@/src/components/ui/TableFilterBar";
 import {
@@ -45,6 +53,7 @@ type AprobacionFilterBarProps = {
   embedded?: boolean;
   /** Aprobar/Rechazar en la misma franja que los filtros */
   actions?: ReactNode;
+  hideColumns?: AproFilterColumn[];
 };
 
 function valueOptionIcon(column: AproFilterColumn, val: string): IconName {
@@ -79,15 +88,25 @@ function multiOptions(
   );
 }
 
-function filterOperatorLabel(column: AproFilterColumn): string {
-  switch (column) {
-    case "comentario":
-      return "contiene";
-    case "fecha":
-      return "entre";
-    default:
-      return "es";
-  }
+function isMultiColumn(
+  column: AproFilterColumn,
+): column is "empleado" | "tipo" | "proyecto" | "subproy" | "actividad" | "estado" {
+  return (
+    column === "empleado" ||
+    column === "tipo" ||
+    column === "proyecto" ||
+    column === "subproy" ||
+    column === "actividad" ||
+    column === "estado"
+  );
+}
+
+function searchPlaceholderFor(column: AproFilterColumn): string {
+  if (column === "proyecto") return "Buscar proyecto…";
+  if (column === "subproy") return "Buscar subproyecto…";
+  if (column === "actividad") return "Buscar actividad…";
+  if (column === "empleado") return "Buscar empleado…";
+  return "Buscar…";
 }
 
 function useColumnFilterActions(
@@ -174,107 +193,72 @@ function useColumnFilterActions(
   return { toggleMulti, setFecha, setHoras, setComentario };
 }
 
-function ColumnBarControl({
+function filterOperatorLabel(
+  column: AproFilterColumn,
+  rule?: AproFilterRule,
+): string {
+  if (column === "comentario") return "contiene";
+  if (column === "fecha") return "entre";
+  if (column === "horas" && rule?.column === "horas") {
+    if (rule.op === "gte") return "≥";
+    if (rule.op === "lte") return "≤";
+    if (rule.op === "between") return "entre";
+    return "=";
+  }
+  return "es";
+}
+
+function FilterValuePanel({
   column,
   registros,
   filters,
   onChange,
-  autoOpen = false,
+  onDone,
+  multiple = false,
 }: {
   column: AproFilterColumn;
   registros: HojaAprobacion[];
   filters: AproFilterRule[];
   onChange: Dispatch<SetStateAction<AproFilterRule[]>>;
-  autoOpen?: boolean;
+  onDone?: () => void;
+  multiple?: boolean;
 }) {
-  const [open, setOpen] = useState(autoOpen);
   const existing = getFilterForColumn(filters, column);
   const { toggleMulti, setFecha, setHoras, setComentario } =
     useColumnFilterActions(column, onChange);
 
-  if (
-    column === "empleado" ||
-    column === "tipo" ||
-    column === "proyecto" ||
-    column === "subproy" ||
-    column === "actividad" ||
-    column === "estado"
-  ) {
+  if (isMultiColumn(column)) {
     const values =
-      existing &&
-      (existing.column === "empleado" ||
-        existing.column === "tipo" ||
-        existing.column === "proyecto" ||
-        existing.column === "subproy" ||
-        existing.column === "actividad" ||
-        existing.column === "estado")
-        ? existing.values
-        : [];
+      existing && existing.column === column ? existing.values : [];
     return (
-      <FilterBarMultiDropdown
+      <FilterOptionsMenu
         options={multiOptions(column, registros)}
         selected={values}
         onToggle={toggleMulti}
-        placeholder="elegir…"
-        embedded
-        defaultOpen={autoOpen}
         searchable={
           column === "proyecto" ||
           column === "subproy" ||
           column === "actividad" ||
           column === "empleado"
         }
-        searchPlaceholder={
-          column === "proyecto"
-            ? "Buscar proyecto…"
-            : column === "subproy"
-              ? "Buscar subproyecto…"
-              : column === "actividad"
-                ? "Buscar actividad…"
-                : "Buscar empleado…"
-        }
+        searchPlaceholder={searchPlaceholderFor(column)}
+        multiple={multiple}
+        closeOnSelect={!multiple}
+        onClose={onDone}
       />
     );
   }
 
   if (column === "fecha") {
     const f = existing?.column === "fecha" ? existing : undefined;
-    const from = f?.from ? isoToDmy(f.from) : "";
-    const to = f?.to ? isoToDmy(f.to) : "";
-    const display =
-      from && to
-        ? `${from} – ${to}`
-        : from
-          ? `desde ${from}`
-          : to
-            ? `hasta ${to}`
-            : undefined;
     return (
-      <Dropdown
-        open={open}
-        onOpenChange={setOpen}
-        portal
-        fitContent
-        menuClassName="w-[252px] overflow-hidden border-border p-0 shadow-[0_4px_16px_rgba(0,0,0,0.10)]"
-        trigger={
-          <FilterBarTrigger
-            active={!!display}
-            isOpen={open}
-            displayValue={display}
-            placeholder="elegir…"
-            embedded
-            onClick={() => setOpen((o) => !o)}
-          />
-        }
-      >
-        <DateRangePicker
-          from={f?.from}
-          to={f?.to}
-          onChange={setFecha}
-          onRangeComplete={() => setOpen(false)}
-          compact
-        />
-      </Dropdown>
+      <DateRangePicker
+        from={f?.from}
+        to={f?.to}
+        onChange={setFecha}
+        onRangeComplete={onDone}
+        compact
+      />
     );
   }
 
@@ -283,76 +267,129 @@ function ColumnBarControl({
       existing?.column === "horas"
         ? existing
         : { op: "eq" as const, value: 8, valueTo: 8 };
-    const display =
-      existing?.column === "horas"
-        ? h.op === "between"
-          ? `${h.value}–${h.valueTo ?? h.value}`
-          : `${h.op === "eq" ? "=" : h.op === "gte" ? "≥" : "≤"} ${h.value}`
-        : undefined;
     return (
-      <Dropdown
-        open={open}
-        onOpenChange={setOpen}
-        portal
-        menuClassName="shadow-none min-w-[200px]"
-        trigger={
-          <FilterBarTrigger
-            active={!!display}
-            isOpen={open}
-            displayValue={display}
-            placeholder="elegir…"
-            embedded
-            onClick={() => setOpen((o) => !o)}
-          />
-        }
-      >
-        <div className="space-y-2 p-1">
-          <SelectControl
-            value={h.op}
-            onChange={(e) => setHoras({ op: e.target.value as HorasFilterOp })}
-            className="h-8 cursor-pointer rounded-[6px] border border-border bg-white px-2 text-[13px] focus:border-navy focus:outline-none"
-          >
-            <option value="eq">=</option>
-            <option value="gte">≥</option>
-            <option value="lte">≤</option>
-            <option value="between">entre</option>
-          </SelectControl>
+      <div className="space-y-2 p-1">
+        <SelectControl
+          value={h.op}
+          onChange={(e) => setHoras({ op: e.target.value as HorasFilterOp })}
+          className="h-8 cursor-pointer rounded-[6px] border border-border bg-white px-2 text-[13px] focus:border-navy focus:outline-none"
+        >
+          <option value="eq">=</option>
+          <option value="gte">≥</option>
+          <option value="lte">≤</option>
+          <option value="between">entre</option>
+        </SelectControl>
+        <input
+          type="number"
+          min={0}
+          step={0.5}
+          value={h.value}
+          onChange={(e) => setHoras({ value: parseFloat(e.target.value) || 0 })}
+          className="h-8 w-full rounded-[6px] border border-border px-2 text-[13px] focus:border-navy focus:outline-none"
+        />
+        {h.op === "between" && (
           <input
             type="number"
             min={0}
             step={0.5}
-            value={h.value}
+            value={h.valueTo ?? h.value}
             onChange={(e) =>
-              setHoras({ value: parseFloat(e.target.value) || 0 })
+              setHoras({ valueTo: parseFloat(e.target.value) || 0 })
             }
             className="h-8 w-full rounded-[6px] border border-border px-2 text-[13px] focus:border-navy focus:outline-none"
+            placeholder="Hasta"
           />
-          {h.op === "between" && (
-            <input
-              type="number"
-              min={0}
-              step={0.5}
-              value={h.valueTo ?? h.value}
-              onChange={(e) =>
-                setHoras({ valueTo: parseFloat(e.target.value) || 0 })
-              }
-              className="h-8 w-full rounded-[6px] border border-border px-2 text-[13px] focus:border-navy focus:outline-none"
-              placeholder="Hasta"
-            />
-          )}
-        </div>
-      </Dropdown>
+        )}
+      </div>
     );
   }
 
   const text = existing?.column === "comentario" ? existing.text : "";
   return (
-    <FilterBarTextInput
-      value={text}
-      placeholder="texto…"
-      onChange={setComentario}
-      embedded
-    />
+    <div className="p-1.5">
+      <input
+        autoFocus
+        type="text"
+        value={text}
+        placeholder="Contiene…"
+        onChange={(e) => setComentario(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onDone?.();
+        }}
+        className="h-8 w-full rounded-[6px] border border-border px-2 text-[13px] focus:border-navy focus:outline-none"
+      />
+    </div>
+  );
+}
+
+function chipSummary(
+  column: AproFilterColumn,
+  rule: AproFilterRule | undefined,
+  options: FilterDropdownOption[],
+): ReactNode {
+  if (!rule) return null;
+
+  if (isMultiColumn(column) && rule.column === column) {
+    return linearChipValue(rule.values, options);
+  }
+
+  if (rule.column === "fecha") {
+    return linearFechaChip(rule.from, rule.to, isoToDmy);
+  }
+
+  if (rule.column === "horas") {
+    const text =
+      rule.op === "between"
+        ? `${rule.value}–${rule.valueTo ?? rule.value}`
+        : `${rule.op === "eq" ? "=" : rule.op === "gte" ? "≥" : "≤"} ${rule.value}`;
+    return (
+      <span className="text-[12px] font-medium text-[#111]">{text}</span>
+    );
+  }
+
+  if (rule.column === "comentario") {
+    return linearTextChip(rule.text);
+  }
+
+  return null;
+}
+
+function FilterChip({
+  column,
+  registros,
+  filters,
+  onChange,
+  onRemove,
+}: {
+  column: AproFilterColumn;
+  registros: HojaAprobacion[];
+  filters: AproFilterRule[];
+  onChange: Dispatch<SetStateAction<AproFilterRule[]>>;
+  onRemove: () => void;
+}) {
+  const def = getFilterColumnDef(column);
+  const rule = getFilterForColumn(filters, column);
+  const options = isMultiColumn(column) ? multiOptions(column, registros) : [];
+  return (
+    <FilterChipShell
+      label={def.label}
+      icon={def.icon}
+      operator={filterOperatorLabel(column, rule)}
+      value={chipSummary(column, rule, options)}
+      onRemove={onRemove}
+      fitContent={column === "fecha"}
+    >
+      {(close) => (
+        <FilterValuePanel
+          column={column}
+          registros={registros}
+          filters={filters}
+          onChange={onChange}
+          onDone={close}
+          multiple={isMultiColumn(column)}
+        />
+      )}
+    </FilterChipShell>
   );
 }
 
@@ -361,132 +398,73 @@ export function AprobacionFilterBar({
   filters,
   onChange,
   tab,
-  shown,
-  total,
   embedded = false,
   actions,
+  hideColumns = [],
 }: AprobacionFilterBarProps) {
-  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
-  const [barColumns, setBarColumns] = useState<AproFilterColumn[]>([]);
-  const [autoOpenColumn, setAutoOpenColumn] = useState<AproFilterColumn | null>(
-    null,
-  );
+  const add = useFilterAddState<AproFilterColumn>(tab);
 
-  const columns = getFilterColumns(tab);
-  const usedColumns = new Set(
-    filters.filter(isRuleComplete).map((f) => f.column),
-  );
+  const hidden = new Set(hideColumns);
+  const columns = getFilterColumns(tab).filter((col) => !hidden.has(col.id));
+  const activeFilters = filters.filter(isRuleComplete);
+  const usedColumns = new Set(activeFilters.map((f) => f.column));
+  const availableColumns = columns.filter((col) => !usedColumns.has(col.id));
   const hasFilters = hayFiltrosActivos(filters);
-  const availableColumns = columns.filter(
-    (col) => !barColumns.includes(col.id),
-  );
+  const addColumn = add.column ? getFilterColumnDef(add.column) : null;
 
-  const pickColumn = (col: AproFilterColumn) => {
-    setColumnMenuOpen(false);
-    setBarColumns((prev) => (prev.includes(col) ? prev : [...prev, col]));
-    setAutoOpenColumn(col);
-  };
-
-  const removeBarColumn = (col: AproFilterColumn) => {
-    setBarColumns((prev) => prev.filter((c) => c !== col));
-    onChange((prev) => removeFilterByColumn(prev, col));
-    if (autoOpenColumn === col) setAutoOpenColumn(null);
-  };
-
-  const clearAll = () => {
-    setBarColumns([]);
-    onChange([]);
-    setAutoOpenColumn(null);
-  };
-
-  return (
-    <TableFilterSection embedded={embedded} sticky={false}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <span className="shrink-0 text-[13px] font-medium text-[#374151]">
-            Filtrar por:
-          </span>
-
-          {barColumns.map((col) => {
-            const def = getFilterColumnDef(col);
-            const active =
-              !!getFilterForColumn(filters, col) && usedColumns.has(col);
-            return (
-              <FilterChainRow
-                key={col}
-                label={def.label}
-                icon={def.icon}
-                operator={filterOperatorLabel(col)}
-                active={active || !!getFilterForColumn(filters, col)}
-                onRemove={() => removeBarColumn(col)}
-              >
-                <ColumnBarControl
-                  column={col}
+  const body = (
+    <LinearFilterToolbar
+      hideLabel={embedded}
+      chips={activeFilters.map((rule) => (
+        <FilterChip
+          key={rule.column}
+          column={rule.column}
+          registros={registros}
+          filters={filters}
+          onChange={onChange}
+          onRemove={() =>
+            onChange((prev) => removeFilterByColumn(prev, rule.column))
+          }
+        />
+      ))}
+      add={
+        availableColumns.length > 0 ? (
+          <FilterAddMenu
+            fields={availableColumns}
+            stepLabel={addColumn?.label}
+            fitContent={add.column === "fecha"}
+          >
+            {{
+              open: add.open,
+              onOpenChange: add.onOpenChange,
+              onPickField: (id) => add.pick(id as AproFilterColumn),
+              onBack: add.back,
+              panel: add.column ? (
+                <FilterValuePanel
+                  column={add.column}
                   registros={registros}
                   filters={filters}
                   onChange={onChange}
-                  autoOpen={autoOpenColumn === col}
+                  onDone={add.close}
+                  multiple={false}
                 />
-              </FilterChainRow>
-            );
-          })}
-
-          {availableColumns.length > 0 ? (
-          <Dropdown
-            open={columnMenuOpen}
-            onOpenChange={setColumnMenuOpen}
-            portal
-            menuClassName="shadow-[0_4px_16px_rgba(0,0,0,0.10)] min-w-[220px] border-[#E5E7EB] py-1"
-            trigger={
-              <button
-                type="button"
-                onClick={() => setColumnMenuOpen((o) => !o)}
-                className="inline-flex cursor-pointer items-center gap-1 rounded-[6px] border border-dashed border-[#c7d9ed] bg-white px-2.5 py-1 text-[12px] font-semibold text-navy hover:border-navy hover:bg-[#f4f7fb]"
-              >
-                <Icon name="plus" size="xs" />
-                Filtros
-              </button>
-            }
-          >
-            <div className="py-0">
-              {availableColumns.map((col) => (
-                <button
-                  key={col.id}
-                  type="button"
-                  onClick={() => pickColumn(col.id)}
-                  className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-2.5 text-left text-[14px] font-normal text-[#1F2937] hover:bg-[#F3F4F6]"
-                >
-                  <Icon
-                    name={col.icon}
-                    size="sm"
-                    className="h-4 w-4 shrink-0 text-navy"
-                  />
-                  <span className="min-w-0 truncate">{col.label}</span>
-                </button>
-              ))}
-            </div>
-          </Dropdown>
-          ) : null}
-
-          {hasFilters && (
-            <button
-              type="button"
-              onClick={clearAll}
-              className="cursor-pointer border-none bg-transparent px-1 text-[12px] font-semibold text-muted hover:text-navy"
-            >
-              Limpiar todo
-            </button>
-          )}
-        </div>
-        {actions ? <div className="shrink-0">{actions}</div> : null}
-      </div>
-
-      {hasFilters && shown !== undefined && total !== undefined && (
-        <p className="mt-2 text-[12px] text-muted">
-          Mostrando <b className="text-navy">{shown}</b> de{" "}
-          <b className="text-navy">{total}</b>
-        </p>
-      )}
-    </TableFilterSection>
+              ) : null,
+            }}
+          </FilterAddMenu>
+        ) : null
+      }
+      hasFilters={hasFilters}
+      onClear={() => {
+        onChange([]);
+        add.close();
+      }}
+      actions={actions}
+    />
   );
+
+  if (embedded) {
+    return <div className="min-w-0">{body}</div>;
+  }
+
+  return <TableFilterSection sticky={false}>{body}</TableFilterSection>;
 }

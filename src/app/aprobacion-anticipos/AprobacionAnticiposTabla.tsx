@@ -10,8 +10,8 @@ import {
   DataTable,
   dataTd,
   dataTdCheck,
-  dataTdResPrimary,
   dataTdResSecondary,
+  ProyectoCell,
   dataTdTruncate,
   dataTh,
   dataThCheck,
@@ -100,10 +100,7 @@ export function AprobacionAnticiposTabla({
         <TipoAnticipoPill tipo={s.tipo} />
       </td>
       <td className={dataTd}>
-        <div className={dataTdResPrimary}>{s.proy}</div>
-        <div className={dataTdResSecondary} title={s.proyN}>
-          {s.proyN}
-        </div>
+        <ProyectoCell codigo={s.proy} nombre={s.proyN} />
       </td>
       <td
         className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
@@ -138,10 +135,7 @@ export function AprobacionAnticiposTabla({
         <TipoAnticipoPill tipo={s.tipo} />
       </td>
       <td className={dataTd}>
-        <div className={dataTdResPrimary}>{s.proy}</div>
-        <div className={dataTdResSecondary} title={s.proyN}>
-          {s.proyN}
-        </div>
+        <ProyectoCell codigo={s.proy} nombre={s.proyN} />
       </td>
       <td className={`${dataTd} text-right`}>
         <div className="font-semibold leading-snug">

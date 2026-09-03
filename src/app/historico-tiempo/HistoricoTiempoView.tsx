@@ -10,6 +10,7 @@ import {
   dataTdNumeric,
   dataTdTruncate,
   dataThWithAlign,
+  ProyectoCell,
 } from "@/src/components/ui/DataTable";
 import { HistoricoTiempoFilterBar } from "@/src/app/historico-tiempo/HistoricoTiempoFilterBar";
 import { HISTORICO_UI_COPY } from "@/src/lib/copy/historico";
@@ -252,17 +253,7 @@ export function HistoricoTiempoView() {
                     className="transition-colors hover:bg-[#fafbfc]"
                   >
                     <td className={dataTd}>
-                      <div
-                        className="flex min-w-0 items-baseline gap-2"
-                        title={`${r.codigo} · ${r.nombre}`}
-                      >
-                        <span className="shrink-0 font-bold text-navy">
-                          {r.codigo}
-                        </span>
-                        <span className={`${dataTdTruncate} text-[#374151]`}>
-                          {r.nombre}
-                        </span>
-                      </div>
+                      <ProyectoCell codigo={r.codigo} nombre={r.nombre} />
                     </td>
                     <td className={`${dataTd} ${dataTdTruncate}`}>{r.subproy}</td>
                     <td className={`${dataTd} ${dataTdTruncate}`}>{r.actividad}</td>
