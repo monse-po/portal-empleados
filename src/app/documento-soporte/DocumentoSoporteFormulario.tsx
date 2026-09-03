@@ -6,18 +6,16 @@ import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
 import { FileAttachmentField } from "@/src/components/ui/FileAttachmentField";
 import { Icon } from "@/src/components/ui/Icon";
-import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
-import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
 import {
   FormContextNote,
   FormGrid,
-  FormHint,
   FormSection,
   FormStack,
   SolicitudFormCard,
   SolicitudFormFooter,
+  SolicitudParaSection,
 } from "@/src/components/ui/SolicitudFormLayout";
 import { useToast } from "@/src/components/ui/Toast";
 import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoporteContext";
@@ -279,65 +277,26 @@ export function DocumentoSoporteFormulario({
         </FormContextNote>
 
         <SolicitudFormCard>
-          <FormSection icon="send" title="Solicitud para">
-            <FormStack>
-              <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-                <div className="w-fit min-w-0">
-                  <SegmentedControl
-                    aria-label="Solicitud para"
-                    value={paraOtro ? "otro" : "mi"}
-                    onChange={(v) => handleParaOtroChange(v === "otro")}
-                    options={[
-                      { value: "mi", label: "Para mí" },
-                      { value: "otro", label: "Para otro empleado" },
-                    ]}
-                  />
-                </div>
-                <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
-                  <span className="text-[12px] font-semibold text-[#374151]">
-                    Fecha de solicitud
-                  </span>
-                  <span className="flex h-9 items-center text-[13px] text-muted">
-                    {existing?.fecha ?? hoyDMY()}
-                  </span>
-                </div>
-              </div>
-              {paraOtro ? (
-                <>
-                  <FormHint>
-                    <strong>
-                      Estás registrando este DSE a nombre de otra persona.
-                    </strong>{" "}
-                    Tú figurarás como quien registra; el empleado seleccionado
-                    queda como solicitado por.
-                  </FormHint>
-                  <FormGrid>
-                    <Field label="Empresa del empleado beneficiario" required>
-                      <LovPicker
-                        value={compBenef}
-                        onChange={handleCompBenefChange}
-                        items={COMPANIAS_HMV}
-                        placeholder="Seleccionar empresa"
-                        searchPlaceholder="Buscar empresa o país..."
-                      />
-                    </Field>
-                    {compBenef ? (
-                      <Field label="Empleado beneficiario" required>
-                        <LovPicker
-                          value={empOtro}
-                          onChange={setEmpOtro}
-                          items={empleadosOtroLov}
-                          placeholder="Seleccionar empleado"
-                          searchPlaceholder="Buscar por cédula o nombre…"
-                          valueLabel={(it) => it.nombre}
-                        />
-                      </Field>
-                    ) : null}
-                  </FormGrid>
-                </>
-              ) : null}
-            </FormStack>
-          </FormSection>
+          <SolicitudParaSection
+            paraOtro={paraOtro}
+            onParaOtroChange={handleParaOtroChange}
+            fecha={existing?.fecha ?? hoyDMY()}
+            empresa={compBenef}
+            onEmpresaChange={handleCompBenefChange}
+            empresas={COMPANIAS_HMV}
+            empleado={empOtro}
+            onEmpleadoChange={setEmpOtro}
+            empleados={empleadosOtroLov}
+            hint={
+              <>
+                <strong>
+                  Estás registrando este DSE a nombre de otra persona.
+                </strong>{" "}
+                Tú figurarás como quien registra; el empleado seleccionado
+                queda como solicitado por.
+              </>
+            }
+          />
         </SolicitudFormCard>
 
         <SolicitudFormCard>

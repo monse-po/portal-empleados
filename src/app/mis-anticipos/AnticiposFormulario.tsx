@@ -6,9 +6,12 @@ import { Card, CardBody } from "@/src/components/ui/Card";
 import { DateInput } from "@/src/components/ui/DateInput";
 import { Field } from "@/src/components/ui/Field";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
-import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
+import {
+  SolicitudFormCard,
+  SolicitudParaSection,
+} from "@/src/components/ui/SolicitudFormLayout";
 import {
   TIPO_ANTICIPO_SEGMENTED_OPTIONS,
 } from "@/src/components/ui/TipoAnticipoPill";
@@ -55,10 +58,6 @@ type AnticiposFormularioProps = {
 
 function RoInput({ value }: { value: string }) {
   return <input readOnly value={value} className="ant-ro-input" />;
-}
-
-function fmtCedulaSinPuntos(cedula: string): string {
-  return cedula.replace(/\D/g, "");
 }
 
 function maskCuenta(cuenta: string): string {
@@ -416,8 +415,6 @@ export function AnticiposFormulario({
     setMonto((prev) => fmtMontoInput(prev, divisaDecimals));
   }, [divisa, divisaDecimals]);
   const empleadosOtro = compBenef ? getEmpleadosPorEmpresa(compBenef.id) : [];
-  const showEmpOtroBenefRows = paraOtro && !!compBenef;
-  const showEmpOtroDatos = showEmpOtroBenefRows && !!empOtro;
   const companiaGastoOtroOpciones = useMemo(() => {
     if (empOtro) return empOtro.companias;
     if (compBenef) {
@@ -447,6 +444,7 @@ export function AnticiposFormulario({
     setCompBenef(null);
     setEmpOtro(null);
     setCompaniaGastoOtro("");
+    if (!otro && companiaId) reloadCompanyBundle(companiaId);
   };
 
   const handleCompBenefChange = (item: LovItem | null) => {
@@ -458,8 +456,6 @@ export function AnticiposFormulario({
 
   const handleProyOtroChange = (item: LovItem | null) => {
     setProySel(item);
-    setEmpOtro(null);
-    setCompaniaGastoOtro(compBenef?.id ?? "");
   };
 
   const proyectoOptions = useMemo(
@@ -686,9 +682,19 @@ export function AnticiposFormulario({
     onVolver();
   };
 
-  const empleadoNombre = empNameIfs || profile?.name || "—";
-  const empleadoIdDisplay =
-    empNoIfs || profile?.empNo || profile?.empleadoDbId || "—";
+  const empleadoNombre = paraOtro
+    ? empOtro?.nombre || "—"
+    : empNameIfs || profile?.name || "—";
+  const empleadoIdDisplay = paraOtro
+    ? empOtro?.id || "—"
+    : empNoIfs || profile?.empNo || profile?.empleadoDbId || "—";
+  const cuentaDisplay = paraOtro
+    ? empOtro
+      ? maskCuenta(empOtro.cuenta)
+      : "—"
+    : catalogLoading
+      ? "Cargando datos…"
+      : cuentaLabel || "Sin cuenta en IFS";
 
   return (
     <>
@@ -699,39 +705,32 @@ export function AnticiposFormulario({
           title="Nuevo anticipo"
         />
 
-        <Card className="mb-3 overflow-visible">
-          <CardBody className="py-4">
-            <FormSection icon="send" title="Solicitud para">
-              <FormGrid>
-                <div className="flex w-fit min-w-0 flex-col gap-1.5">
-                  <span
-                    className="text-[12px] font-semibold text-transparent select-none"
-                    aria-hidden
-                  >
-                    &nbsp;
-                  </span>
-                  <SegmentedControl
-                    aria-label="Solicitud para"
-                    value={paraOtro ? "otro" : "mi"}
-                    onChange={(v) => handleParaOtroChange(v === "otro")}
-                    options={[
-                      { value: "mi", label: "Para mí" },
-                      { value: "otro", label: "Para otro empleado" },
-                    ]}
-                  />
-                </div>
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <span className="text-[12px] font-semibold text-[#374151]">
-                    Fecha de solicitud
-                  </span>
-                  <span className="flex h-9 items-center text-[13px] text-muted">
-                    {hoyDMY()}
-                  </span>
-                </div>
-              </FormGrid>
-            </FormSection>
-          </CardBody>
-        </Card>
+        <SolicitudFormCard>
+          <SolicitudParaSection
+            paraOtro={paraOtro}
+            onParaOtroChange={handleParaOtroChange}
+            fecha={hoyDMY()}
+            empresa={compBenef}
+            onEmpresaChange={handleCompBenefChange}
+            empresas={COMPANIAS_HMV}
+            empleado={
+              empOtro
+                ? { id: empOtro.id, nombre: empOtro.nombre, sub: empOtro.sub }
+                : null
+            }
+            onEmpleadoChange={handleEmpOtroChange}
+            empleados={empleadosOtro}
+            hint={
+              <>
+                <strong>
+                  Estás solicitando este anticipo a nombre de otra persona.
+                </strong>{" "}
+                Tú figurarás como solicitante; el dinero se acreditará a la
+                cuenta del empleado destinatario.
+              </>
+            }
+          />
+        </SolicitudFormCard>
 
         <Card className="mb-3 overflow-visible">
           <CardBody className="py-4">
@@ -747,144 +746,60 @@ export function AnticiposFormulario({
                   GetValidEmpPrjAct en /dev/ifs.
                 </FormHint>
               )}
-              {paraOtro ? (
-                <>
-                  <FormHint>
-                    <strong>
-                      Estás solicitando este anticipo a nombre de otra persona.
-                    </strong>{" "}
-                    Tú figurarás como solicitante; el dinero se acreditará a la
-                    cuenta del empleado destinatario.
-                  </FormHint>
-                  <FormGrid className="mt-3">
-                    <Field label="Empresa del empleado beneficiario">
-                      <LovPicker
-                        value={compBenef}
-                        onChange={handleCompBenefChange}
-                        items={COMPANIAS_HMV}
-                        placeholder="Seleccionar empresa"
-                        searchPlaceholder="Buscar empresa o país..."
-                      />
-                    </Field>
-                  </FormGrid>
-                  {showEmpOtroBenefRows && (
-                    <>
-                      <FormGrid className="mt-3">
-                        <Field label="Proyecto asociado" required>
-                          <SearchableSelect
-                            value={proySel?.id ?? ""}
-                            onChange={handleProyectoIdChange}
-                            options={proyectoOptions}
-                            placeholder={
-                              catalogLoading
-                                ? "Cargando datos…"
-                                : TIEMPO_UI_COPY.selectProject
-                            }
-                            searchPlaceholder={TIEMPO_UI_COPY.searchProject}
-                            disabled={
-                              catalogLoading || proyectos.length === 0
-                            }
-                          />
-                        </Field>
-                        <Field label="Aprobador">
-                          <RoInput value={aprobadorLabel} />
-                        </Field>
-                        <Field label="Compañía que asume el gasto">
-                          <SearchableSelect
-                            value={companiaGastoOtro}
-                            onChange={handleCompaniaGastoOtroChange}
-                            options={companiaGastoOtroOpciones.map((c) => ({
-                              value: c.id,
-                              label: c.label,
-                            }))}
-                            placeholder="Seleccionar compañía…"
-                            searchPlaceholder="Buscar compañía…"
-                          />
-                        </Field>
-                      </FormGrid>
-                      <FormGrid className="mt-3">
-                        <Field label="Cédula">
-                          <LovPicker
-                            value={
-                              empOtro
-                                ? {
-                                    id: empOtro.id,
-                                    nombre: empOtro.nombre,
-                                    sub: empOtro.sub,
-                                  }
-                                : null
-                            }
-                            onChange={handleEmpOtroChange}
-                            items={empleadosOtro}
-                            placeholder="Seleccionar"
-                            searchPlaceholder="Buscar por cédula o nombre..."
-                            valueLabel={(it) => fmtCedulaSinPuntos(it.id)}
-                          />
-                        </Field>
-                        <Field label="Nombre">
-                          <RoInput value={empOtro?.nombre || ""} />
-                        </Field>
-                        <Field label="Cuenta">
-                          <RoInput
-                            value={empOtro ? maskCuenta(empOtro.cuenta) : ""}
-                          />
-                        </Field>
-                      </FormGrid>
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  <FormGrid>
-                    <Field label="Proyecto asociado" required>
-                      <SearchableSelect
-                        value={proySel?.id ?? ""}
-                        onChange={handleProyectoIdChange}
-                        options={proyectoOptions}
-                        placeholder={
-                          catalogLoading
-                            ? "Cargando datos…"
-                            : TIEMPO_UI_COPY.selectProject
-                        }
-                        searchPlaceholder={TIEMPO_UI_COPY.searchProject}
-                        disabled={catalogLoading || proyectos.length === 0}
-                      />
-                    </Field>
-                    <Field label="Aprobador">
-                      <RoInput value={aprobadorLabel} />
-                    </Field>
-                    <Field label="Compañía que asume el gasto">
-                      <SearchableSelect
-                        value={companiaId}
-                        onChange={handleCompaniaPropiaChange}
-                        options={companiasPropias.map((c) => ({
-                          value: c.id,
-                          label: c.label,
-                        }))}
-                        placeholder="Seleccionar compañía…"
-                        searchPlaceholder="Buscar compañía…"
-                      />
-                    </Field>
-                  </FormGrid>
-                  <FormGrid className="mt-3">
-                    <Field label="Identificador">
-                      <RoInput value={empleadoIdDisplay} />
-                    </Field>
-                    <Field label="Nombre">
-                      <RoInput value={empleadoNombre} />
-                    </Field>
-                    <Field label="Cuenta">
-                      <RoInput
-                        value={
-                          catalogLoading
-                            ? "Cargando datos…"
-                            : cuentaLabel || "Sin cuenta en IFS"
-                        }
-                      />
-                    </Field>
-                  </FormGrid>
-                </>
-              )}
+              <FormGrid>
+                <Field label="Proyecto asociado" required>
+                  <SearchableSelect
+                    value={proySel?.id ?? ""}
+                    onChange={handleProyectoIdChange}
+                    options={proyectoOptions}
+                    placeholder={
+                      catalogLoading
+                        ? "Cargando datos…"
+                        : TIEMPO_UI_COPY.selectProject
+                    }
+                    searchPlaceholder={TIEMPO_UI_COPY.searchProject}
+                    disabled={
+                      catalogLoading ||
+                      proyectos.length === 0 ||
+                      (paraOtro && !compBenef)
+                    }
+                  />
+                </Field>
+                <Field label="Aprobador">
+                  <RoInput value={aprobadorLabel} />
+                </Field>
+                <Field label="Compañía que asume el gasto">
+                  <SearchableSelect
+                    value={paraOtro ? companiaGastoOtro : companiaId}
+                    onChange={
+                      paraOtro
+                        ? handleCompaniaGastoOtroChange
+                        : handleCompaniaPropiaChange
+                    }
+                    options={(paraOtro
+                      ? companiaGastoOtroOpciones
+                      : companiasPropias
+                    ).map((c) => ({
+                      value: c.id,
+                      label: c.label,
+                    }))}
+                    placeholder="Seleccionar compañía…"
+                    searchPlaceholder="Buscar compañía…"
+                    disabled={paraOtro && !compBenef}
+                  />
+                </Field>
+              </FormGrid>
+              <FormGrid className="mt-3">
+                <Field label="Identificador">
+                  <RoInput value={empleadoIdDisplay} />
+                </Field>
+                <Field label="Nombre">
+                  <RoInput value={empleadoNombre} />
+                </Field>
+                <Field label="Cuenta">
+                  <RoInput value={cuentaDisplay} />
+                </Field>
+              </FormGrid>
             </FormSection>
           </CardBody>
         </Card>

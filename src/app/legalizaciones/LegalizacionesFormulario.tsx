@@ -4,18 +4,17 @@ import { useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Field } from "@/src/components/ui/Field";
 import { Icon } from "@/src/components/ui/Icon";
-import { LovPicker } from "@/src/components/ui/LovPicker";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
 import {
   FormGrid,
   FormGridSpan,
-  FormHint,
   FormNote,
   FormSection,
   FormStack,
   SolicitudFormCard,
   SolicitudFormFooter,
+  SolicitudParaSection,
 } from "@/src/components/ui/SolicitudFormLayout";
 import { TIPO_LEGALIZACION_OPTIONS } from "@/src/components/ui/TipoLegalizacionPill";
 import { useToast } from "@/src/components/ui/Toast";
@@ -418,65 +417,24 @@ export function LegalizacionesFormulario({
         />
 
         <SolicitudFormCard>
-          <FormSection icon="send" title="Solicitud para">
-            <FormStack>
-              <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-                <div className="w-fit min-w-0">
-                  <SegmentedControl
-                    aria-label="Solicitud para"
-                    value={paraOtro ? "otro" : "mi"}
-                    onChange={(v) => handleParaOtroChange(v === "otro")}
-                    options={[
-                      { value: "mi", label: "Para mí" },
-                      { value: "otro", label: "Para otro empleado" },
-                    ]}
-                  />
-                </div>
-                <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
-                  <span className="text-[12px] font-semibold text-[#374151]">
-                    Fecha de solicitud
-                  </span>
-                  <span className="flex h-9 items-center text-[13px] text-muted">
-                    {hoyDMY()}
-                  </span>
-                </div>
-              </div>
-              {paraOtro ? (
-                <>
-                  <FormHint>
-                    <strong>
-                      Estás legalizando a nombre de otra persona.
-                    </strong>{" "}
-                    Tú figurarás como solicitante; los gastos quedan a nombre
-                    del empleado beneficiario.
-                  </FormHint>
-                  <FormGrid>
-                    <Field label="Empresa del empleado beneficiario" required>
-                      <LovPicker
-                        value={compBenef}
-                        onChange={handleCompBenefChange}
-                        items={COMPANIAS_HMV}
-                        placeholder="Seleccionar empresa"
-                        searchPlaceholder="Buscar empresa o país..."
-                      />
-                    </Field>
-                    {compBenef ? (
-                      <Field label="Empleado beneficiario" required>
-                        <LovPicker
-                          value={empOtro}
-                          onChange={handleEmpOtroChange}
-                          items={empleadosOtroLov}
-                          placeholder="Seleccionar empleado"
-                          searchPlaceholder="Buscar por cédula o nombre…"
-                          valueLabel={(it) => it.nombre}
-                        />
-                      </Field>
-                    ) : null}
-                  </FormGrid>
-                </>
-              ) : null}
-            </FormStack>
-          </FormSection>
+          <SolicitudParaSection
+            paraOtro={paraOtro}
+            onParaOtroChange={handleParaOtroChange}
+            fecha={hoyDMY()}
+            empresa={compBenef}
+            onEmpresaChange={handleCompBenefChange}
+            empresas={COMPANIAS_HMV}
+            empleado={empOtro}
+            onEmpleadoChange={handleEmpOtroChange}
+            empleados={empleadosOtroLov}
+            hint={
+              <>
+                <strong>Estás legalizando a nombre de otra persona.</strong> Tú
+                figurarás como solicitante; los gastos quedan a nombre del
+                empleado beneficiario.
+              </>
+            }
+          />
         </SolicitudFormCard>
 
         <SolicitudFormCard>

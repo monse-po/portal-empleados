@@ -1,7 +1,11 @@
 import type { ReactNode } from "react";
 import { Card, CardBody } from "@/src/components/ui/Card";
-import { Icon, type IconName } from "@/src/components/ui/Icon";
+import { Field } from "@/src/components/ui/Field";
 import { FloatingActions } from "@/src/components/ui/FloatingActions";
+import { Icon, type IconName } from "@/src/components/ui/Icon";
+import { LovPicker } from "@/src/components/ui/LovPicker";
+import { SegmentedControl } from "@/src/components/ui/SegmentedControl";
+import type { LovItem } from "@/src/lib/anticipos-registro";
 
 /** Espaciado vertical entre bloques dentro de una sección */
 export function FormStack({
@@ -105,6 +109,96 @@ export function FormNote({
       <Icon name="info" size="xs" className="mt-0.5 shrink-0 text-[#1e40af]" />
       <span>{children}</span>
     </div>
+  );
+}
+
+type SolicitudParaSectionProps = {
+  paraOtro: boolean;
+  onParaOtroChange: (otro: boolean) => void;
+  fecha: string;
+  hint?: ReactNode;
+  empresa: LovItem | null;
+  onEmpresaChange: (item: LovItem | null) => void;
+  empresas: LovItem[];
+  empleado: LovItem | null;
+  onEmpleadoChange: (item: LovItem | null) => void;
+  empleados: LovItem[];
+};
+
+/**
+ * Misma “Solicitud para” en anticipos, legalizaciones y DSE:
+ * toggle + empresa/empleado en una fila, fecha siempre a la derecha.
+ */
+export function SolicitudParaSection({
+  paraOtro,
+  onParaOtroChange,
+  fecha,
+  hint,
+  empresa,
+  onEmpresaChange,
+  empresas,
+  empleado,
+  onEmpleadoChange,
+  empleados,
+}: SolicitudParaSectionProps) {
+  return (
+    <FormSection icon="send" title="Solicitud para">
+      <FormStack>
+        <div className="flex items-end gap-4">
+          <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-4 gap-y-3">
+            <div className="w-fit shrink-0">
+              <SegmentedControl
+                aria-label="Solicitud para"
+                value={paraOtro ? "otro" : "mi"}
+                onChange={(v) => onParaOtroChange(v === "otro")}
+                options={[
+                  { value: "mi", label: "Para mí" },
+                  { value: "otro", label: "Para otro empleado" },
+                ]}
+              />
+            </div>
+            {paraOtro ? (
+              <>
+                <div className="min-w-[200px] max-w-sm flex-1">
+                  <Field label="Empresa del empleado beneficiario" required>
+                    <LovPicker
+                      value={empresa}
+                      onChange={onEmpresaChange}
+                      items={empresas}
+                      placeholder="Seleccionar empresa"
+                      searchPlaceholder="Buscar empresa o país..."
+                    />
+                  </Field>
+                </div>
+                {empresa ? (
+                  <div className="min-w-[200px] max-w-sm flex-1">
+                    <Field label="Empleado beneficiario" required>
+                      <LovPicker
+                        value={empleado}
+                        onChange={onEmpleadoChange}
+                        items={empleados}
+                        placeholder="Seleccionar empleado"
+                        searchPlaceholder="Buscar por cédula o nombre…"
+                        valueLabel={(it) => it.nombre}
+                      />
+                    </Field>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <span className="text-[12px] font-semibold text-[#374151]">
+              Fecha de solicitud
+            </span>
+            <span className="flex h-9 items-center text-[13px] text-muted">
+              {fecha}
+            </span>
+          </div>
+        </div>
+        {paraOtro && hint ? <FormHint>{hint}</FormHint> : null}
+      </FormStack>
+    </FormSection>
   );
 }
 
