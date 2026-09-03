@@ -21,6 +21,8 @@ const LOGIN_ERRORS: Record<string, string> = {
   invalid_state:
     "La sesión de login expiró o se abrió la URL de IFS en otra pestaña. No copies/pegues el link de IFS: vuelve a pulsar «Entrar con IFS» aquí.",
   missing_code: "IFS no devolvió el código de autorización. Vuelve a intentar.",
+  cookie_too_large:
+    "El navegador mandó cookies demasiado grandes (suele ser una sesión vieja). Limpia cookies del sitio o usa incógnito.",
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -92,6 +94,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       )}
 
       <div className="mt-6 flex flex-col gap-2 text-sm">
+        <Link href="/api/auth/clear" className="text-navy underline">
+          Limpiar cookies del portal y volver a intentar
+        </Link>
         <Link href="/dev/ifs" className="text-navy underline">
           Diagnóstico de APIs IFS
         </Link>

@@ -44,9 +44,12 @@ CLEANED=0
 # Asegurar que la IP pública actual está en el allowlist del Bastion
 ensure_bastion_cidr() {
   local my_ip cidrs_json
-  my_ip="$(curl -sS --max-time 8 ifconfig.me || true)"
+  my_ip="$(curl -4 -sS --max-time 8 https://api.ipify.org || true)"
+  if [[ ! "${my_ip}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    my_ip="$(curl -4 -sS --max-time 8 https://ifconfig.me || true)"
+  fi
   [[ "${my_ip}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-    info "No pude detectar IP pública; sigo sin tocar CIDR"
+    info "No pude detectar IP pública IPv4; sigo sin tocar CIDR"
     return 0
   }
   cidrs_json="$(

@@ -1,18 +1,24 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { isIfsAuthReady } from "@/src/lib/ifs/config";
-import { LEGACY_SESSION_COOKIE } from "@/src/lib/ifs/constants";
+import { expireStalePortalCookies } from "@/src/lib/ifs/clear-portal-cookies";
+import {
+  LEGACY_SESSION_COOKIE,
+  OAUTH_BUNDLE_COOKIE,
+  SESSION_COOKIE,
+} from "@/src/lib/ifs/constants";
+import { sealOAuthBundle } from "@/src/lib/ifs/oauth-cookie-bundle";
 import {
   buildAuthorizationUrl,
   createOAuthState,
   createPkcePair,
   resolveOAuthRedirectUri,
 } from "@/src/lib/ifs/oauth-user";
-import { sessionCookieOptions, resolveSessionEmail } from "@/src/lib/ifs/session";
-
-const PKCE_COOKIE = "hmv_oauth_pkce";
-const STATE_COOKIE = "hmv_oauth_state";
-const EMAIL_COOKIE = "hmv_oauth_email";
-const REDIRECT_COOKIE = "hmv_oauth_redirect";
+import {
+  destroyPersistedIfsSession,
+  resolveSessionEmail,
+  sessionCookieOptions,
+} from "@/src/lib/ifs/session";
 
 export async function GET(request: Request) {
   if (!isIfsAuthReady()) {
@@ -20,6 +26,13 @@ export async function GET(request: Request) {
       { error: "IFS_AUTH_ENABLED requiere IFS_OAUTH_CLIENT_ID, SECRET y REDIRECT_URI" },
       { status: 503 },
     );
+  }
+
+  const jar = await cookies();
+  const sessionRaw = jar.get(SESSION_COOKIE)?.value;
+  const legacyRaw = jar.get(LEGACY_SESSION_COOKIE)?.value;
+  if (sessionRaw || legacyRaw) {
+    await destroyPersistedIfsSession(sessionRaw ?? legacyRaw);
   }
 
   const { verifier, challenge } = createPkcePair();
@@ -45,17 +58,18 @@ export async function GET(request: Request) {
   });
   const response = NextResponse.redirect(authUrl);
 
-  response.cookies.set(PKCE_COOKIE, verifier, opts);
-  response.cookies.set(STATE_COOKIE, state, opts);
-  response.cookies.set(REDIRECT_COOKIE, redirectUri, opts);
-  // Expira cookie JWT vieja (causa del 400).
-  response.cookies.set(LEGACY_SESSION_COOKIE, "", { ...opts, maxAge: 0 });
-  if (next?.startsWith("/")) {
-    response.cookies.set("hmv_oauth_next", next, opts);
-  }
-  if (loginEmail) {
-    response.cookies.set(EMAIL_COOKIE, loginEmail, opts);
-  }
+  response.cookies.set(
+    OAUTH_BUNDLE_COOKIE,
+    sealOAuthBundle({
+      verifier,
+      state,
+      redirectUri,
+      next: next?.startsWith("/") ? next : undefined,
+      email: loginEmail ?? loginHint,
+    }),
+    opts,
+  );
+  expireStalePortalCookies(response, opts.secure ?? false);
 
   return response;
 }

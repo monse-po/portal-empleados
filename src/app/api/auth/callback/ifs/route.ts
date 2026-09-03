@@ -1,6 +1,19 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { exchangeAuthorizationCode, fetchOidcUserInfo } from "@/src/lib/ifs/oauth-user";
+import {
+  expirePortalCookie,
+  expireStalePortalCookies,
+} from "@/src/lib/ifs/clear-portal-cookies";
+import {
+  OAUTH_BUNDLE_COOKIE,
+  SESSION_COOKIE,
+} from "@/src/lib/ifs/constants";
+import { unsealOAuthBundle } from "@/src/lib/ifs/oauth-cookie-bundle";
+import {
+  exchangeAuthorizationCode,
+  fetchOidcUserInfo,
+  resolvePublicOrigin,
+} from "@/src/lib/ifs/oauth-user";
 import {
   createPersistedIfsSession,
   isSystemPortalEmail,
@@ -9,13 +22,6 @@ import {
   resolveSessionEmail,
   sessionCookieOptions,
 } from "@/src/lib/ifs/session";
-import { LEGACY_SESSION_COOKIE, SESSION_COOKIE } from "@/src/lib/ifs/constants";
-
-const PKCE_COOKIE = "hmv_oauth_pkce";
-const STATE_COOKIE = "hmv_oauth_state";
-const NEXT_COOKIE = "hmv_oauth_next";
-const EMAIL_COOKIE = "hmv_oauth_email";
-const REDIRECT_COOKIE = "hmv_oauth_redirect";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -24,20 +30,15 @@ export async function GET(request: Request) {
   const oauthError = url.searchParams.get("error");
 
   const jar = await cookies();
+  const origin = resolvePublicOrigin(request);
+  const secure = origin.startsWith("https://");
 
   const redirectToLogin = (error: string) => {
     const response = NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(error)}`, url.origin),
+      new URL(`/login?error=${encodeURIComponent(error)}`, origin),
     );
-    response.cookies.delete(PKCE_COOKIE);
-    response.cookies.delete(STATE_COOKIE);
-    response.cookies.delete(NEXT_COOKIE);
-    response.cookies.delete(EMAIL_COOKIE);
-    response.cookies.delete(REDIRECT_COOKIE);
-    response.cookies.set(LEGACY_SESSION_COOKIE, "", {
-      ...sessionCookieOptions(0),
-      maxAge: 0,
-    });
+    expirePortalCookie(response, OAUTH_BUNDLE_COOKIE, secure);
+    expireStalePortalCookies(response, secure);
     return response;
   };
 
@@ -49,34 +50,27 @@ export async function GET(request: Request) {
     return redirectToLogin("missing_code");
   }
 
-  const expectedState = jar.get(STATE_COOKIE)?.value;
-  const verifier = jar.get(PKCE_COOKIE)?.value;
-  if (!expectedState || expectedState !== state || !verifier) {
+  const bundle = unsealOAuthBundle(jar.get(OAUTH_BUNDLE_COOKIE)?.value ?? "");
+  if (!bundle || bundle.state !== state) {
     return redirectToLogin("invalid_state");
   }
-
-  const next = jar.get(NEXT_COOKIE)?.value;
-  const loginEmail = jar.get(EMAIL_COOKIE)?.value;
-  const redirectUri =
-    jar.get(REDIRECT_COOKIE)?.value ||
-    `${url.origin.replace(/\/$/, "")}/api/auth/callback/ifs`;
 
   try {
     const tokens = await exchangeAuthorizationCode({
       code,
-      codeVerifier: verifier,
-      redirectUri,
+      codeVerifier: bundle.verifier,
+      redirectUri: bundle.redirectUri,
     });
 
     const idClaims = tokens.idToken ? parseIdTokenClaims(tokens.idToken) : {};
     const accessClaims = parseAccessTokenClaims(tokens.accessToken);
     const mergedClaims = { ...accessClaims, ...idClaims };
 
-    let email = loginEmail
+    let email = bundle.email
       ? resolveSessionEmail({
-          email: loginEmail,
-          preferred_username: loginEmail,
-          username: loginEmail,
+          email: bundle.email,
+          preferred_username: bundle.email,
+          username: bundle.email,
         })
       : undefined;
     if (!email) {
@@ -102,22 +96,15 @@ export async function GET(request: Request) {
       expiresAt: Date.now() + expiresIn * 1000,
     });
 
-    const dest = next?.startsWith("/") ? next : "/";
-    const response = NextResponse.redirect(new URL(dest, url.origin));
+    const dest = bundle.next?.startsWith("/") ? bundle.next : "/";
+    const response = NextResponse.redirect(new URL(dest, origin));
     response.cookies.set(
       SESSION_COOKIE,
       cookieValue,
       sessionCookieOptions(expiresIn),
     );
-    response.cookies.set(LEGACY_SESSION_COOKIE, "", {
-      ...sessionCookieOptions(0),
-      maxAge: 0,
-    });
-    response.cookies.delete(PKCE_COOKIE);
-    response.cookies.delete(STATE_COOKIE);
-    response.cookies.delete(NEXT_COOKIE);
-    response.cookies.delete(EMAIL_COOKIE);
-    response.cookies.delete(REDIRECT_COOKIE);
+    expirePortalCookie(response, OAUTH_BUNDLE_COOKIE, secure);
+    expireStalePortalCookies(response, secure);
     return response;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

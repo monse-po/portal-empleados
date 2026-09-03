@@ -32,7 +32,11 @@ function getOAuthRealmConfig() {
   return { systemUrl, realm };
 }
 
-/** Origen público (Cloudflare / https://localhost). */
+function isLocalHost(host: string): boolean {
+  return /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host);
+}
+
+/** Origen público (Cloudflare). Nunca devolver localhost si hay host público. */
 export function resolvePublicOrigin(request: Request): string {
   const url = new URL(request.url);
   const xfHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
@@ -40,9 +44,27 @@ export function resolvePublicOrigin(request: Request): string {
     .get("x-forwarded-proto")
     ?.split(",")[0]
     ?.trim();
-  if (xfHost) {
+  const hostHeader = request.headers.get("host")?.split(",")[0]?.trim();
+
+  if (xfHost && !isLocalHost(xfHost)) {
     return `${xfProto || "https"}://${xfHost}`;
   }
+  if (hostHeader && !isLocalHost(hostHeader)) {
+    return `${xfProto || url.protocol.replace(":", "") || "https"}://${hostHeader}`;
+  }
+
+  // cloudflared a veces deja request.url en localhost:3001
+  const configured = getIfsConfig().oauthRedirectUri?.trim();
+  if (configured) {
+    try {
+      const cfg = new URL(configured);
+      if (!isLocalHost(cfg.host)) return cfg.origin;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (xfHost) return `${xfProto || "https"}://${xfHost}`;
   return url.origin;
 }
 
