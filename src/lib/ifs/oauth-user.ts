@@ -81,7 +81,16 @@ export function resolveOAuthRedirectUri(request: Request): string {
   const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 
   if (isLocal) {
-    // Forzar https en callback local (IFS a veces manda https://localhost:3001)
+    // Usar la URI de .env.local (la misma que IAM). No reescribir host/scheme.
+    if (configured) {
+      try {
+        const cfg = new URL(configured);
+        if (isLocalHost(cfg.host)) return configured;
+      } catch {
+        /* ignore */
+      }
+    }
+    // Túnel local (IFS a veces manda https://localhost:3001)
     if (origin.startsWith("http://")) {
       return `https://${origin.slice("http://".length)}/api/auth/callback/ifs`;
     }
