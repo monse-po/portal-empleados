@@ -16,8 +16,10 @@ import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import { eachIsoDateInclusive } from "@/src/lib/date-picker-utils";
 import {
   findActividadMeta,
+  formatLovCodeName,
   resolveActividadId,
   resolveAprobadorLabel,
+  resolveProyectoId,
   resolveSubproyectoId,
   tipoCatFromOptions,
   type TiempoCatalog,
@@ -113,14 +115,15 @@ function buildInitialForm(
   if (editId) {
     const reg = findRegistroById(registros, editId);
     if (reg) {
+      const proy = catalog ? resolveProyectoId(catalog, reg.proy) : reg.proy;
       const sub = catalog
-        ? resolveSubproyectoId(catalog, reg.proy, reg.subproy, reg.act)
-        : inferSubproyecto(reg.proy, reg.act, reg.subproy);
+        ? resolveSubproyectoId(catalog, proy, reg.subproy, reg.act)
+        : inferSubproyecto(proy, reg.act, reg.subproy);
       const act = catalog
-        ? resolveActividadId(catalog, reg.proy, sub, reg.act)
+        ? resolveActividadId(catalog, proy, sub, reg.act)
         : reg.act;
       return {
-        proy: reg.proy,
+        proy,
         sub,
         act,
         fecha: clampFechaMes(reg.fecha, bounds),
@@ -134,20 +137,23 @@ function buildInitialForm(
 
   const fecha = resolveFechaMes(defaultFecha, bounds);
   if (plantilla) {
+    const proy = catalog
+      ? resolveProyectoId(catalog, plantilla.proy)
+      : plantilla.proy;
     const sub = catalog
       ? resolveSubproyectoId(
           catalog,
-          plantilla.proy,
+          proy,
           plantilla.sub,
           plantilla.act,
         ) || plantilla.sub
       : plantilla.sub;
     const act = catalog
-      ? resolveActividadId(catalog, plantilla.proy, sub, plantilla.act) ||
+      ? resolveActividadId(catalog, proy, sub, plantilla.act) ||
         plantilla.act
       : plantilla.act;
     return {
-      proy: plantilla.proy,
+      proy,
       sub,
       act,
       fecha,
@@ -393,7 +399,7 @@ function RegistroHorasForm({
         return;
       }
       setCatalog(result.catalog);
-      if (editId) {
+      if (editId || plantilla) {
         setForm(
           buildInitialForm(
             editId,
@@ -410,7 +416,7 @@ function RegistroHorasForm({
     return () => {
       cancelled = true;
     };
-  }, [useIfsCatalog, form.fecha, editId, defaultFecha, registros, bounds]);
+  }, [useIfsCatalog, form.fecha, editId, defaultFecha, registros, bounds, plantilla]);
 
   useEffect(() => {
     if (!form.fecha) return;
@@ -494,7 +500,7 @@ function RegistroHorasForm({
 
     void fetchProjectAprobadorAction({
       shortName: form.proy,
-      projectId: entry.projectId,
+      projectId: entry.projectId || form.proy,
     }).then((result) => {
       if (cancelled) return;
       setAprobadorLoading(false);
@@ -741,6 +747,7 @@ function RegistroHorasForm({
 
     const horasNum = parseHorasInput(form.horas);
     const actLabel = useIfsCatalogLive ? (actMeta?.label ?? form.act) : form.act;
+    const proyectoMeta = catalog?.proyectos.find((p) => p.id === form.proy);
     const registroExistente = editId
       ? findRegistroById(registros, editId)
       : undefined;
@@ -756,7 +763,10 @@ function RegistroHorasForm({
     const payload: RegistroMock[] = fechas.map((fecha, index) => ({
       id: editId ?? `r${baseId}-${index}`,
       proy: form.proy,
+      shortName: actMeta?.shortName ?? registroExistente?.shortName,
+      proyNombre: proyectoMeta?.nombre,
       subproy: form.sub,
+      subproyId: form.sub,
       act: actLabel,
       tipo: form.tipo,
       horas: horasNum,
@@ -783,15 +793,18 @@ function RegistroHorasForm({
     }
 
     const ultimo = registros[anterior][registros[anterior].length - 1];
+    const proy = useIfsCatalogLive
+      ? resolveProyectoId(catalog, ultimo.proy)
+      : ultimo.proy;
     const sub = useIfsCatalogLive
-      ? resolveSubproyectoId(catalog, ultimo.proy, ultimo.subproy, ultimo.act)
-      : inferSubproyecto(ultimo.proy, ultimo.act, ultimo.subproy);
+      ? resolveSubproyectoId(catalog, proy, ultimo.subproy, ultimo.act)
+      : inferSubproyecto(proy, ultimo.act, ultimo.subproy);
     const act = useIfsCatalogLive
-      ? resolveActividadId(catalog, ultimo.proy, sub, ultimo.act)
+      ? resolveActividadId(catalog, proy, sub, ultimo.act)
       : ultimo.act;
 
     patch({
-      proy: ultimo.proy,
+      proy,
       sub,
       act,
       tipo: ultimo.tipo,
@@ -881,7 +894,8 @@ function RegistroHorasForm({
             useIfsCatalogLive
               ? (catalog?.proyectos ?? []).map((p) => ({
                   value: p.id,
-                  label: `${p.id} – ${p.nombre}`,
+                  label: p.id,
+                  hint: p.nombre && p.nombre !== p.id ? p.nombre : undefined,
                 }))
               : [],
             form.proy,
@@ -906,7 +920,7 @@ function RegistroHorasForm({
           options={ensureSelectOption(
             subs.map((s) => ({
               value: s.id,
-              label: s.label,
+              label: formatLovCodeName(s.id, s.label),
             })),
             form.sub,
           )}
@@ -931,7 +945,7 @@ function RegistroHorasForm({
           options={ensureSelectOption(
             actividades.map((a) => ({
               value: a.id,
-              label: a.label,
+              label: formatLovCodeName(a.activityNo, a.label),
             })),
             form.act,
           )}

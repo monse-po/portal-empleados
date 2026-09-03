@@ -33,8 +33,12 @@ import {
   upsertRegistroAction,
   upsertRegistrosAction,
 } from "@/src/server/mi-tiempo-actions";
-import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
+import {
+  fetchEmployeeScheduleAction,
+  getIfsSessionStatusAction,
+} from "@/src/server/mi-tiempo-catalog-actions";
 import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
+import { horasMesDesdePrograma } from "@/src/lib/tiempo-schedule";
 
 export type RegistrarModalState = {
   editId?: string;
@@ -91,6 +95,10 @@ type MiTiempoContextValue = {
   activePeriod: string | null;
   /** Mes registrable: ActivePeriod de IFS, o mes del reloj si no hay periodo. */
   mesBounds: MesActualBounds;
+  /** Programa IFS: AccountDate → ScheduleHours. */
+  hoursByDate: Record<string, number> | null;
+  /** Horas del mes según programa (GetHoursSummary). */
+  horasMesPrograma: number;
   reloadRegistros: () => Promise<void>;
   upsertRegistro: (reg: RegistroMock) => Promise<void>;
   /** Crea/actualiza registros en IFS (estado Registrado). */
@@ -144,6 +152,10 @@ export function MiTiempoProvider({
   const [mesBounds, setMesBounds] = useState<MesActualBounds>(() =>
     getMesActualBounds(),
   );
+  const [hoursByDate, setHoursByDate] = useState<Record<string, number> | null>(
+    null,
+  );
+  const [scheduleHoursIfs, setScheduleHoursIfs] = useState<number | null>(null);
   const [modal, setModal] = useState<RegistrarModalState>(null);
   const registroGuardadoHandler = useRef<RegistroGuardadoHandler | undefined>(
     undefined,
@@ -166,6 +178,19 @@ export function MiTiempoProvider({
       setMesBounds(getMesBoundsFromIfsPeriod(period));
     },
     [],
+  );
+
+  const loadPrograma = useCallback(async () => {
+    const result = await fetchEmployeeScheduleAction();
+    setHoursByDate(
+      Object.keys(result.hoursByDate).length > 0 ? result.hoursByDate : null,
+    );
+    setScheduleHoursIfs(result.scheduleHours);
+  }, []);
+
+  const horasMesPrograma = useMemo(
+    () => horasMesDesdePrograma(hoursByDate, mesBounds, scheduleHoursIfs),
+    [hoursByDate, mesBounds, scheduleHoursIfs],
   );
 
   const reloadRegistros = useCallback(async () => {
@@ -218,15 +243,20 @@ export function MiTiempoProvider({
   }, []);
 
   useEffect(() => {
+    void loadPrograma();
+  }, [loadPrograma]);
+
+  useEffect(() => {
     const onEmployeeChanged = () => {
       setRegistrosLoaded(false);
       void reloadRegistros();
+      void loadPrograma();
     };
     window.addEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onEmployeeChanged);
     return () => {
       window.removeEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onEmployeeChanged);
     };
-  }, [reloadRegistros]);
+  }, [reloadRegistros, loadPrograma]);
 
   const setRegistroGuardadoHandler = useCallback(
     (handler?: RegistroGuardadoHandler) => {
@@ -325,6 +355,8 @@ export function MiTiempoProvider({
       ifsEmail,
       activePeriod,
       mesBounds,
+      hoursByDate,
+      horasMesPrograma,
       reloadRegistros,
       upsertRegistro,
       upsertRegistros,
@@ -345,6 +377,8 @@ export function MiTiempoProvider({
       ifsEmail,
       activePeriod,
       mesBounds,
+      hoursByDate,
+      horasMesPrograma,
       reloadRegistros,
       upsertRegistro,
       upsertRegistros,

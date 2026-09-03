@@ -125,8 +125,11 @@ type MiTiempoListaProps = {
 };
 
 function HorasResumenBar() {
-  const { registros, mesBounds } = useMiTiempo();
-  const resumen = getResumenHoras(filterRegistrosPorMes(registros, mesBounds));
+  const { registros, mesBounds, horasMesPrograma } = useMiTiempo();
+  const resumen = getResumenHoras(
+    filterRegistrosPorMes(registros, mesBounds),
+    horasMesPrograma,
+  );
 
   return (
     <div className="mb-4 flex gap-4 max-md:hidden">
@@ -171,12 +174,13 @@ function HorasResumenBar() {
 function CalendarioTab({
   onSelectDia,
 }: Pick<MiTiempoListaProps, "onSelectDia">) {
-  const { registros, mesBounds, openRegistrarModal } = useMiTiempo();
+  const { registros, mesBounds, horasMesPrograma, openRegistrarModal } =
+    useMiTiempo();
   const registrosMes = useMemo(
     () => filterRegistrosPorMes(registros, mesBounds),
     [registros, mesBounds],
   );
-  const resumen = getResumenHoras(registrosMes);
+  const resumen = getResumenHoras(registrosMes, horasMesPrograma);
   const hoy = useMemo(() => {
     const d = new Date();
     d.setHours(12, 0, 0, 0);
@@ -516,16 +520,18 @@ function ListaTab({
                       >
                         <td className={dataTd}>
                           {(() => {
-                            const proy = getProyectoListaParts(r.proy);
+                            const proy = getProyectoListaParts(r.proy, r.proyNombre);
                             return (
                               <div className="min-w-0">
                                 <div className={dataTdResPrimary}>{proy.codigo}</div>
-                                <div
-                                  className={dataTdResSecondary}
-                                  title={proy.nombreFull}
-                                >
-                                  {proy.nombre}
-                                </div>
+                                {proy.nombre ? (
+                                  <div
+                                    className={dataTdResSecondary}
+                                    title={proy.nombreFull}
+                                  >
+                                    {proy.nombre}
+                                  </div>
+                                ) : null}
                               </div>
                             );
                           })()}

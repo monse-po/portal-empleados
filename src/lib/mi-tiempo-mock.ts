@@ -19,6 +19,8 @@ export type RegistroMock = {
   proy: string;
   /** Nombre IFS (ProjectName / GetValidEmpPrjAct.Name). */
   proyNombre?: string;
+  /** ShortName IFS para EmpTimeReg (proyecto.sub.actividad). */
+  shortName?: string;
   subproy?: string;
   subproyId?: string;
   act: string;
@@ -643,6 +645,7 @@ export function inferSubproyecto(
 
 export function getResumenHoras(
   registros: Record<string, RegistroMock[]> = REGISTROS_MOCK,
+  horasMes = META_HORAS_MES,
 ) {
   let aprob = 0;
   let rev = 0;
@@ -660,11 +663,13 @@ export function getResumenHoras(
     });
 
   const round = (x: number) => Math.round(x * 10) / 10;
+  const cubiertas = round(aprob + rev);
   const reportadas = round(aprob + rev + rech);
+  const meta = round(horasMes);
 
   return {
-    horasMes: META_HORAS_MES,
-    pendientesReportar: round(META_HORAS_MES - reportadas),
+    horasMes: meta,
+    pendientesReportar: Math.max(0, round(meta - cubiertas)),
     reportadas,
     aprobadas: round(aprob),
     pendAprobacion: round(rev),

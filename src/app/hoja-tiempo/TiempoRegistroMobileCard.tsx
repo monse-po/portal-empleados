@@ -23,7 +23,7 @@ export function TiempoRegistroMobileCard({
   onDelete,
   deleteDisabled,
 }: TiempoRegistroMobileCardProps) {
-  const proy = getProyectoListaParts(registro.proy);
+  const proy = getProyectoListaParts(registro.proy, registro.proyNombre);
   const editable = isRegistroEditable(registro.estado);
   const canDelete = isRegistroEliminable(registro.estado) && onDelete;
   const clickable = Boolean(editable && onOpen);

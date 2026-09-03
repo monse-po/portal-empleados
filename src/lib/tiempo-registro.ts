@@ -12,6 +12,10 @@ export type RegistroTiempo = {
   id: string;
   codigo?: string;
   proy: string;
+  /** Nombre IFS del proyecto (ProjectName). */
+  proyNombre?: string;
+  /** ShortName IFS para EmpTimeReg (proyecto.sub.actividad). */
+  shortName?: string;
   subproy?: string;
   act: string;
   tipo: string;
@@ -260,6 +264,7 @@ export function horasReportadasParaCuadre(
 export function getResumenHoras(
   registros: Record<string, RegistroTiempo[]>,
   refDate: Date = hoyReferencia(),
+  horasMes = META_HORAS_MES,
 ) {
   const mesPrefix = getMesActualPrefix(refDate);
   let aprob = 0;
@@ -280,10 +285,11 @@ export function getResumenHoras(
 
   const round = (x: number) => Math.round(x * 10) / 10;
   const reportadas = round(aprob + rev);
-  const pendientesReportar = Math.max(0, round(META_HORAS_MES - reportadas));
+  const meta = round(horasMes);
+  const pendientesReportar = Math.max(0, round(meta - reportadas));
 
   return {
-    horasMes: META_HORAS_MES,
+    horasMes: meta,
     pendientesReportar,
     reportadas,
     aprobadas: round(aprob),

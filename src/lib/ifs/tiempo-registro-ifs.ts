@@ -5,7 +5,7 @@ import type { RegistroMock } from "@/src/lib/tiempo-registro";
 export function registroToEmpTimeReg(reg: RegistroMock): EmpTimeReg {
   return {
     AccountDate: reg.fecha,
-    ShortName: reg.proy,
+    ShortName: reg.shortName || reg.proy,
     ReportCostCode: reg.tipo,
     DayHours: reg.horas,
     Comments: reg.comentario?.trim() || undefined,
@@ -70,7 +70,9 @@ export function findMatchingIfsRegistro(
   return ifsRows.find(
     (row) =>
       row.fecha === local.fecha &&
-      row.proy === local.proy &&
+      (row.proy === local.proy ||
+        (local.shortName != null &&
+          (row.shortName === local.shortName || row.proy === local.shortName))) &&
       row.tipo === local.tipo &&
       horasCoinciden(row.horas, local.horas),
   );

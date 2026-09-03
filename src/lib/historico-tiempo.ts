@@ -96,7 +96,7 @@ export function getHistoricoResumenPorProyecto(
   const map = new Map<string, HistoricoProyectoResumen>();
 
   for (const r of rows) {
-    const parts = getProyectoListaParts(r.proy);
+    const parts = getProyectoListaParts(r.proy, r.proyNombre);
     const cur = map.get(r.proy) ?? {
       proyId: r.proy,
       codigo: parts.codigo,
@@ -118,7 +118,7 @@ export function getHistoricoResumenPorProyecto(
 
 /**
  * Claves vigentes hoy (GetValidEmpPrjAct).
- * Incluye ShortName (Mi Tiempo) y ProjectId (Mi Histórico), con y sin subproyecto.
+ * Incluye ProjectId y ShortName legado, con y sin subproyecto.
  */
 export function openKeysFromCatalog(catalog: TiempoCatalog | null): Set<string> {
   const keys = new Set<string>();
@@ -194,7 +194,7 @@ export function getHistoricoResumenPorProyectoSub(
     const subproyId = r.subproyId?.trim();
     const actividad = r.act?.trim() || "—";
     const key = `${r.proy}::${subproyId || subproy}::${actividad}`;
-    const parts = getProyectoListaParts(r.proy);
+    const parts = getProyectoListaParts(r.proy, r.proyNombre);
     const nombre =
       r.proyNombre?.trim() ||
       nombresPorProy?.[r.proy] ||

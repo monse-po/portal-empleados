@@ -168,6 +168,106 @@ export function DateRangePicker({
   );
 }
 
+/** Un día suelto (formularios): mismo calendario navy que Mi Tiempo, sin mes IFS. */
+export function DatePickerInput({
+  value,
+  onChange,
+  min,
+  max,
+  invalid,
+  placeholder = "Elegir fecha…",
+}: {
+  value: string;
+  onChange: (iso: string) => void;
+  min?: string;
+  max?: string;
+  invalid?: boolean;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = useMemo(() => isoToDate(value), [value]);
+  const defaultMonth = useMemo(
+    () => selected ?? isoToDate(min) ?? new Date(),
+    [selected, min],
+  );
+  const disabled = useMemo(() => {
+    const rules: Matcher[] = [];
+    const minDate = isoToDate(min);
+    const maxDate = isoToDate(max);
+    if (minDate) rules.push({ before: minDate });
+    if (maxDate) rules.push({ after: maxDate });
+    return rules.length ? rules : undefined;
+  }, [min, max]);
+
+  const label = value ? formatFechaCampo(value) : placeholder;
+
+  return (
+    <Dropdown
+      open={open}
+      onOpenChange={setOpen}
+      portal
+      fitContent
+      menuClassName="w-[252px] overflow-hidden border-border p-0 shadow-[0_4px_16px_rgba(0,0,0,0.10)]"
+      trigger={
+        <button
+          type="button"
+          aria-label="Fecha"
+          onClick={() => setOpen((v) => !v)}
+          className={`flex min-h-[38px] w-full cursor-pointer items-center justify-between gap-2 text-left ${dateInputClassWithError(invalid)}`}
+        >
+          <span
+            className={`min-w-0 flex-1 truncate whitespace-nowrap ${
+              value ? "text-text" : "text-muted"
+            }`}
+          >
+            {label}
+          </span>
+          <DropdownChevron />
+        </button>
+      }
+    >
+      <DatePickerShell
+        footer={
+          <DatePickerClearFooter
+            onClear={() => {
+              onChange("");
+              setOpen(false);
+            }}
+          />
+        }
+      >
+        <DayPicker
+          className={DATE_PICKER_ROOT_CLASS}
+          mode="single"
+          locale={es}
+          selected={selected}
+          onSelect={(day) => {
+            const iso = dateToIso(day);
+            if (!iso) return;
+            onChange(iso);
+            setOpen(false);
+          }}
+          defaultMonth={defaultMonth}
+          startMonth={isoToDate(min)}
+          disabled={disabled}
+          numberOfMonths={1}
+          showOutsideDays={false}
+          captionLayout="label"
+          navLayout="around"
+        />
+      </DatePickerShell>
+    </Dropdown>
+  );
+}
+
+function formatFechaCampo(iso: string): string {
+  const short = formatFechaRangoCorto(iso, iso);
+  const d = isoToDate(iso);
+  if (!d) return short;
+  if (d.getFullYear() === new Date().getFullYear()) return short;
+  return `${short} ${d.getFullYear()}`;
+}
+
 /** Etiqueta corta: un día → «12 ago»; rango → «12 – 16». */
 export function formatFechaRangoCorto(from?: string, to?: string): string {
   if (!from) return "Elegir fecha…";

@@ -16,6 +16,8 @@ export type TiempoCatalogActividad = {
   activitySeq: number;
   activityNo: string;
   label: string;
+  /** ShortName IFS (proyecto.sub.actividad) — lo exige EmpTimeReg. */
+  shortName: string;
 };
 
 export type TiempoCatalogSubproyecto = {
@@ -78,6 +80,16 @@ export function shortenReportCostLabel(
   return s || code;
 }
 
+/** Etiqueta LOV: código + nombre, sin duplicar si el nombre ya trae el código. */
+export function formatLovCodeName(code: string, name?: string): string {
+  const c = code.trim();
+  const n = (name ?? "").trim();
+  if (!c) return n;
+  if (!n || n === c) return c;
+  if (n.toLowerCase().startsWith(c.toLowerCase())) return n;
+  return `${c} – ${n}`;
+}
+
 export function buildTiempoCatalogFromIfs(
   rows: ValidEmpPrjActRow[],
 ): TiempoCatalog {
@@ -85,23 +97,23 @@ export function buildTiempoCatalogFromIfs(
   const porProyecto: TiempoCatalog["porProyecto"] = {};
 
   for (const row of rows) {
-    const shortName = row.ShortName?.trim();
-    if (!shortName) continue;
+    const shortName = row.ShortName?.trim() ?? "";
+    const projectId = row.ProjectId?.trim() || shortName;
+    if (!projectId) continue;
 
     const companyId = row.CompanyId?.trim() ?? "";
-    const projectId = row.ProjectId?.trim() || shortName;
 
-    if (!proyectosMap.has(shortName)) {
-      proyectosMap.set(shortName, {
-        id: shortName,
-        nombre: row.Name?.trim() || shortName,
+    if (!proyectosMap.has(projectId)) {
+      proyectosMap.set(projectId, {
+        id: projectId,
+        nombre: row.Name?.trim() || projectId,
         projectId,
         companyId,
       });
-      porProyecto[shortName] = { companyId, projectId, subs: [] };
+      porProyecto[projectId] = { companyId, projectId, subs: [] };
     }
 
-    const entry = porProyecto[shortName];
+    const entry = porProyecto[projectId];
     if (!entry.aprobador) {
       const approver = readAprobadorFromRow(row);
       if (approver) entry.aprobador = approver;
@@ -119,6 +131,7 @@ export function buildTiempoCatalogFromIfs(
     const activityNo = row.ActivityNo?.trim() || String(activitySeq);
     const actLabel = row.Description?.trim() || activityNo;
     const actId = String(activitySeq || activityNo);
+    const actShortName = shortName || `${projectId}.${subId}.${activityNo}`;
 
     if (!sub.actividades.some((a) => a.id === actId)) {
       sub.actividades.push({
@@ -126,6 +139,7 @@ export function buildTiempoCatalogFromIfs(
         activitySeq,
         activityNo,
         label: actLabel,
+        shortName: actShortName,
       });
     }
   }
@@ -195,12 +209,12 @@ export function applyProjectManagersToCatalog(
   catalog: TiempoCatalog,
   managersByProjectId: Map<string, string>,
 ): void {
-  for (const [shortName, entry] of Object.entries(catalog.porProyecto)) {
+  for (const [projectKey, entry] of Object.entries(catalog.porProyecto)) {
     if (entry.aprobador?.name || entry.aprobador?.code) continue;
 
     const manager =
       managersByProjectId.get(entry.projectId) ??
-      managersByProjectId.get(shortName);
+      managersByProjectId.get(projectKey);
     if (manager) {
       entry.aprobador = { name: manager };
     }
@@ -209,13 +223,34 @@ export function applyProjectManagersToCatalog(
 
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 
+/** ProjectId del catálogo, o el proyecto que contiene ese ShortName legado. */
+export function resolveProyectoId(
+  catalog: TiempoCatalog | null,
+  storedProy: string,
+): string {
+  if (!catalog || !storedProy) return storedProy;
+  if (catalog.porProyecto[storedProy]) return storedProy;
+
+  for (const [id, entry] of Object.entries(catalog.porProyecto)) {
+    if (entry.projectId === storedProy) return id;
+    for (const sub of entry.subs) {
+      if (sub.actividades.some((a) => a.shortName === storedProy)) {
+        return id;
+      }
+    }
+  }
+
+  return storedProy;
+}
+
 export function resolveAprobadorLabel(
   catalog: TiempoCatalog | null,
   proyId: string,
 ): string {
   const fallback = TIEMPO_UI_COPY.approverFallback;
   if (!proyId) return fallback;
-  const aprobador = catalog?.porProyecto[proyId]?.aprobador;
+  const key = resolveProyectoId(catalog, proyId);
+  const aprobador = catalog?.porProyecto[key]?.aprobador;
   if (!aprobador) return fallback;
   return aprobador.name?.trim() || aprobador.code?.trim() || fallback;
 }
@@ -227,7 +262,7 @@ export function resolveSubproyectoId(
   actLabel: string,
 ): string {
   if (!catalog || !storedSub) return storedSub ?? "";
-  const entry = catalog.porProyecto[proyId];
+  const entry = catalog.porProyecto[resolveProyectoId(catalog, proyId)];
   if (!entry) return storedSub;
 
   const byId = entry.subs.find((s) => s.id === storedSub);
@@ -252,7 +287,9 @@ export function resolveActividadId(
   storedAct: string,
 ): string {
   if (!catalog) return storedAct;
-  const sub = catalog.porProyecto[proyId]?.subs.find((s) => s.id === subId);
+  const sub = catalog.porProyecto[resolveProyectoId(catalog, proyId)]?.subs.find(
+    (s) => s.id === subId,
+  );
   if (!sub) return storedAct;
 
   const byId = sub.actividades.find((a) => a.id === storedAct);
@@ -270,7 +307,9 @@ export function findActividadMeta(
   subId: string,
   actId: string,
 ): TiempoCatalogActividad | null {
-  const sub = catalog?.porProyecto[proyId]?.subs.find((s) => s.id === subId);
+  const sub = catalog?.porProyecto[resolveProyectoId(catalog, proyId)]?.subs.find(
+    (s) => s.id === subId,
+  );
   return sub?.actividades.find((a) => a.id === actId) ?? null;
 }
 

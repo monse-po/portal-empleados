@@ -573,21 +573,44 @@ export async function getScheduleHoursForDate(
   return map[accountDate.slice(0, 10)];
 }
 
+function finiteHours(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+export type EmployeeHoursPrograma = {
+  hoursByDate: Record<string, number>;
+  /** Total del periodo en GetHoursSummary (si IFS lo manda). */
+  scheduleHours: number | null;
+  jobHours: number | null;
+  remainingJobHours: number | null;
+};
+
+/** Programa del empleado: días + totales de GetHoursSummary. */
+export async function getEmployeeHoursPrograma(
+  session: CempPortalSession,
+): Promise<EmployeeHoursPrograma> {
+  const summary = await getHoursSummary(session);
+  const hoursByDate: Record<string, number> = {};
+  for (const day of summary.EmployeeSchedule ?? []) {
+    const iso = (day.AccountDate ?? "").slice(0, 10);
+    if (!iso) continue;
+    const hours = finiteHours(day.ScheduleHours);
+    if (hours != null) hoursByDate[iso] = hours;
+  }
+  return {
+    hoursByDate,
+    scheduleHours: finiteHours(summary.ScheduleHours),
+    jobHours: finiteHours(summary.JobHours),
+    remainingJobHours: finiteHours(summary.RemainingJobHours),
+  };
+}
+
 /** Mapa AccountDate → ScheduleHours del programa del empleado (GetHoursSummary). */
 export async function getEmployeeScheduleHoursByDate(
   session: CempPortalSession,
 ): Promise<Record<string, number>> {
-  const summary = await getHoursSummary(session);
-  const map: Record<string, number> = {};
-  for (const day of summary.EmployeeSchedule ?? []) {
-    const iso = (day.AccountDate ?? "").slice(0, 10);
-    if (!iso) continue;
-    const hours = day.ScheduleHours;
-    if (typeof hours === "number" && Number.isFinite(hours)) {
-      map[iso] = hours;
-    }
-  }
-  return map;
+  const programa = await getEmployeeHoursPrograma(session);
+  return programa.hoursByDate;
 }
 
 export async function listPortalUsers(

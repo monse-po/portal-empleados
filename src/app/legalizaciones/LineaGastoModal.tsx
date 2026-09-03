@@ -390,7 +390,8 @@ export function LineaGastoModal({
                   onChange={(proyectoId) => patch({ proyectoId })}
                   options={PROYECTOS_ANT.map((p) => ({
                     value: p.id,
-                    label: `${p.id} – ${p.nombre}`,
+                    label: p.id,
+                    hint: p.nombre,
                   }))}
                   placeholder="Seleccionar proyecto…"
                   searchPlaceholder="Buscar proyecto…"

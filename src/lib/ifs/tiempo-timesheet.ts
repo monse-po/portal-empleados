@@ -93,7 +93,9 @@ export function mapEmpReportItemToRegistro(
   index: number,
 ): RegistroMock | null {
   const fecha = isoDate(row.AccountDate);
-  const proy = row.ShortName?.trim() || row.ProjectId?.trim();
+  const projectId = row.ProjectId?.trim();
+  const shortName = row.ShortName?.trim();
+  const proy = projectId || shortName;
   if (!fecha || !proy) return null;
 
   const horas = parseHoras(row.Hours ?? row.InternalQuantity);
@@ -112,6 +114,7 @@ export function mapEmpReportItemToRegistro(
         ? `IFS-${row.ProjectTransactionSeq}`
         : undefined,
     proy,
+    shortName: shortName || undefined,
     proyNombre: row.ProjectName?.trim() || undefined,
     subproy: row.SubProjectDesc?.trim() || row.SubProjectId?.trim() || undefined,
     subproyId: row.SubProjectId?.trim() || undefined,
@@ -231,9 +234,8 @@ export function dedupeRegistros(rows: RegistroMock[]): RegistroMock[] {
 }
 
 /**
- * Histórico: proyecto = ProjectId + ProjectName (no ShortName armado
- * proyecto.sub.actividad, p. ej. TIC1100.01.01.06).
- * Mi Tiempo sigue usando ShortName porque EmpTimeReg lo exige.
+ * Histórico y Mi Tiempo: proyecto = ProjectId.
+ * ShortName (proyecto.sub.actividad) se guarda aparte para EmpTimeReg.
  */
 function mapEmpReportItemToRegistroHistorico(
   row: EmpReportItemRow,
@@ -276,7 +278,7 @@ export function groupRegistrosMockByFecha(
 export function mapRegistroToEmpTimeReg(reg: RegistroMock): EmpTimeReg {
   return {
     AccountDate: reg.fecha.slice(0, 10),
-    ShortName: reg.proy.trim(),
+    ShortName: (reg.shortName ?? reg.proy).trim(),
     ReportCostCode: reg.tipo.trim() || "DN",
     DayHours: reg.horas,
     Comments: reg.comentario?.trim() || undefined,
@@ -333,7 +335,7 @@ export function mapRegistroToEmpTimeUpdate(
   return {
     Module: meta.module,
     AccountDate: reg.fecha.slice(0, 10),
-    ShortName: reg.proy.trim(),
+    ShortName: (reg.shortName ?? reg.proy).trim(),
     ReportCostCode: reg.tipo.trim() || "DN",
     DayHours: reg.horas,
     Objid: meta.objid,
@@ -376,7 +378,7 @@ export function registroFingerprint(reg: RegistroMock): string {
   const horas = Number(reg.horas.toFixed(2));
   return [
     reg.fecha.slice(0, 10),
-    reg.proy.trim().toLowerCase(),
+    (reg.shortName ?? reg.proy).trim().toLowerCase(),
     (reg.subproy ?? "").trim().toLowerCase(),
     (reg.act ?? "").trim().toLowerCase(),
     (reg.tipo ?? "").trim().toLowerCase(),
@@ -390,7 +392,11 @@ export function registroFingerprint(reg: RegistroMock): string {
  */
 export function registroFingerprintLoose(reg: RegistroMock): string {
   const horas = Number(reg.horas.toFixed(2));
-  const proy = reg.proy.trim().toLowerCase().split("·")[0].trim();
+  const proy = (reg.shortName ?? reg.proy)
+    .trim()
+    .toLowerCase()
+    .split("·")[0]
+    .trim();
   return [
     reg.fecha.slice(0, 10),
     proy,

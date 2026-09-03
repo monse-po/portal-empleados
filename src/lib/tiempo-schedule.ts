@@ -2,7 +2,7 @@ import {
   getJornadaLimiteFromSistema,
   type TiempoJornadaSource,
 } from "@/src/lib/tiempo-config";
-import { isoToDate } from "@/src/lib/date-picker-utils";
+import { eachIsoDateInclusive, isoToDate } from "@/src/lib/date-picker-utils";
 import { FESTIVOS_2026 } from "@/src/lib/mi-tiempo-mock";
 
 /** Fallback interno si falta config de compañía (no usar como regla de negocio). */
@@ -129,6 +129,65 @@ export function isDiaConJornadaNormal(
 
 /** @deprecated Usar isDiaConJornadaNormal */
 export const isDiaLaborablePrograma = isDiaConJornadaNormal;
+
+function roundHoras(x: number): number {
+  return Math.round(x * 10) / 10;
+}
+
+/** Suma ScheduleHours del programa en [min, max]. */
+export function sumScheduleHoursInRange(
+  hoursByDate: Record<string, number> | null | undefined,
+  min: string,
+  max: string,
+): number {
+  if (!hoursByDate) return 0;
+  let total = 0;
+  for (const [iso, hours] of Object.entries(hoursByDate)) {
+    if (iso < min || iso > max) continue;
+    if (typeof hours === "number" && Number.isFinite(hours) && hours > 0) {
+      total += hours;
+    }
+  }
+  return total;
+}
+
+/**
+ * Horas del mes según programa del usuario.
+ * 1) Suma ScheduleHours del periodo visible
+ * 2) Total GetHoursSummary.ScheduleHours
+ * 3) Días con jornada × tope de sistema
+ */
+export function horasMesDesdePrograma(
+  hoursByDate: Record<string, number> | null | undefined,
+  bounds: { min: string; max: string },
+  fallbackScheduleHours?: number | null,
+): number {
+  if (hoursByDate && Object.keys(hoursByDate).length > 0) {
+    const hasDaysInRange = Object.keys(hoursByDate).some(
+      (iso) => iso >= bounds.min && iso <= bounds.max,
+    );
+    if (hasDaysInRange) {
+      return roundHoras(
+        sumScheduleHoursInRange(hoursByDate, bounds.min, bounds.max),
+      );
+    }
+  }
+
+  if (
+    typeof fallbackScheduleHours === "number" &&
+    Number.isFinite(fallbackScheduleHours) &&
+    fallbackScheduleHours > 0
+  ) {
+    return roundHoras(fallbackScheduleHours);
+  }
+
+  const sistema = getJornadaLimiteFromSistema().maxNormalHours;
+  let total = 0;
+  for (const fecha of eachIsoDateInclusive(bounds.min, bounds.max)) {
+    if (isDiaConJornadaNormal(fecha, hoursByDate)) total += sistema;
+  }
+  return roundHoras(total);
+}
 
 /** Filtra a días con jornada normal (ScheduleHours > 0). */
 export function filterFechasConJornadaNormal(

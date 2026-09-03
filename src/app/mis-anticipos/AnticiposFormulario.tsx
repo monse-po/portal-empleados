@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody } from "@/src/components/ui/Card";
-import { DateInput } from "@/src/components/ui/DateInput";
+import { DatePickerInput } from "@/src/components/ui/DateRangePicker";
 import { Field } from "@/src/components/ui/Field";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
@@ -138,24 +138,6 @@ function FormSection({
 function FormHint({ children }: { children: React.ReactNode }) {
   return (
     <div className="inline-flex w-fit max-w-full items-start gap-2 rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-3 py-2 text-[12px] leading-snug text-[#1e40af]">
-      <Icon name="info" size="xs" className="mt-0.5 shrink-0 text-[#1e40af]" />
-      <span>{children}</span>
-    </div>
-  );
-}
-
-/** Hint operativo / regla de negocio — misma familia visual que FormHint */
-function FormNote({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`inline-flex w-fit max-w-full items-start gap-2 rounded-md border border-[#c7d9ed] bg-[#eef3f9] px-3 py-2 text-[12px] leading-snug text-[#1e40af] ${className}`.trim()}
-    >
       <Icon name="info" size="xs" className="mt-0.5 shrink-0 text-[#1e40af]" />
       <span>{children}</span>
     </div>
@@ -462,7 +444,8 @@ export function AnticiposFormulario({
     () =>
       proyectos.map((p) => ({
         value: p.id,
-        label: `${p.id} – ${p.nombre}`,
+        label: p.id,
+        hint: p.nombre && p.nombre !== p.id ? p.nombre : undefined,
       })),
     [proyectos],
   );
@@ -801,17 +784,9 @@ export function AnticiposFormulario({
               icon="wallet"
               title="Tipo y monto de la solicitud"
               hint={
-                tipo === "Gasto" ? (
-                  <FormNote>
-                    Las solicitudes se procesan en{" "}
-                    <strong>2 días hábiles</strong> desde su aprobación.
-                  </FormNote>
-                ) : tipo === "Viaje" ? (
-                  <FormNote>
-                    Solicita con al menos <strong>2 días hábiles</strong> antes de
-                    la fecha de inicio del viaje.
-                  </FormNote>
-                ) : undefined
+                <p className="text-[11.5px] leading-snug text-muted">
+                  2 días hábiles tras la aprobación.
+                </p>
               }
             >
               <FormGrid>
@@ -880,30 +855,27 @@ export function AnticiposFormulario({
               {tipo === "Viaje" && (
                 <FormGrid className="mt-3">
                   <Field label="Fecha salida" required>
-                    <DateInput
+                    <DatePickerInput
                       min={hoy}
                       value={fechaIda}
-                      onChange={(e) => {
-                        const next = e.target.value;
+                      onChange={(next) => {
                         if (!next) {
                           setFechaIda("");
                           return;
                         }
                         if (next < hoy) return;
                         setFechaIda(next);
-                        if (fechaRegreso && next && fechaRegreso < next) {
+                        if (fechaRegreso && fechaRegreso < next) {
                           setFechaRegreso(next);
                         }
                       }}
-                      className="ant-field-input"
                     />
                   </Field>
                   <Field label="Fecha regreso" required>
-                    <DateInput
+                    <DatePickerInput
                       min={fechaIda && fechaIda > hoy ? fechaIda : hoy}
                       value={fechaRegreso}
-                      onChange={(e) => setFechaRegreso(e.target.value)}
-                      className="ant-field-input"
+                      onChange={setFechaRegreso}
                     />
                   </Field>
                   <Field label="Destino" required>

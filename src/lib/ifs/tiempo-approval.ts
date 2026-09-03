@@ -63,8 +63,8 @@ export function mapApprovalRowToHoja(
 ): HojaAprobacion | null {
   const fechaIso = isoDate(row.AccountDate);
   const proy =
-    row.ShortName?.trim() ||
     row.ProjectId?.trim() ||
+    row.ShortName?.trim() ||
     row.ProjectName?.trim();
   if (!fechaIso || !proy) return null;
 
@@ -154,12 +154,12 @@ function classifyApprovalHours(
 }
 
 function codigoProyectoDeFila(row: EmpReportItemRow): string | null {
-  const codigo = row.ShortName?.trim() || row.ProjectId?.trim();
+  const codigo = row.ProjectId?.trim() || row.ShortName?.trim();
   return codigo || null;
 }
 
 /**
- * Resumen por código de proyecto (ShortName / ProjectId).
+ * Resumen por código de proyecto (ProjectId).
  * Solo este agrupado en el primer render: sin empleados.
  */
 export function mapApprovalTimesheetToProyectos(

@@ -3,7 +3,7 @@
 import {
   getProjectInfo,
   getScheduleHoursForDate,
-  getEmployeeScheduleHoursByDate,
+  getEmployeeHoursPrograma,
   getValidActReportCode,
   getUserInfo,
   getValidEmpPrjAct,
@@ -288,13 +288,20 @@ export async function fetchScheduleHoursAction(accountDate: string): Promise<{
 /** Programa del empleado (días con ScheduleHours) para filtrar rangos. */
 export async function fetchEmployeeScheduleAction(): Promise<{
   hoursByDate: Record<string, number>;
+  /** Total GetHoursSummary.ScheduleHours (si IFS lo manda). */
+  scheduleHours: number | null;
   fromIfs: boolean;
   error?: string;
   sessionExpired?: boolean;
 }> {
+  const empty = {
+    hoursByDate: {} as Record<string, number>,
+    scheduleHours: null as number | null,
+    fromIfs: false,
+  };
   const session = await getServerIfsSession();
   if (!session) {
-    return { hoursByDate: {}, fromIfs: false };
+    return empty;
   }
 
   try {
@@ -304,15 +311,17 @@ export async function fetchEmployeeScheduleAction(): Promise<{
           liveSession.email,
           liveSession.accessToken,
         );
-        const hoursByDate = await getEmployeeScheduleHoursByDate(ifs);
+        const programa = await getEmployeeHoursPrograma(ifs);
         return {
-          hoursByDate,
-          fromIfs: Object.keys(hoursByDate).length > 0,
+          hoursByDate: programa.hoursByDate,
+          scheduleHours: programa.scheduleHours,
+          fromIfs:
+            Object.keys(programa.hoursByDate).length > 0 ||
+            programa.scheduleHours != null,
         };
       } catch (err) {
         return {
-          hoursByDate: {},
-          fromIfs: false,
+          ...empty,
           error: formatIfsError(err),
         };
       }
@@ -320,15 +329,13 @@ export async function fetchEmployeeScheduleAction(): Promise<{
   } catch (err) {
     if (err instanceof IfsSessionExpiredError) {
       return {
-        hoursByDate: {},
-        fromIfs: false,
+        ...empty,
         sessionExpired: true,
         error: err.message,
       };
     }
     return {
-      hoursByDate: {},
-      fromIfs: false,
+      ...empty,
       error: formatIfsError(err),
     };
   }

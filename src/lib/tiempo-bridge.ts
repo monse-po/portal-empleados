@@ -57,9 +57,10 @@ export function formatProyectoEmpleado(proyectoId: string): string {
 export const PROYECTO_NOMBRE_LISTA_MAX = 36;
 
 /** Código + nombre truncado para la tab Lista. */
-export function getProyectoListaParts(proyectoId: string) {
+export function getProyectoListaParts(proyectoId: string, nombreProy?: string) {
   const codigo = proyectoId;
-  const nombreFull = proyectoId;
+  const raw = (nombreProy ?? "").trim();
+  const nombreFull = raw && raw !== proyectoId ? raw : "";
   const nombre =
     nombreFull.length > PROYECTO_NOMBRE_LISTA_MAX
       ? `${nombreFull.slice(0, PROYECTO_NOMBRE_LISTA_MAX)}…`
