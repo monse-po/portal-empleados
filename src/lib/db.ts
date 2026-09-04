@@ -5,7 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/src/generated/prisma/client";
 
-// Neon env pull escribe en .env; debe ganar sobre .env.local (SQLite local).
+// El schema Prisma es PostgreSQL (Neon). .env gana sobre .env.local (SQLite).
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env", override: true });
 

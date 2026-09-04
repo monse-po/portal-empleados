@@ -622,10 +622,6 @@ export async function getHojasPendientesAprobacionAction(): Promise<HojasAprobac
   try {
     const raw = await withIfsPortalSession((ifs) => getApprovalTimesheets(ifs));
     const ifsHojas = mapApprovalTimesheetToHojas(raw);
-    if (!ifsHojas.length && process.env.NODE_ENV === "development") {
-      const demo = demoApprovalPayload();
-      return { hojas: demo.hojas, fromIfs: false };
-    }
     return {
       hojas: ifsHojas,
       fromIfs: true,
@@ -673,14 +669,6 @@ export async function getResumenProyectosAprobacionAction(): Promise<ResumenProy
   try {
     const raw = await withIfsPortalSession((ifs) => getApprovalTimesheets(ifs));
     const proyectos = mapApprovalTimesheetToProyectos(raw);
-    if (!proyectos.length && process.env.NODE_ENV === "development") {
-      const demo = demoApprovalPayload();
-      return {
-        proyectos: demo.proyectos,
-        raw: demo.raw,
-        fromIfs: false,
-      };
-    }
     return {
       proyectos,
       raw,

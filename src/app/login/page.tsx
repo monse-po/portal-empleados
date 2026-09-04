@@ -30,7 +30,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const next =
     nextRaw?.startsWith("/") && !nextRaw.startsWith("//")
       ? nextRaw
-      : "/hoja-tiempo";
+      : "/inicio";
   const canOauth = isIfsAuthReady();
   const hasBypass = isIfsDevTokenBypass();
   const errorText = error ? LOGIN_ERRORS[error] ?? `Error IFS: ${error}` : null;
@@ -43,8 +43,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       </p>
       <h1 className="mt-2 text-2xl font-semibold text-navy">Conexión IFS</h1>
       <p className="mt-2 text-sm text-muted">
-        Con sesión IFS, las horas se guardan en <strong>IFS Cloud DEV</strong>{" "}
-        (hmvdev), no en localhost. Sin sesión, el portal no escribe datos reales.
+        Una sesión IFS vale para <strong>todo el portal</strong> (Mi Tiempo,
+        Aprobar Tiempo, anticipos). Los datos salen de IFS Cloud, no de
+        localhost.
       </p>
 
       {errorText ? (

@@ -128,17 +128,17 @@ export const MODULES: ModuleDef[] = [
 /**
  * Módulos enfocados vía variable de entorno.
  *
- *   npm run dev                      → Tiempo + Anticipos
- *   FOCUS=all npm run dev            → app completa
+ *   npm run dev                      → app completa
  *   FOCUS=tiempo npm run dev         → solo Tiempo
  *   FOCUS=tiempo,anticipos npm run dev
+ *   FOCUS=all npm run dev            → app completa (explícito)
  *
  * `FOCUS` se mapea a NEXT_PUBLIC_FOCUS en next.config.
  */
 export function getFocusModules(): ModuleId[] | null {
   const raw = process.env.NEXT_PUBLIC_FOCUS?.trim().toLowerCase();
-  if (raw === "all" || raw === "off") return null;
-  const tokens = (raw || "tiempo,anticipos")
+  if (!raw || raw === "all" || raw === "off") return null;
+  const tokens = raw
     .split(/[,\s]+/)
     .map((t) => t.trim())
     .filter(Boolean);

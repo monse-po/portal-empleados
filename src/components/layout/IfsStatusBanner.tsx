@@ -36,18 +36,6 @@ export function IfsStatusBanner({
     );
   }
 
-  if (connected && fromIfs && !warning) {
-    return (
-      <p className="mb-2 rounded-lg border border-green-border bg-green-bg px-3 py-1.5 text-[13px] text-[#15803d]">
-        <strong>IFS conectado</strong>
-        {email ? ` · ${email}` : ""} ·{" "}
-        {surface === "approval"
-          ? "bandeja GetApprovalTimesheets"
-          : "hoja GetEmployeeTimesheet"}
-      </p>
-    );
-  }
-
   if (connected && warning) {
     return (
       <p className="alert-warn mb-2 px-3 py-1.5 text-[13px]">
@@ -55,6 +43,20 @@ export function IfsStatusBanner({
         <a href="/dev/ifs" className="font-semibold underline">
           Ver diagnóstico
         </a>
+      </p>
+    );
+  }
+
+  if (connected) {
+    return (
+      <p className="mb-2 rounded-lg border border-green-border bg-green-bg px-3 py-1.5 text-[13px] text-[#15803d]">
+        <strong>IFS conectado</strong>
+        {email ? ` · ${email}` : ""}
+        {fromIfs
+          ? surface === "approval"
+            ? " · bandeja GetApprovalTimesheets"
+            : " · hoja GetEmployeeTimesheet"
+          : " · sesión del portal (todos los módulos)"}
       </p>
     );
   }
