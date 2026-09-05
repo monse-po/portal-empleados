@@ -28,6 +28,9 @@ export function IfsSessionGuard() {
       try {
         const res = await fetch("/api/auth/session", { cache: "no-store" });
         if (cancelled || res.ok) return;
+        // En local, sin sesión, se puede seguir en el portal (datos demo).
+        // El redirect a login solo aplica cuando ya hubo cookie y expiró.
+        if (process.env.NODE_ENV === "development") return;
         const next = encodeURIComponent(pathname);
         window.location.href = `/login?next=${next}&error=session_expired`;
       } catch {

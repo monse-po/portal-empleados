@@ -101,7 +101,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Diagnóstico de APIs IFS
         </Link>
         <Link href={next} className="text-muted underline">
-          Continuar sin IFS (pantallas vacías)
+          Continuar sin IFS (datos de prueba)
         </Link>
       </div>
     </div>

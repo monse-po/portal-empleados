@@ -26,6 +26,7 @@ export async function ifsFetch<T>(
 
   const headers: Record<string, string> = {
     Accept: "application/json",
+    "Accept-Language": "es-CO,es;q=0.9",
     Authorization: `Bearer ${init.accessToken}`,
     ...init.headers,
   };

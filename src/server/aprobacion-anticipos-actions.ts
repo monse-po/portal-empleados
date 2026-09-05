@@ -3,8 +3,8 @@
 import { AnticipoEstadoDb } from "@/src/generated/prisma/client";
 import { prisma } from "@/src/lib/db";
 import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-registro";
-import { anticipoRowToAprobacion } from "@/src/lib/anticipos-bridge";
 import { hoyDMY } from "@/src/lib/anticipos-registro";
+import { listAprobacionAnticiposAction } from "@/src/server/anticipos-actions";
 import { getTiempoEmpleadoContext } from "@/src/server/portal-user-profile";
 
 async function requireAnticipoEmpleado() {
@@ -18,26 +18,8 @@ async function requireAnticipoEmpleado() {
 export async function getAprobacionAnticiposAction(): Promise<
   Record<string, AnticipoAprobacion>
 > {
-  await requireAnticipoEmpleado();
-
-  const rows = await prisma.anticipo.findMany({
-    where: {
-      estado: {
-        in: [
-          AnticipoEstadoDb.LANZADO,
-          AnticipoEstadoDb.APROBADO,
-          AnticipoEstadoDb.RECHAZADO,
-        ],
-      },
-    },
-    orderBy: [{ createdAt: "desc" }],
-  });
-
-  const out: Record<string, AnticipoAprobacion> = {};
-  for (const row of rows) {
-    out[row.codigo] = anticipoRowToAprobacion(row);
-  }
-  return out;
+  const result = await listAprobacionAnticiposAction();
+  return result.solicitudes;
 }
 
 export async function aprobarAnticiposAction(

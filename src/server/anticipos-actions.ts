@@ -34,6 +34,7 @@ import {
 } from "@/src/lib/ifs/cemp-advance";
 import { odataStringKey } from "@/src/lib/ifs/client";
 import {
+  applyDestinoNombres,
   queryToAprobacion,
   recordsFromQueries,
   toCEmpAdvancesInsert,
@@ -71,6 +72,26 @@ function mockSessionActor(): AnticiposActor {
 function isDbUnavailable(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return /Anticipo|does not exist|P2021|P2010|no such table/i.test(msg);
+}
+
+function demoAprobacionIfEmpty(result: {
+  solicitudes: Record<string, AnticipoAprobacion>;
+  sessionNombre: string;
+  fromIfs: boolean;
+  fromDb: boolean;
+}) {
+  if (
+    process.env.NODE_ENV === "development" &&
+    Object.keys(result.solicitudes).length === 0
+  ) {
+    return {
+      solicitudes: cloneInitialAproAnticipos(),
+      sessionNombre: result.sessionNombre,
+      fromIfs: false,
+      fromDb: false,
+    };
+  }
+  return result;
 }
 
 async function resolveActor(): Promise<AnticiposActor> {
@@ -199,8 +220,18 @@ export async function listMisAnticiposAction(): Promise<{
           console.error("[anticipos] GetYourRequests failed", key, err);
         }
       }
+      const records = recordsFromQueries([...byNo.values()]);
+      const extrasList = await applyDestinoNombres(
+        Object.values(records.extras),
+        actor.accessToken,
+      );
+      const extras: Record<string, AnticipoExtra> = {};
+      Object.keys(records.extras).forEach((no, i) => {
+        extras[no] = extrasList[i];
+      });
       return {
-        ...recordsFromQueries([...byNo.values()]),
+        anticipos: records.anticipos,
+        extras,
         sessionIds: actor.ids,
         sessionNombre: actor.nombre,
         fromIfs: true,
@@ -304,26 +335,26 @@ export async function listAprobacionAnticiposAction(
         const nextResolved = queryToAprobacion(row).estadoApro;
         if (!prevResolved && nextResolved) byNo.set(no, row);
       }
+      const mappedRows = [...byNo.values()].map(queryToAprobacion).filter((s) => s.no);
+      const named = await applyDestinoNombres(mappedRows, actor.accessToken);
       const solicitudes: Record<string, AnticipoAprobacion> = {};
-      for (const row of byNo.values()) {
-        const mapped = queryToAprobacion(row);
-        if (!mapped.no) continue;
+      for (const mapped of named) {
         solicitudes[mapped.no] = mapped;
       }
-      return {
+      return demoAprobacionIfEmpty({
         solicitudes,
         sessionNombre: actor.nombre,
         fromIfs: true,
         fromDb: false,
-      };
+      });
     } catch (err) {
       console.error("[anticipos] GetRequestsForApproval failed", err);
-      return {
+      return demoAprobacionIfEmpty({
         solicitudes: {},
         sessionNombre: actor.nombre,
         fromIfs: true,
         fromDb: false,
-      };
+      });
     }
   }
 
@@ -403,6 +434,13 @@ export async function lanzarAnticipoAction(
           error: `Faltan datos para IFS: ${missing.join(", ")}`,
         };
       }
+      if (input.tipo === "Viaje" && !body.Destination) {
+        return {
+          no: "",
+          error:
+            "Ese destino no es válido en IFS. Elige un destino de la lista.",
+        };
+      }
       console.info("[anticipos] POST CEmpAdvancesSet", {
         Company: body.Company,
         InvCompany: body.InvCompany,
@@ -413,6 +451,7 @@ export async function lanzarAnticipoAction(
         Amount: body.Amount,
         CurrencyCode: body.CurrencyCode,
         RequestType: body.RequestType,
+        Destination: body.Destination,
       });
       const created = await createEmpAdvance(actor.accessToken, body);
       const no = created.RequestNo?.trim();

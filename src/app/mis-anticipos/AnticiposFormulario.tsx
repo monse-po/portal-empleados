@@ -30,6 +30,7 @@ import {
   type EmpleadoAnticipo,
 } from "@/src/lib/anticipos-catalog";
 import {
+  destinoIfsCode,
   flattenLocalDestinos,
   type DivisaOption,
 } from "@/src/lib/anticipos-ifs-catalog";
@@ -145,7 +146,13 @@ function FormHint({ children }: { children: React.ReactNode }) {
 }
 
 function destKey(dest: DestinoSel): string {
-  return `${dest.pCode}|${dest.dpto}|${dest.ciudad}`;
+  return (
+    [dest.countryCode, dest.stateCode, dest.countyCode, dest.cityCode]
+      .filter(Boolean)
+      .join("-") ||
+    dest.destinationCode ||
+    `${dest.pCode}|${dest.dpto}|${dest.ciudad}`
+  );
 }
 
 function DestinoPicker({
@@ -168,7 +175,6 @@ function DestinoPicker({
       options={destinos.map((dest) => ({
         value: destKey(dest),
         label: dest.label,
-        hint: dest.ciudad,
       }))}
       placeholder={loading ? "Cargando datos…" : "Seleccionar destino…"}
       searchPlaceholder="Buscar ciudad, departamento o país…"
@@ -212,6 +218,7 @@ export function AnticiposFormulario({
   const [destinos, setDestinos] = useState<DestinoSel[]>([]);
   const [destinosLoading, setDestinosLoading] = useState(false);
   const [destinosFetched, setDestinosFetched] = useState(false);
+  const destinosLabelRev = "pais-estado-ciudad-1";
   const [monto, setMonto] = useState("");
   const [motivo, setMotivo] = useState("");
   const [fechaIda, setFechaIda] = useState("");
@@ -289,23 +296,47 @@ export function AnticiposFormulario({
     };
   }, []);
 
+  useEffect(() => {
+    setDestinosFetched(false);
+  }, [destinosLabelRev]);
+
   /** Destinos solo cuando el tipo es Viaje (evita 100+ llamadas IFS al abrir). */
   useEffect(() => {
-    if (tipo !== "Viaje") return;
-    setDestinos(flattenLocalDestinos());
+    if (tipo !== "Viaje") {
+      setDestinosFetched(false);
+      return;
+    }
     if (destinosFetched) return;
     let cancelled = false;
     setDestinosLoading(true);
-    void fetchDestinosAnticipoAction().then((result) => {
-      if (cancelled) return;
-      setDestinosLoading(false);
-      setDestinosFetched(true);
-      if (result.destinos.length) setDestinos(result.destinos);
-    });
+    void fetchDestinosAnticipoAction()
+      .then((result) => {
+        if (cancelled) return;
+        setDestinos(
+          result.destinos.length ? result.destinos : flattenLocalDestinos(),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDestinos(flattenLocalDestinos());
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setDestinosLoading(false);
+        setDestinosFetched(true);
+      });
     return () => {
       cancelled = true;
     };
   }, [tipo, destinosFetched]);
+
+  useEffect(() => {
+    if (!selDest) return;
+    const key = destKey(selDest);
+    if (!destinos.some((dest) => destKey(dest) === key)) {
+      setSelDest(null);
+    }
+  }, [destinos, selDest]);
 
   const proyectoById = useMemo(() => {
     const map = new Map<string, AnticiposProyectoOption>();
@@ -553,6 +584,13 @@ export function AnticiposFormulario({
         toast("Selecciona un destino", "danger");
         return;
       }
+      if (!destinoIfsCode(selDest)) {
+        toast(
+          "Ese destino no es válido en IFS. Elige un destino de la lista.",
+          "danger",
+        );
+        return;
+      }
     }
 
     const pre = divisaPre;
@@ -613,15 +651,7 @@ export function AnticiposFormulario({
     const aprobadorParaGuardar = aprobadorCode?.trim() || undefined;
     const companyCode = paraOtro ? companiaGastoOtro : companiaId;
     const destinoCodigo =
-      tipo === "Viaje"
-        ? (() => {
-            const city = selDest?.ciudad?.trim() || "";
-            if (city && city.length <= 20) return city;
-            const code = selDest?.pCode?.trim() || "";
-            if (code && code.length <= 20) return code;
-            return selDest?.label?.slice(0, 20);
-          })()
-        : undefined;
+      tipo === "Viaje" ? destinoIfsCode(selDest) : undefined;
 
     const input: LanzarAnticipoInput = {
       tipo: tipo as AnticipoTipo,

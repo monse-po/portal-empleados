@@ -169,6 +169,8 @@ export type CurrencyCodeRow = {
 export type IsoCountryRow = {
   Id?: string;
   Description?: string;
+  Country?: string;
+  Name?: string;
 };
 
 /** Fila de Lookup_IsoCurrency_EntitySet. */

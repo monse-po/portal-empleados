@@ -5,6 +5,11 @@ import type {
   CRequestType,
 } from "@/src/lib/ifs/cemp-advance";
 import type { LanzarAnticipoInput } from "@/src/lib/anticipos-db";
+import { getAdvanceCityByDestination } from "@/src/lib/ifs/cemp-advance";
+import {
+  destinoConsultaLabel,
+  looksLikeDestinationCode,
+} from "@/src/lib/anticipos-ifs-catalog";
 import type {
   Anticipo,
   AnticipoEstado,
@@ -72,7 +77,7 @@ export function toCEmpAdvancesInsert(
     20,
   );
   const createdBy = clip(input.createdBy || actor.personId || actor.empNo, 20);
-  const destination = input.destinoCodigo || input.destino;
+  const destination = input.destinoCodigo?.trim();
   const payload: CEmpAdvancesInsert = {
     Description: clip(input.motivo, 100),
     RequestType: requestTypeFromUi(input.tipo),
@@ -90,7 +95,11 @@ export function toCEmpAdvancesInsert(
     const regreso = dmyToIso(input.fechaRegreso);
     if (ida) payload.DepartureDate = ida;
     if (regreso) payload.ReturnDate = regreso;
-    if (destination && destination.length <= 20) {
+    if (
+      destination &&
+      destination.length <= 20 &&
+      !destination.includes(",")
+    ) {
       payload.Destination = destination;
     }
   }
@@ -210,4 +219,32 @@ export function recordsFromQueries(rows: CEmpAdvanceQuery[]): {
     extras[a.no] = queryToExtra(row);
   }
   return { anticipos, extras };
+}
+
+/** Cambia Destination código (CL-58-…) por país, estado, ciudad. */
+export async function applyDestinoNombres<T extends { destino?: string }>(
+  items: T[],
+  accessToken: string,
+): Promise<T[]> {
+  const codes = [
+    ...new Set(
+      items
+        .map((item) => item.destino?.trim() || "")
+        .filter((dest) => looksLikeDestinationCode(dest)),
+    ),
+  ];
+  if (!codes.length) return items;
+  const labels = new Map<string, string>();
+  await Promise.all(
+    codes.map(async (code) => {
+      const row = await getAdvanceCityByDestination(accessToken, code);
+      const label = row ? destinoConsultaLabel(row) : "";
+      if (label) labels.set(code, label);
+    }),
+  );
+  return items.map((item) => {
+    const code = item.destino?.trim() || "";
+    const label = labels.get(code);
+    return label ? { ...item, destino: label } : item;
+  });
 }

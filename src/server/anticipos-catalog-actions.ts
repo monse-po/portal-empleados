@@ -25,11 +25,14 @@ import {
 import {
   flattenGeoDestinos,
   flattenLocalDestinos,
+  looksLikeGeoCode,
+  mapAdvanceCityCodesToDestinos,
   mapCurrencyCodesToDivisas,
   mapIsoCountriesToDestinos,
   mergeCurrencyRounding,
   type DivisaOption,
 } from "@/src/lib/anticipos-ifs-catalog";
+import { listAdvanceCityCodes } from "@/src/lib/ifs/cemp-advance";
 import { mapIfsBank } from "@/src/lib/ifs/anticipos-catalog";
 import type { DestinoSel } from "@/src/lib/anticipos-catalog";
 import {
@@ -745,6 +748,62 @@ export async function fetchDestinosAnticipoAction(): Promise<{
             (d) => [d.pCode.toUpperCase(), d.pais] as const,
           ),
         );
+        const isoByCode = new Map<string, (typeof countries)[number]>();
+        for (const row of countries) {
+          const code = row.Id?.trim().toUpperCase();
+          if (code) isoByCode.set(code, row);
+        }
+
+        try {
+          const cityCodes = await listAdvanceCityCodes(session.accessToken);
+          console.info("[anticipos] CityCodeSet", {
+            raw: cityCodes.length,
+          });
+          const countryCodes = [
+            ...new Set(
+              cityCodes
+                .map((row) => row.CountryCode?.trim().toUpperCase() || "")
+                .filter(Boolean),
+            ),
+          ].slice(0, 12);
+          const stateNames = new Map<string, string>();
+          await Promise.all(
+            countryCodes.map(async (country) => {
+              const states = await getGeoStates(session.accessToken, country);
+              for (const state of states.options) {
+                const code = state.code.trim().toUpperCase();
+                const name = state.name.trim();
+                if (!code || !name || looksLikeGeoCode(name)) continue;
+                stateNames.set(`${country}|${code}`, name);
+                if (/^\d+$/.test(code)) {
+                  stateNames.set(
+                    `${country}|${code.replace(/^0+/, "") || "0"}`,
+                    name,
+                  );
+                  stateNames.set(`${country}|${code.padStart(2, "0")}`, name);
+                }
+              }
+            }),
+          );
+          const fromLov = mapAdvanceCityCodesToDestinos(
+            cityCodes,
+            paisMap,
+            isoByCode,
+            stateNames,
+          );
+          console.info("[anticipos] destinos mapeados", fromLov.length, {
+            sample: fromLov.slice(0, 4).map((d) => d.label),
+          });
+          if (fromLov.length) {
+            return {
+              destinos: fromLov,
+              fromIfs: true,
+              projection: "CEmpAdvanceHandling.CityCodeSet",
+            };
+          }
+        } catch (err) {
+          console.error("[anticipos] CityCodeSet failed", err);
+        }
 
         // IFS geo solo para países prioritarios (evita cientos de llamadas).
         const priority = ["CO", "MX", "PE", "US"];

@@ -202,6 +202,7 @@ export type DestinoSel = {
   pais: string;
   pCode: string;
   label: string;
+  destinationCode?: string;
 };
 
 export const DEST_CATALOG: Record<

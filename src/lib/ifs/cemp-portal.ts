@@ -891,7 +891,7 @@ export async function getIsoCountries(
   accessToken: string,
 ): Promise<IsoCountryRow[]> {
   const path =
-    "/Lookup_IsoCountry_EntitySet?$select=Id,Description&$orderby=Description&$top=500";
+    "/Lookup_IsoCountry_EntitySet?$top=500";
   const raw = await ifsFetch<ODataCollection<IsoCountryRow>>(path, {
     accessToken,
   });

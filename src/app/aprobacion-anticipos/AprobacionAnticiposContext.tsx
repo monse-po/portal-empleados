@@ -14,14 +14,37 @@ import {
   filterAproAnticiposByTab,
   getAproAnticiposKpis,
   type AnticipoAprobacion,
+  type AnticipoAprobacionEstado,
   type AnticipoAprobacionTab,
 } from "@/src/lib/aprobacion-anticipos-registro";
+import { GERENTE_APROBADOR } from "@/src/lib/aprobacion-anticipos-mock";
+import { hoyDMY } from "@/src/lib/anticipos-registro";
 import {
-  aprobarAnticiposAction,
-  getAprobacionAnticiposAction,
-  rechazarAnticiposAction,
-} from "@/src/server/aprobacion-anticipos-actions";
+  decidirAnticiposAction,
+  listAprobacionAnticiposAction,
+} from "@/src/server/anticipos-actions";
 import { useTableSelection } from "@/src/lib/use-table-selection";
+
+function applyLocalDecision(
+  prev: Record<string, AnticipoAprobacion>,
+  nos: string[],
+  estado: AnticipoAprobacionEstado,
+  comentario: string,
+): Record<string, AnticipoAprobacion> {
+  const next = { ...prev };
+  const fecha = hoyDMY();
+  for (const no of nos) {
+    if (!next[no]) continue;
+    next[no] = {
+      ...next[no],
+      estadoApro: estado,
+      comentarioApro: comentario,
+      fechaApro: fecha,
+      aprobador: GERENTE_APROBADOR,
+    };
+  }
+  return next;
+}
 
 type AprobacionAnticiposContextValue = {
   solicitudes: Record<string, AnticipoAprobacion>;
@@ -67,8 +90,8 @@ export function AprobacionAnticiposProvider({
   const reload = useCallback(async () => {
     setLoadError(null);
     try {
-      const data = await getAprobacionAnticiposAction();
-      setSolicitudes(data);
+      const data = await listAprobacionAnticiposAction();
+      setSolicitudes(data.solicitudes);
     } catch (error) {
       setLoadError(
         error instanceof Error
@@ -95,18 +118,38 @@ export function AprobacionAnticiposProvider({
 
   const aprobar = useCallback(
     async (nos: string[], comentario = "") => {
-      await aprobarAnticiposAction(nos, comentario);
+      const result = await decidirAnticiposAction({
+        nos,
+        accion: "aprobado",
+        comentario,
+      });
       clearSeleccion();
-      await reload();
+      if (result.persisted.length) {
+        await reload();
+        return;
+      }
+      setSolicitudes((prev) =>
+        applyLocalDecision(prev, nos, "Aprobado", comentario),
+      );
     },
     [clearSeleccion, reload],
   );
 
   const rechazar = useCallback(
     async (nos: string[], comentario: string) => {
-      await rechazarAnticiposAction(nos, comentario);
+      const result = await decidirAnticiposAction({
+        nos,
+        accion: "rechazado",
+        comentario,
+      });
       clearSeleccion();
-      await reload();
+      if (result.persisted.length) {
+        await reload();
+        return;
+      }
+      setSolicitudes((prev) =>
+        applyLocalDecision(prev, nos, "Rechazado", comentario),
+      );
     },
     [clearSeleccion, reload],
   );

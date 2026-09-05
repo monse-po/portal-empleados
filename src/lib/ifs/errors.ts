@@ -73,6 +73,10 @@ export function humanizeIfsDetail(detail: string): string | null {
       : "Esa fecha ya está cerrada para registro. Elige una fecha más reciente.";
   }
 
+  if (/CINVALIDDEST|codigo de destino no es valido/i.test(text)) {
+    return "Ese destino no es válido en IFS. Elige un destino de la lista.";
+  }
+
   if (/ORA-06531|uninitialized collection/i.test(text)) {
     return "No se pudo completar la aprobación en IFS. Intenta de nuevo o avisa a tu jefe.";
   }

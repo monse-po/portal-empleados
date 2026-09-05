@@ -88,6 +88,14 @@ export type DestinoSel = {
   pais: string;
   pCode: string;
   label: string;
+  /**
+   * Destination para POST: Country-State-County-City (crudos de CityCodeSet).
+   */
+  destinationCode?: string;
+  countryCode?: string;
+  stateCode?: string;
+  countyCode?: string;
+  cityCode?: string;
 };
 
 export const DEST_CATALOG: Record<
