@@ -14,42 +14,24 @@ import {
   filterAproAnticiposByTab,
   getAproAnticiposKpis,
   type AnticipoAprobacion,
-  type AnticipoAprobacionEstado,
   type AnticipoAprobacionTab,
 } from "@/src/lib/aprobacion-anticipos-registro";
-import { GERENTE_APROBADOR } from "@/src/lib/aprobacion-anticipos-mock";
-import { hoyDMY } from "@/src/lib/anticipos-registro";
 import {
   decidirAnticiposAction,
   listAprobacionAnticiposAction,
 } from "@/src/server/anticipos-actions";
+import { createNotificacionesAnticipoDecisionAction } from "@/src/server/notificacion-actions";
+import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
+import { ANTICIPOS_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 import { useTableSelection } from "@/src/lib/use-table-selection";
-
-function applyLocalDecision(
-  prev: Record<string, AnticipoAprobacion>,
-  nos: string[],
-  estado: AnticipoAprobacionEstado,
-  comentario: string,
-): Record<string, AnticipoAprobacion> {
-  const next = { ...prev };
-  const fecha = hoyDMY();
-  for (const no of nos) {
-    if (!next[no]) continue;
-    next[no] = {
-      ...next[no],
-      estadoApro: estado,
-      comentarioApro: comentario,
-      fechaApro: fecha,
-      aprobador: GERENTE_APROBADOR,
-    };
-  }
-  return next;
-}
 
 type AprobacionAnticiposContextValue = {
   solicitudes: Record<string, AnticipoAprobacion>;
   loaded: boolean;
   loadError: string | null;
+  fromIfs: boolean;
+  ifsConnected: boolean;
+  ifsEmail: string | null;
   kpis: ReturnType<typeof getAproAnticiposKpis>;
   pendientesCount: number;
   tab: AnticipoAprobacionTab;
@@ -79,6 +61,9 @@ export function AprobacionAnticiposProvider({
   >({});
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [fromIfs, setFromIfs] = useState(false);
+  const [ifsConnected, setIfsConnected] = useState(false);
+  const [ifsEmail, setIfsEmail] = useState<string | null>(null);
   const [tab, setTabState] = useState<AnticipoAprobacionTab>("pendientes");
   const {
     seleccion,
@@ -92,6 +77,7 @@ export function AprobacionAnticiposProvider({
     try {
       const data = await listAprobacionAnticiposAction();
       setSolicitudes(data.solicitudes);
+      setFromIfs(data.fromIfs);
     } catch (error) {
       setLoadError(
         error instanceof Error
@@ -99,6 +85,7 @@ export function AprobacionAnticiposProvider({
           : "No se pudieron cargar las solicitudes.",
       );
       setSolicitudes({});
+      setFromIfs(false);
     } finally {
       setLoaded(true);
     }
@@ -108,6 +95,13 @@ export function AprobacionAnticiposProvider({
     void reload();
   }, [reload]);
 
+  useEffect(() => {
+    void getIfsSessionStatusAction().then((status) => {
+      setIfsConnected(status.connected);
+      setIfsEmail(status.email ?? null);
+    });
+  }, []);
+
   const setTab = useCallback(
     (next: AnticipoAprobacionTab) => {
       setTabState(next);
@@ -116,42 +110,69 @@ export function AprobacionAnticiposProvider({
     [clearSeleccion],
   );
 
-  const aprobar = useCallback(
-    async (nos: string[], comentario = "") => {
+  const resolverDecision = useCallback(
+    async (
+      nos: string[],
+      accion: "aprobado" | "rechazado",
+      comentario: string,
+    ) => {
+      const solicitudesDecision = nos
+        .map((no) => solicitudes[no])
+        .filter((s): s is AnticipoAprobacion => !!s);
+
       const result = await decidirAnticiposAction({
         nos,
-        accion: "aprobado",
+        accion,
         comentario,
       });
       clearSeleccion();
-      if (result.persisted.length) {
-        await reload();
-        return;
+
+      if (!result.persisted.length) {
+        throw new Error(
+          result.error || "No se pudo completar la decisión en IFS.",
+        );
       }
-      setSolicitudes((prev) =>
-        applyLocalDecision(prev, nos, "Aprobado", comentario),
+
+      const notificar = solicitudesDecision.filter((s) =>
+        result.persisted.includes(s.no),
       );
+      void createNotificacionesAnticipoDecisionAction({
+        decision: accion,
+        solicitudes: notificar.map((s) => ({
+          no: s.no,
+          fecha: s.fecha,
+          cedula: s.cedula,
+          nombre: s.nombre || s.solicitante,
+          proy: s.proy,
+        })),
+        comentario,
+      }).catch((error) => {
+        console.error("[notificaciones] no se pudo notificar el anticipo", error);
+      });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(ANTICIPOS_CHANGED_EVENT));
+      }
+
+      await reload();
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
     },
-    [clearSeleccion, reload],
+    [clearSeleccion, reload, solicitudes],
+  );
+
+  const aprobar = useCallback(
+    (nos: string[], comentario = "") =>
+      resolverDecision(nos, "aprobado", comentario),
+    [resolverDecision],
   );
 
   const rechazar = useCallback(
-    async (nos: string[], comentario: string) => {
-      const result = await decidirAnticiposAction({
-        nos,
-        accion: "rechazado",
-        comentario,
-      });
-      clearSeleccion();
-      if (result.persisted.length) {
-        await reload();
-        return;
-      }
-      setSolicitudes((prev) =>
-        applyLocalDecision(prev, nos, "Rechazado", comentario),
-      );
-    },
-    [clearSeleccion, reload],
+    (nos: string[], comentario: string) =>
+      resolverDecision(nos, "rechazado", comentario),
+    [resolverDecision],
   );
 
   const kpis = useMemo(() => getAproAnticiposKpis(solicitudes), [solicitudes]);
@@ -169,6 +190,9 @@ export function AprobacionAnticiposProvider({
       solicitudes,
       loaded,
       loadError,
+      fromIfs,
+      ifsConnected,
+      ifsEmail,
       kpis,
       pendientesCount: kpis.pendientes,
       tab,
@@ -188,6 +212,9 @@ export function AprobacionAnticiposProvider({
       solicitudes,
       loaded,
       loadError,
+      fromIfs,
+      ifsConnected,
+      ifsEmail,
       kpis,
       tab,
       tabCounts,

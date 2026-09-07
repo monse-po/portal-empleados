@@ -77,7 +77,9 @@ export function getAnticipoEventBanner(
     };
   }
 
-  const lastEvent = tl[tl.length - 1];
+  const lastEvent = [...tl]
+    .reverse()
+    .find((t) => !/^Esperando aprobación/i.test(t.accion));
   if (!lastEvent) return null;
 
   if (estado === "Rechazado" || estado === "Cancelado") {

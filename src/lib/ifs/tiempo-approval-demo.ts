@@ -96,7 +96,7 @@ export function getDemoApprovalRaw(
 /** Actualiza el payload demo tras aprobar/rechazar (para que el reload no restaure pendientes). */
 export function applyDemoApprovalDecision(
   registroIds: string[],
-  decision: "aprobado" | "rechazado",
+  decision: "aprobado" | "rechazado" | "anulado",
   comentario = "",
 ): void {
   if (!demoRaw) return;
@@ -108,10 +108,13 @@ export function applyDemoApprovalDecision(
   for (const row of demoRaw.value) {
     const seq = row.ProjectTransactionSeq;
     if (seq == null || !wanted.has(seq)) continue;
-    row.CStatusDb = decision === "aprobado" ? "Confirmed" : "Rejected";
+    row.CStatusDb =
+      decision === "aprobado"
+        ? "Confirmed"
+        : decision === "anulado"
+          ? "Registered"
+          : "Rejected";
     row.CStatus = row.CStatusDb;
-    if (decision === "rechazado") {
-      row.CRejectNote = comentario;
-    }
+    row.CRejectNote = decision === "rechazado" ? comentario : "";
   }
 }

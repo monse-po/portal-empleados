@@ -3,6 +3,7 @@ import type { IconName } from "@/src/components/ui/Icon";
 import { labelTipoLegalizacion } from "@/src/components/ui/TipoLegalizacionPill";
 import { dmyToSortKey } from "@/src/lib/tiempo-bridge";
 import type { LegalizacionApro } from "@/src/lib/aprobacion-legalizaciones-mock";
+import { empleadoFiltroNombre } from "@/src/lib/empleado-display";
 
 export type AproLegFilterColumn =
   | "codigo"
@@ -94,7 +95,7 @@ function getFieldValue(
     case "fecha":
       return s.fecha;
     case "empleado":
-      return s.solicitante;
+      return empleadoFiltroNombre(s.solicitante, s.cedula);
     case "tipo":
       return labelTipoLegalizacion(s.tipo);
     case "concepto":

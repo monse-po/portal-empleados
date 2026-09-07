@@ -68,6 +68,10 @@ import {
   type TipoHoraCat,
 } from "@/src/lib/tiempo-schedule";
 import { DiaSinJornadaBanner } from "@/src/app/hoja-tiempo/DiaSinJornadaBanner";
+import {
+  pickScheduleColors,
+  resolveSpecialDayLabel,
+} from "@/src/lib/ifs/schedule-day-color";
 
 const FORM_ID = "registro-horas-form";
 
@@ -244,6 +248,7 @@ function validateForm(
   editId: string | undefined,
   hoursByDate: Record<string, number> | null | undefined,
   scheduleReady: boolean,
+  dayTypeDesc?: string | null,
 ): Partial<Record<FieldKey, string>> {
   const errors: Partial<Record<FieldKey, string>> = {};
 
@@ -273,7 +278,7 @@ function validateForm(
       (fecha) => !isDiaConJornadaNormal(fecha, hoursByDate),
     );
     if (sinJornada.length === calendario.length) {
-      errors.tipo = mensajeSoloExtrasSinJornada(calendario[0]);
+      errors.tipo = mensajeSoloExtrasSinJornada(calendario[0], dayTypeDesc);
     } else if (sinJornada.length && fechas.length === 0) {
       errors.fecha =
         "Ningún día con jornada en ese rango para horas normales";
@@ -305,7 +310,7 @@ function validateForm(
       const topeDia = topeNormalesDelDia(fecha, hoursByDate, maxScheduleHours);
       if (topeDia <= 0 || horasExistentes + horasNum > topeDia) {
         if (topeDia <= 0) {
-          errors.horas = mensajeSoloExtrasSinJornada(fecha);
+          errors.horas = mensajeSoloExtrasSinJornada(fecha, dayTypeDesc);
         } else if (atNormalLimit(horasExistentes, topeDia)) {
           errors.horas = `${mensajeSoloExtrasJornadaCompleta(topeDia)} · ${formatFechaLegible(fecha, false)}`;
         } else {
@@ -331,7 +336,11 @@ function RegistroHorasForm({
   onReadyChange,
   saving = false,
 }: RegistroHorasFormProps) {
-  const { mesBounds: bounds } = useMiTiempo();
+  const { mesBounds: bounds, specialDays, weekdayColor } = useMiTiempo();
+  const scheduleColors = useMemo(
+    () => pickScheduleColors(specialDays),
+    [specialDays],
+  );
   const isEdit = Boolean(editId);
   const [catalog, setCatalog] = useState<TiempoCatalog | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -634,11 +643,11 @@ function RegistroHorasForm({
     if (!scheduleReady) return null;
     const fecha = calendarioFechas[0] ?? form.fecha;
     if (!fecha || calendarioFechas.length > 1) return null;
-    const cal = getDiaSinJornadaKind(fecha);
+    const cal = getDiaSinJornadaKind(fecha, specialDays?.[fecha]?.dayType);
     if (cal === "festivo" || cal === "fin_semana") return cal;
     if (diaSoloExtras) return "sin_jornada" as const;
     return null;
-  }, [scheduleReady, calendarioFechas, form.fecha, diaSoloExtras]);
+  }, [scheduleReady, calendarioFechas, form.fecha, diaSoloExtras, specialDays]);
 
   const tipoCatSeleccionado = resolveTipoCatSeleccionado(
     form,
@@ -747,6 +756,11 @@ function RegistroHorasForm({
       editId,
       hoursByDate,
       scheduleReady,
+      resolveSpecialDayLabel(
+        specialDays,
+        form.fecha,
+        etiquetaTipoDia === "festivo" ? "festivo" : "fin_semana",
+      ),
     );
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -894,12 +908,25 @@ function RegistroHorasForm({
         </p>
       )}
 
-      <div className="flex min-h-[28px] items-center justify-between gap-2">
+      {scheduleReady && (etiquetaTipoDia || (jornadaCompleta && !diaSoloExtras)) ? (
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {scheduleReady && etiquetaTipoDia ? (
+          {etiquetaTipoDia ? (
             <DiaSinJornadaBanner
               fecha={calendarioFechas[0] ?? form.fecha}
               kind={etiquetaTipoDia}
+              color={
+                specialDays?.[calendarioFechas[0] ?? form.fecha]?.colorName
+              }
+              label={
+                etiquetaTipoDia === "festivo" ||
+                etiquetaTipoDia === "fin_semana"
+                  ? resolveSpecialDayLabel(
+                      specialDays,
+                      calendarioFechas[0] ?? form.fecha,
+                      etiquetaTipoDia,
+                    )
+                  : undefined
+              }
             />
           ) : null}
           {jornadaCompleta && !diaSoloExtras ? (
@@ -913,23 +940,29 @@ function RegistroHorasForm({
             </div>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={handleCopiarDiaAnterior}
-          disabled={!catalogReady}
-          title={
-            catalogReady
-              ? "Copia proyecto, actividad y horas del último día con registro"
-              : "Espera a que cargue el catálogo IFS"
-          }
-          className="btn-link shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Icon name="copy" size="xs" />
-          Copiar día anterior
-        </button>
-      </div>
+      ) : null}
 
-      <Field label="Proyecto" required error={errors.proy}>
+      <Field
+        label="Proyecto"
+        required
+        error={errors.proy}
+        trailing={
+          <button
+            type="button"
+            onClick={handleCopiarDiaAnterior}
+            disabled={!catalogReady}
+            title={
+              catalogReady
+                ? "Copia proyecto, actividad y horas del último día con registro"
+                : "Espera a que cargue el catálogo IFS"
+            }
+            className="btn-link shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Icon name="copy" size="xs" />
+            Copiar día anterior
+          </button>
+        }
+      >
         <SearchableSelect
           value={form.proy}
           onChange={handleProyChange}
@@ -1003,25 +1036,24 @@ function RegistroHorasForm({
         />
       </Field>
 
-      <Field
-        label="Fecha"
+      <FechaDiaORangoInput
+        from={form.fecha}
+        to={isEdit ? form.fecha : form.fechaHasta}
+        bounds={bounds}
+        allowRange={!isEdit}
+        laborableCount={fechasRango.length}
         required
         error={errors.fecha || errors.fechaHasta}
-      >
-        <FechaDiaORangoInput
-          from={form.fecha}
-          to={isEdit ? form.fecha : form.fechaHasta}
-          bounds={bounds}
-          allowRange={!isEdit}
-          laborableCount={fechasRango.length}
-          invalid={!!(errors.fecha || errors.fechaHasta)}
-          onChange={handleFechaRangoChange}
-        />
-      </Field>
+        invalid={!!(errors.fecha || errors.fechaHasta)}
+        holidayDates={scheduleColors.holidayDates}
+        holidayColor={scheduleColors.holidayColor}
+        weekendColor={scheduleColors.weekendColor}
+        weekdayColor={weekdayColor}
+        onChange={handleFechaRangoChange}
+      />
 
-      <div className="flex flex-wrap gap-2.5">
-        <div className="min-w-[120px] flex-1">
-          <Field label="Tipo de hora" required error={errors.tipo}>
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <Field label="Tipo de hora" required error={errors.tipo}>
             <Dropdown
               open={tipoOpen}
               onOpenChange={setTipoOpen}
@@ -1037,10 +1069,10 @@ function RegistroHorasForm({
                     event.stopPropagation();
                     setTipoOpen((open) => !open);
                   }}
-                  className={`flex min-h-[38px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-[13px] transition-colors hover:border-[#9fb3cc] focus:border-navy focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-[5px] border px-2.5 text-left text-[13px] transition-colors hover:border-[#c7d2e0] focus:border-navy focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
                     errors.tipo
                       ? "border-red bg-[#fff5f5]"
-                      : "border-[#c7d2e0] bg-white"
+                      : "border-border bg-white"
                   }`}
                 >
                   {form.tipo ? (
@@ -1135,11 +1167,9 @@ function RegistroHorasForm({
                 </button>
               ))}
             </Dropdown>
-          </Field>
-        </div>
+        </Field>
 
-        <div className="min-w-[140px] max-w-[180px] flex-1">
-          <Field label="Horas" required error={errors.horas}>
+        <Field label="Horas" required error={errors.horas}>
             <>
               <input
                 type="text"
@@ -1159,10 +1189,10 @@ function RegistroHorasForm({
                   if (Number.isNaN(n) || n <= 0) return;
                   patch({ horas: formatHorasValor(n) });
                 }}
-                className={`h-9 w-full rounded-lg border px-3 text-[13px] tabular-nums focus:border-navy focus:outline-none ${
+                className={`h-9 w-full rounded-[5px] border px-2.5 text-[13px] tabular-nums focus:border-navy focus:outline-none ${
                   errors.horas
                     ? "border-red bg-[#fff5f5]"
-                    : "border-[#c7d2e0]"
+                    : "border-border"
                 }`}
               />
               {!errors.horas ? (
@@ -1171,14 +1201,10 @@ function RegistroHorasForm({
                 </span>
               ) : null}
             </>
-          </Field>
-        </div>
-      </div>
+        </Field>
 
-      <div className="flex flex-wrap gap-2.5">
-        <div className="min-w-[140px] max-w-[220px] flex-1">
-          <Field label="Aprobador">
-            <div className="flex h-9 items-center truncate rounded-lg border border-border bg-[#f8fafc] px-3 text-[13px] text-muted">
+        <Field label="Aprobador">
+            <div className="flex h-9 items-center truncate rounded-[5px] border border-border bg-[#f8fafc] px-2.5 text-[13px] text-muted">
               {useIfsCatalogLive && aprobadorLoading ? (
                 <LoadingNotice
                   variant="inline"
@@ -1189,19 +1215,17 @@ function RegistroHorasForm({
                 aprobadorLabel
               )}
             </div>
-          </Field>
-        </div>
-        <div className="min-w-[180px] flex-[2]">
-          <Field label="Comentario">
+        </Field>
+
+        <Field label="Comentario">
             <input
               type="text"
               value={form.comentario}
               onChange={(e) => patch({ comentario: e.target.value })}
               placeholder="Nota del registro…"
-              className="h-9 w-full rounded-lg border border-[#c7d2e0] px-3 text-[13px] focus:border-navy focus:outline-none"
+              className="h-9 w-full rounded-[5px] border border-border px-2.5 text-[13px] focus:border-navy focus:outline-none"
             />
-          </Field>
-        </div>
+        </Field>
       </div>
     </form>
   );
@@ -1283,7 +1307,7 @@ export function RegistrarHorasModal() {
       widthClass="max-w-[580px]"
       footer={
         modal ? (
-          <>
+          <div className="ml-auto flex items-center gap-2 max-md:w-full max-md:flex-col-reverse">
             <Button
               type="button"
               variant="tertiary"
@@ -1304,7 +1328,7 @@ export function RegistrarHorasModal() {
                 ? TIEMPO_UI_COPY.guardarCambios
                 : TIEMPO_UI_COPY.guardarRango(rangeDays)}
             </Button>
-          </>
+          </div>
         ) : undefined
       }
     >

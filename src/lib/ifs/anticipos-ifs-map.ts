@@ -66,14 +66,15 @@ export function toCEmpAdvancesInsert(
     20,
   );
   const empNo = clip(
-    input.beneficiarioEmpNo ||
-      (!input.paraOtro ? actor.empNo : "") ||
-      input.beneficiarioId ||
-      actor.empNo,
+    input.paraOtro
+      ? input.beneficiarioEmpNo || input.beneficiarioId || ""
+      : input.beneficiarioEmpNo || actor.empNo || input.beneficiarioId || "",
     10,
   );
   const supplierId = clip(
-    input.beneficiarioSupplierId || actor.supplierId || empNo,
+    input.paraOtro
+      ? input.beneficiarioSupplierId || ""
+      : input.beneficiarioSupplierId || actor.supplierId || empNo,
     20,
   );
   const createdBy = clip(input.createdBy || actor.personId || actor.empNo, 20);
@@ -128,7 +129,7 @@ export function queryToAnticipo(row: CEmpAdvanceQuery): Anticipo {
     no,
     fecha: isoToDmy(row.RequestDate) || "",
     proy: row.ProjectId || "",
-    proyN: row.ProjectId || "",
+    proyN: row.ProjectName?.trim() || "",
     tipo: row.RequestType === "Travel" || row.RequestType === "Viaje" ? "Viaje" : "Gasto",
     monto: row.Amount ?? 0,
     div: row.CurrencyCode || "",
@@ -139,15 +140,18 @@ export function queryToAnticipo(row: CEmpAdvanceQuery): Anticipo {
     fechaAprob: isoToDmy(row.ApprovedDate) || null,
     aprobador: row.ApproverId || row.ApproverName || null,
     pago: estado === "Pagado" ? "Pagado" : estado === "Lanzado" || estado === "Aprobado" ? "Pendiente" : "—",
-    solicitante: row.RequesterName || row.CreatorName || row.RequestedBy,
-    solicitanteId: row.RequestedBy || row.CreatedBy,
+    solicitante: row.RequesterName || row.CreatorName || undefined,
+    solicitanteId: row.CreatedBy || row.RequestedBy,
     beneficiarioId: row.EmpNo,
     beneficiarioNombre: row.EmployeeName,
-    paraOtro: Boolean(
-      row.RequestedBy &&
-        row.EmpNo &&
-        row.RequestedBy.replace(/\D/g, "") !== row.EmpNo.replace(/\D/g, ""),
-    ),
+    paraOtro: (() => {
+      const requester = (row.RequesterName || row.CreatorName || "").trim();
+      const employee = (row.EmployeeName || "").trim();
+      if (requester && employee) {
+        return requester.toLowerCase() !== employee.toLowerCase();
+      }
+      return false;
+    })(),
     cedula: row.EmpNo,
   };
 }

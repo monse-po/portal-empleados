@@ -50,6 +50,12 @@ export function AnticiposDetalle({
     extra,
     anticipo.fechaAprob,
   );
+  const actividad = (extra?.tl ?? []).filter((t) => {
+    if (anticipo.estado !== "Cancelado" && anticipo.estado !== "Rechazado") {
+      return true;
+    }
+    return !/^Esperando aprobación/i.test(t.accion);
+  });
 
   return (
     <div className="content-standard">
@@ -138,12 +144,12 @@ export function AnticiposDetalle({
         </CardBody>
       </Card>
 
-      {extra?.tl && extra.tl.length > 0 && (
+      {actividad.length > 0 && (
         <Card className="mb-3">
           <CardBody className="py-4">
             <DetailSection icon="clock" title="Actividad">
               <div className="space-y-2">
-                {extra.tl.map((t, i) => (
+                {actividad.map((t, i) => (
                   <div key={`${t.accion}-${i}`} className="flex gap-2.5">
                     <div
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f8fafc]"

@@ -1,21 +1,39 @@
+type IfsSurface =
+  | "timesheet"
+  | "approval"
+  | "anticipos"
+  | "anticipos-approval"
+  | "historico";
+
 type IfsStatusBannerProps = {
   connected: boolean;
   fromIfs: boolean;
   email?: string | null;
   warning?: string | null;
-  surface: "timesheet" | "approval";
+  surface: IfsSurface;
   loginNext?: string;
 };
 
 const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
 
-function loginHref(
-  surface: IfsStatusBannerProps["surface"],
-  loginNext?: string,
-): string {
-  const next =
-    loginNext ??
-    (surface === "approval" ? "/aprobacion-tiempo-proyectos" : "/hoja-tiempo");
+const SURFACE_LABEL: Record<IfsSurface, string> = {
+  timesheet: "hoja GetEmployeeTimesheet",
+  approval: "bandeja GetApprovalTimesheets",
+  anticipos: "Employee Advances",
+  "anticipos-approval": "bandeja GetRequestsForApproval",
+  historico: "histórico GetEmployeeTimesheet",
+};
+
+const SURFACE_LOGIN_NEXT: Record<IfsSurface, string> = {
+  timesheet: "/hoja-tiempo",
+  approval: "/aprobacion-tiempo-proyectos",
+  anticipos: "/mis-anticipos",
+  "anticipos-approval": "/aprobacion-anticipos",
+  historico: "/historico-tiempo",
+};
+
+function loginHref(surface: IfsSurface, loginNext?: string): string {
+  const next = loginNext ?? SURFACE_LOGIN_NEXT[surface];
   return `/api/auth/login?next=${encodeURIComponent(next)}`;
 }
 
@@ -36,14 +54,15 @@ export function IfsStatusBanner({
     );
   }
 
-  if (connected && fromIfs && !warning) {
+  if (connected && !warning && (fromIfs || surface === "approval" || surface === "historico")) {
+    const detail =
+      !fromIfs && surface === "approval"
+        ? "sin pendientes en esta bandeja"
+        : SURFACE_LABEL[surface];
     return (
       <p className="mb-2 rounded-lg border border-green-border bg-green-bg px-3 py-1.5 text-[13px] text-[#15803d]">
         <strong>IFS conectado</strong>
-        {email ? ` · ${email}` : ""} ·{" "}
-        {surface === "approval"
-          ? "bandeja GetApprovalTimesheets"
-          : "hoja GetEmployeeTimesheet"}
+        {email ? ` · ${email}` : ""} · {detail}
       </p>
     );
   }

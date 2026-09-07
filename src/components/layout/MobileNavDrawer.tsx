@@ -138,22 +138,6 @@ export function MobileNavDrawer() {
                 <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#b0b7c3]">
                   Mis solicitudes
                 </p>
-                <Link
-                  href="/inicio"
-                  onClick={closeMobileMenu}
-                  className={`flex min-h-12 touch-manipulation items-center gap-3 rounded-lg px-3 text-[14px] ${
-                    pathname === "/inicio"
-                      ? "bg-[#eef3f9] font-semibold text-navy"
-                      : "font-medium text-[#374151] active:bg-[#f5f7fa]"
-                  }`}
-                >
-                  <Icon
-                    name="home"
-                    size="md"
-                    className={pathname === "/inicio" ? "text-navy" : "text-muted"}
-                  />
-                  <span className="flex-1">Inicio</span>
-                </Link>
                 {empleadoRoutes.map((route) => (
                   <DrawerLink
                     key={route.path}

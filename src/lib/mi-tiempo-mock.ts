@@ -1,3 +1,10 @@
+import {
+  etiquetaFestivo,
+  etiquetaFinSemana,
+  ifsDayAccent,
+  pickScheduleColors,
+} from "@/src/lib/ifs/schedule-day-color";
+
 export type RegistroEstado =
   | "Borrador"
   | "Registrado"
@@ -979,12 +986,19 @@ export type CalendarioCelda =
       esFinSemana: boolean;
       bloqueado: boolean;
       resumen: DiaResumen | null;
+      etiqueta?: string;
+      /** ColorName IFS, solo HOLIDAY / WEEKEND. */
+      etiquetaColor?: string;
     };
 
 export function buildCalendarioGrid(
   mesRef: Date,
   registros: Record<string, RegistroMock[]>,
   hoy: Date = HOY_MOCK,
+  specialDays?: Record<
+    string,
+    { dayType: string; dayTypeDesc: string; colorName: string }
+  > | null,
 ): CalendarioCelda[] {
   const año = mesRef.getFullYear();
   const mes = mesRef.getMonth();
@@ -995,6 +1009,7 @@ export function buildCalendarioGrid(
   const diasMes = new Date(año, mes + 1, 0).getDate();
 
   const celdas: CalendarioCelda[] = [];
+  const periodLabels = pickScheduleColors(specialDays);
 
   for (let i = 0; i < startDow; i++) {
     celdas.push({ tipo: "vacio", bg: "#fafafa" });
@@ -1005,14 +1020,23 @@ export function buildCalendarioGrid(
     const dow = fecha.getDay();
     const esFinSemana = dow === 0 || dow === 6;
     const fechaStr = `${año}-${String(mes + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    const esFestivo = FESTIVOS_2026.includes(fechaStr);
+    const special = specialDays?.[fechaStr];
+    const esFestivo =
+      FESTIVOS_2026.includes(fechaStr) || special?.dayType === "HOLIDAY";
     const esHoy = fechaStr === hoyStr;
     const resumen = getResumenDia(registros, fechaStr);
+    const etiqueta = esFestivo
+      ? etiquetaFestivo(special?.dayTypeDesc || periodLabels.holidayLabel)
+      : esFinSemana
+        ? etiquetaFinSemana(special?.dayTypeDesc || periodLabels.weekendLabel)
+        : undefined;
+    const accent =
+      esFestivo || esFinSemana ? ifsDayAccent(special?.colorName) : {};
 
     let bg = "white";
     // Identidad del día primero (festivo/fin); "hoy" no pisa el color base.
-    if (esFestivo) bg = "#fff7ed";
-    else if (esFinSemana) bg = "#f8fafc";
+    if (esFestivo) bg = accent.wash || "#fff7ed";
+    else if (esFinSemana) bg = accent.wash || "#f8fafc";
     else if (esHoy) bg = "#eef3fb";
 
     celdas.push({
@@ -1026,6 +1050,8 @@ export function buildCalendarioGrid(
       // Clickeable: en festivo/fin el modal limita a horas extras.
       bloqueado: false,
       resumen,
+      etiqueta,
+      etiquetaColor: accent.ink || special?.colorName || undefined,
     });
   }
 

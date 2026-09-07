@@ -1,5 +1,5 @@
-import { InicioView } from "@/src/app/inicio/InicioView";
+import { redirect } from "next/navigation";
 
 export default function InicioPage() {
-  return <InicioView />;
+  redirect("/hoja-tiempo");
 }

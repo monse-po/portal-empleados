@@ -3,6 +3,7 @@ import type {
   HorasEmpleadoAprobacion,
   HorasProyectoAprobacion,
 } from "@/src/lib/ifs/tiempo-approval";
+import { empleadoFiltroNombre } from "@/src/lib/empleado-display";
 
 export type AproProyFilterColumn =
   | "proyecto"
@@ -52,7 +53,6 @@ const COLS_PROYECTO: AproProyFilterColumnDef[] = [
 const COLS_EMPLEADO: AproProyFilterColumnDef[] = [
   { id: "empleado", label: "Empleado", icon: "user" },
   { id: "actividad", label: "Actividad", icon: "flag" },
-  { id: "cedula", label: "Cédula", icon: "copy" },
   { id: "porAprobar", label: "Horas por aprobar", icon: "hourglass" },
   { id: "acumulado", label: "Horas registradas", icon: "clock" },
 ];
@@ -149,9 +149,13 @@ export function getDistinctProyectoCodigos(
 export function getDistinctEmpleadoNombres(
   items: HorasEmpleadoAprobacion[],
 ): string[] {
-  return [...new Set(items.map((e) => e.nombre).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b, "es"),
-  );
+  return [
+    ...new Set(
+      items
+        .map((e) => empleadoFiltroNombre(e.nombre, e.empNo))
+        .filter(Boolean),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "es"));
 }
 
 export function getDistinctActividades(
@@ -240,7 +244,7 @@ export function applyEmpleadoFilters(
   return items.filter((e) =>
     active.every((rule) => {
       if (rule.column === "empleado") {
-        return rule.values.includes(e.nombre);
+        return rule.values.includes(empleadoFiltroNombre(e.nombre, e.empNo));
       }
       if (rule.column === "actividad") {
         return rule.values.includes(e.actividad);

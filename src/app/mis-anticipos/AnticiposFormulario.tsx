@@ -5,6 +5,7 @@ import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody } from "@/src/components/ui/Card";
 import { DatePickerInput } from "@/src/components/ui/DateRangePicker";
 import { Field } from "@/src/components/ui/Field";
+import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
@@ -24,7 +25,6 @@ import {
   COMPANIAS_HMV,
   EMPLEADOS_ANT,
   fmtMontoInput,
-  getEmpleadosPorEmpresa,
   parseMontoInput,
   type DestinoSel,
   type EmpleadoAnticipo,
@@ -48,6 +48,7 @@ import {
   fetchAnticiposCompanyBundleAction,
   fetchAnticiposFormBootstrapAction,
   fetchDestinosAnticipoAction,
+  fetchEmpleadosAnticipoAction,
   resolveAnticipoAprobadorAction,
   type AnticiposProyectoOption,
 } from "@/src/server/anticipos-catalog-actions";
@@ -213,6 +214,8 @@ export function AnticiposFormulario({
   const [proySel, setProySel] = useState<LovItem | null>(null);
   const [compBenef, setCompBenef] = useState<LovItem | null>(null);
   const [empOtro, setEmpOtro] = useState<EmpleadoAnticipo | null>(null);
+  const [empleadosIfs, setEmpleadosIfs] = useState<EmpleadoAnticipo[]>([]);
+  const [empleadosIfsLoading, setEmpleadosIfsLoading] = useState(false);
   const [divisa, setDivisa] = useState("COP");
   const [divisas, setDivisas] = useState<DivisaOption[]>([]);
   const [destinos, setDestinos] = useState<DestinoSel[]>([]);
@@ -427,7 +430,29 @@ export function AnticiposFormulario({
     if (!monto.trim()) return;
     setMonto((prev) => fmtMontoInput(prev, divisaDecimals));
   }, [divisa, divisaDecimals]);
-  const empleadosOtro = compBenef ? getEmpleadosPorEmpresa(compBenef.id) : [];
+  useEffect(() => {
+    if (!paraOtro || !compBenef?.id) {
+      setEmpleadosIfs([]);
+      setEmpleadosIfsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setEmpleadosIfsLoading(true);
+    setEmpleadosIfs([]);
+    void fetchEmpleadosAnticipoAction(compBenef.id).then((result) => {
+      if (cancelled) return;
+      setEmpleadosIfsLoading(false);
+      setEmpleadosIfs(result.empleados);
+      if (result.error && result.empleados.length === 0) {
+        toast(result.error, "danger");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [paraOtro, compBenef?.id]);
+
+  const empleadosOtro = empleadosIfs;
   const companiaGastoOtroOpciones = useMemo(() => {
     if (empOtro) return empOtro.companias;
     if (compBenef) {
@@ -493,11 +518,15 @@ export function AnticiposFormulario({
     setProySel(item);
   };
 
-  const reloadCompanyBundle = (company: string) => {
+  const reloadCompanyBundle = (
+    company: string,
+    empNo = empNoIfs,
+    keepProyecto = false,
+  ) => {
     if (!company) return;
     setCatalogLoading(true);
-    setProySel(null);
-    void fetchAnticiposCompanyBundleAction(company, empNoIfs).then((result) => {
+    if (!keepProyecto) setProySel(null);
+    void fetchAnticiposCompanyBundleAction(company, empNo).then((result) => {
       setCatalogLoading(false);
       applyCompanyBundle(result);
       if (result.error && !result.proyectos.length) {
@@ -507,9 +536,11 @@ export function AnticiposFormulario({
   };
 
   const handleEmpOtroChange = (item: LovItem | null) => {
-    const emp = EMPLEADOS_ANT.find((e) => e.id === item?.id) || null;
+    const emp = empleadosIfs.find((e) => e.id === item?.id) || null;
     setEmpOtro(emp);
-    setCompaniaGastoOtro(emp?.empresa ?? compBenef?.id ?? "");
+    const company = emp?.empresa ?? compBenef?.id ?? "";
+    setCompaniaGastoOtro(company);
+    if (emp?.empNo && company) reloadCompanyBundle(company, emp.empNo, true);
   };
 
   const handleCompaniaPropiaChange = (id: string) => {
@@ -520,7 +551,7 @@ export function AnticiposFormulario({
 
   const handleCompaniaGastoOtroChange = (id: string) => {
     setCompaniaGastoOtro(id);
-    reloadCompanyBundle(id);
+    reloadCompanyBundle(id, empOtro?.empNo || empNoIfs);
   };
 
   const handleDestinoChange = (dest: DestinoSel | null) => {
@@ -545,6 +576,13 @@ export function AnticiposFormulario({
       }
       if (!empOtro) {
         toast("Selecciona un empleado", "danger");
+        return;
+      }
+      if (!empOtro.supplierId) {
+        toast(
+          "Ese empleado no está configurado como proveedor en IFS. Elige a otro o pide a Administración que lo configure.",
+          "danger",
+        );
         return;
       }
       if (!companiaGastoOtro) {
@@ -671,8 +709,8 @@ export function AnticiposFormulario({
         ? empOtro!.empNo || empOtro!.id
         : empNoIfs || undefined,
       beneficiarioSupplierId: paraOtro
-        ? empOtro!.supplierId || empOtro!.empNo || empOtro!.id
-        : supplierIdIfs || empNoIfs || undefined,
+        ? empOtro!.supplierId
+        : supplierIdIfs || undefined,
       aprobador: aprobadorParaGuardar,
       paraOtro,
       beneficiarioId: paraOtro ? empOtro!.id : undefined,
@@ -702,9 +740,9 @@ export function AnticiposFormulario({
     ? empOtro?.id || "—"
     : empNoIfs || profile?.empNo || profile?.empleadoDbId || "—";
   const cuentaDisplay = paraOtro
-    ? empOtro
-      ? maskCuenta(empOtro.cuenta)
-      : "—"
+    ? catalogLoading
+      ? "Cargando datos…"
+      : cuentaLabel || (empOtro ? "Sin cuenta en IFS" : "—")
     : catalogLoading
       ? "Cargando datos…"
       : cuentaLabel || "Sin cuenta en IFS";
@@ -734,6 +772,26 @@ export function AnticiposFormulario({
             onEmpleadoChange={handleEmpOtroChange}
             empleados={empleadosOtro}
           />
+          {paraOtro && compBenef && empleadosIfsLoading ? (
+            <div className="mt-3">
+              <LoadingNotice
+                variant="inline"
+                icon="userCircle"
+                label="Cargando empleados IFS"
+              />
+            </div>
+          ) : null}
+          {paraOtro &&
+          compBenef &&
+          !empleadosIfsLoading &&
+          empleadosIfs.length === 0 ? (
+            <div className="mt-3">
+              <FormHint>
+                IFS no trajo empleados configurados como proveedor en esta
+                compañía.
+              </FormHint>
+            </div>
+          ) : null}
         </SolicitudFormCard>
 
         <Card className="mb-3 overflow-visible">

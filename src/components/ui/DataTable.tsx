@@ -340,12 +340,13 @@ export const APRO_PEND_COLS = [
   CHECKBOX_COL_WIDTH,
   "7%",
   "10%",
-  "9%",
+  "10%",
+  "8%",
   "5%",
-  "12%",
   "11%",
-  "12%",
-  "26%",
+  "10%",
+  "11%",
+  "18%",
 ] as const;
 
 export const TABLE_PAGE_SIZE = 50;
@@ -364,27 +365,29 @@ export const RES_TAB_PCT_BUDGET = {
 /** Anticipos resueltas — proporciones alineadas a pendientes (+estado; motivo 26%) */
 export const APRO_ANT_COLS_RES = [
   RES_TAB_SPACER_COL,
-  "9%",   // Código (igual pendientes)
-  "8%",   // Solicitado
-  "12%",  // Empleado
-  "7%",   // Tipo pill
-  "13%",  // Proyecto (2 líneas, igual pendientes)
-  "10%",  // Monto + divisa (2 líneas)
-  "8%",   // Estado pill + fecha (2 líneas)
-  "30%",  // Motivo decisión
-] as const;
-
-/** Legalizaciones resueltas — sin proyecto; concepto + motivo decisión */
-export const APRO_LEG_COLS_RES = [
-  RES_TAB_SPACER_COL,
   "9%",   // Código
   "8%",   // Solicitado
   "12%",  // Empleado
-  "9%",   // Tipo pill
-  "16%",  // Concepto
+  "7%",   // Tipo pill
+  "13%",  // Proyecto
   "10%",  // Monto + divisa
   "8%",   // Estado pill + fecha
-  "28%",  // Motivo decisión
+  "30%",  // Motivo decisión
+] as const;
+
+/** Legalizaciones resueltas — proyecto apilado (código + nombre) */
+export const APRO_LEG_COLS_RES = [
+  RES_TAB_SPACER_COL,
+  "8%",   // Código
+  "7%",   // Solicitado
+  "11%",  // Empleado
+  "10%",  // Aprobador
+  "8%",   // Tipo pill
+  "12%",  // Concepto
+  "12%",  // Proyecto
+  "8%",   // Monto + divisa
+  "8%",   // Estado pill + fecha
+  "13%",  // Motivo decisión
 ] as const;
 
 /** Tiempo resueltas — mismas proporciones que pendientes (comentario→motivo, +estado) */
@@ -392,12 +395,13 @@ export const APRO_RES_COLS = [
   RES_TAB_SPACER_COL,
   "7%",   // Fecha
   "10%",  // Empleado
-  "8%",   // Tipo hora pill
+  "10%",  // Aprobador
+  "7%",   // Tipo hora pill
   "5%",   // Horas
-  "12%",  // Proyecto
-  "11%",  // Subproyecto
-  "11%",  // Actividad
+  "11%",  // Proyecto
+  "10%",  // Subproyecto
+  "10%",  // Actividad
   "8%",   // Estado pill
-  "21%",  // Motivo decisión
+  "15%",  // Motivo decisión
   RES_TAB_ACTION_COL,
 ] as const;

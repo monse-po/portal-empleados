@@ -7,15 +7,7 @@ import { Dropdown } from "@/src/components/ui/Dropdown";
 import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
 import { Icon } from "@/src/components/ui/Icon";
 import type { HorasProyectoAprobacion } from "@/src/lib/ifs/tiempo-approval";
-
-function roundHoras(n: number): number {
-  return Math.round(n * 10) / 10;
-}
-
-function formatHoras(n: number): string {
-  const r = roundHoras(n);
-  return Number.isInteger(r) ? `${r}` : r.toFixed(1);
-}
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 function tieneCola(p: HorasProyectoAprobacion): boolean {
   return p.pendienteIds.length > 0;
@@ -63,7 +55,7 @@ function ProyectoRow({
       </span>
       {cola ? (
         <span className="shrink-0 text-[12px] font-bold tabular-nums text-[#b45309]">
-          {formatHoras(proyecto.horasPendientes)}h
+          {formatHorasValor(proyecto.horasPendientes)}
         </span>
       ) : (
         <span title="Sin horas por aprobar" className="shrink-0 text-green">

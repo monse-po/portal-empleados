@@ -578,13 +578,27 @@ function finiteHours(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+/** Día no laboral del programa IFS (HOLIDAY / WEEKEND). ColorName solo aquí. */
+export type IfsDiaEspecial = {
+  dayType: string;
+  dayTypeDesc: string;
+  colorName: string;
+};
+
 export type EmployeeHoursPrograma = {
   hoursByDate: Record<string, number>;
+  specialDays: Record<string, IfsDiaEspecial>;
+  /** ColorName WEEKDAY (hover del calendario; no pinta el día en reposo). */
+  weekdayColor: string | null;
   /** Total del periodo en GetHoursSummary (si IFS lo manda). */
   scheduleHours: number | null;
   jobHours: number | null;
   remainingJobHours: number | null;
 };
+
+function isWeekdayType(dayType?: string | null): boolean {
+  return (dayType ?? "").trim().toUpperCase() === "WEEKDAY";
+}
 
 /** Programa del empleado: días + totales de GetHoursSummary. */
 export async function getEmployeeHoursPrograma(
@@ -592,14 +606,30 @@ export async function getEmployeeHoursPrograma(
 ): Promise<EmployeeHoursPrograma> {
   const summary = await getHoursSummary(session);
   const hoursByDate: Record<string, number> = {};
+  const specialDays: Record<string, IfsDiaEspecial> = {};
+  let weekdayColor: string | null = null;
   for (const day of summary.EmployeeSchedule ?? []) {
     const iso = (day.AccountDate ?? "").slice(0, 10);
     if (!iso) continue;
     const hours = finiteHours(day.ScheduleHours);
     if (hours != null) hoursByDate[iso] = hours;
+    const dayType = day.DayType?.trim() ?? "";
+    const colorName = day.ColorName?.trim() ?? "";
+    if (isWeekdayType(dayType)) {
+      if (!weekdayColor && colorName) weekdayColor = colorName;
+      continue;
+    }
+    if (!dayType) continue;
+    specialDays[iso] = {
+      dayType: dayType.toUpperCase(),
+      dayTypeDesc: day.DayTypeDesc?.trim() ?? "",
+      colorName,
+    };
   }
   return {
     hoursByDate,
+    specialDays,
+    weekdayColor,
     scheduleHours: finiteHours(summary.ScheduleHours),
     jobHours: finiteHours(summary.JobHours),
     remainingJobHours: finiteHours(summary.RemainingJobHours),

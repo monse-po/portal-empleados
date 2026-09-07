@@ -4,6 +4,7 @@ import {
   getBankDetails,
   getCompanies,
   getCurrencyCodes,
+  getEmployeesByCompany,
   getExpenseCompanies,
   getIsoCountries,
   getProjectsByCompany,
@@ -34,8 +35,9 @@ import {
 } from "@/src/lib/anticipos-ifs-catalog";
 import { listAdvanceCityCodes } from "@/src/lib/ifs/cemp-advance";
 import { mapIfsBank } from "@/src/lib/ifs/anticipos-catalog";
-import type { DestinoSel } from "@/src/lib/anticipos-catalog";
+import type { DestinoSel, EmpleadoAnticipo } from "@/src/lib/anticipos-catalog";
 import {
+  COMPANIAS,
   DEST_CATALOG,
   DIVISAS_POR_COMPANIA,
 } from "@/src/lib/anticipos-catalog";
@@ -314,6 +316,70 @@ export async function fetchAnticiposFormBootstrapAction(): Promise<{
     }
     return {
       catalog: null,
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
+  }
+}
+
+/** Empleados de GetEmployees(Company) con proveedor (Identity) para “para otro”. */
+export async function fetchEmpleadosAnticipoAction(companyId: string): Promise<{
+  empleados: EmpleadoAnticipo[];
+  fromIfs: boolean;
+  error?: string;
+  sessionExpired?: boolean;
+}> {
+  const company = companyId.trim();
+  if (!company) {
+    return { empleados: [], fromIfs: false, error: "Sin compañía" };
+  }
+
+  try {
+    return await withValidIfsSession(async (session) => {
+      try {
+        const rows = await getEmployeesByCompany(session.accessToken, company);
+        const companyLabel =
+          COMPANIAS.find((c) => c.id === company)?.label || company;
+        const empleados: EmpleadoAnticipo[] = [];
+        for (const row of rows) {
+          const empNo = row.CEmpNo?.trim() || "";
+          const supplierId = row.Identity?.trim() || "";
+          if (!empNo || !supplierId) continue;
+          const nombre = row.EmpName?.trim() || empNo;
+          empleados.push({
+            id: empNo,
+            nombre,
+            sub: supplierId,
+            banco: "",
+            tipo: "",
+            cuenta: "",
+            empresa: company,
+            companias: [{ id: company, label: `${company} – ${companyLabel}` }],
+            empNo,
+            supplierId,
+          });
+        }
+        empleados.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+        return { empleados, fromIfs: true };
+      } catch (err) {
+        return {
+          empleados: [],
+          fromIfs: false,
+          error: formatIfsError(err),
+        };
+      }
+    });
+  } catch (err) {
+    if (err instanceof IfsSessionExpiredError) {
+      return {
+        empleados: [],
+        fromIfs: false,
+        sessionExpired: true,
+        error: err.message,
+      };
+    }
+    return {
+      empleados: [],
       fromIfs: false,
       error: formatIfsError(err),
     };

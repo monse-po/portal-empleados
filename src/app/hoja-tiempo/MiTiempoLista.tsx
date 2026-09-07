@@ -32,6 +32,7 @@ import {
   type RegistroEstado,
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
+import { ifsColorPastel } from "@/src/lib/ifs/schedule-day-color";
 import {
   getListaRegistrosPorDia,
   isRegistroEditable,
@@ -60,6 +61,27 @@ function CalendarioEstadoDia({ estado }: { estado: RegistroEstado }) {
   }
   return (
     <span className="text-[10px] font-medium text-muted">{estado}</span>
+  );
+}
+
+function EtiquetaCalendario({
+  esFestivo,
+  etiqueta,
+  color,
+}: {
+  esFestivo: boolean;
+  etiqueta: string;
+  color?: string;
+}) {
+  const fallback = esFestivo ? "text-orange" : "text-[#60a5fa]";
+  return (
+    <span
+      className={`inline-flex max-w-full items-center gap-1 text-[10px] font-semibold leading-none ${color ? "" : fallback}`}
+      style={color ? { color } : undefined}
+    >
+      <Icon name={esFestivo ? "star" : "moon"} size="xs" className="shrink-0" />
+      <span className="truncate">{etiqueta}</span>
+    </span>
   );
 }
 
@@ -172,8 +194,15 @@ function HorasResumenBar() {
 function CalendarioTab({
   onSelectDia,
 }: Pick<MiTiempoListaProps, "onSelectDia">) {
-  const { registros, mesBounds, horasMesPrograma, openRegistrarModal } =
-    useMiTiempo();
+  const {
+    registros,
+    mesBounds,
+    horasMesPrograma,
+    specialDays,
+    weekdayColor,
+    openRegistrarModal,
+  } = useMiTiempo();
+  const weekdayPastel = weekdayColor ? ifsColorPastel(weekdayColor) : undefined;
   const registrosMes = useMemo(
     () => filterRegistrosPorMes(registros, mesBounds),
     [registros, mesBounds],
@@ -185,7 +214,7 @@ function CalendarioTab({
     return d;
   }, []);
   const mesRef = useMemo(() => mesRefFromBounds(mesBounds), [mesBounds]);
-  const celdas = buildCalendarioGrid(mesRef, registrosMes, hoy);
+  const celdas = buildCalendarioGrid(mesRef, registrosMes, hoy, specialDays);
   const weekRows = Math.max(1, Math.ceil(celdas.length / 7));
 
   return (
@@ -205,7 +234,12 @@ function CalendarioTab({
 
           <div
             className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-border bg-border max-md:min-h-0 max-md:flex-1 max-md:rounded-none max-md:border-0 max-md:[grid-template-rows:auto_repeat(var(--cal-weeks),minmax(0,1fr))]"
-            style={{ ["--cal-weeks" as string]: weekRows }}
+            style={{
+              ["--cal-weeks" as string]: weekRows,
+              ...(weekdayPastel
+                ? { ["--cal-weekday-pastel" as string]: weekdayPastel }
+                : {}),
+            }}
           >
             {DIAS_SEMANA.map((d, i) => (
               <div
@@ -228,13 +262,22 @@ function CalendarioTab({
                 );
               }
 
-              const dayNumberClass = celda.esFestivo
-                ? "font-semibold text-orange"
-                : celda.esHoy
-                  ? "font-extrabold text-navy"
-                  : celda.esFinSemana
-                    ? "font-semibold text-[#60a5fa]"
-                    : "font-semibold text-[#374151]";
+              const dayInk =
+                (celda.esFestivo || celda.esFinSemana) && celda.etiquetaColor
+                  ? celda.etiquetaColor
+                  : undefined;
+              const dayNumberClass = dayInk
+                ? celda.esHoy
+                  ? "font-extrabold"
+                  : "font-semibold"
+                : celda.esFestivo
+                  ? "font-semibold text-orange"
+                  : celda.esHoy
+                    ? "font-extrabold text-navy"
+                    : celda.esFinSemana
+                      ? "font-semibold text-[#60a5fa]"
+                      : "font-semibold text-[#374151]";
+              const numeroStyle = dayInk ? { color: dayInk } : undefined;
 
               return (
                 <button
@@ -255,7 +298,11 @@ function CalendarioTab({
                       origen: "lista",
                     });
                   }}
-                  className={`relative flex ${CAL_DIA_CELL} cursor-pointer flex-col items-start p-2.5 text-left transition-[filter,box-shadow] duration-100 hover:brightness-[0.96] max-md:items-stretch max-md:p-0.5 max-md:touch-manipulation ${
+                  className={`relative flex ${CAL_DIA_CELL} cursor-pointer flex-col items-start p-2.5 text-left transition-[background-color,filter,box-shadow] duration-100 max-md:items-stretch max-md:p-0.5 max-md:touch-manipulation ${
+                    !celda.esFestivo && !celda.esFinSemana && weekdayPastel
+                      ? "hover:!bg-[var(--cal-weekday-pastel)]"
+                      : "hover:brightness-[0.96]"
+                  } ${
                     celda.esHoy
                       ? celda.esFestivo
                         ? "z-[1] ring-2 ring-inset ring-orange/70"
@@ -264,16 +311,26 @@ function CalendarioTab({
                   }`}
                   style={{ background: celda.bg }}
                 >
-                  <div className="flex h-6 w-full shrink-0 items-center justify-center md:hidden">
+                  <div className="flex h-6 w-full shrink-0 items-center justify-center gap-0.5 md:hidden">
                     <span
                       className={`inline-flex h-6 min-w-6 items-center justify-center text-[12px] leading-none ${
-                        celda.esHoy
+                        celda.esHoy && !dayInk
                           ? "rounded-full bg-navy font-bold text-white"
                           : dayNumberClass
                       }`}
+                      style={
+                        celda.esHoy && !dayInk ? undefined : numeroStyle
+                      }
                     >
                       {celda.dia}
                     </span>
+                    {celda.etiqueta ? (
+                      <EtiquetaCalendario
+                        esFestivo={celda.esFestivo}
+                        etiqueta={celda.etiqueta}
+                        color={celda.etiquetaColor}
+                      />
+                    ) : null}
                   </div>
                   {celda.resumen ? (
                     <div
@@ -288,16 +345,17 @@ function CalendarioTab({
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span
                           className={`text-[13px] leading-none ${dayNumberClass}`}
+                          style={numeroStyle}
                         >
                           {celda.dia}
                         </span>
-                        {celda.esFestivo && (
-                          <Icon
-                            name="star"
-                            size="xs"
-                            className="shrink-0 text-[#f59e0b]"
+                        {celda.etiqueta ? (
+                          <EtiquetaCalendario
+                            esFestivo={celda.esFestivo}
+                            etiqueta={celda.etiqueta}
+                            color={celda.etiquetaColor}
                           />
-                        )}
+                        ) : null}
                         {celda.esHoy && (
                           <span
                             className={`rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wide ${
@@ -328,13 +386,6 @@ function CalendarioTab({
                       )}
                     </div>
 
-                    {celda.esFestivo && (
-                      <div className="mt-1.5">
-                        <span className="text-[10px] font-semibold leading-none text-orange">
-                          Festivo
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                   {celda.resumen && celda.resumen.lineas.length > 0 && (

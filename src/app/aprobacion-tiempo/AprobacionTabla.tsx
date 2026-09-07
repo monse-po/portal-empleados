@@ -16,9 +16,10 @@ import {
   dataTdClamp,
   dataTdNumeric,
   dataTdResAction,
-  dataTdResPrimary,
   dataTdResSecondary,
+  EmpleadoCell,
   ProyectoCell,
+  SubproyectoCell,
   dataTdTruncate,
   dataTh,
   dataThCheck,
@@ -34,10 +35,10 @@ import {
   horasNum,
   proyKey,
   proyNombre,
-  splitSubproy,
   type HojaAprobacion,
 } from "@/src/lib/aprobacion-tiempo-mock";
 import { toastAnulados } from "@/src/lib/tiempo-bridge";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 type AprobacionTablaProps = {
   registros: HojaAprobacion[];
@@ -96,19 +97,9 @@ export function AprobacionTabla({
     <ProyectoCell codigo={proyKey(proy) || proy} nombre={proyNombre(proy)} />
   );
 
-  const renderSubproy = (subproy: string) => {
-    const sp = splitSubproy(subproy);
-    return (
-      <>
-        <div className={dataTdResPrimary}>{sp.code}</div>
-        {sp.name ? (
-          <div className={dataTdResSecondary} title={sp.name}>
-            {sp.name}
-          </div>
-        ) : null}
-      </>
-    );
-  };
+  const renderSubproy = (subproy: string) => (
+    <SubproyectoCell codigo={subproy} />
+  );
 
   const renderRowPend = (s: HojaAprobacion) => (
     <tr
@@ -124,13 +115,19 @@ export function AprobacionTabla({
         />
       </td>
       <td className={`${dataTd} text-muted ${dataTdTruncate}`}>{s.fecha}</td>
-      <td className={`${dataTd} font-medium ${dataTdTruncate}`}>
-        {s.solicitante}
+      <td className={dataTd}>
+        <EmpleadoCell nombre={s.nombre} codigo={s.cedula} />
+      </td>
+      <td
+        className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
+        title={s.aprobador || undefined}
+      >
+        {s.aprobador?.trim() || "—"}
       </td>
       <td className={dataTd}>
         <TipoHoraPill tipo={s.tipo} />
       </td>
-      <td className={dataTdNumeric}>{horasNum(s.horas)}</td>
+      <td className={dataTdNumeric}>{formatHorasValor(horasNum(s.horas))}</td>
       <td className={dataTd}>{renderProy(s.proy)}</td>
       <td className={dataTd}>{renderSubproy(s.subproy)}</td>
       <td className={`${dataTd} text-[#374151] ${dataTdTruncate}`}>
@@ -150,13 +147,19 @@ export function AprobacionTabla({
     >
       <td className={dataTd} />
       <td className={`${dataTd} text-muted ${dataTdTruncate}`}>{s.fecha}</td>
-      <td className={`${dataTd} font-medium ${dataTdTruncate}`}>
-        {s.solicitante}
+      <td className={dataTd}>
+        <EmpleadoCell nombre={s.nombre} codigo={s.cedula} />
+      </td>
+      <td
+        className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
+        title={s.aprobador || undefined}
+      >
+        {s.aprobador?.trim() || "—"}
       </td>
       <td className={dataTd}>
         <TipoHoraPill tipo={s.tipo} />
       </td>
-      <td className={dataTdNumeric}>{horasNum(s.horas)}</td>
+      <td className={dataTdNumeric}>{formatHorasValor(horasNum(s.horas))}</td>
       <td className={dataTd}>{renderProy(s.proy)}</td>
       <td className={dataTd}>{renderSubproy(s.subproy)}</td>
       <td className={`${dataTd} text-[#374151] ${dataTdTruncate}`}>
@@ -179,9 +182,13 @@ export function AprobacionTabla({
           <TableAproIconButton
             variant="undo"
             title="Anular decisión"
-            onClick={(e) => {
+            onClick={async (e) => {
               e.stopPropagation();
-              anular([s.no]);
+              const result = await anular([s.no]);
+              if (!result.ok) {
+                toast(result.error || "No se pudo anular.", "danger");
+                return;
+              }
               toast(toastAnulados([s.no]), "green");
             }}
           />
@@ -193,6 +200,7 @@ export function AprobacionTabla({
   const pendHeaderCols: [string, string][] = [
     ["Fecha", "text-left"],
     ["Empleado", "text-left"],
+    ["Aprobador", "text-left"],
     ["Tipo hora", "text-left"],
     ["Horas", "text-center"],
     ["Proyecto", "text-left"],
@@ -204,6 +212,7 @@ export function AprobacionTabla({
   const resHeaderCols: [string, string][] = [
     ["Fecha", "text-left"],
     ["Empleado", "text-left"],
+    ["Aprobador", "text-left"],
     ["Tipo hora", "text-left"],
     ["Horas", "text-center"],
     ["Proyecto", "text-left"],

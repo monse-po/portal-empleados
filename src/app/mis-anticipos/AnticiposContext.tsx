@@ -22,7 +22,11 @@ import {
   lanzarAnticipoAction,
   listMisAnticiposAction,
 } from "@/src/server/anticipos-actions";
-import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
+import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
+import {
+  ANTICIPOS_CHANGED_EVENT,
+  IFS_EMPLOYEE_CHANGED_EVENT,
+} from "@/src/lib/ifs/portal-events";
 
 const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
 
@@ -58,7 +62,12 @@ type AnticiposContextValue = {
   extras: Record<string, AnticipoExtra>;
   loaded: boolean;
   loadError: string | null;
+  fromIfs: boolean;
+  ifsConnected: boolean;
+  ifsEmail: string | null;
   empleadoId: string | null;
+  sessionIds: string[];
+  sessionNombre: string;
   tab: AnticipoTab;
   setTab: (tab: AnticipoTab) => void;
   tabCounts: { pendientes: number; disponibles: number };
@@ -76,8 +85,13 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
   const [anticipos, setAnticipos] = useState<Record<string, Anticipo>>({});
   const [extras, setExtras] = useState<Record<string, AnticipoExtra>>({});
   const [empleadoId, setEmpleadoId] = useState<string | null>(null);
+  const [sessionIds, setSessionIds] = useState<string[]>([]);
+  const [sessionNombre, setSessionNombre] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [fromIfs, setFromIfs] = useState(false);
+  const [ifsConnected, setIfsConnected] = useState(false);
+  const [ifsEmail, setIfsEmail] = useState<string | null>(null);
   const [tab, setTab] = useState<AnticipoTab>("pendientes");
 
   const reload = useCallback(async () => {
@@ -86,7 +100,10 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
       const result = await listMisAnticiposAction();
       setAnticipos(result.anticipos as Record<string, Anticipo>);
       setExtras(result.extras as Record<string, AnticipoExtra>);
+      setSessionIds(result.sessionIds);
+      setSessionNombre(result.sessionNombre || "");
       setEmpleadoId(result.sessionIds[0] ?? null);
+      setFromIfs(result.fromIfs);
       if (IFS_AUTH_ENABLED && !result.fromIfs) {
         setLoadError(
           "No hay sesión IFS. Entra con IFS para ver y crear anticipos en Employee Advances.",
@@ -100,6 +117,9 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
       );
       setAnticipos({});
       setExtras({});
+      setSessionIds([]);
+      setSessionNombre("");
+      setFromIfs(false);
     } finally {
       setLoaded(true);
     }
@@ -110,25 +130,42 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
   }, [reload]);
 
   useEffect(() => {
-    const onEmployeeChanged = () => {
+    void getIfsSessionStatusAction().then((status) => {
+      setIfsConnected(status.connected);
+      setIfsEmail(status.email ?? null);
+    });
+  }, []);
+
+  useEffect(() => {
+    const onChanged = () => {
       setLoaded(false);
       void reload();
     };
-    window.addEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onEmployeeChanged);
+    window.addEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onChanged);
+    window.addEventListener(ANTICIPOS_CHANGED_EVENT, onChanged);
     return () => {
-      window.removeEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onEmployeeChanged);
+      window.removeEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onChanged);
+      window.removeEventListener(ANTICIPOS_CHANGED_EVENT, onChanged);
     };
   }, [reload]);
 
   const lanzarAnticipo = useCallback(
     async (input: LanzarAnticipoInput): Promise<string | null> => {
-      const { no, error } = await lanzarAnticipoAction(input);
+      const { no, error, anticipo, extra } = await lanzarAnticipoAction(input);
       if (error || !no) {
         throw new Error(
           error || "No se pudo crear el anticipo en IFS (Employee Advances).",
         );
       }
       await reload();
+      if (anticipo) {
+        setAnticipos((prev) =>
+          prev[no] ? prev : { ...prev, [no]: anticipo },
+        );
+      }
+      if (extra) {
+        setExtras((prev) => (prev[no] ? prev : { ...prev, [no]: extra }));
+      }
       return no;
     },
     [reload],
@@ -147,18 +184,18 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
 
   const tabCounts = useMemo(
     () =>
-      empleadoId
-        ? countAnticiposTab(anticipos, empleadoId)
+      sessionIds.length
+        ? countAnticiposTab(anticipos, sessionIds)
         : { pendientes: 0, disponibles: 0 },
-    [anticipos, empleadoId],
+    [anticipos, sessionIds],
   );
 
   const registrosActuales = useMemo(
     () =>
-      empleadoId
-        ? getAnticiposRegistrosTab(anticipos, tab, empleadoId)
+      sessionIds.length
+        ? getAnticiposRegistrosTab(anticipos, tab, sessionIds)
         : [],
-    [anticipos, tab, empleadoId],
+    [anticipos, tab, sessionIds],
   );
 
   const value = useMemo(
@@ -167,7 +204,12 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
       extras,
       loaded,
       loadError,
+      fromIfs,
+      ifsConnected,
+      ifsEmail,
       empleadoId,
+      sessionIds,
+      sessionNombre,
       tab,
       setTab,
       tabCounts,
@@ -183,7 +225,12 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
       extras,
       loaded,
       loadError,
+      fromIfs,
+      ifsConnected,
+      ifsEmail,
       empleadoId,
+      sessionIds,
+      sessionNombre,
       tab,
       tabCounts,
       registrosActuales,

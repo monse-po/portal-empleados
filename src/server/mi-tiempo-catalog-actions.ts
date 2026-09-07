@@ -288,6 +288,13 @@ export async function fetchScheduleHoursAction(accountDate: string): Promise<{
 /** Programa del empleado (días con ScheduleHours) para filtrar rangos. */
 export async function fetchEmployeeScheduleAction(): Promise<{
   hoursByDate: Record<string, number>;
+  /** HOLIDAY / WEEKEND de GetHoursSummary (ColorName solo en estos). */
+  specialDays: Record<
+    string,
+    { dayType: string; dayTypeDesc: string; colorName: string }
+  >;
+  /** ColorName WEEKDAY IFS — solo hover. */
+  weekdayColor: string | null;
   /** Total GetHoursSummary.ScheduleHours (si IFS lo manda). */
   scheduleHours: number | null;
   fromIfs: boolean;
@@ -296,6 +303,11 @@ export async function fetchEmployeeScheduleAction(): Promise<{
 }> {
   const empty = {
     hoursByDate: {} as Record<string, number>,
+    specialDays: {} as Record<
+      string,
+      { dayType: string; dayTypeDesc: string; colorName: string }
+    >,
+    weekdayColor: null as string | null,
     scheduleHours: null as number | null,
     fromIfs: false,
   };
@@ -314,6 +326,8 @@ export async function fetchEmployeeScheduleAction(): Promise<{
         const programa = await getEmployeeHoursPrograma(ifs);
         return {
           hoursByDate: programa.hoursByDate,
+          specialDays: programa.specialDays,
+          weekdayColor: programa.weekdayColor,
           scheduleHours: programa.scheduleHours,
           fromIfs:
             Object.keys(programa.hoursByDate).length > 0 ||

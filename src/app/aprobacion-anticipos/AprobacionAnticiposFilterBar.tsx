@@ -32,6 +32,7 @@ import {
   type AproAntFilterRule,
 } from "@/src/lib/aprobacion-anticipos-filtros";
 import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-registro";
+import { distinctEmpleadoFiltroOptions } from "@/src/lib/empleado-display";
 import type { IconName } from "@/src/components/ui/Icon";
 
 type AprobacionAnticiposFilterBarProps = {
@@ -55,6 +56,16 @@ function multiOptions(
   column: "empleado" | "tipo" | "proyecto" | "estado",
   registros: AnticipoAprobacion[],
 ): FilterDropdownOption[] {
+  if (column === "empleado") {
+    return distinctEmpleadoFiltroOptions(
+      registros.map((s) => ({ nombre: s.nombre, codigo: s.cedula })),
+    ).map((o) => ({
+      value: o.value,
+      label: o.label,
+      title: o.title,
+      icon: "user",
+    }));
+  }
   return buildFilterMultiOptions("anticipo", column, getDistinctValues(registros, column), (val) => ({
     label: val,
     icon: valueOptionIcon(column, val),

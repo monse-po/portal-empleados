@@ -62,7 +62,7 @@ type AprobacionContextValue = {
     nos: string[],
     comentario: string,
   ) => Promise<AprobacionDecisionResult>;
-  anular: (nos: string[]) => void;
+  anular: (nos: string[]) => Promise<AprobacionDecisionResult>;
   getHoja: (no: string) => HojaAprobacion | undefined;
   tabCounts: { pend: number; res: number };
 };
@@ -254,19 +254,38 @@ export function AprobacionProvider({
   );
 
   const anular = useCallback(
-    (nos: string[]) => {
-      const toSync: string[] = [];
+    async (nos: string[]): Promise<AprobacionDecisionResult> => {
       const hojasAnuladas = nos
         .map((no) => hojasRef.current[no])
         .filter((h): h is HojaAprobacion => !!h);
+      const registroIds = hojasAnuladas
+        .map((h) => h.registroId)
+        .filter((id): id is string => !!id);
 
+      if (!registroIds.length) {
+        return { ok: false, error: "No hay registros válidos para anular." };
+      }
+
+      const result = await resolverAprobacionTiempoAction({
+        registroIds,
+        decision: "anulado",
+      });
+      if (!result.ok) {
+        return {
+          ok: false,
+          error: result.error,
+          sentToIfs: result.sentToIfs,
+          stale: result.stale,
+        };
+      }
+
+      const toSync: string[] = [];
       setHojas((prev) => {
         const next = { ...prev };
         nos.forEach((no) => {
           if (!next[no]) return;
           const registroId = next[no].registroId;
           if (registroId) toSync.push(registroId);
-          // Sale de la cola; el empleado vuelve a Registrado vía sync.
           delete next[no];
         });
         return next;
@@ -283,6 +302,8 @@ export function AprobacionProvider({
       }).catch((error) => {
         console.error("[notificaciones] no se pudo notificar anulación", error);
       });
+
+      return { ok: true, sentToIfs: result.sentToIfs };
     },
     [syncRegistro, clearSeleccion],
   );

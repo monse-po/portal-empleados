@@ -70,6 +70,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
   empNo?: string;
   empName?: string;
   confirmedHours?: number;
+  fromIfs?: boolean;
   sessionExpired?: boolean;
   error?: string;
 }> {
@@ -86,6 +87,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
         registros: sortRegistrosHistorico(registros),
         desdeIso,
         empName: "Usuario DEMO",
+        fromIfs: false,
       };
     }
     return {
@@ -233,6 +235,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
       empNo: payload.empNo,
       empName: payload.empName,
       confirmedHours: payload.confirmedHours,
+      fromIfs: true,
     };
   } catch (err) {
     if (err instanceof IfsSessionExpiredError) {

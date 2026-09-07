@@ -7,6 +7,7 @@ import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
 import { Icon } from "@/src/components/ui/Icon";
 import { useToast } from "@/src/components/ui/Toast";
 import {
+  AnularModal,
   AprobarModal,
   RechazarModal,
 } from "@/src/app/aprobacion-tiempo/AprobacionModals";
@@ -22,6 +23,7 @@ import {
   hojaRegistroId,
 } from "@/src/app/aprobacion-tiempo-proyectos/AprobacionProyectosRegistrosTabla";
 import {
+  mapApprovalTimesheetToHojas,
   mapApprovalTimesheetToHojasByProyecto,
   type HorasProyectoAprobacion,
 } from "@/src/lib/ifs/tiempo-approval";
@@ -30,11 +32,20 @@ import {
   hayFiltrosActivos,
   type AproFilterRule,
 } from "@/src/lib/aprobacion-filtros";
-import { horasNum } from "@/src/lib/aprobacion-tiempo-mock";
+import {
+  getAprobacionKpisFromList,
+  horasNum,
+  type HojaAprobacion,
+} from "@/src/lib/aprobacion-tiempo-mock";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
+import { KpiCard } from "@/src/components/ui/KpiCard";
+import { toastAnulados } from "@/src/lib/tiempo-bridge";
+import type { HojaNotificacionInput } from "@/src/lib/notificacion-tiempo";
 import {
   getResumenProyectosAprobacionAction,
   resolverAprobacionTiempoAction,
 } from "@/src/server/mi-tiempo-actions";
+import { createNotificacionesTiempoDecisionAction } from "@/src/server/notificacion-actions";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { useTableSelection } from "@/src/lib/use-table-selection";
 
@@ -42,54 +53,17 @@ type Tab = "pend" | "res";
 type DecisionScope = "registros" | "proyecto";
 
 function roundHoras(n: number): number {
-  return Math.round(n * 10) / 10;
+  return Math.round(n * 100) / 100;
 }
 
-function formatHoras(n: number): string {
-  const r = roundHoras(n);
-  return Number.isInteger(r) ? `${r}` : r.toFixed(1);
-}
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  alert,
-  navy,
-}: {
-  label: string;
-  value: string | number;
-  sub: string;
-  alert?: boolean;
-  navy?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border px-4 py-3 ${
-        alert
-          ? "border-[#fcd34d] bg-[#fffbeb]"
-          : navy
-            ? "border-[#c7d9ed] bg-[#eef3f9]"
-            : "border-border bg-white"
-      }`}
-    >
-      <div
-        className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${
-          navy ? "text-navy" : "text-muted"
-        }`}
-      >
-        {label}
-      </div>
-      <div
-        className={`text-[22px] font-extrabold leading-none ${alert ? "text-[#b45309]" : "text-navy"}`}
-      >
-        {value}
-      </div>
-      <div className={`mt-1.5 text-[11px] ${navy ? "text-navy/70" : "text-muted"}`}>
-        {sub}
-      </div>
-    </div>
-  );
+function toHojaNotifInput(hoja: HojaAprobacion): HojaNotificacionInput {
+  return {
+    no: hoja.no,
+    fecha: hoja.fecha,
+    cedula: hoja.cedula,
+    nombre: hoja.nombre,
+    proy: hoja.proy,
+  };
 }
 
 export function AprobacionProyectosView() {
@@ -108,6 +82,7 @@ export function AprobacionProyectosView() {
   );
   const [aprobarTargets, setAprobarTargets] = useState<string[]>([]);
   const [rechazarTargets, setRechazarTargets] = useState<string[]>([]);
+  const [anularTargets, setAnularTargets] = useState<string[]>([]);
   const [decisionScope, setDecisionScope] = useState<DecisionScope>("registros");
   const {
     seleccion,
@@ -187,21 +162,13 @@ export function AprobacionProyectosView() {
     res: hojasRes.length,
   };
 
-  const kpis = useMemo(() => {
-    const conCola = proyectos.filter((p) => p.pendienteIds.length > 0);
-    return {
-      pendientes: roundHoras(
-        proyectos.reduce((s, p) => s + p.horasPendientes, 0),
+  const kpis = useMemo(
+    () =>
+      getAprobacionKpisFromList(
+        mapApprovalTimesheetToHojas(raw, { includeResolved: true }),
       ),
-      aprobadas: roundHoras(
-        proyectos.reduce((s, p) => s + p.horasAprobadas, 0),
-      ),
-      registradas: roundHoras(
-        proyectos.reduce((s, p) => s + p.horasAcumuladas, 0),
-      ),
-      proyectosCola: conCola.length,
-    };
-  }, [proyectos]);
+    [raw],
+  );
 
   const selectedKeys = [...seleccion];
   const filtrosActivos = hayFiltrosActivos(filters);
@@ -358,7 +325,7 @@ export function AprobacionProyectosView() {
       return;
     }
 
-    const horasLabelTxt = formatHoras(resolved.horas);
+    const horasLabelTxt = formatHorasValor(resolved.horas);
     toast(
       decision === "aprobado"
         ? `${resolved.label} · ${horasLabelTxt}h aprobadas`
@@ -368,6 +335,61 @@ export function AprobacionProyectosView() {
     clearSeleccion();
     await cargar();
   };
+
+  const confirmarAnulacion = async () => {
+    const picked = hojasRes.filter((h) =>
+      anularTargets.includes(hojaRegistroId(h)),
+    );
+    const registroIds = picked
+      .map((h) => h.registroId || hojaRegistroId(h))
+      .filter(Boolean);
+    if (!registroIds.length) {
+      toast("Ese registro ya no está resuelto.", "warn");
+      setAnularTargets([]);
+      await cargar();
+      return;
+    }
+
+    const result = await resolverAprobacionTiempoAction({
+      registroIds,
+      decision: "anulado",
+    });
+    if (!result.ok) {
+      toast(result.error || "No se pudo anular la decisión.", "danger");
+      return;
+    }
+
+    void createNotificacionesTiempoDecisionAction({
+      decision: "anulado",
+      hojas: picked.map(toHojaNotifInput),
+    }).catch((error) => {
+      console.error("[notificaciones] no se pudo notificar anulación", error);
+    });
+
+    toast(toastAnulados(picked.map((h) => h.no)), "green");
+    setAnularTargets([]);
+    await cargar();
+  };
+
+  const anularResolved = (() => {
+    const picked = hojasRes.filter((h) =>
+      anularTargets.includes(hojaRegistroId(h)),
+    );
+    const horas = roundHoras(
+      picked.reduce((s, h) => s + horasNum(h.horas), 0),
+    );
+    if (picked.length === 1) {
+      const h = picked[0];
+      return {
+        label: `${h.fecha} · ${h.actividad}`,
+        horas,
+      };
+    }
+    return {
+      label: `${picked.length} registros`,
+      horas,
+    };
+  })();
 
   const aprobarResolved = resolverTargets(aprobarTargets);
   const rechazarResolved = resolverTargets(rechazarTargets);
@@ -391,23 +413,28 @@ export function AprobacionProyectosView() {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-3 gap-2">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
-          label="Horas por aprobar"
-          value={formatHoras(kpis.pendientes)}
-          sub={`${kpis.proyectosCola} proyectos`}
+          label="Pendientes"
+          value={kpis.pendientes}
+          sub="Requieren acción"
           alert
         />
         <KpiCard
-          label="Horas aprobadas"
-          value={formatHoras(kpis.aprobadas)}
-          sub="Confirmadas"
+          label="Aprobadas este mes"
+          value={kpis.aprobadas}
+          sub={`${formatHorasValor(kpis.horasAprobadas)} h aprobadas`}
           navy
         />
         <KpiCard
-          label="Horas registradas"
-          value={formatHoras(kpis.registradas)}
-          sub="Total reportado"
+          label="Rechazadas"
+          value={kpis.rechazadas}
+          sub="Este mes"
+        />
+        <KpiCard
+          label="Horas por aprobar"
+          value={formatHorasValor(kpis.horasPendientes)}
+          sub="En registros pendientes"
         />
       </div>
 
@@ -457,7 +484,7 @@ export function AprobacionProyectosView() {
                     }`}
                   >
                     <Icon name="clock" size="sm" />
-                    Pendientes
+                    Por aprobar
                     <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
                       {tabCounts.pend}
                     </span>
@@ -485,13 +512,12 @@ export function AprobacionProyectosView() {
                     </span>
                   ) : null}
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                    Total
+                    Horas
                   </span>
                   <span className="text-[18px] font-extrabold tabular-nums text-navy">
-                    {formatHoras(
+                    {formatHorasValor(
                       hojasTab.reduce((s, h) => s + horasNum(h.horas), 0),
                     )}
-                    h
                   </span>
                 </div>
               </div>
@@ -516,6 +542,7 @@ export function AprobacionProyectosView() {
                 seleccion={seleccion}
                 onToggle={toggleSeleccion}
                 onToggleLote={toggleSeleccionLote}
+                onAnular={(id) => setAnularTargets([id])}
               />
             )}
           </Card>
@@ -526,7 +553,7 @@ export function AprobacionProyectosView() {
         open={aprobarTargets.length > 0}
         registroLabel={aprobarResolved.label}
         empleado={aprobarResolved.empleado || "Empleado"}
-        horas={formatHoras(aprobarResolved.horas)}
+        horas={formatHorasValor(aprobarResolved.horas)}
         onClose={() => setAprobarTargets([])}
         onConfirm={async () => {
           const targets = [...aprobarTargets];
@@ -543,6 +570,13 @@ export function AprobacionProyectosView() {
           await confirmarDecision(targets, "rechazado", motivo);
           setRechazarTargets([]);
         }}
+      />
+      <AnularModal
+        open={anularTargets.length > 0}
+        registroLabel={anularResolved.label}
+        horas={formatHorasValor(anularResolved.horas)}
+        onClose={() => setAnularTargets([])}
+        onConfirm={confirmarAnulacion}
       />
     </div>
   );

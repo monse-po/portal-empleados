@@ -32,6 +32,8 @@ import {
   type AnticipoFilterRule,
 } from "@/src/lib/anticipos-filtros";
 import type { Anticipo, AnticipoTab } from "@/src/lib/anticipos-registro";
+import { getBeneficiarioNombre } from "@/src/lib/anticipos-registro";
+import { distinctEmpleadoFiltroOptions } from "@/src/lib/empleado-display";
 import type { IconName } from "@/src/components/ui/Icon";
 
 type AnticiposFilterBarProps = {
@@ -57,6 +59,19 @@ function multiOptions(
   column: "proyecto" | "tipo" | "estado" | "beneficiario",
   registros: Anticipo[],
 ): FilterDropdownOption[] {
+  if (column === "beneficiario") {
+    return distinctEmpleadoFiltroOptions(
+      registros.map((s) => ({
+        nombre: getBeneficiarioNombre(s),
+        codigo: s.cedula || s.beneficiarioId,
+      })),
+    ).map((o) => ({
+      value: o.value,
+      label: o.label,
+      title: o.title,
+      icon: "user",
+    }));
+  }
   return buildFilterMultiOptions("anticipo", column, getDistinctValues(registros, column), (val) => ({
     label: val,
     icon: valueOptionIcon(column, val),

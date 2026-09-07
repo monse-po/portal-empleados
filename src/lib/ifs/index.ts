@@ -27,6 +27,7 @@ export {
   getScheduleHoursForDate,
   getEmployeeScheduleHoursByDate,
   getEmployeeHoursPrograma,
+  type IfsDiaEspecial,
   getUserInfo,
   getValidActReportCode,
   getValidEmpPrjAct,

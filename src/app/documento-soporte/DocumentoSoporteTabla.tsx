@@ -7,16 +7,16 @@ import { EstadoDocumentoSoportePill } from "@/src/components/ui/Pill";
 import {
   DataTable,
   dataTd,
-  dataTdResSecondary,
   dataTdTruncate,
   dataThWithAlign,
+  EmpleadoCell,
+  MontoCell,
   TABLE_PAGE_SIZE,
 } from "@/src/components/ui/DataTable";
 import { TablePagination } from "@/src/components/ui/TablePagination";
 import {
   DS_COLS_HIST,
   DS_COLS_PEND,
-  formatMontoDs,
   getRegistradoPorChip,
   type DocumentoSoporte,
 } from "@/src/lib/documento-soporte-mock";
@@ -115,12 +115,10 @@ export function DocumentoSoporteTabla({
                     {row.fecha}
                   </td>
                   <td className={`${dataTd} align-top`}>
-                    <div
-                      className="font-medium leading-snug text-[#374151] [overflow-wrap:anywhere]"
-                      title={row.solicitadoPorNombre}
-                    >
-                      {row.solicitadoPorNombre}
-                    </div>
+                    <EmpleadoCell
+                      nombre={row.solicitadoPorNombre}
+                      codigo={row.solicitadoPorId}
+                    />
                     {registradoPor ? (
                       <div
                         className="mt-1 inline-flex max-w-full flex-wrap items-baseline gap-x-1 rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug [overflow-wrap:anywhere]"
@@ -154,10 +152,7 @@ export function DocumentoSoporteTabla({
                     {row.concepto}
                   </td>
                   <td className={`${dataTd} text-right`}>
-                    <div className="font-semibold leading-snug">
-                      {formatMontoDs(row.monto, row.divisa)}
-                    </div>
-                    <div className={dataTdResSecondary}>{row.divisa}</div>
+                    <MontoCell monto={row.monto} divisa={row.divisa} />
                   </td>
                   <td className={dataTd}>
                     <EstadoDocumentoSoportePill estado={row.estado} />

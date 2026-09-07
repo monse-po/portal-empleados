@@ -119,6 +119,16 @@ export const PROYECTOS_ANT = [
   },
 ] as const;
 
+export function nombreProyectoAnticipo(
+  codigo?: string | null,
+  nombre?: string | null,
+): string {
+  const id = (codigo || "").trim();
+  const n = (nombre || "").trim();
+  if (n && n !== id) return n;
+  return PROYECTOS_ANT.find((p) => p.id === id)?.nombre ?? "";
+}
+
 export type LovItem = {
   id: string;
   nombre: string;
@@ -387,15 +397,38 @@ export function getBeneficiarioNombre(a: Anticipo): string {
   return a.beneficiarioNombre ?? getBeneficiarioDetalle(a).nombre;
 }
 
-/** Solo cuando otro empleado registró la solicitud a nombre del usuario */
+/** Chip `Solicitado por {código}` solo si quien pidió no es el beneficiario. */
 export function getBeneficiarioSolicitante(
   a: Anticipo,
   sessionIds?: string | string[],
 ): string | null {
   const ids = sessionIdCandidates(sessionIds);
-  const solId = normalizeAnticipoId(getAnticipoSolicitanteId(a));
-  if (!ids.includes(solId) && a.solicitante) {
-    return a.solicitante;
+  const codigo =
+    a.solicitanteId?.trim() || getAnticipoSolicitanteId(a).trim() || "";
+  const label = codigo || a.solicitante?.trim() || "";
+  if (!label) return null;
+  if (ids.length) {
+    const solIsMe =
+      ids.includes(normalizeAnticipoId(a.solicitanteId || "")) ||
+      ids.includes(normalizeAnticipoId(a.solicitante || ""));
+    const benIsMe =
+      ids.includes(normalizeAnticipoId(getAnticipoBeneficiarioId(a))) ||
+      ids.includes(normalizeAnticipoId(a.cedula || ""));
+    if (benIsMe && solIsMe) return null;
+    if (benIsMe !== solIsMe) return label;
+    return null;
+  }
+  const solName = a.solicitante?.trim() || "";
+  const benName = (a.beneficiarioNombre || "").trim();
+  if (solName && benName && solName.toLowerCase() === benName.toLowerCase()) {
+    return null;
+  }
+  if (
+    solName.includes(" ") &&
+    benName.includes(" ") &&
+    solName.toLowerCase() !== benName.toLowerCase()
+  ) {
+    return label;
   }
   return null;
 }

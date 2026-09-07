@@ -8,54 +8,28 @@ import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
 import { LOADING_COPY } from "@/src/lib/copy/loading";
 import { useNotificationsOptional } from "@/src/components/notifications/NotificationContext";
 import { useRole } from "@/src/components/layout/RoleContext";
+import { formatNotifWhen } from "@/src/lib/notificacion-tiempo";
 
-function formatWhen(iso: string): string {
-  const date = new Date(iso);
-  const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
-  if (diffMin < 1) return "Ahora";
-  if (diffMin < 60) return `Hace ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `Hace ${diffH} h`;
-  return date.toLocaleDateString("es-CO", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function MobileBellLink({
-  unreadCount,
-  onNavy,
-}: {
-  unreadCount: number;
-  onNavy: boolean;
-}) {
+function MobileBellLink({ unreadCount }: { unreadCount: number }) {
   const pathname = usePathname();
   const active = pathname.startsWith("/notificaciones");
 
   return (
     <Link
       href="/notificaciones"
-      title="Notificaciones"
+      title="Notificaciones de hoy"
       aria-label={
         unreadCount > 0
-          ? `Notificaciones, ${unreadCount} sin leer`
-          : "Notificaciones"
+          ? `Notificaciones de hoy, ${unreadCount} sin leer`
+          : "Notificaciones de hoy"
       }
       className={`relative inline-flex h-10 w-10 cursor-pointer touch-manipulation items-center justify-center rounded-md md:hidden ${
-        onNavy
-          ? active
-            ? "text-white active:bg-white/10"
-            : "text-white/80 active:bg-white/10"
-          : active
-            ? "text-navy active:bg-[#f4f7fb]"
-            : "text-[#4b5563] active:bg-[#f4f7fb]"
+        active ? "text-navy active:bg-[#eef3f9]" : "text-[#4b5563] active:bg-[#eef3f9]"
       }`}
     >
       <Icon name="bell" size="md" />
       {unreadCount > 0 && (
-        <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2563eb] px-0.5 text-[9px] font-bold leading-none text-white">
+        <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#dbeafe] px-0.5 text-[9px] font-bold leading-none text-[#1d4ed8]">
           {unreadCount > 9 ? "9+" : unreadCount}
         </span>
       )}
@@ -82,10 +56,9 @@ export function NotificationBell() {
   if (!roleReady || !ctx) return null;
 
   const { items, unreadCount, loading, markRead, markAllRead } = ctx;
-  const onNavy = isGerente;
   const subtitle = isGerente
-    ? "Tiempo · envíos a aprobación"
-    : "Tiempo · aprobaciones y rechazos";
+    ? "Hoy · envíos de tu equipo"
+    : "Hoy · novedades de tus solicitudes";
 
   const handleOpenItem = async (id: string, href: string) => {
     await markRead(id);
@@ -95,27 +68,23 @@ export function NotificationBell() {
 
   return (
     <>
-      <MobileBellLink unreadCount={unreadCount} onNavy={onNavy} />
+      <MobileBellLink unreadCount={unreadCount} />
       <div ref={wrapRef} className="relative hidden md:block">
         <button
           type="button"
-          title="Notificaciones"
+          title="Notificaciones de hoy"
           aria-label={
             unreadCount > 0
-              ? `Notificaciones, ${unreadCount} sin leer`
-              : "Notificaciones"
+              ? `Notificaciones de hoy, ${unreadCount} sin leer`
+              : "Notificaciones de hoy"
           }
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
-          className={`relative inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border transition-colors ${
-            onNavy
-              ? "border-white/20 bg-white/10 text-white hover:border-white/35 hover:bg-white/15"
-              : "border-[#e5e9f0] bg-white text-navy hover:border-[#c7d9ed] hover:bg-[#f4f7fb]"
-          }`}
+          className="relative inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-white text-navy transition-colors hover:border-[#c7d9ed] hover:bg-[#eef3f9]"
         >
           <Icon name="bell" size="md" />
           {unreadCount > 0 && (
-            <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#2563eb] px-1 text-[10px] font-bold text-white">
+            <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#dbeafe] px-1 text-[10px] font-bold text-[#1d4ed8]">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -132,7 +101,7 @@ export function NotificationBell() {
                 <button
                   type="button"
                   onClick={() => void markAllRead()}
-                  className="cursor-pointer text-[11px] font-semibold text-[#2563eb] hover:underline"
+                  className="btn-link"
                 >
                   Marcar todas
                 </button>
@@ -150,7 +119,7 @@ export function NotificationBell() {
                 </div>
               ) : items.length === 0 ? (
                 <p className="px-4 py-6 text-center text-[12px] text-muted">
-                  No hay notificaciones recientes.
+                  No hay notificaciones de hoy.
                 </p>
               ) : (
                 items.map((item) => (
@@ -158,31 +127,26 @@ export function NotificationBell() {
                     key={item.id}
                     type="button"
                     onClick={() => void handleOpenItem(item.id, item.href)}
-                    className={`flex w-full cursor-pointer gap-3 border-b border-[#f1f5f9] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-[#f8fafc] ${
-                      item.leida ? "opacity-75" : "bg-[#f4f7fb]/60"
+                    className={`flex w-full cursor-pointer gap-3 border-b border-border px-4 py-3 text-left last:border-b-0 hover:bg-[#fafbfc] ${
+                      item.leida ? "bg-white" : "bg-[#eef3f9]"
                     }`}
                   >
                     <span
-                      className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
-                        item.leida ? "bg-transparent" : "bg-[#2563eb]"
+                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                        item.leida ? "bg-transparent" : "bg-navy"
                       }`}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[12px] font-semibold text-[#111827]">
+                      <span className="block text-[12px] font-semibold text-navy">
                         {item.titulo}
                       </span>
                       <span className="mt-0.5 block text-[12px] leading-snug text-[#4b5563]">
                         {item.mensaje}
                       </span>
                       <span className="mt-1 block text-[10px] text-muted">
-                        {formatWhen(item.createdAt)}
+                        {formatNotifWhen(item.createdAt)}
                       </span>
                     </span>
-                    <Icon
-                      name="chevronRight"
-                      size="sm"
-                      className="mt-1 shrink-0 text-muted"
-                    />
                   </button>
                 ))
               )}

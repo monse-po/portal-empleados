@@ -4,19 +4,25 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/src/components/ui/Icon";
 import { EstadoTiempoPill } from "@/src/components/ui/Pill";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
+import { TableAproIconButton } from "@/src/components/ui/TableAproIconButton";
 import { TableSelectionCheckbox } from "@/src/components/ui/TableSelectionCheckbox";
 import {
   CHECKBOX_COL_WIDTH,
   DataTable,
+  RES_TAB_ACTION_COL,
   RES_TAB_SPACER_COL,
+  TableActionWrap,
   dataTd,
   dataTdCheck,
   dataTdNumeric,
-  dataTdResPrimary,
+  dataTdResAction,
   dataTdResSecondary,
+  EmpleadoCell,
+  SubproyectoCell,
   dataTdTruncate,
   dataTh,
   dataThCheck,
+  dataThResAction,
   dataThWithAlign,
   TABLE_PAGE_SIZE,
 } from "@/src/components/ui/DataTable";
@@ -24,31 +30,34 @@ import { TablePagination } from "@/src/components/ui/TablePagination";
 import { getSelectionState } from "@/src/lib/use-table-selection";
 import {
   horasNum,
-  splitSubproy,
   type HojaAprobacion,
 } from "@/src/lib/aprobacion-tiempo-mock";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 const COLS_PEND = [
   CHECKBOX_COL_WIDTH,
   "92px",
-  "18%",
-  "148px",
-  "68px",
   "16%",
-  "16%",
-  "22%",
-] as const;
-
-const COLS_RES = [
-  RES_TAB_SPACER_COL,
-  "92px",
-  "16%",
+  "14%",
   "140px",
   "64px",
   "14%",
   "14%",
-  "110px",
-  "20%",
+  "18%",
+] as const;
+
+const COLS_RES = [
+  RES_TAB_SPACER_COL,
+  "88px",
+  "14%",
+  "13%",
+  "128px",
+  "60px",
+  "12%",
+  "12%",
+  "100px",
+  "16%",
+  RES_TAB_ACTION_COL,
 ] as const;
 
 export function hojaRegistroId(h: HojaAprobacion): string {
@@ -72,20 +81,11 @@ type AprobacionProyectosRegistrosTablaProps = {
   seleccion: Set<string>;
   onToggle: (id: string) => void;
   onToggleLote: (ids: string[]) => void;
+  onAnular?: (id: string) => void;
 };
 
 function renderSubproy(subproy: string) {
-  const sp = splitSubproy(subproy);
-  return (
-    <>
-      <div className={dataTdResPrimary}>{sp.code}</div>
-      {sp.name ? (
-        <div className={dataTdResSecondary} title={sp.name}>
-          {sp.name}
-        </div>
-      ) : null}
-    </>
-  );
+  return <SubproyectoCell codigo={subproy} />;
 }
 
 export function AprobacionProyectosRegistrosTabla({
@@ -97,6 +97,7 @@ export function AprobacionProyectosRegistrosTabla({
   seleccion,
   onToggle,
   onToggleLote,
+  onAnular,
 }: AprobacionProyectosRegistrosTablaProps) {
   const [page, setPage] = useState(1);
 
@@ -150,6 +151,7 @@ export function AprobacionProyectosRegistrosTabla({
   const pendHeaders: [string, string][] = [
     ["Fecha", "text-left"],
     ["Empleado", "text-left"],
+    ["Aprobador", "text-left"],
     ["Tipo hora", "text-left"],
     ["Horas", "text-center"],
     ["Subproyecto", "text-left"],
@@ -160,6 +162,7 @@ export function AprobacionProyectosRegistrosTabla({
   const resHeaders: [string, string][] = [
     ["Fecha", "text-left"],
     ["Empleado", "text-left"],
+    ["Aprobador", "text-left"],
     ["Tipo hora", "text-left"],
     ["Horas", "text-center"],
     ["Subproyecto", "text-left"],
@@ -196,6 +199,9 @@ export function AprobacionProyectosRegistrosTabla({
                   </th>
                 ),
               )}
+              {tab === "res" ? (
+                <th className={dataThResAction}>Anular</th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
@@ -218,15 +224,23 @@ export function AprobacionProyectosRegistrosTabla({
                     {s.fecha}
                   </td>
                   <td className={dataTd}>
-                    <div className={`${dataTdResPrimary} ${dataTdTruncate}`}>
-                      {s.solicitante}
-                    </div>
-                    <div className={dataTdResSecondary}>{s.cedula}</div>
+                    <EmpleadoCell
+                      nombre={s.nombre || s.solicitante}
+                      codigo={s.cedula}
+                    />
+                  </td>
+                  <td
+                    className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
+                    title={s.aprobador || undefined}
+                  >
+                    {s.aprobador?.trim() || "—"}
                   </td>
                   <td className={dataTd}>
                     <TipoHoraPill tipo={s.tipo} />
                   </td>
-                  <td className={dataTdNumeric}>{horasNum(s.horas)}</td>
+                  <td className={dataTdNumeric}>
+                    {formatHorasValor(horasNum(s.horas))}
+                  </td>
                   <td className={dataTd}>{renderSubproy(s.subproy)}</td>
                   <td className={`${dataTd} text-[#374151] ${dataTdTruncate}`}>
                     {s.actividad}
@@ -255,6 +269,21 @@ export function AprobacionProyectosRegistrosTabla({
                         title={s.comentarioApro}
                       >
                         {s.comentarioApro || "—"}
+                      </td>
+                      <td
+                        className={dataTdResAction}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <TableActionWrap>
+                          <TableAproIconButton
+                            variant="undo"
+                            title="Anular decisión"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAnular?.(id);
+                            }}
+                          />
+                        </TableActionWrap>
                       </td>
                     </>
                   )}

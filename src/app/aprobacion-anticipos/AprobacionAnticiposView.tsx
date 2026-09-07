@@ -16,9 +16,9 @@ type Vista = "lista" | "detalle";
 
 function toastAprobados(nos: string[]) {
   if (nos.length === 1) {
-    return `Solicitud ${nos[0]} aprobada · IFS procesará el pago`;
+    return `Solicitud ${nos[0]} aprobada · IFS procesará el pago · El empleado fue notificado`;
   }
-  return `${nos.length} solicitudes aprobadas · IFS procesará los pagos`;
+  return `${nos.length} solicitudes aprobadas · IFS procesará los pagos · Los empleados fueron notificados`;
 }
 
 function toastRechazados(nos: string[]) {

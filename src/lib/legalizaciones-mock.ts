@@ -238,6 +238,21 @@ export function emptyDestinoLegalizacion(): DestinoLegalizacion {
   return { proyectoId: "", subproyecto: "", actividad: "" };
 }
 
+/** Código IFS + nombre para celdas de tabla (misma pila que Aprobar tiempo). */
+export function legalizacionProyectoDisplay(l: Legalizacion): {
+  codigo: string;
+  nombre: string;
+} {
+  const codigo = (l.destino?.proyectoId || l.lineas[0]?.proyectoId || "").trim();
+  const fromLinea =
+    l.lineas.find((x) => x.proyectoId === codigo)?.proyectoNombre?.trim() ||
+    l.lineas[0]?.proyectoNombre?.trim() ||
+    "";
+  const fromCatalog = PROYECTOS_ANT.find((p) => p.id === codigo)?.nombre ?? "";
+  const nombre = fromLinea && fromLinea !== codigo ? fromLinea : fromCatalog;
+  return { codigo, nombre: nombre === codigo ? "" : nombre };
+}
+
 export function destinoFromProyectoAnticipo(proyectoId: string): DestinoLegalizacion {
   return { proyectoId, subproyecto: "", actividad: "" };
 }
@@ -249,9 +264,10 @@ export const LEG_COLS_PEND = [
   "72px",   // Código
   "88px",   // Solicitado
   "130px",  // Tipo
-  "220px",  // Concepto
+  "180px",  // Proyecto (código + nombre)
+  "180px",  // Concepto
   "108px",  // Monto
-  "240px",  // Motivo
+  "200px",  // Motivo
   "92px",   // Estado
 ] as const;
 

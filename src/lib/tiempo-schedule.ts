@@ -4,6 +4,10 @@ import {
 } from "@/src/lib/tiempo-config";
 import { eachIsoDateInclusive, isoToDate } from "@/src/lib/date-picker-utils";
 import { FESTIVOS_2026 } from "@/src/lib/mi-tiempo-mock";
+import {
+  etiquetaFestivo,
+  etiquetaFinSemana,
+} from "@/src/lib/ifs/schedule-day-color";
 
 /** Fallback interno si falta config de compañía (no usar como regla de negocio). */
 export const FALLBACK_SCHEDULE_HOURS =
@@ -309,8 +313,13 @@ export function fechasRegistroSegunTipo(
 export type DiaCalendarioKind = "festivo" | "fin_semana" | "sin_jornada";
 
 /** Clasifica un día sin jornada para copy/UI (festivo > fin de semana). */
-export function getDiaSinJornadaKind(iso: string): DiaCalendarioKind {
-  if (FESTIVOS_2026.includes(iso)) return "festivo";
+export function getDiaSinJornadaKind(
+  iso: string,
+  ifsDayType?: string | null,
+): DiaCalendarioKind {
+  const type = (ifsDayType ?? "").trim().toUpperCase();
+  if (type === "HOLIDAY" || FESTIVOS_2026.includes(iso)) return "festivo";
+  if (type === "WEEKEND") return "fin_semana";
   const date = isoToDate(iso);
   if (date) {
     const dow = date.getDay();
@@ -319,14 +328,20 @@ export function getDiaSinJornadaKind(iso: string): DiaCalendarioKind {
   return "sin_jornada";
 }
 
-export function mensajeSoloExtrasSinJornada(iso?: string): string {
+export function mensajeSoloExtrasSinJornada(
+  iso?: string,
+  dayTypeDesc?: string | null,
+): string {
   if (iso) {
     const kind = getDiaSinJornadaKind(iso);
     if (kind === "festivo") {
-      return "Día festivo: solo puedes registrar horas extras";
+      return `${etiquetaFestivo(dayTypeDesc)}: solo puedes registrar horas extras`;
     }
     if (kind === "fin_semana") {
-      return "Fin de semana: solo puedes registrar horas extras";
+      const label = etiquetaFinSemana(dayTypeDesc);
+      return label
+        ? `${label}: solo puedes registrar horas extras`
+        : "Este día no tiene jornada en tu programa: solo puedes registrar horas extras";
     }
   }
   return "Este día no tiene jornada en tu programa: solo puedes registrar horas extras";

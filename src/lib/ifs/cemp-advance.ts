@@ -68,6 +68,7 @@ export type CEmpAdvanceQuery = {
   CreatorName?: string;
   PrepaymentType?: string;
   ProjectId?: string;
+  ProjectName?: string;
   EmpNo?: string;
   SupplierId?: string;
   CurrencyCode?: string;
@@ -336,6 +337,43 @@ export async function listAdvanceQueries(
     init(accessToken),
   );
   return collection<CEmpAdvanceQuery>(data);
+}
+
+/** Solicitudes por CreatedBy / EmpNo (GetYourRequests no trae “para otro”). */
+export async function listEmpAdvances(
+  accessToken: string,
+  filter: string,
+): Promise<CEmpAdvances[]> {
+  const data = await ifsFetch<ODataCollection<CEmpAdvances>>(
+    `/CEmpAdvancesSet?$filter=${encodeURIComponent(filter)}&$top=200`,
+    init(accessToken),
+  );
+  return collection<CEmpAdvances>(data);
+}
+
+export function empAdvanceToQuery(row: CEmpAdvances): CEmpAdvanceQuery {
+  return {
+    RequestNo: row.RequestNo,
+    Description: row.Description,
+    Company: row.Company,
+    InvCompany: row.InvCompany,
+    RequestDate: row.RequestDate,
+    RequestedBy: row.RequestedBy,
+    CreatedBy: row.CreatedBy,
+    ProjectId: row.ProjectId,
+    EmpNo: row.EmpNo,
+    SupplierId: row.SupplierId,
+    CurrencyCode: row.CurrencyCode,
+    Amount: row.Amount,
+    Objstate: row.Objstate,
+    RequestType: row.RequestType,
+    DepartureDate: row.DepartureDate,
+    ReturnDate: row.ReturnDate,
+    Destination: row.Destination,
+    ApproverId: row.Approver,
+    ApproverComment: row.ApproverComment,
+    ApprovedDate: row.ApprovedDate,
+  };
 }
 
 function stateBlob(row: Pick<CEmpAdvances, "Objstate"> & { State?: string }): string {

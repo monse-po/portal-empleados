@@ -70,7 +70,7 @@ export const ESTADOS_POR_TAB: Record<AnticipoTab, AnticipoEstado[]> = {
 };
 
 export function normalizeAnticipoId(id: string): string {
-  return id.replace(/\./g, "");
+  return id.replace(/\./g, "").trim().toUpperCase();
 }
 
 export function getAnticipoBeneficiarioId(a: Anticipo): string {
@@ -86,28 +86,100 @@ export function getAnticipoSolicitanteId(a: Anticipo): string {
 
 export function anticipoVisibleParaEmpleado(
   a: Anticipo,
-  sessionEmpleadoId: string,
+  sessionEmpleadoId: string | string[],
 ): boolean {
-  const sessionId = normalizeAnticipoId(sessionEmpleadoId);
-  return (
-    getAnticipoBeneficiarioId(a) === sessionId ||
-    getAnticipoSolicitanteId(a) === sessionId
+  const ids = new Set(
+    (Array.isArray(sessionEmpleadoId)
+      ? sessionEmpleadoId
+      : [sessionEmpleadoId]
+    )
+      .map((id) => normalizeAnticipoId(id))
+      .filter(Boolean),
   );
+  if (!ids.size) return false;
+  const benef = normalizeAnticipoId(getAnticipoBeneficiarioId(a));
+  const sol = normalizeAnticipoId(a.solicitanteId || getAnticipoSolicitanteId(a));
+  return Boolean((benef && ids.has(benef)) || (sol && ids.has(sol)));
 }
 
 export function getBeneficiarioNombre(a: Anticipo): string {
   return a.beneficiarioNombre ?? "—";
 }
 
+function sameDisplayName(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+function sessionIdSet(raw?: string | string[]): Set<string> {
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return new Set(
+    values.map((v) => normalizeAnticipoId(v)).filter(Boolean),
+  );
+}
+
+function matchesSession(value: string, ids: Set<string>): boolean {
+  const n = normalizeAnticipoId(value);
+  return Boolean(n && ids.has(n));
+}
+
+function looksLikeFullName(value: string): boolean {
+  return value.trim().includes(" ");
+}
+
+function nombresDistintos(solName: string, benName: string): boolean {
+  return (
+    looksLikeFullName(solName) &&
+    looksLikeFullName(benName) &&
+    !sameDisplayName(solName, benName)
+  );
+}
+
+/**
+ * Chip solo si el registro es a nombre de otra persona.
+ * Yo pedí para mí → no chip. Yo pedí para otro (o alguien para mí) → chip.
+ */
 export function getBeneficiarioSolicitante(
   a: Anticipo,
-  sessionEmpleadoId: string,
+  sessionIds?: string | string[],
+  sessionNombre?: string,
 ): string | null {
-  const sessionId = normalizeAnticipoId(sessionEmpleadoId);
-  const solId = getAnticipoSolicitanteId(a);
-  if (solId !== sessionId && a.solicitante) {
-    return a.solicitante;
+  const codigo = (a.solicitanteId || "").trim();
+  const solName = (a.solicitante || "").trim();
+  const benName = (a.beneficiarioNombre || "").trim();
+  if (!codigo && !solName) return null;
+
+  if (solName && benName && sameDisplayName(solName, benName)) return null;
+  const solId = normalizeAnticipoId(a.solicitanteId || "");
+  const benId = normalizeAnticipoId(getAnticipoBeneficiarioId(a));
+  if (solId && benId && solId === benId) return null;
+
+  const ids = sessionIdSet(sessionIds);
+  const yoPedi =
+    matchesSession(a.solicitanteId || "", ids) ||
+    matchesSession(solName, ids);
+  const yoRecibo =
+    matchesSession(getAnticipoBeneficiarioId(a), ids) ||
+    matchesSession(a.cedula || "", ids) ||
+    Boolean(
+      sessionNombre &&
+        benName &&
+        sameDisplayName(sessionNombre, benName),
+    );
+
+  // Misma persona: no mostrar “Solicitado por” (PersonId ≠ EmpNo no cuenta).
+  if (yoPedi && yoRecibo) return null;
+  if (!codigo) return null;
+  if (yoRecibo && !yoPedi) {
+    return nombresDistintos(solName, benName) ? codigo : null;
   }
+  if (yoPedi && !yoRecibo) {
+    if (nombresDistintos(solName, benName) || a.paraOtro) return codigo;
+    const sessionHasEmpNo = [...ids].some((id) => /\d/.test(id));
+    if (sessionHasEmpNo && benId && !matchesSession(benId, ids)) return codigo;
+    return null;
+  }
+
+  if (nombresDistintos(solName, benName)) return codigo;
   return null;
 }
 
@@ -137,21 +209,18 @@ export function isoToDmy(iso: string): string {
 export function filterAnticiposByTab(
   anticipos: Record<string, Anticipo>,
   tab: AnticipoTab,
-  sessionEmpleadoId: string,
+  _sessionEmpleadoId?: string | string[],
 ): Anticipo[] {
   return Object.values(anticipos)
-    .filter((a) => anticipoVisibleParaEmpleado(a, sessionEmpleadoId))
     .filter((a) => (tab === "disponibles" ? a.disponible : !a.disponible))
     .sort((a, b) => dmyToSortKey(b.fecha) - dmyToSortKey(a.fecha));
 }
 
 export function countAnticiposTab(
   anticipos: Record<string, Anticipo>,
-  sessionEmpleadoId: string,
+  _sessionEmpleadoId?: string | string[],
 ): { pendientes: number; disponibles: number } {
-  const all = Object.values(anticipos).filter((a) =>
-    anticipoVisibleParaEmpleado(a, sessionEmpleadoId),
-  );
+  const all = Object.values(anticipos);
   return {
     pendientes: all.filter((a) => !a.disponible).length,
     disponibles: all.filter((a) => a.disponible).length,

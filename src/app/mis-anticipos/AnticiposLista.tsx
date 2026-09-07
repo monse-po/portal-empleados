@@ -5,6 +5,7 @@ import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { FloatingActions } from "@/src/components/ui/FloatingActions";
 import { Icon } from "@/src/components/ui/Icon";
+import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
 import { AnticiposFilterBar } from "@/src/app/mis-anticipos/AnticiposFilterBar";
 import { useAnticipos } from "@/src/app/mis-anticipos/AnticiposContext";
 import { AnticiposTabla } from "@/src/app/mis-anticipos/AnticiposTabla";
@@ -24,7 +25,8 @@ export function AnticiposLista({
   onOpenDetalle,
   onNuevaSolicitud,
 }: AnticiposListaProps) {
-  const { tab, setTab, tabCounts, registrosActuales } = useAnticipos();
+  const { tab, setTab, tabCounts, registrosActuales, fromIfs, ifsConnected, ifsEmail } =
+    useAnticipos();
   const [filters, setFilters] = useState<AnticipoFilterRule[]>([]);
 
   const filtrados = useMemo(
@@ -55,6 +57,14 @@ export function AnticiposLista({
           </Button>
         </FloatingActions>
       </div>
+
+      <IfsStatusBanner
+        surface="anticipos"
+        loginNext="/mis-anticipos"
+        connected={ifsConnected}
+        fromIfs={fromIfs}
+        email={ifsEmail}
+      />
 
       <AnticiposFilterBar
         registros={registrosActuales}

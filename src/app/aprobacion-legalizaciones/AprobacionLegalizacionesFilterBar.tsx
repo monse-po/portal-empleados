@@ -33,6 +33,7 @@ import {
   type AproLegFilterRule,
 } from "@/src/lib/aprobacion-legalizaciones-filtros";
 import type { LegalizacionApro } from "@/src/lib/aprobacion-legalizaciones-mock";
+import { distinctEmpleadoFiltroOptions } from "@/src/lib/empleado-display";
 
 type AprobacionLegalizacionesFilterBarProps = {
   registros: LegalizacionApro[];
@@ -59,6 +60,16 @@ function multiOptions(
   column: "empleado" | "tipo" | "estado",
   registros: LegalizacionApro[],
 ): FilterDropdownOption[] {
+  if (column === "empleado") {
+    return distinctEmpleadoFiltroOptions(
+      registros.map((s) => ({ nombre: s.solicitante, codigo: s.cedula })),
+    ).map((o) => ({
+      value: o.value,
+      label: o.label,
+      title: o.title,
+      icon: "user",
+    }));
+  }
   return buildFilterMultiOptions(
     "legalizacion",
     column,

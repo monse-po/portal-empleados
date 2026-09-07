@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MouseEvent,
-  type ReactNode,
-} from "react";
+import { useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { DayPicker, type DateRange, type Matcher } from "react-day-picker";
 import { es } from "date-fns/locale";
 import {
@@ -17,6 +10,7 @@ import {
 } from "@/src/components/ui/DatePickerShell";
 import { Dropdown } from "@/src/components/ui/Dropdown";
 import { dateInputClassWithError } from "@/src/components/ui/DateInput";
+import { Field } from "@/src/components/ui/Field";
 import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
 import {
   dateToIso,
@@ -29,6 +23,7 @@ import {
   type MesActualBounds,
 } from "@/src/lib/mi-tiempo-mock";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
+import { schedulePickerCssVars } from "@/src/lib/ifs/schedule-day-color";
 
 type DateRangePickerProps = {
   from?: string;
@@ -43,6 +38,10 @@ type DateRangePickerProps = {
   disabledMatchers?: Matcher[];
   /** Sustituye el footer por defecto (Limpiar). `null` oculta el footer. */
   footer?: ReactNode | null;
+  holidayDates?: string[];
+  holidayColor?: string | null;
+  weekendColor?: string | null;
+  weekdayColor?: string | null;
 };
 
 export function DateRangePicker({
@@ -55,6 +54,10 @@ export function DateRangePicker({
   max,
   disabledMatchers,
   footer,
+  holidayDates,
+  holidayColor,
+  weekendColor,
+  weekdayColor,
 }: DateRangePickerProps) {
   const selected = useMemo<DateRange | undefined>(() => {
     const fromDate = isoToDate(from);
@@ -78,8 +81,11 @@ export function DateRangePicker({
     return rules.length ? rules : undefined;
   }, [min, max, disabledMatchers]);
 
+  const awaitingEnd = useRef(false);
+
   const handleSelect = (next: DateRange | undefined) => {
     if (!next?.from && !next?.to) {
+      awaitingEnd.current = false;
       onChange(undefined, undefined);
       return;
     }
@@ -94,9 +100,13 @@ export function DateRangePicker({
 
     onChange(fromIso, toIso);
 
-    if (fromIso && toIso) {
+    // El primer clic de rdp suele devolver from===to. Cerrar solo al elegir el fin.
+    if (fromIso && toIso && fromIso !== toIso && awaitingEnd.current) {
+      awaitingEnd.current = false;
       onRangeComplete?.();
+      return;
     }
+    awaitingEnd.current = Boolean(fromIso);
   };
 
   const handleClear = () => {
@@ -110,12 +120,24 @@ export function DateRangePicker({
         ? footer
         : <DatePickerClearFooter onClear={handleClear} />;
 
+  const extraHolidays = useMemo(
+    () => new Set(holidayDates ?? []),
+    [holidayDates],
+  );
+  const pickerColors = useMemo(
+    () =>
+      schedulePickerCssVars({ holidayColor, weekendColor, weekdayColor }),
+    [holidayColor, weekendColor, weekdayColor],
+  );
+
   const festivoMatcher = useMemo<Matcher>(
     () => (date: Date) => {
       const iso = dateToIso(date);
-      return Boolean(iso && FESTIVOS_2026.includes(iso));
+      return Boolean(
+        iso && (FESTIVOS_2026.includes(iso) || extraHolidays.has(iso)),
+      );
     },
-    [],
+    [extraHolidays],
   );
 
   const finSemanaMatcher = useMemo<Matcher>(
@@ -155,14 +177,14 @@ export function DateRangePicker({
 
   if (compact) {
     return (
-      <DatePickerShell footer={resolvedFooter}>
+      <DatePickerShell footer={resolvedFooter} style={pickerColors}>
         {picker}
       </DatePickerShell>
     );
   }
 
   return (
-    <DatePickerShell wide footer={resolvedFooter}>
+    <DatePickerShell wide footer={resolvedFooter} style={pickerColors}>
       {picker}
     </DatePickerShell>
   );
@@ -213,7 +235,7 @@ export function DatePickerInput({
           type="button"
           aria-label="Fecha"
           onClick={() => setOpen((v) => !v)}
-          className={`flex min-h-[38px] w-full cursor-pointer items-center justify-between gap-2 text-left ${dateInputClassWithError(invalid)}`}
+          className={`flex w-full cursor-pointer items-center justify-between gap-2 text-left ${dateInputClassWithError(invalid)}`}
         >
           <span
             className={`min-w-0 flex-1 truncate whitespace-nowrap ${
@@ -308,309 +330,167 @@ type FechaDiaORangoInputProps = {
   to: string;
   bounds: MesActualBounds;
   invalid?: boolean;
+  error?: string;
+  required?: boolean;
   /** false = solo un día (modo edición) */
   allowRange?: boolean;
   /** Cuántos días se registrarán (ya filtrados por programa + tipo). */
   laborableCount?: number;
+  holidayDates?: string[];
+  holidayColor?: string | null;
+  weekendColor?: string | null;
+  weekdayColor?: string | null;
   onChange: (from: string, to: string) => void;
 };
 
-type FechaPickPhase = "day" | "rangeEnd" | "preview";
-
-function useFechaMatchers(min?: string, max?: string) {
-  return useMemo(() => {
-    const rules: Matcher[] = [];
-    const minDate = isoToDate(min);
-    const maxDate = isoToDate(max);
-    if (minDate) rules.push({ before: minDate });
-    if (maxDate) rules.push({ after: maxDate });
-
-    const festivo: Matcher = (date: Date) => {
-      const iso = dateToIso(date);
-      return Boolean(iso && FESTIVOS_2026.includes(iso));
-    };
-    const finSemana: Matcher = (date: Date) => {
-      const day = date.getDay();
-      return day === 0 || day === 6;
-    };
-    return {
-      disabled: rules.length ? rules : undefined,
-      festivo,
-      finSemana,
-    };
-  }, [min, max]);
-}
-
-/** Tiempo para ver el rango resaltado antes de cerrar. */
-const RANGE_PREVIEW_MS = 750;
-
 /**
- * Fecha en Mi Tiempo (alta):
- * - 1er clic = primer día (el calendario se queda abierto).
- * - 2º clic = último día; se ve el rango y luego cierra.
- * - Listo / clic fuera = un solo día.
- * Edición (`allowRange=false`): siempre un día.
+ * Fecha en Mi Tiempo (alta): radio Un día | Intervalo de fechas.
+ * Mismo calendario de un mes; el intervalo solo admite días de ese mes.
  */
 export function FechaDiaORangoInput({
   from,
   to,
   bounds,
   invalid,
+  error,
+  required = true,
   allowRange = true,
   laborableCount,
+  holidayDates,
+  holidayColor,
+  weekendColor,
+  weekdayColor,
   onChange,
 }: FechaDiaORangoInputProps) {
+  const radioName = useId();
+  const [modo, setModo] = useState<"dia" | "rango">("dia");
   const [open, setOpen] = useState(false);
-  const [phase, setPhase] = useState<FechaPickPhase>("day");
-  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const matchers = useFechaMatchers(bounds.min, bounds.max);
-
-  const clearPreview = () => {
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-  };
-
-  useEffect(() => () => clearPreview(), []);
-
-  const close = () => {
-    clearPreview();
-    setOpen(false);
-    setPhase("day");
-  };
+  const esRango = allowRange && modo === "rango";
 
   const commit = (nextFrom?: string, nextTo?: string) => {
-    if (!nextFrom && !nextTo) return;
+    if (!nextFrom && !nextTo) {
+      onChange("", "");
+      return;
+    }
     const a = clampFechaMes(nextFrom || nextTo || bounds.defaultFecha, bounds);
-    const b = clampFechaMes(nextTo || nextFrom || a, bounds);
-    const desde = a <= b ? a : b;
-    const hasta = allowRange ? (a <= b ? b : a) : desde;
-    onChange(desde, hasta);
+    let b = clampFechaMes(nextTo || nextFrom || a, bounds);
+    if (a.slice(0, 7) !== b.slice(0, 7)) b = a;
+    onChange(a <= b ? a : b, a <= b ? b : a);
   };
 
-  const finishWithPreview = (nextFrom: string, nextTo: string) => {
-    commit(nextFrom, nextTo);
-    if (nextFrom !== nextTo) {
-      setPhase("preview");
-      clearPreview();
-      previewTimerRef.current = setTimeout(() => {
-        previewTimerRef.current = null;
-        close();
-      }, RANGE_PREVIEW_MS);
-      return;
-    }
-    close();
-  };
-
-  const handleDayClick = (day: Date, _mods: unknown, event: MouseEvent) => {
-    const iso = dateToIso(day);
-    if (!iso) return;
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (!allowRange) {
-      commit(iso, iso);
-      close();
-      return;
-    }
-
-    if (phase === "preview") return;
-
-    if (phase === "rangeEnd") {
-      if (!from) return;
-      finishWithPreview(from, iso);
-      return;
-    }
-
-    commit(iso, iso);
-    setPhase("rangeEnd");
-  };
+  if (!allowRange) {
+    return (
+      <Field label="Fecha" required={required} error={error}>
+        <DatePickerInput
+          value={from}
+          onChange={(iso) => onChange(iso, iso)}
+          min={bounds.min}
+          max={bounds.max}
+          invalid={invalid}
+        />
+      </Field>
+    );
+  }
 
   const label = formatFechaRangoCorto(from || undefined, to || undefined);
-  const hasRange = Boolean(from && to && to !== from);
-  const spanCount = hasRange
-    ? eachIsoDateInclusive(from, to).length
-    : from
-      ? 1
-      : 0;
   const countLabel =
     typeof laborableCount === "number" && laborableCount > 0
       ? laborableCount
-      : spanCount;
+      : from && to
+        ? eachIsoDateInclusive(from, to).length
+        : 0;
 
-  const defaultMonth = useMemo(
-    () =>
-      isoToDate(phase === "rangeEnd" ? from : from || to) ??
-      isoToDate(bounds.min) ??
-      new Date(),
-    [phase, from, to, bounds.min],
+  const radios = (
+    <div
+      role="radiogroup"
+      aria-label="Modo de fecha"
+      className="flex shrink-0 items-center gap-3.5"
+    >
+      <label className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-medium text-[#374151]">
+        <input
+          type="radio"
+          name={radioName}
+          checked={modo === "dia"}
+          onChange={() => {
+            setModo("dia");
+            setOpen(false);
+            const dia = from || bounds.defaultFecha;
+            onChange(dia, dia);
+          }}
+          className="h-3.5 w-3.5 shrink-0 accent-navy"
+        />
+        {TIEMPO_UI_COPY.fechaUnDia}
+      </label>
+      <label className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-medium text-[#374151]">
+        <input
+          type="radio"
+          name={radioName}
+          checked={modo === "rango"}
+          onChange={() => setModo("rango")}
+          className="h-3.5 w-3.5 shrink-0 accent-navy"
+        />
+        {TIEMPO_UI_COPY.fechaRango}
+      </label>
+    </div>
   );
 
-  const inicioMatcher = useMemo<Matcher | undefined>(() => {
-    if (phase !== "rangeEnd" || !from) return undefined;
-    return (date: Date) => dateToIso(date) === from;
-  }, [phase, from]);
-
-  const selectedDay = useMemo(() => {
-    if (phase === "rangeEnd" || phase === "preview") return undefined;
-    if (hasRange) return undefined;
-    return isoToDate(from);
-  }, [phase, hasRange, from]);
-
   return (
-    <Dropdown
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) {
-          clearPreview();
-          setPhase("day");
-          setOpen(false);
-          return;
-        }
-        setOpen(true);
-      }}
-      portal
-      fitContent
-      menuClassName="w-[252px] overflow-hidden border-border p-0 shadow-[0_4px_16px_rgba(0,0,0,0.10)]"
-      trigger={
-        <button
-          type="button"
-          aria-label="Fecha"
-          onClick={() => setOpen((value) => !value)}
-          className={`flex min-h-[38px] w-full cursor-pointer items-center justify-between gap-2 text-left ${dateInputClassWithError(invalid)}`}
-        >
-          <span
-            className={`min-w-0 flex-1 truncate whitespace-nowrap ${
-              from ? "text-text" : "text-muted"
-            }`}
-          >
-            {from ? label : "Elegir fecha…"}
-            {from && countLabel > 0 ? (
-              <span className="ml-1.5 text-muted">
-                ({countLabel} {countLabel === 1 ? "día" : "días"})
+    <Field label="Fecha" required={required} error={error} trailing={radios}>
+      {esRango ? (
+        <Dropdown
+          open={open}
+          onOpenChange={setOpen}
+          portal
+          fitContent
+          menuClassName="overflow-hidden border-border p-0 shadow-[0_4px_16px_rgba(0,0,0,0.10)]"
+          trigger={
+            <button
+              type="button"
+              aria-label="Intervalo de fechas"
+              onClick={() => setOpen((value) => !value)}
+              className={`flex w-full cursor-pointer items-center justify-between gap-2 text-left ${dateInputClassWithError(invalid)}`}
+            >
+              <span
+                className={`min-w-0 flex-1 truncate whitespace-nowrap ${
+                  from ? "text-text" : "text-muted"
+                }`}
+              >
+                {from ? label : "Elegir intervalo…"}
+                {from && countLabel > 0 ? (
+                  <span className="text-muted">
+                    {" "}
+                    ({countLabel} {countLabel === 1 ? "día" : "días"})
+                  </span>
+                ) : null}
               </span>
-            ) : null}
-          </span>
-          <DropdownChevron />
-        </button>
-      }
-    >
-      <DatePickerShell
-        footer={
-          <div className="flex flex-col gap-1.5 border-t border-border px-3 py-2">
-            <p className="text-[11px] leading-snug text-muted">
-              {phase === "rangeEnd" ? (
-                <>
-                  {TIEMPO_UI_COPY.fechaHintRangoFin}
-                  {from ? (
-                    <>
-                      {" "}
-                      · inicio{" "}
-                      <strong className="font-semibold text-navy">
-                        {formatFechaRangoCorto(from, from)}
-                      </strong>
-                    </>
-                  ) : null}
-                </>
-              ) : phase === "preview" ? (
-                <>
-                  Rango:{" "}
-                  <strong className="font-semibold text-navy">{label}</strong>
-                </>
-              ) : allowRange ? (
-                TIEMPO_UI_COPY.fechaUnClic
-              ) : (
-                "Un clic elige el día."
-              )}
-            </p>
-            <div className="flex items-center justify-between gap-2">
-              {phase === "rangeEnd" ? (
-                <>
-                  <button
-                    type="button"
-                    className="ds-date-picker-clear"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setPhase("day");
-                    }}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    className="text-[11px] font-semibold text-navy hover:underline"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      if (from) finishWithPreview(from, from);
-                    }}
-                  >
-                    Listo
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="ds-date-picker-clear"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    clearPreview();
-                    onChange("", "");
-                    setPhase("day");
-                  }}
-                >
-                  Limpiar
-                </button>
-              )}
-            </div>
-          </div>
-        }
-      >
-        <DayPicker
-          className={DATE_PICKER_ROOT_CLASS}
-          mode="single"
-          locale={es}
-          selected={selectedDay}
-          onSelect={() => {
-            /* La selección la maneja onDayClick (clic vs doble clic). */
-          }}
-          onDayClick={handleDayClick}
-          defaultMonth={defaultMonth}
-          startMonth={isoToDate(bounds.min)}
-          endMonth={isoToDate(bounds.max)}
-          disabled={matchers.disabled}
-          modifiers={{
-            festivo: matchers.festivo,
-            finSemana: matchers.finSemana,
-            ...(inicioMatcher ? { inicioRango: inicioMatcher } : {}),
-            ...(hasRange && phase !== "rangeEnd"
-              ? {
-                  rangoStart: (date: Date) => dateToIso(date) === from,
-                  rangoEnd: (date: Date) => dateToIso(date) === to,
-                  rango: (date: Date) => {
-                    const iso = dateToIso(date);
-                    return Boolean(iso && from && to && iso > from && iso < to);
-                  },
-                }
-              : {}),
-          }}
-          modifiersClassNames={{
-            festivo: "ds-day-festivo",
-            finSemana: "ds-day-finsemana",
-            inicioRango: "rdp-range_start",
-            rangoStart: "rdp-range_start",
-            rangoEnd: "rdp-range_end",
-            rango: "rdp-range_middle",
-          }}
-          numberOfMonths={1}
-          showOutsideDays={false}
-          captionLayout="label"
-          navLayout="around"
+              <DropdownChevron />
+            </button>
+          }
+        >
+          <DateRangePicker
+            compact
+            from={from || undefined}
+            to={to && to !== from ? to : undefined}
+            min={bounds.min}
+            max={bounds.max}
+            holidayDates={holidayDates}
+            holidayColor={holidayColor}
+            weekendColor={weekendColor}
+            weekdayColor={weekdayColor}
+            onChange={(nextFrom, nextTo) => commit(nextFrom, nextTo)}
+            onRangeComplete={() => setOpen(false)}
+          />
+        </Dropdown>
+      ) : (
+        <DatePickerInput
+          value={from}
+          onChange={(iso) => onChange(iso, iso)}
+          min={bounds.min}
+          max={bounds.max}
+          invalid={invalid}
+          placeholder="Elegir fecha…"
         />
-      </DatePickerShell>
-    </Dropdown>
+      )}
+    </Field>
   );
 }

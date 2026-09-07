@@ -8,22 +8,10 @@ import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
 import { LOADING_COPY } from "@/src/lib/copy/loading";
 import { useNotificationsOptional } from "@/src/components/notifications/NotificationContext";
 import { useRole } from "@/src/components/layout/RoleContext";
-import type { NotificacionUi } from "@/src/lib/notificacion-tiempo";
-
-function formatWhen(iso: string): string {
-  const date = new Date(iso);
-  const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
-  if (diffMin < 1) return "Ahora";
-  if (diffMin < 60) return `Hace ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `Hace ${diffH} h`;
-  return date.toLocaleDateString("es-CO", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import {
+  formatNotifWhen,
+  type NotificacionUi,
+} from "@/src/lib/notificacion-tiempo";
 
 function NotificacionRow({
   item,
@@ -36,20 +24,20 @@ function NotificacionRow({
     <button
       type="button"
       onClick={() => onOpen(item)}
-      className={`flex w-full touch-manipulation items-start gap-3 border-b border-[#eef2f6] px-4 py-4 text-left last:border-b-0 active:bg-[#f4f7fb] ${
-        item.leida ? "bg-white" : "bg-[#f4f7fb]"
+      className={`flex w-full touch-manipulation items-start gap-3 border-b border-border px-4 py-4 text-left last:border-b-0 hover:bg-[#fafbfc] ${
+        item.leida ? "bg-white" : "bg-[#eef3f9]"
       }`}
     >
       <span
         className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-          item.leida ? "bg-[#d1d5db]" : "bg-[#2563eb]"
+          item.leida ? "bg-border" : "bg-navy"
         }`}
         aria-hidden
       />
       <span className="min-w-0 flex-1">
         <span
-          className={`block text-[15px] leading-snug ${
-            item.leida ? "font-medium text-[#374151]" : "font-bold text-[#111]"
+          className={`block text-[13px] leading-snug ${
+            item.leida ? "font-medium text-[#4b5563]" : "font-bold text-navy"
           }`}
         >
           {item.titulo}
@@ -58,10 +46,9 @@ function NotificacionRow({
           {item.mensaje}
         </span>
         <span className="mt-2 block text-[12px] text-muted">
-          {formatWhen(item.createdAt)}
+          {formatNotifWhen(item.createdAt)}
         </span>
       </span>
-      <Icon name="chevronRight" size="md" className="mt-1 shrink-0 text-[#c0c7d4]" />
     </button>
   );
 }
@@ -72,8 +59,8 @@ export function NotificacionesView() {
   const router = useRouter();
 
   const subtitle = isGerente
-    ? "Envíos a aprobación de tiempo"
-    : "Aprobaciones y rechazos de tu tiempo";
+    ? "Hoy · envíos de tu equipo"
+    : "Hoy · novedades de tus solicitudes";
 
   if (!ctx) return null;
 
@@ -109,12 +96,12 @@ export function NotificacionesView() {
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <Icon name="bell" size="xl" className="text-[#c0c7d4]" />
-            <p className="mt-3 text-[15px] font-semibold text-[#374151]">
-              No hay notificaciones
+            <Icon name="bell" size="xl" className="text-muted" />
+            <p className="mt-3 text-[15px] font-semibold text-navy">
+              No hay notificaciones de hoy
             </p>
             <p className="mt-1 text-[13px] text-muted">
-              Cuando haya novedades de tiempo, aparecerán aquí.
+              Los avisos de días anteriores no se muestran.
             </p>
           </div>
         ) : (

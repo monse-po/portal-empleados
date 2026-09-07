@@ -19,6 +19,8 @@ type DropdownProps = {
   menuClassName?: string;
   /** Sin límite de altura — p. ej. calendario de rango de fechas */
   fitContent?: boolean;
+  /** Ancho del menú cuando `fitContent` (default 252). */
+  menuWidth?: number;
   /** Render menu in a portal to escape overflow containers (e.g. modals) */
   portal?: boolean;
 };
@@ -31,6 +33,7 @@ export function Dropdown({
   className = "",
   menuClassName = "",
   fitContent = false,
+  menuWidth = 252,
   portal = false,
 }: DropdownProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -51,12 +54,17 @@ export function Dropdown({
       const spaceBelow = window.innerHeight - rect.bottom - 8;
       const openUp =
         spaceBelow < Math.min(menuHeight, 180) && rect.top > spaceBelow;
+      const width = fitContent ? menuWidth : rect.width;
+      const left = Math.min(
+        Math.max(8, rect.left),
+        Math.max(8, window.innerWidth - width - 8),
+      );
 
       setMenuStyle({
         position: "fixed",
-        left: rect.left,
-        width: fitContent ? 252 : rect.width,
-        minWidth: fitContent ? 252 : undefined,
+        left,
+        width,
+        minWidth: fitContent ? menuWidth : undefined,
         top: openUp ? rect.top - menuHeight - 4 : rect.bottom + 4,
         zIndex: 1200,
       });
@@ -71,7 +79,7 @@ export function Dropdown({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [open, portal, fitContent, children]);
+  }, [open, portal, fitContent, menuWidth, children]);
 
   useEffect(() => {
     if (!open) return;

@@ -8,16 +8,17 @@ import { TipoLegalizacionPill } from "@/src/components/ui/TipoLegalizacionPill";
 import {
   DataTable,
   dataTd,
-  dataTdResSecondary,
   dataTdTruncate,
   dataThWithAlign,
+  MontoCell,
+  ProyectoCell,
   TABLE_PAGE_SIZE,
 } from "@/src/components/ui/DataTable";
 import { TablePagination } from "@/src/components/ui/TablePagination";
 import {
-  formatMontoLegal,
   LEG_COLS_HIST,
   LEG_COLS_PEND,
+  legalizacionProyectoDisplay,
   type Legalizacion,
 } from "@/src/lib/legalizaciones-mock";
 
@@ -32,6 +33,7 @@ const headerCols: [string, string][] = [
   ["Código", "text-left"],
   ["Solicitado", "text-left"],
   ["Tipo", "text-left"],
+  ["Proyecto", "text-left"],
   ["Concepto", "text-left"],
   ["Monto", "text-right"],
   ["Motivo", "text-left"],
@@ -80,7 +82,7 @@ export function LegalizacionesTabla({
     <div>
       <div className="overflow-x-auto">
         <DataTable
-          className="min-w-[1020px]"
+          className="min-w-[1180px]"
           colWidths={[...(esHistorial ? LEG_COLS_HIST : LEG_COLS_PEND)]}
         >
           <thead>
@@ -93,47 +95,53 @@ export function LegalizacionesTabla({
             </tr>
           </thead>
           <tbody>
-            {visibles.map((row) => (
-              <tr
-                key={row.no}
-                onClick={() => onOpenDetalle(row.no)}
-                className="cursor-pointer transition-colors hover:bg-[#fafbfc]"
-              >
-                <td
-                  className={`${dataTd} font-semibold text-navy ${dataTdTruncate}`}
-                  title={row.no}
+            {visibles.map((row) => {
+              const proyecto = legalizacionProyectoDisplay(row);
+              return (
+                <tr
+                  key={row.no}
+                  onClick={() => onOpenDetalle(row.no)}
+                  className="cursor-pointer transition-colors hover:bg-[#fafbfc]"
                 >
-                  {row.no}
-                </td>
-                <td className={`${dataTd} text-muted ${dataTdTruncate}`}>
-                  {row.fecha}
-                </td>
-                <td className={dataTd}>
-                  <TipoLegalizacionPill tipo={row.tipo} />
-                </td>
-                <td
-                  className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
-                  title={row.concepto}
-                >
-                  {row.concepto}
-                </td>
-                <td className={`${dataTd} text-right`}>
-                  <div className="font-semibold leading-snug">
-                    {formatMontoLegal(row.monto, row.div)}
-                  </div>
-                  <div className={dataTdResSecondary}>{row.div}</div>
-                </td>
-                <td
-                  className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
-                  title={row.motivo}
-                >
-                  {row.motivo}
-                </td>
-                <td className={dataTd}>
-                  <EstadoLegalizacionPill estado={row.estado} />
-                </td>
-              </tr>
-            ))}
+                  <td
+                    className={`${dataTd} font-semibold text-navy ${dataTdTruncate}`}
+                    title={row.no}
+                  >
+                    {row.no}
+                  </td>
+                  <td className={`${dataTd} text-muted ${dataTdTruncate}`}>
+                    {row.fecha}
+                  </td>
+                  <td className={dataTd}>
+                    <TipoLegalizacionPill tipo={row.tipo} />
+                  </td>
+                  <td className={dataTd}>
+                    <ProyectoCell
+                      codigo={proyecto.codigo}
+                      nombre={proyecto.nombre}
+                    />
+                  </td>
+                  <td
+                    className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
+                    title={row.concepto}
+                  >
+                    {row.concepto}
+                  </td>
+                  <td className={`${dataTd} text-right`}>
+                    <MontoCell monto={row.monto} divisa={row.div} />
+                  </td>
+                  <td
+                    className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
+                    title={row.motivo}
+                  >
+                    {row.motivo}
+                  </td>
+                  <td className={dataTd}>
+                    <EstadoLegalizacionPill estado={row.estado} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </DataTable>
       </div>

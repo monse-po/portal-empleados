@@ -227,6 +227,11 @@
   color: var(--navy);
 }
 
+.ds-date-picker-shell .ds-date-picker .rdp-day:not(.ds-day-festivo):not(.ds-day-finsemana):not(.rdp-selected):not(.rdp-range_start):not(.rdp-range_end):not(.rdp-range_middle) .rdp-day_button:hover:not([disabled]) {
+  background: var(--ds-weekday-hover, #f4f7fb);
+  color: var(--navy);
+}
+
 .ds-date-picker-shell .ds-date-picker .rdp-selected {
   font-size: 12px;
   font-weight: 500;
@@ -262,9 +267,9 @@
 
 /* Hoy + festivo: gana festivo; hoy solo con anillo. */
 .ds-date-picker-shell .ds-date-picker .rdp-today.ds-day-festivo:not(.rdp-outside):not(.rdp-selected):not(.rdp-range_start):not(.rdp-range_end):not(.rdp-range_middle) .rdp-day_button {
-  background: #fff7ed;
-  color: #c2410c;
-  box-shadow: inset 0 0 0 2px rgba(194, 65, 12, 0.55);
+  background: var(--ds-festivo-bg, #fff7ed);
+  color: var(--ds-festivo-ink, #c2410c);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ds-festivo-ink, #c2410c) 55%, transparent);
 }
 
 .ds-date-picker-shell .ds-date-picker .rdp-today.rdp-range_start .rdp-day_button,
@@ -291,13 +296,13 @@
 
 /* Festivos / fines: visibles y seleccionables (solo horas extras en registro). */
 .ds-date-picker-shell .ds-date-picker .ds-day-festivo:not(.rdp-selected):not(.rdp-range_start):not(.rdp-range_end):not(.rdp-range_middle) .rdp-day_button {
-  background: #fff7ed;
-  color: #c2410c;
+  background: var(--ds-festivo-bg, #fff7ed);
+  color: var(--ds-festivo-ink, #c2410c);
   font-weight: 600;
 }
 
 .ds-date-picker-shell .ds-date-picker .ds-day-finsemana:not(.ds-day-festivo):not(.rdp-selected):not(.rdp-range_start):not(.rdp-range_end):not(.rdp-range_middle) .rdp-day_button {
-  background: #f8fafc;
-  color: #3b82f6;
+  background: var(--ds-finsemana-bg, #f8fafc);
+  color: var(--ds-finsemana-ink, #3b82f6);
   font-weight: 600;
 }

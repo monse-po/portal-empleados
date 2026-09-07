@@ -167,7 +167,7 @@ export function UserMenu() {
 
   const title = profileTitle(profile, loading);
   const subtitle = profileSubtitle(profile, loading);
-  const onNavy = roleReady && rol === "gerente";
+  const onNavy = false;
 
   return (
     <div ref={rootRef} className="relative">

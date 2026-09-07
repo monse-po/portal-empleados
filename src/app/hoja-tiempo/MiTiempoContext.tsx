@@ -97,6 +97,13 @@ type MiTiempoContextValue = {
   mesBounds: MesActualBounds;
   /** Programa IFS: AccountDate → ScheduleHours. */
   hoursByDate: Record<string, number> | null;
+  /** HOLIDAY / WEEKEND IFS (ColorName solo en estos). */
+  specialDays: Record<
+    string,
+    { dayType: string; dayTypeDesc: string; colorName: string }
+  > | null;
+  /** ColorName WEEKDAY IFS — hover del calendario. */
+  weekdayColor: string | null;
   /** Horas del mes según programa (GetHoursSummary). */
   horasMesPrograma: number;
   reloadRegistros: () => Promise<void>;
@@ -155,6 +162,11 @@ export function MiTiempoProvider({
   const [hoursByDate, setHoursByDate] = useState<Record<string, number> | null>(
     null,
   );
+  const [specialDays, setSpecialDays] = useState<Record<
+    string,
+    { dayType: string; dayTypeDesc: string; colorName: string }
+  > | null>(null);
+  const [weekdayColor, setWeekdayColor] = useState<string | null>(null);
   const [scheduleHoursIfs, setScheduleHoursIfs] = useState<number | null>(null);
   const [modal, setModal] = useState<RegistrarModalState>(null);
   const registroGuardadoHandler = useRef<RegistroGuardadoHandler | undefined>(
@@ -185,6 +197,10 @@ export function MiTiempoProvider({
     setHoursByDate(
       Object.keys(result.hoursByDate).length > 0 ? result.hoursByDate : null,
     );
+    setSpecialDays(
+      Object.keys(result.specialDays).length > 0 ? result.specialDays : null,
+    );
+    setWeekdayColor(result.weekdayColor?.trim() || null);
     setScheduleHoursIfs(result.scheduleHours);
   }, []);
 
@@ -356,6 +372,8 @@ export function MiTiempoProvider({
       activePeriod,
       mesBounds,
       hoursByDate,
+      specialDays,
+      weekdayColor,
       horasMesPrograma,
       reloadRegistros,
       upsertRegistro,
@@ -378,6 +396,8 @@ export function MiTiempoProvider({
       activePeriod,
       mesBounds,
       hoursByDate,
+      specialDays,
+      weekdayColor,
       horasMesPrograma,
       reloadRegistros,
       upsertRegistro,

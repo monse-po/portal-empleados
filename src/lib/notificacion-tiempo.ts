@@ -26,6 +26,31 @@ export type NotificacionUi = {
 export const NOTIF_ROL_GERENTE = "gerente" as const;
 export const NOTIF_ROL_EMPLEADO = "empleado" as const;
 
+/** Tope de filas del inbox de hoy (además del corte de calendario). */
+export const NOTIF_INBOX_MAX = 50;
+
+/** Inicio del día en Colombia — el inbox no mezcla fechas anteriores. */
+export function inicioDiaBogota(ref = new Date()): Date {
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(ref);
+  return new Date(`${ymd}T00:00:00-05:00`);
+}
+
+/** Relativo a hoy. Nunca muestra una fecha vieja. */
+export function formatNotifWhen(iso: string): string {
+  const date = new Date(iso);
+  const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
+  if (diffMin < 1) return "Ahora";
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `Hace ${diffH} h`;
+  return "Hoy";
+}
+
 export const NOTIF_TIPO_TIEMPO_ENVIO = "TIEMPO_ENVIO_DIA" as const;
 export const NOTIF_TIPO_TIEMPO_APROBADO = "TIEMPO_APROBADO" as const;
 export const NOTIF_TIPO_TIEMPO_RECHAZADO = "TIEMPO_RECHAZADO" as const;
@@ -67,10 +92,11 @@ export function normalizeNotifEmpleadoId(cedula: string): string {
   return cedula.replace(/\./g, "").trim();
 }
 
-function buildAprobacionHref(proyectoCod: string, hojaNo?: string): string {
-  const params = new URLSearchParams({ proy: proyectoCod });
-  if (hojaNo) params.set("no", hojaNo);
-  return `/aprobacion-tiempo?${params.toString()}`;
+function buildAprobacionHref(hojaNo?: string): string {
+  if (hojaNo) {
+    return `/aprobacion-tiempo?no=${encodeURIComponent(hojaNo)}`;
+  }
+  return "/aprobacion-tiempo";
 }
 
 function miTiempoHref(): string {
@@ -112,11 +138,11 @@ export function buildNotificacionesTiempoEnvio(
     const hojaNo = hojaNoFromRegistro(sample);
     const proyLabel = formatProyectoAprobacion(sample.proy);
     mensaje = `${empleadoNombre} envió ${hojaNo} del ${fechaLegible} · ${proyLabel}`;
-    href = buildAprobacionHref(proyectoCod, hojaNo);
+    href = buildAprobacionHref(hojaNo);
   } else if (unicoProyecto) {
     const proyLabel = formatProyectoAprobacion(sample.proy);
     mensaje = `${empleadoNombre} envió ${count} registros del ${fechaLegible} · ${proyLabel}`;
-    href = buildAprobacionHref(proyectoCod);
+    href = buildAprobacionHref();
   } else {
     mensaje = `${empleadoNombre} envió ${count} registros del ${fechaLegible} · ${proyIds.length} proyectos`;
     href = "/aprobacion-tiempo";

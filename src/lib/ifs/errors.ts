@@ -77,6 +77,10 @@ export function humanizeIfsDetail(detail: string): string | null {
     return "Ese destino no es válido en IFS. Elige un destino de la lista.";
   }
 
+  if (/CINVALIDSUPP|no esta configurado como proveedor/i.test(text)) {
+    return "Ese empleado no está configurado como proveedor en IFS. Elige a otro o pide a Administración que lo configure.";
+  }
+
   if (/ORA-06531|uninitialized collection/i.test(text)) {
     return "No se pudo completar la aprobación en IFS. Intenta de nuevo o avisa a tu jefe.";
   }

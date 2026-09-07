@@ -25,17 +25,21 @@ import {
   approveEmpAdvance,
   cancelEmpAdvance,
   createEmpAdvance,
+  empAdvanceToQuery,
   getAdvanceQuery,
   getRequestsForApproval,
   getYourRequests,
   listAdvanceQueries,
+  listEmpAdvances,
   rejectEmpAdvance,
   type CEmpAdvanceQuery,
 } from "@/src/lib/ifs/cemp-advance";
 import { odataStringKey } from "@/src/lib/ifs/client";
 import {
   applyDestinoNombres,
+  queryToAnticipo,
   queryToAprobacion,
+  queryToExtra,
   recordsFromQueries,
   toCEmpAdvancesInsert,
 } from "@/src/lib/ifs/anticipos-ifs-map";
@@ -209,17 +213,51 @@ export async function listMisAnticiposAction(): Promise<{
     try {
       const keys = [...new Set([actor.personId, actor.empNo].filter(Boolean))];
       const byNo = new Map<string, CEmpAdvanceQuery>();
+      const addRows = (rows: CEmpAdvanceQuery[]) => {
+        for (const row of rows) {
+          const no = row.RequestNo?.trim();
+          if (no && !byNo.has(no)) byNo.set(no, row);
+        }
+      };
       for (const key of keys) {
         try {
-          const rows = await getYourRequests(actor.accessToken, key);
-          for (const row of rows) {
-            const no = row.RequestNo?.trim();
-            if (no && !byNo.has(no)) byNo.set(no, row);
-          }
+          addRows(await getYourRequests(actor.accessToken, key));
         } catch (err) {
           console.error("[anticipos] GetYourRequests failed", key, err);
         }
       }
+      // GetYourRequests suele ser “tus” anticipos como empleado.
+      // Para “para otro” hay que traer también lo que registraste (CreatedBy)
+      // y lo que te quedó como beneficiario (EmpNo).
+      const extraFilters = keys.flatMap((key) => {
+        const q = odataStringKey(key);
+        return [
+          `EmpNo eq '${q}'`,
+          `CreatedBy eq '${q}'`,
+          `RequestedBy eq '${q}'`,
+        ];
+      });
+      for (const filter of [...new Set(extraFilters)]) {
+        try {
+          addRows(await listAdvanceQueries(actor.accessToken, filter));
+        } catch (err) {
+          console.error("[anticipos] CEmpAdvanceQuerySet failed", filter, err);
+        }
+        try {
+          addRows(
+            (await listEmpAdvances(actor.accessToken, filter)).map(
+              empAdvanceToQuery,
+            ),
+          );
+        } catch (err) {
+          console.error("[anticipos] CEmpAdvancesSet failed", filter, err);
+        }
+      }
+      console.info("[anticipos] listMisAnticipos", {
+        keys,
+        count: byNo.size,
+        nos: [...byNo.keys()].slice(0, 20),
+      });
       const records = recordsFromQueries([...byNo.values()]);
       const extrasList = await applyDestinoNombres(
         Object.values(records.extras),
@@ -389,7 +427,12 @@ export async function listAprobacionAnticiposAction(
 
 export async function lanzarAnticipoAction(
   input: LanzarAnticipoInput,
-): Promise<{ no: string; error?: string }> {
+): Promise<{
+  no: string;
+  error?: string;
+  anticipo?: Anticipo;
+  extra?: AnticipoExtra;
+}> {
   const actor = await resolveActor();
 
   if (isIfsAuthEnabled() && (!actor.fromIfs || !actor.accessToken)) {
@@ -441,6 +484,34 @@ export async function lanzarAnticipoAction(
             "Ese destino no es válido en IFS. Elige un destino de la lista.",
         };
       }
+      if (input.paraOtro) {
+        try {
+          const employees = await getEmployeesByCompany(
+            actor.accessToken,
+            body.Company,
+          );
+          const needle = (body.EmpNo || "").trim();
+          const match = employees.find(
+            (e) =>
+              e.CEmpNo?.trim() === needle ||
+              e.Identity?.trim() === needle ||
+              e.PersonId?.trim() === needle,
+          );
+          const supplier = match?.Identity?.trim() || "";
+          const empNo = match?.CEmpNo?.trim() || "";
+          if (!supplier || !empNo) {
+            return {
+              no: "",
+              error:
+                "Ese empleado no está configurado como proveedor en IFS. Elige a otro o pide a Administración que lo configure.",
+            };
+          }
+          body.EmpNo = empNo;
+          body.SupplierId = supplier;
+        } catch (err) {
+          return { no: "", error: formatIfsError(err) };
+        }
+      }
       console.info("[anticipos] POST CEmpAdvancesSet", {
         Company: body.Company,
         InvCompany: body.InvCompany,
@@ -462,7 +533,26 @@ export async function lanzarAnticipoAction(
       if (!no) {
         return { no: "", error: "IFS creó el anticipo pero no devolvió RequestNo" };
       }
-      return { no };
+      let query = empAdvanceToQuery({ ...created, RequestNo: no });
+      try {
+        query = await getAdvanceQuery(actor.accessToken, no);
+      } catch {
+        /* el POST ya trae lo mínimo para pintarlo */
+      }
+      const anticipo = queryToAnticipo(query);
+      if (input.paraOtro) {
+        anticipo.paraOtro = true;
+        if (input.beneficiarioNombre) {
+          anticipo.beneficiarioNombre = input.beneficiarioNombre;
+        }
+        if (input.beneficiarioEmpNo || input.beneficiarioId) {
+          anticipo.beneficiarioId =
+            input.beneficiarioEmpNo || input.beneficiarioId;
+        }
+        anticipo.solicitante = anticipo.solicitante || actor.nombre;
+        anticipo.solicitanteId = anticipo.solicitanteId || actor.personId;
+      }
+      return { no, anticipo, extra: queryToExtra(query) };
     } catch (err) {
       console.error("[anticipos] createEmpAdvance failed", err);
       return { no: "", error: formatIfsError(err) };

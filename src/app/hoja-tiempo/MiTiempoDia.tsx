@@ -50,6 +50,8 @@ import {
   type DiaCalendarioKind,
 } from "@/src/lib/tiempo-schedule";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
+import { DiaSinJornadaBanner } from "@/src/app/hoja-tiempo/DiaSinJornadaBanner";
+import { resolveSpecialDayLabel } from "@/src/lib/ifs/schedule-day-color";
 
 type MiTiempoDiaProps = {
   fecha: string;
@@ -89,8 +91,13 @@ export function MiTiempoDia({
   onVolver,
   onCambiarDia,
 }: MiTiempoDiaProps) {
-  const { registros, mesBounds, openRegistrarModal, deleteRegistro } =
-    useMiTiempo();
+  const {
+    registros,
+    mesBounds,
+    openRegistrarModal,
+    deleteRegistro,
+    specialDays,
+  } = useMiTiempo();
   const { toast } = useToast();
   const [registroAEliminar, setRegistroAEliminar] = useState<RegistroMock | null>(
     null,
@@ -143,7 +150,10 @@ export function MiTiempoDia({
   const puedeDiaSiguiente = Boolean(
     !esHistorial && onCambiarDia && fechaSiguiente,
   );
-  const calendarKind = getDiaSinJornadaKind(fecha);
+  const calendarKind = getDiaSinJornadaKind(
+    fecha,
+    specialDays?.[fecha]?.dayType,
+  );
   const diaKind: DiaCalendarioKind | null =
     calendarKind === "festivo" || calendarKind === "fin_semana"
       ? calendarKind
@@ -219,16 +229,13 @@ export function MiTiempoDia({
           </>
         }
         titleAddon={
-          diaKind === "festivo" ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-1 text-[11px] font-semibold text-[#c2410c]">
-              <Icon name="star" size="xs" className="text-[#f59e0b]" />
-              Festivo
-            </span>
-          ) : diaKind === "fin_semana" ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#2563eb]">
-              <Icon name="moon" size="xs" />
-              Fin de semana
-            </span>
+          diaKind === "festivo" || diaKind === "fin_semana" ? (
+            <DiaSinJornadaBanner
+              fecha={fecha}
+              kind={diaKind}
+              color={specialDays?.[fecha]?.colorName}
+              label={resolveSpecialDayLabel(specialDays, fecha, diaKind)}
+            />
           ) : null
         }
         onDiaAnterior={

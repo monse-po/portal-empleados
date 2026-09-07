@@ -37,8 +37,8 @@ export const TIEMPO_UI_COPY = {
     "Al guardar, el registro se envía a IFS (Registrado). Puedes modificarlo hasta que el aprobador lo confirme.",
   listaAyuda: "Clic en la fecha → ver detalle del día · Clic en fila → editar",
   /** Selector de fecha en Registrar horas. */
-  fechaUnClic: "Clic = primer día. Otro clic = último día del rango.",
-  fechaHintRangoFin: "Clic en el último día, o Listo si es un solo día",
+  fechaUnDia: "Un día",
+  fechaRango: "Intervalo de fechas",
   verDia: "Ver día",
   verDetalleDia: "Ver detalle del día",
   filaEditableHint: "Clic en fila para editar",

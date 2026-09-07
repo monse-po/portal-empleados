@@ -138,14 +138,6 @@ export function Sidebar() {
         collapsed ? "w-[52px] px-1.5" : "w-[220px] px-2.5"
       }`}
     >
-      <NavItem
-        label="Inicio"
-        href="/inicio"
-        icon="home"
-        collapsed={collapsed}
-        active={pathname === "/inicio"}
-      />
-
       {empleadoRoutes.length > 0 && (
         <>
           <NavSectionLabel collapsed={collapsed}>Mis solicitudes</NavSectionLabel>

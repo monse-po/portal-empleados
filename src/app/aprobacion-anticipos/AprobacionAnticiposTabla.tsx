@@ -11,6 +11,8 @@ import {
   dataTd,
   dataTdCheck,
   dataTdResSecondary,
+  EmpleadoCell,
+  MontoCell,
   ProyectoCell,
   dataTdTruncate,
   dataTh,
@@ -25,7 +27,7 @@ import {
   APRO_ANT_COLS_PEND,
   type AnticipoAprobacion,
 } from "@/src/lib/aprobacion-anticipos-registro";
-import { formatMonto } from "@/src/lib/anticipos-registro";
+import { nombreProyectoAnticipo } from "@/src/lib/mis-anticipos-mock";
 
 type AprobacionAnticiposTablaProps = {
   registros: AnticipoAprobacion[];
@@ -93,14 +95,17 @@ export function AprobacionAnticiposTabla({
         {s.no}
       </td>
       <td className={`${dataTd} text-muted ${dataTdTruncate}`}>{s.fecha}</td>
-      <td className={`${dataTd} font-medium ${dataTdTruncate}`}>
-        {s.solicitante}
+      <td className={dataTd}>
+        <EmpleadoCell nombre={s.nombre} codigo={s.cedula} />
       </td>
       <td className={dataTd}>
         <TipoAnticipoPill tipo={s.tipo} />
       </td>
       <td className={dataTd}>
-        <ProyectoCell codigo={s.proy} nombre={s.proyN} />
+        <ProyectoCell
+          codigo={s.proy}
+          nombre={nombreProyectoAnticipo(s.proy, s.proyN)}
+        />
       </td>
       <td
         className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
@@ -109,10 +114,7 @@ export function AprobacionAnticiposTabla({
         {s.motivo}
       </td>
       <td className={`${dataTd} text-right`}>
-        <div className="font-semibold leading-snug">
-          {formatMonto(s.monto, s.divisa)}
-        </div>
-        <div className={dataTdResSecondary}>{s.divisa}</div>
+        <MontoCell monto={s.monto} divisa={s.divisa} />
       </td>
     </tr>
   );
@@ -128,20 +130,20 @@ export function AprobacionAnticiposTabla({
         {s.no}
       </td>
       <td className={`${dataTd} text-muted ${dataTdTruncate}`}>{s.fecha}</td>
-      <td className={`${dataTd} font-medium ${dataTdTruncate}`}>
-        {s.solicitante}
+      <td className={dataTd}>
+        <EmpleadoCell nombre={s.nombre} codigo={s.cedula} />
       </td>
       <td className={dataTd}>
         <TipoAnticipoPill tipo={s.tipo} />
       </td>
       <td className={dataTd}>
-        <ProyectoCell codigo={s.proy} nombre={s.proyN} />
+        <ProyectoCell
+          codigo={s.proy}
+          nombre={nombreProyectoAnticipo(s.proy, s.proyN)}
+        />
       </td>
       <td className={`${dataTd} text-right`}>
-        <div className="font-semibold leading-snug">
-          {formatMonto(s.monto, s.divisa)}
-        </div>
-        <div className={dataTdResSecondary}>{s.divisa}</div>
+        <MontoCell monto={s.monto} divisa={s.divisa} />
       </td>
       <td className={dataTd}>
         <EstadoAnticipoPill estado={s.estadoApro} />

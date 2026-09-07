@@ -19,7 +19,6 @@ import {
 import {
   createEmptyRule,
   getDistinctActividades,
-  getDistinctEmpleadoNombres,
   getDistinctProyectoCodigos,
   getFilterColumnDef,
   getFilterColumns,
@@ -38,6 +37,7 @@ import type {
   HorasEmpleadoAprobacion,
   HorasProyectoAprobacion,
 } from "@/src/lib/ifs/tiempo-approval";
+import { distinctEmpleadoFiltroOptions } from "@/src/lib/empleado-display";
 
 type AprobacionProyectosFilterBarProps = {
   level: AproProyFilterLevel;
@@ -85,20 +85,23 @@ function multiOptions(
   proyectos: HorasProyectoAprobacion[],
   empleados: HorasEmpleadoAprobacion[],
 ): FilterDropdownOption[] {
+  if (column === "empleado") {
+    return distinctEmpleadoFiltroOptions(
+      empleados.map((e) => ({ nombre: e.nombre, codigo: e.empNo })),
+    ).map((o) => ({
+      value: o.value,
+      label: o.label,
+      title: o.title,
+      icon: "user",
+    }));
+  }
   const rawValues =
     column === "proyecto"
       ? getDistinctProyectoCodigos(proyectos)
-      : column === "actividad"
-        ? getDistinctActividades(empleados)
-        : getDistinctEmpleadoNombres(empleados);
+      : getDistinctActividades(empleados);
   return buildFilterMultiOptions("tiempo", column, rawValues, (val) => ({
     label: val,
-    icon:
-      column === "proyecto"
-        ? "folderOpen"
-        : column === "actividad"
-          ? "flag"
-          : "user",
+    icon: column === "proyecto" ? "folderOpen" : "flag",
   }));
 }
 

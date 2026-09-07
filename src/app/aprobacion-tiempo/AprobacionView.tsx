@@ -201,8 +201,12 @@ export function AprobacionView() {
     if (enDetalle) volverLista();
   };
 
-  const confirmarAnulacion = () => {
-    anular(anularTargets);
+  const confirmarAnulacion = async () => {
+    const result = await anular(anularTargets);
+    if (!result.ok) {
+      toast(result.error || "No se pudo anular.", "danger");
+      return;
+    }
     toast(toastAnulados(anularTargets), "green");
     setAnularTargets([]);
     if (enDetalle) volverLista();
