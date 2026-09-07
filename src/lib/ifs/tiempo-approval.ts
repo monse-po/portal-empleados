@@ -15,6 +15,8 @@ export const IFS_APPROVAL_EVENT = {
   approveFallback: "Confirmed",
   reject: "Reject",
   rejectFallback: "Rejected",
+  undo: "Report",
+  undoFallback: "Registered",
 } as const;
 
 export type IfsApprovalEvent = string;
@@ -125,9 +127,12 @@ export function mapApprovalRowToHoja(
   };
 }
 
-export function mapApprovalTimesheetToHojas(raw: unknown): HojaAprobacion[] {
+export function mapApprovalTimesheetToHojas(
+  raw: unknown,
+  opts?: { includeResolved?: boolean },
+): HojaAprobacion[] {
   return parseEmpReportItems(raw)
-    .map((row, index) => mapApprovalRowToHoja(row, index))
+    .map((row, index) => mapApprovalRowToHoja(row, index, opts))
     .filter((h): h is HojaAprobacion => h !== null);
 }
 
@@ -359,10 +364,13 @@ export function buildEmpTimeApproval(
 }
 
 export function approvalEventsForDecision(
-  decision: "aprobado" | "rechazado",
+  decision: "aprobado" | "rechazado" | "anulado",
 ): string[] {
   if (decision === "aprobado") {
     return [IFS_APPROVAL_EVENT.approve, IFS_APPROVAL_EVENT.approveFallback];
+  }
+  if (decision === "anulado") {
+    return [IFS_APPROVAL_EVENT.undo, IFS_APPROVAL_EVENT.undoFallback];
   }
   return [IFS_APPROVAL_EVENT.reject, IFS_APPROVAL_EVENT.rejectFallback];
 }

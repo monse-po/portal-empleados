@@ -1,6 +1,7 @@
 import {
   cloneInitialLegalizaciones,
   formatMontoLegal,
+  hoyDMY,
   type Legalizacion,
 } from "@/src/lib/legalizaciones-mock";
 import { CHECKBOX_COL_WIDTH } from "@/src/components/ui/DataTable";
@@ -13,18 +14,21 @@ export type LegalizacionApro = Legalizacion & {
   estadoApro: LegalizacionAproEstado;
   comentarioApro: string;
   fechaApro: string;
+  aprobador: string;
 };
 
 /** Aprobación legalizaciones — pendientes: checkbox + datos */
 export const APRO_LEG_COLS_PEND = [
   CHECKBOX_COL_WIDTH,
-  "10%",
   "9%",
-  "13%",
-  "10%",
-  "20%",
-  "24%",
+  "8%",
+  "12%",
+  "11%",
+  "9%",
   "14%",
+  "12%",
+  "13%",
+  "12%",
 ] as const;
 
 const SOLICITANTE = {
@@ -41,6 +45,7 @@ function toApro(reg: Legalizacion): LegalizacionApro {
     estadoApro: pendiente ? "" : reg.estado === "Aprobado" ? "Aprobado" : "Rechazado",
     comentarioApro: "",
     fechaApro: pendiente ? "" : reg.fecha,
+    aprobador: "",
   };
 }
 
@@ -79,34 +84,54 @@ export function cloneInitialLegalizacionesApro(): Record<string, LegalizacionApr
         proyectoNombre: "Construcción Planta Norte",
       },
     ],
+    destino: {
+      proyectoId: "PRY2024001",
+      subproyecto: "SUB-101 · Campo",
+      actividad: "Supervisión en campo",
+    },
     solicitante: SOLICITANTE.nombre,
     cedula: SOLICITANTE.cedula,
     estadoApro: "",
     comentarioApro: "",
     fechaApro: "",
+    aprobador: "",
   };
   return next;
+}
+
+function isMesReferencia(fecha: string): boolean {
+  const hoy = hoyDMY();
+  const [, mesHoy, anioHoy] = hoy.split("/").map(Number);
+  const [, mes, anio] = fecha.split("/").map(Number);
+  return Boolean(fecha) && mes === mesHoy && anio === anioHoy;
+}
+
+function formatMontoCompact(monto: number): string {
+  if (monto >= 1_000_000) {
+    return `$${(monto / 1_000_000).toFixed(1).replace(".", ",")}M`;
+  }
+  return formatMontoLegal(monto, "COP");
 }
 
 export function getLegalizacionesAproKpis(
   items: Record<string, LegalizacionApro>,
 ) {
   const all = Object.values(items);
-  const pendientes = all.filter((l) => l.estadoApro === "").length;
-  const resueltas = all.filter((l) => l.estadoApro !== "");
-  const aprobadosMes = resueltas.filter((l) => l.estadoApro === "Aprobado").length;
-  const rechazadosMes = resueltas.filter(
-    (l) => l.estadoApro === "Rechazado",
-  ).length;
-  const montoPendiente = all
-    .filter((l) => l.estadoApro === "")
-    .reduce((sum, l) => sum + l.monto, 0);
+  const pendientes = all.filter((l) => !l.estadoApro);
+  const aprobadosMes = all.filter(
+    (l) => l.estadoApro === "Aprobado" && isMesReferencia(l.fechaApro),
+  );
+  const rechazadosMes = all.filter(
+    (l) => l.estadoApro === "Rechazado" && isMesReferencia(l.fechaApro),
+  );
+  const montoPendiente = pendientes.reduce((sum, l) => sum + l.monto, 0);
+  const montoAprobadoMes = aprobadosMes.reduce((sum, l) => sum + l.monto, 0);
   return {
-    pendientes,
-    aprobadosMes,
-    rechazadosMes,
-    montoPendienteLabel: formatMontoLegal(montoPendiente, "COP"),
-    montoAprobadoMesLabel: `${aprobadosMes} legalización${aprobadosMes === 1 ? "" : "es"}`,
+    pendientes: pendientes.length,
+    aprobadosMes: aprobadosMes.length,
+    rechazadosMes: rechazadosMes.length,
+    montoPendienteLabel: formatMontoCompact(montoPendiente),
+    montoAprobadoMesLabel: formatMontoLegal(montoAprobadoMes, "COP"),
     total: all.length,
   };
 }

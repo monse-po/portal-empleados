@@ -14,48 +14,9 @@ import {
   removeFilterByColumn,
   type AproFilterRule,
 } from "@/src/lib/aprobacion-filtros";
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  alert,
-  navy,
-}: {
-  label: string;
-  value: string | number;
-  sub: string;
-  alert?: boolean;
-  navy?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border px-4 py-4 ${
-        alert
-          ? "border-[#fcd34d] bg-[#fffbeb]"
-          : navy
-            ? "border-[#c7d9ed] bg-[#eef3f9]"
-            : "border-border bg-white"
-      }`}
-    >
-      <div
-        className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${
-          navy ? "text-navy" : "text-muted"
-        }`}
-      >
-        {label}
-      </div>
-      <div
-        className={`text-[28px] font-extrabold leading-none ${alert ? "text-[#b45309]" : "text-navy"}`}
-      >
-        {value}
-      </div>
-      <div className={`mt-1.5 text-[11px] ${navy ? "text-navy/70" : "text-muted"}`}>
-        {sub}
-      </div>
-    </div>
-  );
-}
+import { horasNum } from "@/src/lib/aprobacion-tiempo-mock";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
+import { KpiCard } from "@/src/components/ui/KpiCard";
 
 type AprobacionListaProps = {
   onOpenDetalle: (no: string) => void;
@@ -102,6 +63,11 @@ export function AprobacionLista({
     () => applyAproFilters(registrosActuales, filters),
     [registrosActuales, filters],
   );
+  const filtrosActivos = hayFiltrosActivos(filters);
+  const horasEnPantalla = useMemo(
+    () => filtrados.reduce((sum, hoja) => sum + horasNum(hoja.horas), 0),
+    [filtrados],
+  );
 
   const handleTab = (next: "pend" | "res") => {
     setTab(next);
@@ -124,7 +90,7 @@ export function AprobacionLista({
           <KpiCard
             label="Aprobadas este mes"
             value={kpis.aprobadas}
-            sub={`${kpis.horasAprobadas} aprobadas`}
+            sub={`${formatHorasValor(kpis.horasAprobadas)} h aprobadas`}
             navy
           />
           <KpiCard
@@ -134,7 +100,7 @@ export function AprobacionLista({
           />
           <KpiCard
             label="Horas por aprobar"
-            value={kpis.horasPendientes}
+            value={formatHorasValor(kpis.horasPendientes)}
             sub="En registros pendientes"
           />
         </div>
@@ -159,37 +125,52 @@ export function AprobacionLista({
 
       <Card className="overflow-hidden p-0">
         {tableLead}
-        <div className="flex border-b-2 border-[#e5e9f0] px-2">
-          <button
-            type="button"
-            onClick={() => handleTab("pend")}
-            className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all ${
-              tab === "pend"
-                ? "border-b-navy font-bold text-navy"
-                : "border-b-transparent font-medium text-muted hover:text-navy"
-            }`}
-          >
-            <Icon name="clock" size="sm" />
-            Pendientes
-            <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-              {tabCounts.pend}
+        <div className="flex items-center justify-between gap-3 border-b-2 border-[#e5e9f0] px-2">
+          <div className="flex">
+            <button
+              type="button"
+              onClick={() => handleTab("pend")}
+              className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all ${
+                tab === "pend"
+                  ? "border-b-navy font-bold text-navy"
+                  : "border-b-transparent font-medium text-muted hover:text-navy"
+              }`}
+            >
+              <Icon name="clock" size="sm" />
+              Por aprobar
+              <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
+                {tabCounts.pend}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTab("res")}
+              className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all ${
+                tab === "res"
+                  ? "border-b-navy font-bold text-navy"
+                  : "border-b-transparent font-medium text-muted hover:text-navy"
+              }`}
+            >
+              <Icon name="checkSquare" size="sm" />
+              Resueltas
+              <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
+                {tabCounts.res}
+              </span>
+            </button>
+          </div>
+          <div className="flex items-baseline gap-2.5 pr-3">
+            {filtrosActivos ? (
+              <span className="text-[12px] tabular-nums text-muted">
+                {filtrados.length} de {registrosActuales.length}
+              </span>
+            ) : null}
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Horas
             </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTab("res")}
-            className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all ${
-              tab === "res"
-                ? "border-b-navy font-bold text-navy"
-                : "border-b-transparent font-medium text-muted hover:text-navy"
-            }`}
-          >
-            <Icon name="checkSquare" size="sm" />
-            Resueltas
-            <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-              {tabCounts.res}
+            <span className="text-[18px] font-extrabold tabular-nums text-navy">
+              {formatHorasValor(horasEnPantalla)}
             </span>
-          </button>
+          </div>
         </div>
 
         {detail ?? (
@@ -197,7 +178,7 @@ export function AprobacionLista({
             key={tab}
             registros={filtrados}
             totalBase={registrosActuales.length}
-            hasFilters={hayFiltrosActivos(filters)}
+            hasFilters={filtrosActivos}
             onOpenDetalle={onOpenDetalle}
           />
         )}

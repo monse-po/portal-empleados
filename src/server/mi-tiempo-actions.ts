@@ -597,13 +597,13 @@ export type ResumenProyectosAprobacionResult = {
 function demoApprovalPayload() {
   const raw = getDemoApprovalRaw(cloneInitialHojas());
   return {
-    hojas: mapApprovalTimesheetToHojas(raw),
+    hojas: mapApprovalTimesheetToHojas(raw, { includeResolved: true }),
     proyectos: mapApprovalTimesheetToProyectos(raw),
     raw,
   };
 }
 
-/** Pendientes para bandeja gerente: solo IFS GetApprovalTimesheets. */
+/** Bandeja gerente (pendientes + resueltas) desde IFS GetApprovalTimesheets. */
 export async function getHojasPendientesAprobacionAction(): Promise<HojasAprobacionResult> {
   const session = await getServerIfsSession();
   const useDemo =
@@ -621,24 +621,11 @@ export async function getHojasPendientesAprobacionAction(): Promise<HojasAprobac
 
   try {
     const raw = await withIfsPortalSession((ifs) => getApprovalTimesheets(ifs));
-    const ifsHojas = mapApprovalTimesheetToHojas(raw);
-    if (!ifsHojas.length && process.env.NODE_ENV === "development") {
-      const demo = demoApprovalPayload();
-      return { hojas: demo.hojas, fromIfs: false };
-    }
     return {
-      hojas: ifsHojas,
+      hojas: mapApprovalTimesheetToHojas(raw, { includeResolved: true }),
       fromIfs: true,
     };
   } catch (err) {
-    if (process.env.NODE_ENV === "development") {
-      const demo = demoApprovalPayload();
-      return {
-        hojas: demo.hojas,
-        fromIfs: false,
-        warning: "Demo local: no se pudo cargar IFS. Mostrando datos de prueba.",
-      };
-    }
     return {
       hojas: [],
       fromIfs: false,
@@ -672,30 +659,12 @@ export async function getResumenProyectosAprobacionAction(): Promise<ResumenProy
 
   try {
     const raw = await withIfsPortalSession((ifs) => getApprovalTimesheets(ifs));
-    const proyectos = mapApprovalTimesheetToProyectos(raw);
-    if (!proyectos.length && process.env.NODE_ENV === "development") {
-      const demo = demoApprovalPayload();
-      return {
-        proyectos: demo.proyectos,
-        raw: demo.raw,
-        fromIfs: false,
-      };
-    }
     return {
-      proyectos,
+      proyectos: mapApprovalTimesheetToProyectos(raw),
       raw,
       fromIfs: true,
     };
   } catch (err) {
-    if (process.env.NODE_ENV === "development") {
-      const demo = demoApprovalPayload();
-      return {
-        proyectos: demo.proyectos,
-        raw: demo.raw,
-        fromIfs: false,
-        warning: "Demo local: no se pudo cargar IFS. Mostrando datos de prueba.",
-      };
-    }
     return {
       proyectos: [],
       raw: { value: [] },
@@ -716,10 +685,10 @@ export type ResolverAprobacionResult = {
   stale?: boolean;
 };
 
-/** Aprobar / rechazar en IFS (EmpPortalTimeApprovalList). Neon solo si no es IFS. */
+/** Aprobar / rechazar / anular en IFS (EmpPortalTimeApprovalList). Neon solo si no es IFS. */
 export async function resolverAprobacionTiempoAction(input: {
   registroIds: string[];
-  decision: "aprobado" | "rechazado";
+  decision: "aprobado" | "rechazado" | "anulado";
   comentario?: string;
 }): Promise<ResolverAprobacionResult> {
   const events = approvalEventsForDecision(input.decision);
@@ -796,10 +765,16 @@ export async function resolverAprobacionTiempoAction(input: {
     }
   }
 
+  const estadoNeon =
+    input.decision === "aprobado"
+      ? "Aprobado"
+      : input.decision === "anulado"
+        ? "Registrado"
+        : "Rechazado";
   for (const id of neonIds) {
     await updateRegistroEstadoAction(
       id,
-      input.decision === "aprobado" ? "Aprobado" : "Rechazado",
+      estadoNeon,
       input.decision === "rechazado" ? input.comentario || "" : "",
     );
   }

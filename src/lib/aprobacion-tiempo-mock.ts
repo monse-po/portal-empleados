@@ -1,5 +1,4 @@
 import { dmyToSortKey, formatProyectoAprobacionPorCod, nombreProyectoPorCodAprobacion } from "@/src/lib/tiempo-bridge";
-import { HOY_MOCK } from "@/src/lib/mi-tiempo-mock";
 
 export type EstadoAprobacion = "" | "Aprobado" | "Rechazado" | "Anulado";
 
@@ -476,12 +475,6 @@ export function getResueltasStatsPorProy(
   return stats;
 }
 
-function isMesReferencia(fechaDmy: string): boolean {
-  const [, m, y] = fechaDmy.split("/").map(Number);
-  const ref = HOY_MOCK;
-  return y === ref.getFullYear() && m === ref.getMonth() + 1;
-}
-
 export type AprobacionKpis = {
   pendientes: number;
   aprobadas: number;
@@ -497,12 +490,8 @@ export function getAprobacionKpis(
   const round = (x: number) => Math.round(x * 10) / 10;
   return {
     pendientes: all.filter((s) => !s.estadoApro).length,
-    aprobadas: all.filter(
-      (s) => s.estadoApro === "Aprobado" && isMesReferencia(s.fecha),
-    ).length,
-    rechazadas: all.filter(
-      (s) => s.estadoApro === "Rechazado" && isMesReferencia(s.fecha),
-    ).length,
+    aprobadas: all.filter((s) => s.estadoApro === "Aprobado").length,
+    rechazadas: all.filter((s) => s.estadoApro === "Rechazado").length,
     horasPendientes: round(
       all
         .filter((s) => !s.estadoApro)
@@ -510,12 +499,14 @@ export function getAprobacionKpis(
     ),
     horasAprobadas: round(
       all
-        .filter(
-          (s) => s.estadoApro === "Aprobado" && isMesReferencia(s.fecha),
-        )
+        .filter((s) => s.estadoApro === "Aprobado")
         .reduce((a, s) => a + horasNum(s.horas), 0),
     ),
   };
+}
+
+export function getAprobacionKpisFromList(hojas: HojaAprobacion[]): AprobacionKpis {
+  return getAprobacionKpis(Object.fromEntries(hojas.map((h) => [h.no, h])));
 }
 
 export function filterHojasByTab(
