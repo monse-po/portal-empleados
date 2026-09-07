@@ -1,8 +1,16 @@
 import type { ReactNode } from "react";
 import {
+  splitEmpleadoNombreCodigo,
+} from "@/src/lib/empleado-display";
+import {
   baseProyectoCodigo,
   baseProyectoNombre,
 } from "@/src/lib/proyecto-display";
+
+export {
+  empleadoCodigoDisplay,
+  splitEmpleadoNombreCodigo,
+} from "@/src/lib/empleado-display";
 
 type DataTableProps = {
   /** Column widths as CSS values, e.g. "10%", "72px" */
@@ -136,14 +144,31 @@ export const dataTdResSecondary =
 export function ProyectoCell({
   codigo,
   nombre,
+  inline = false,
 }: {
   codigo?: string | null;
   nombre?: string | null;
+  /** Una línea: código semibold + nombre muted. */
+  inline?: boolean;
 }) {
   const code = baseProyectoCodigo(codigo);
   const desc = baseProyectoNombre(codigo, nombre);
   if (!code && !desc) {
     return <span className="text-muted">—</span>;
+  }
+  const title = [code, desc].filter(Boolean).join(" · ");
+  if (inline) {
+    return (
+      <span className="block min-w-0 truncate" title={title}>
+        <span className="font-semibold">{code || "—"}</span>
+        {desc ? (
+          <>
+            {" "}
+            <span className="text-[12px] font-normal text-[#9ca3af]">{desc}</span>
+          </>
+        ) : null}
+      </span>
+    );
   }
   return (
     <div className="min-w-0">
@@ -153,6 +178,131 @@ export function ProyectoCell({
       {desc ? (
         <div className={dataTdResSecondary} title={desc}>
           {desc}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Código + nombre (subproyecto), misma geometría que ProyectoCell. */
+export function SubproyectoCell({
+  codigo,
+  nombre,
+  inline = false,
+}: {
+  codigo?: string | null;
+  nombre?: string | null;
+  inline?: boolean;
+}) {
+  const raw = (codigo || "").trim();
+  const parts = raw.split("·").map((x) => x.trim());
+  const code = parts[0] || "";
+  const desc = (nombre || parts[1] || "").trim();
+  if (!code && !desc) {
+    return <span className="text-muted">—</span>;
+  }
+  const title = [code, desc !== code ? desc : ""].filter(Boolean).join(" · ");
+  if (inline) {
+    return (
+      <span className="block min-w-0 truncate" title={title}>
+        <span className="font-semibold">{code || "—"}</span>
+        {desc && desc !== code ? (
+          <>
+            {" "}
+            <span className="text-[12px] font-normal text-[#9ca3af]">{desc}</span>
+          </>
+        ) : null}
+      </span>
+    );
+  }
+  return (
+    <div className="min-w-0">
+      <div className={dataTdResPrimary} title={code || desc}>
+        {code || "—"}
+      </div>
+      {desc && desc !== code ? (
+        <div className={dataTdResSecondary} title={desc}>
+          {desc}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Monto + divisa. Misma pila en anticipos, legalizaciones y DSE. */
+export function MontoCell({
+  monto,
+  divisa,
+}: {
+  monto: number;
+  divisa?: string | null;
+}) {
+  const div = (divisa || "COP").trim() || "COP";
+  const prefix: Record<string, string> = {
+    COP: "$",
+    USD: "US$",
+    MXN: "$",
+    PEN: "S/",
+  };
+  const pre = prefix[div] || "$";
+  const abs = Math.abs(monto).toLocaleString("es-CO");
+  const sign = monto < 0 ? "-" : "";
+  return (
+    <div className="min-w-0 text-right">
+      <div className="font-semibold leading-snug tabular-nums">
+        {sign}
+        {pre} {abs}
+      </div>
+      <div className={dataTdResSecondary}>{div}</div>
+    </div>
+  );
+}
+
+/** Nombre + código (EmpNo). El nombre es la línea principal. */
+export function EmpleadoCell({
+  nombre,
+  codigo,
+  inline = false,
+}: {
+  nombre?: string | null;
+  codigo?: string | null;
+  inline?: boolean;
+}) {
+  const { nombre: name, codigo: code } = splitEmpleadoNombreCodigo(
+    nombre,
+    codigo,
+  );
+  if (!name && !code) {
+    return <span className="text-muted">—</span>;
+  }
+  if (inline) {
+    return (
+      <span
+        className="block min-w-0 truncate"
+        title={[name, code].filter(Boolean).join(" · ")}
+      >
+        {name ? <span className="font-semibold">{name}</span> : null}
+        {code ? (
+          <>
+            {" "}
+            <span className="text-[12px] font-normal tabular-nums text-[#9ca3af]">
+              {code}
+            </span>
+          </>
+        ) : null}
+      </span>
+    );
+  }
+  return (
+    <div className="min-w-0">
+      {name ? (
+        <div className={dataTdResPrimary} title={name}>
+          {name}
+        </div>
+      ) : null}
+      {code ? (
+        <div className={`${dataTdResSecondary} tabular-nums`} title={code}>
+          {code}
         </div>
       ) : null}
     </div>

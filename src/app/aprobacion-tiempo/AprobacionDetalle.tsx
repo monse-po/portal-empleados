@@ -16,7 +16,11 @@ import {
 import { GerenteAccionBar } from "@/src/components/ui/GerenteAccionBar";
 import { Icon } from "@/src/components/ui/Icon";
 import { EstadoTiempoPill, estadoTiempoPillProps } from "@/src/components/ui/Pill";
-import { ProyectoCell } from "@/src/components/ui/DataTable";
+import {
+  EmpleadoCell,
+  ProyectoCell,
+  SubproyectoCell,
+} from "@/src/components/ui/DataTable";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import { useToast } from "@/src/components/ui/Toast";
 import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
@@ -27,6 +31,7 @@ import {
   proyNombre,
   type HojaAprobacion,
 } from "@/src/lib/aprobacion-tiempo-mock";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 type AprobacionDetalleProps = {
   hoja: HojaAprobacion;
@@ -85,15 +90,25 @@ export function AprobacionDetalle({
         <TipoHoraPill tipo={hoja.tipo} />
       </ReadOnlyField>
       <ReadOnlyField label="Horas reportadas" highlight>
-        {horasNum(hoja.horas)}
+        {formatHorasValor(horasNum(hoja.horas))}
       </ReadOnlyField>
-      <ReadOnlyField label="Proyecto" className="md:col-span-2">
-        <ProyectoCell codigo={proyKey(hoja.proy) || hoja.proy} nombre={proyNombre(hoja.proy)} />
+      <ReadOnlyField label="Proyecto">
+        <ProyectoCell
+          inline
+          codigo={proyKey(hoja.proy) || hoja.proy}
+          nombre={proyNombre(hoja.proy)}
+        />
       </ReadOnlyField>
-      <ReadOnlyField label="Subproyecto">{hoja.subproy || "—"}</ReadOnlyField>
+      <ReadOnlyField label="Subproyecto">
+        <SubproyectoCell inline codigo={hoja.subproy} />
+      </ReadOnlyField>
       <ReadOnlyField label="Actividad">{hoja.actividad}</ReadOnlyField>
-      <ReadOnlyField label="Cédula">{hoja.cedula}</ReadOnlyField>
-      <ReadOnlyField label="Nombre">{hoja.nombre}</ReadOnlyField>
+      <ReadOnlyField label="Empleado">
+        <EmpleadoCell inline nombre={hoja.nombre} codigo={hoja.cedula} />
+      </ReadOnlyField>
+      <ReadOnlyField label="Aprobador">
+        {hoja.aprobador?.trim() || "—"}
+      </ReadOnlyField>
       <ReadOnlyBlock label="Comentario del empleado">
         {hoja.comentarioEmpleado || "—"}
       </ReadOnlyBlock>
@@ -140,7 +155,7 @@ export function AprobacionDetalle({
   }
 
   return (
-    <div className="view-wide max-md:pb-24">
+    <div className="content-standard max-md:pb-24">
       <RecordDetailHeader
         parentLabel={parentLabel}
         codigo={hoja.no}

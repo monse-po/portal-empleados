@@ -23,13 +23,16 @@ export function DetailSection({
 export function DetailGrid({
   children,
   className = "",
+  cols = 3,
 }: {
   children: React.ReactNode;
   className?: string;
+  cols?: 2 | 3;
 }) {
+  const mdCols = cols === 2 ? "md:grid-cols-2" : "md:grid-cols-3";
   return (
     <div
-      className={`grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 ${className}`.trim()}
+      className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${mdCols} ${className}`.trim()}
     >
       {children}
     </div>
@@ -67,7 +70,7 @@ export function ReadOnlyBlock({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 md:col-span-3">
+    <div className="flex min-w-0 flex-col gap-1.5 md:col-span-full">
       <span className="text-[12px] font-semibold text-[#374151]">{label}</span>
       <div className="rounded-[5px] border border-border bg-[#f3f4f6] px-3 py-2 text-[13px] leading-relaxed text-[#374151]">
         {children}
