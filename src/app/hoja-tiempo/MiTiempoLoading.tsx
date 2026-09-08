@@ -22,13 +22,12 @@ export function MiTiempoLoading() {
   }, [ifsConnected]);
 
   return (
-    <div className="view-wide">
+    <div className="view-wide flex min-h-[320px] items-center justify-center">
       <LoadingNotice
-        variant="panel"
+        variant="inline"
         icon={LOADING_COPY.timeRecords.icon}
         label={LOADING_COPY.timeRecords.label}
         hint={registrosLoadingHint(hintFromIfs)}
-        className="min-h-[320px]"
       />
     </div>
   );

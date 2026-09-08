@@ -16,14 +16,6 @@ type IfsStatusBannerProps = {
 
 const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
 
-const SURFACE_LABEL: Record<IfsSurface, string> = {
-  timesheet: "hoja GetEmployeeTimesheet",
-  approval: "bandeja GetApprovalTimesheets",
-  anticipos: "Employee Advances",
-  "anticipos-approval": "bandeja GetRequestsForApproval",
-  historico: "histórico GetEmployeeTimesheet",
-};
-
 const SURFACE_LOGIN_NEXT: Record<IfsSurface, string> = {
   timesheet: "/hoja-tiempo",
   approval: "/aprobacion-tiempo-proyectos",
@@ -37,10 +29,39 @@ function loginHref(surface: IfsSurface, loginNext?: string): string {
   return `/api/auth/login?next=${encodeURIComponent(next)}`;
 }
 
+function isConnectedOk(
+  connected: boolean,
+  fromIfs: boolean,
+  surface: IfsSurface,
+  warning?: string | null,
+): boolean {
+  if (!IFS_AUTH_ENABLED || !connected || warning) return false;
+  return fromIfs || surface === "approval" || surface === "historico";
+}
+
+export function IfsConnectedChip({
+  connected,
+  fromIfs,
+  warning,
+  surface,
+}: Pick<IfsStatusBannerProps, "connected" | "fromIfs" | "warning" | "surface">) {
+  if (!isConnectedOk(connected, fromIfs, surface, warning)) return null;
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted"
+      title="Conexión activa"
+      aria-label="Conexión activa"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-green" />
+      Conectado
+    </span>
+  );
+}
+
 export function IfsStatusBanner({
   connected,
   fromIfs,
-  email,
   warning,
   surface,
   loginNext,
@@ -54,40 +75,24 @@ export function IfsStatusBanner({
     );
   }
 
-  if (connected && !warning && (fromIfs || surface === "approval" || surface === "historico")) {
-    const detail =
-      !fromIfs && surface === "approval"
-        ? "sin pendientes en esta bandeja"
-        : SURFACE_LABEL[surface];
-    return (
-      <p className="mb-2 rounded-lg border border-green-border bg-green-bg px-3 py-1.5 text-[13px] text-[#15803d]">
-        <strong>IFS conectado</strong>
-        {email ? ` · ${email}` : ""} · {detail}
-      </p>
-    );
+  if (isConnectedOk(connected, fromIfs, surface, warning)) {
+    return null;
   }
 
   if (connected && warning) {
     return (
-      <p className="alert-warn mb-2 px-3 py-1.5 text-[13px]">
-        Hay sesión IFS, pero la API falló: {warning}{" "}
-        <a href="/dev/ifs" className="font-semibold underline">
-          Ver diagnóstico
-        </a>
+      <p className="alert-warn mb-2 px-3 py-2 text-[13px]">
+        No se pudieron cargar los datos. Inténtalo de nuevo o avisa a soporte.
       </p>
     );
   }
 
   return (
     <p className="alert-warn mb-2 px-3 py-1.5 text-[13px]">
-      <strong>Sin sesión IFS.</strong> No se muestran datos de ejemplo. Esta
-      pantalla queda vacía a propósito hasta que entre con IFS.{" "}
+      <strong>Sin sesión.</strong> No se muestran datos de ejemplo. Esta
+      pantalla queda vacía a propósito hasta que inicies sesión.{" "}
       <a href={loginHref(surface, loginNext)} className="font-semibold underline">
-        Entrar con IFS
-      </a>
-      {" · "}
-      <a href="/dev/ifs" className="font-semibold underline">
-        Diagnóstico
+        Iniciar sesión
       </a>
     </p>
   );

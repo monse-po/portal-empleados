@@ -21,6 +21,7 @@ import {
 import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
 import { TiempoRegistroMobileCard } from "@/src/app/hoja-tiempo/TiempoRegistroMobileCard";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
+import { IfsConnectedChip } from "@/src/components/layout/IfsStatusBanner";
 import {
   buildCalendarioGrid,
   filterRegistrosPorMes,
@@ -680,8 +681,21 @@ export function MiTiempoLista({
   onTabChange,
   onSelectDia,
 }: MiTiempoListaProps) {
-  const { openRegistrarModal } = useMiTiempo();
+  const {
+    openRegistrarModal,
+    ifsConnected,
+    registrosFromIfs,
+    registrosIfsWarning,
+  } = useMiTiempo();
   const openNuevo = () => openRegistrarModal({ origen: "lista" });
+  const connectedChip = (
+    <IfsConnectedChip
+      surface="timesheet"
+      connected={ifsConnected}
+      fromIfs={registrosFromIfs}
+      warning={registrosIfsWarning}
+    />
+  );
 
   return (
     <div
@@ -691,12 +705,14 @@ export function MiTiempoLista({
           : "max-md:px-2 max-md:pt-2 max-md:pb-24"
       }`}
     >
-      <h1 className="mb-4 hidden text-xl font-bold text-[#111] md:block">
-        Mi Tiempo
-      </h1>
-      <h1 className="mb-3 shrink-0 text-lg font-bold text-[#111] md:hidden">
-        Mi Tiempo
-      </h1>
+      <div className="mb-4 hidden items-center gap-2.5 md:flex">
+        <h1 className="text-xl font-bold text-[#111]">Mi Tiempo</h1>
+        {connectedChip}
+      </div>
+      <div className="mb-3 flex shrink-0 items-center gap-2 md:hidden">
+        <h1 className="text-lg font-bold text-[#111]">Mi Tiempo</h1>
+        {connectedChip}
+      </div>
 
       <HorasResumenBar />
 

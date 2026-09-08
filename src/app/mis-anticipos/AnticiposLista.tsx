@@ -5,7 +5,10 @@ import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { FloatingActions } from "@/src/components/ui/FloatingActions";
 import { Icon } from "@/src/components/ui/Icon";
-import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
+import {
+  IfsConnectedChip,
+  IfsStatusBanner,
+} from "@/src/components/layout/IfsStatusBanner";
 import { AnticiposFilterBar } from "@/src/app/mis-anticipos/AnticiposFilterBar";
 import { useAnticipos } from "@/src/app/mis-anticipos/AnticiposContext";
 import { AnticiposTabla } from "@/src/app/mis-anticipos/AnticiposTabla";
@@ -45,7 +48,14 @@ export function AnticiposLista({
     <div className="view-wide max-md:pb-24">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4 max-md:mb-4 max-md:flex-col max-md:gap-3">
         <div>
-          <h1 className="text-xl font-bold text-[#111]">Mis Anticipos</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-[#111]">Mis Anticipos</h1>
+            <IfsConnectedChip
+              surface="anticipos"
+              connected={ifsConnected}
+              fromIfs={fromIfs}
+            />
+          </div>
           <p className="mt-1 text-[13px] text-[#4b5563] max-md:hidden">
             Solicita y consulta el estado de tus anticipos
           </p>

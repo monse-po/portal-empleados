@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/src/components/ui/Card";
 import { BulkActionButtons } from "@/src/components/ui/BulkSelectionBar";
-import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
+import {
+  IfsConnectedChip,
+  IfsStatusBanner,
+} from "@/src/components/layout/IfsStatusBanner";
 import { Icon } from "@/src/components/ui/Icon";
 import { useToast } from "@/src/components/ui/Toast";
 import {
@@ -397,7 +400,15 @@ export function AprobacionProyectosView() {
   return (
     <div className="view-wide max-md:pb-24">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-[#111]">Aprobar Tiempo</h1>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-[#111]">Aprobar Tiempo</h1>
+          <IfsConnectedChip
+            surface="approval"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+            warning={ifsWarning}
+          />
+        </div>
         <p className="mt-1 text-[13px] text-[#4b5563]">
           Elige un proyecto y resuelve sus horas.
         </p>

@@ -7,7 +7,10 @@ import { Icon } from "@/src/components/ui/Icon";
 import { AprobacionFilterBar } from "@/src/app/aprobacion-tiempo/AprobacionFilterBar";
 import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import { AprobacionTabla } from "@/src/app/aprobacion-tiempo/AprobacionTabla";
-import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
+import {
+  IfsConnectedChip,
+  IfsStatusBanner,
+} from "@/src/components/layout/IfsStatusBanner";
 import {
   applyAproFilters,
   hayFiltrosActivos,
@@ -191,9 +194,17 @@ export function AprobacionLista({
   return (
     <div className="view-wide max-md:pb-24">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-[#111]">
-          Aprobación de Hoja de Tiempo
-        </h1>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-[#111]">
+            Aprobación de Hoja de Tiempo
+          </h1>
+          <IfsConnectedChip
+            surface="approval"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+            warning={ifsWarning}
+          />
+        </div>
         <p className="mt-1 text-[13px] text-[#4b5563]">
           Registros de tu equipo pendientes de revisión
         </p>

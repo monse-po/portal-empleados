@@ -10,6 +10,8 @@ import {
   AnticiposProvider,
   useAnticipos,
 } from "@/src/app/mis-anticipos/AnticiposContext";
+import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+import { LOADING_COPY } from "@/src/lib/copy/loading";
 
 type Vista = "lista" | "detalle" | "form";
 
@@ -55,8 +57,12 @@ function AnticiposViewInner() {
 
   if (!loaded) {
     return (
-      <div className="view-wide flex min-h-[240px] items-center justify-center text-[13px] text-muted">
-        Cargando datos…
+      <div className="view-wide flex min-h-[320px] items-center justify-center">
+        <LoadingNotice
+          variant="inline"
+          icon="wallet"
+          label={LOADING_COPY.generic.label}
+        />
       </div>
     );
   }

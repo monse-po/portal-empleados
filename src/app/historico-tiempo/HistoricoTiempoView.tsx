@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/Card";
 import { Icon } from "@/src/components/ui/Icon";
-import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
+import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+import {
+  IfsConnectedChip,
+  IfsStatusBanner,
+} from "@/src/components/layout/IfsStatusBanner";
+import { LOADING_COPY } from "@/src/lib/copy/loading";
 import {
   DataTable,
   dataTd,
@@ -154,8 +159,12 @@ export function HistoricoTiempoView() {
 
   if (!loaded) {
     return (
-      <div className="view-wide flex min-h-[240px] items-center justify-center text-[13px] text-muted">
-        Cargando datos…
+      <div className="view-wide flex min-h-[320px] items-center justify-center">
+        <LoadingNotice
+          variant="inline"
+          icon={LOADING_COPY.timeRecords.icon}
+          label={LOADING_COPY.timeRecords.label}
+        />
       </div>
     );
   }
@@ -163,7 +172,14 @@ export function HistoricoTiempoView() {
   if (loadError && aprobados.length === 0) {
     return (
       <div className="view-wide px-2 py-8">
-        <h1 className="mb-3 text-xl font-bold text-[#111]">Mi Histórico</h1>
+        <div className="mb-3 flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-[#111]">Mi Histórico</h1>
+          <IfsConnectedChip
+            surface="historico"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+          />
+        </div>
         <IfsStatusBanner
           surface="historico"
           connected={ifsConnected}
@@ -179,7 +195,14 @@ export function HistoricoTiempoView() {
     <div className="view-wide">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-[#111]">Mi Histórico</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-[#111]">Mi Histórico</h1>
+            <IfsConnectedChip
+              surface="historico"
+              connected={ifsConnected}
+              fromIfs={fromIfs}
+            />
+          </div>
           {loadError ? (
             <p className="alert-warn mt-2 px-3 py-2 text-sm">{loadError}</p>
           ) : null}
