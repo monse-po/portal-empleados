@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import { Card } from "@/src/components/ui/Card";
 import { BulkActionButtons } from "@/src/components/ui/BulkSelectionBar";
 import { Icon } from "@/src/components/ui/Icon";
-import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
+import {
+  IfsConnectedChip,
+  IfsStatusBanner,
+} from "@/src/components/layout/IfsStatusBanner";
 import { AprobacionAnticiposFilterBar } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposFilterBar";
 import { useAprobacionAnticipos } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposContext";
 import { AprobacionAnticiposTabla } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposTabla";
@@ -58,7 +61,14 @@ export function AprobacionAnticiposLista({
   return (
     <div className="view-wide max-md:pb-24">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-[#111]">Aprobar anticipos</h1>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-[#111]">Aprobar anticipos</h1>
+          <IfsConnectedChip
+            surface="anticipos-approval"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+          />
+        </div>
         <p className="mt-1 text-[13px] text-[#4b5563]">
           Solicitudes de tu equipo pendientes de revisión · HMVINGCO
         </p>
