@@ -20,6 +20,25 @@ import {
   sessionCookieOptions,
 } from "@/src/lib/ifs/session";
 
+/** 127.0.0.1 y localhost no comparten cookies: alinear con el callback de IFS. */
+function canonicalizeLocalLoginHost(
+  requestUrl: URL,
+  redirectUri: string,
+): URL | null {
+  if (requestUrl.hostname !== "127.0.0.1") return null;
+  try {
+    const callback = new URL(redirectUri);
+    if (callback.hostname !== "localhost") return null;
+    const aligned = new URL(
+      `${requestUrl.pathname}${requestUrl.search}`,
+      callback.origin,
+    );
+    return aligned;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: Request) {
   if (!isIfsAuthReady()) {
     return NextResponse.json(
@@ -50,6 +69,10 @@ export async function GET(request: Request) {
       })
     : undefined;
   const redirectUri = resolveOAuthRedirectUri(request);
+  const localLogin = canonicalizeLocalLoginHost(url, redirectUri);
+  if (localLogin) {
+    return NextResponse.redirect(localLogin);
+  }
   const authUrl = buildAuthorizationUrl({
     state,
     codeChallenge: challenge,
