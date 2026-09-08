@@ -29,6 +29,11 @@ export type ModuleRoute = {
 export type ModuleDef = {
   id: ModuleId;
   label: string;
+  /**
+   * Fuera de menú y de visibilidad (FocusGuard redirige).
+   * La ruta y el código siguen; útil para pausar un módulo.
+   */
+  hidden?: boolean;
   routes: ModuleRoute[];
 };
 
@@ -84,6 +89,7 @@ export const MODULES: ModuleDef[] = [
   {
     id: "legalizaciones",
     label: "Legalizaciones",
+    hidden: true,
     routes: [
       {
         path: "/legalizaciones",
@@ -128,18 +134,17 @@ export const MODULES: ModuleDef[] = [
 /**
  * Módulos enfocados vía variable de entorno.
  *
- *   npm run dev                      → Tiempo + Anticipos + Histórico
- *   FOCUS=all npm run dev            → app completa
+ *   npm run dev                      → app completa
  *   FOCUS=tiempo npm run dev         → solo Tiempo
  *   FOCUS=tiempo,anticipos npm run dev
- *   FOCUS=tiempo,anticipos,historico npm run dev
  *
  * `FOCUS` se mapea a NEXT_PUBLIC_FOCUS en next.config.
+ * Vacío / all / off = todos los módulos.
  */
 export function getFocusModules(): ModuleId[] | null {
   const raw = process.env.NEXT_PUBLIC_FOCUS?.trim().toLowerCase();
-  if (raw === "all" || raw === "off") return null;
-  const tokens = (raw || "tiempo,anticipos,historico")
+  if (!raw || raw === "all" || raw === "off") return null;
+  const tokens = raw
     .split(/[,\s]+/)
     .map((t) => t.trim())
     .filter(Boolean);
@@ -159,8 +164,18 @@ export function getFocusModule(): ModuleId | null {
 /** Módulos visibles según el enfoque activo (todos si no hay enfoque). */
 export function getVisibleModules(): ModuleDef[] {
   const focus = getFocusModules();
-  if (!focus) return MODULES;
-  return MODULES.filter((m) => focus.includes(m.id));
+  const available = MODULES.filter((m) => !m.hidden);
+  if (!focus) return available;
+  return available.filter((m) => focus.includes(m.id));
+}
+
+/** Ruta de un módulo pausado (`hidden`), aunque FOCUS esté en all. */
+export function isHiddenModulePath(pathname: string): boolean {
+  return MODULES.some(
+    (m) =>
+      Boolean(m.hidden) &&
+      m.routes.some((r) => isNavRouteActive(pathname, r.path)),
+  );
 }
 
 /** Rutas de herramientas / auth: siempre accesibles aunque FOCUS=tiempo, etc. */

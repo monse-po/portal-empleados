@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
-import { DateInput } from "@/src/components/ui/DateInput";
+import { DatePickerInput } from "@/src/components/ui/DateRangePicker";
 import { Field } from "@/src/components/ui/Field";
 import { FileAttachmentField } from "@/src/components/ui/FileAttachmentField";
 import { Icon } from "@/src/components/ui/Icon";
+import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
 import { PortalSubpageHeader } from "@/src/components/ui/PortalSubpageHeader";
 import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
 import {
@@ -20,25 +21,31 @@ import {
 import { useToast } from "@/src/components/ui/Toast";
 import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoporteContext";
 import {
-  DIVISAS_DS,
   dmyToIso,
   EMPRESAS_DS,
-  fmtMontoInputDs,
-  getDivisaFormatDs,
   hoyDMY,
   hoyIso,
   isoToDmy,
   lookupNifIfs,
-  parseMontoInputDs,
   SESSION_DS,
   type AdjuntoMock,
   type NifLookupStatus,
 } from "@/src/lib/documento-soporte-mock";
 import {
+  fmtMontoInput,
+  parseMontoInput,
+  type EmpleadoAnticipo,
+} from "@/src/lib/anticipos-catalog";
+import { type DivisaOption } from "@/src/lib/anticipos-ifs-catalog";
+import {
   COMPANIAS_HMV,
-  getEmpleadosOtroPorEmpresa,
   type LovItem,
 } from "@/src/lib/mis-anticipos-mock";
+import {
+  fetchAnticiposFormBootstrapAction,
+  fetchDivisasAnticipoAction,
+  fetchEmpleadosAnticipoAction,
+} from "@/src/server/anticipos-catalog-actions";
 
 type DocumentoSoporteFormularioProps = {
   onVolver: () => void;
@@ -49,7 +56,22 @@ type DocumentoSoporteFormularioProps = {
 const EMPRESA_DEFAULT = EMPRESAS_DS[0];
 
 function empresaLovLabel(item: LovItem): string {
-  return `${item.id} – ${item.nombre} (${item.sub})`;
+  return item.sub && item.sub !== item.id
+    ? `${item.id} – ${item.nombre} (${item.sub})`
+    : `${item.id} – ${item.nombre}`;
+}
+
+function isPdfFile(file: File): boolean {
+  return (
+    file.type === "application/pdf" ||
+    file.name.toLowerCase().endsWith(".pdf")
+  );
+}
+
+function companiasToLov(
+  rows: { id: string; label: string }[],
+): LovItem[] {
+  return rows.map((c) => ({ id: c.id, nombre: c.label, sub: c.id }));
 }
 
 export function DocumentoSoporteFormulario({
@@ -115,44 +137,133 @@ export function DocumentoSoporteFormulario({
     existing?.tarjetaUltimos4 ?? "",
   );
   const [concepto, setConcepto] = useState(existing?.concepto ?? "");
-  const [divisa, setDivisa] = useState(existing?.divisa ?? "COP");
+  const [divisa, setDivisa] = useState(existing?.divisa ?? "");
+  const [divisas, setDivisas] = useState<DivisaOption[]>([]);
   const [montoRaw, setMontoRaw] = useState(
-    existing
-      ? fmtMontoInputDs(Math.abs(existing.monto), existing.divisa)
-      : "",
+    existing ? String(Math.abs(existing.monto)) : "",
   );
-  const divisaFmt = getDivisaFormatDs(divisa);
   const [adjunto, setAdjunto] = useState<AdjuntoMock | undefined>(
     existing?.adjunto,
   );
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [divisasLoading, setDivisasLoading] = useState(false);
+  const [empleadosIfs, setEmpleadosIfs] = useState<EmpleadoAnticipo[]>([]);
+  const [empleadosIfsLoading, setEmpleadosIfsLoading] = useState(false);
+  const [empresasIfs, setEmpresasIfs] = useState<LovItem[]>(
+    () => COMPANIAS_HMV,
+  );
+  const [sessionCompanyId, setSessionCompanyId] = useState(
+    existing && !paraOtro ? existing.empresaId : EMPRESA_DEFAULT.id,
+  );
+  const [sessionCompanyLabel, setSessionCompanyLabel] = useState(
+    existing && !paraOtro ? existing.empresaLabel : EMPRESA_DEFAULT.label,
+  );
+  const [sessionDivisas, setSessionDivisas] = useState<DivisaOption[]>([]);
+
+  const divisaOpt = useMemo(
+    () => divisas.find((d) => d.code === divisa) ?? null,
+    [divisas, divisa],
+  );
+  const divisaPre = divisaOpt?.pre || "$";
+  const divisaDecimals = divisaOpt?.decimals ?? null;
+  const empresaBeneficiarioId = paraOtro
+    ? compBenef?.id || ""
+    : sessionCompanyId;
+
+  const applyDivisas = (next: DivisaOption[]) => {
+    setDivisas(next);
+    setDivisa((prev) => {
+      if (prev && next.some((d) => d.code === prev)) return prev;
+      return next[0]?.code || "";
+    });
+  };
 
   const handleParaOtroChange = (next: boolean) => {
     setParaOtro(next);
     if (!next) {
       setEmpOtro(null);
       setCompBenef(null);
+      applyDivisas(sessionDivisas);
     }
   };
 
   const handleCompBenefChange = (item: LovItem | null) => {
     setCompBenef(item);
-    setEmpOtro((prev) => {
-      if (!prev || !item) return null;
-      const stillInEmpresa = getEmpleadosOtroPorEmpresa(
-        item.id,
-        SESSION_DS.id,
-      ).some((e) => e.id === prev.id);
-      return stillInEmpresa ? prev : null;
-    });
+    setEmpOtro(null);
   };
 
-  const empleadosOtroLov = useMemo(
-    () =>
-      compBenef
-        ? getEmpleadosOtroPorEmpresa(compBenef.id, SESSION_DS.id)
-        : [],
-    [compBenef],
-  );
+  const empleadosOtroLov = empleadosIfs;
+
+  useEffect(() => {
+    let cancelled = false;
+    setCatalogLoading(true);
+    void fetchAnticiposFormBootstrapAction().then((result) => {
+      if (cancelled) return;
+      setCatalogLoading(false);
+      const c = result.catalog;
+      if (!c) {
+        void fetchDivisasAnticipoAction(EMPRESA_DEFAULT.id).then((r) => {
+          if (cancelled) return;
+          setSessionDivisas(r.divisas);
+          if (!paraOtro) applyDivisas(r.divisas);
+        });
+        return;
+      }
+      const lov = companiasToLov(c.companiasGasto);
+      if (lov.length) setEmpresasIfs(lov);
+      setSessionCompanyId(c.companyId || EMPRESA_DEFAULT.id);
+      setSessionCompanyLabel(
+        c.companyName
+          ? `${c.companyId} – ${c.companyName}`
+          : EMPRESA_DEFAULT.label,
+      );
+      setSessionDivisas(c.divisas);
+      if (!paraOtro) applyDivisas(c.divisas);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Solo al montar: la empresa de sesión no depende del toggle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!montoRaw.trim()) return;
+    setMontoRaw((prev) => fmtMontoInput(prev, divisaDecimals));
+  }, [divisa, divisaDecimals]);
+
+  useEffect(() => {
+    if (!paraOtro || !compBenef?.id) {
+      setEmpleadosIfs([]);
+      setEmpleadosIfsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setEmpleadosIfsLoading(true);
+    setEmpleadosIfs([]);
+    void fetchEmpleadosAnticipoAction(compBenef.id).then((result) => {
+      if (cancelled) return;
+      setEmpleadosIfsLoading(false);
+      setEmpleadosIfs(result.empleados);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [paraOtro, compBenef?.id]);
+
+  useEffect(() => {
+    if (!paraOtro || !empresaBeneficiarioId) return;
+    let cancelled = false;
+    setDivisasLoading(true);
+    void fetchDivisasAnticipoAction(empresaBeneficiarioId).then((result) => {
+      if (cancelled) return;
+      setDivisasLoading(false);
+      applyDivisas(result.divisas);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [paraOtro, empresaBeneficiarioId]);
 
   useEffect(() => {
     if (nifDebounceRef.current) clearTimeout(nifDebounceRef.current);
@@ -207,20 +318,24 @@ export function DocumentoSoporteFormulario({
       return;
     }
     if (!fechaDocumento) {
-      toast("Ingresa la Fecha Documento", "danger");
+      toast("Ingresa la fecha de documento", "danger");
       return;
     }
     if (concepto.trim().length < 5) {
       toast("El concepto debe tener al menos 5 caracteres", "danger");
       return;
     }
-    const abs = parseMontoInputDs(montoRaw, divisa);
-    if (abs === null || abs === 0) {
+    if (!divisa) {
+      toast("No hay divisa para la empresa del beneficiario", "danger");
+      return;
+    }
+    const abs = parseMontoInput(montoRaw, divisaDecimals);
+    if (!(abs > 0)) {
       toast("Ingresa un monto distinto de cero", "danger");
       return;
     }
     if (!adjunto) {
-      toast("Adjunta el archivo de soporte", "danger");
+      toast("Adjunta el PDF de soporte", "danger");
       return;
     }
     const digits = tarjetaUltimos4.replace(/\D/g, "").slice(-4);
@@ -232,11 +347,12 @@ export function DocumentoSoporteFormulario({
     const result = guardarDocumento(
       {
         tipo: "DSE",
-        empresaId: paraOtro && compBenef ? compBenef.id : EMPRESA_DEFAULT.id,
+        empresaId:
+          paraOtro && compBenef ? compBenef.id : sessionCompanyId,
         empresaLabel:
           paraOtro && compBenef
             ? empresaLovLabel(compBenef)
-            : EMPRESA_DEFAULT.label,
+            : sessionCompanyLabel,
         solicitadoPorId,
         solicitadoPorNombre,
         nif,
@@ -283,7 +399,7 @@ export function DocumentoSoporteFormulario({
             fecha={existing?.fecha ?? hoyDMY()}
             empresa={compBenef}
             onEmpresaChange={handleCompBenefChange}
-            empresas={COMPANIAS_HMV}
+            empresas={empresasIfs}
             empleado={empOtro}
             onEmpleadoChange={setEmpOtro}
             empleados={empleadosOtroLov}
@@ -292,6 +408,20 @@ export function DocumentoSoporteFormulario({
 
         <SolicitudFormCard>
           <FormSection icon="pencil" title="Documento del proveedor">
+            {(catalogLoading || divisasLoading) && (
+              <LoadingNotice
+                variant="banner"
+                icon="wallet"
+                label="Cargando divisas IFS de la empresa del beneficiario"
+              />
+            )}
+            {paraOtro && empleadosIfsLoading ? (
+              <LoadingNotice
+                variant="inline"
+                icon="userCircle"
+                label="Cargando empleados IFS"
+              />
+            ) : null}
             <FormStack>
               <FormGrid>
                 <Field label="NIF" required>
@@ -333,11 +463,11 @@ export function DocumentoSoporteFormulario({
                     className="ant-field-input"
                   />
                 </Field>
-                <Field label="Fecha Documento" required>
-                  <DateInput
+                <Field label="Fecha de documento" required>
+                  <DatePickerInput
                     value={fechaDocumento}
-                    onChange={(e) => setFechaDocumento(e.target.value)}
-                    className="ant-field-input"
+                    onChange={setFechaDocumento}
+                    placeholder="DD/MM/AAAA"
                   />
                 </Field>
               </FormGrid>
@@ -346,45 +476,43 @@ export function DocumentoSoporteFormulario({
                 <Field label="Divisa" required>
                   <SearchableSelect
                     value={divisa}
-                    onChange={(next) => {
-                      const n = parseMontoInputDs(montoRaw, divisa);
-                      setDivisa(next);
-                      if (n !== null && n !== 0) {
-                        setMontoRaw(fmtMontoInputDs(n, next));
-                      }
-                    }}
-                    options={DIVISAS_DS.map((d) => ({
-                      value: d,
-                      label: d,
+                    onChange={setDivisa}
+                    options={divisas.map((d) => ({
+                      value: d.code,
+                      label: d.label,
                     }))}
-                    placeholder="Seleccionar divisa…"
+                    placeholder={
+                      empresaBeneficiarioId
+                        ? "Seleccionar divisa…"
+                        : "Elige primero la empresa del beneficiario"
+                    }
                     searchPlaceholder="Buscar divisa…"
+                    disabled={!divisas.length}
                   />
                 </Field>
                 <Field label="Monto" required>
                   <div className="flex h-9 w-full overflow-hidden rounded-[5px] border border-border bg-white focus-within:border-navy">
                     <span className="flex min-w-[40px] items-center justify-center border-r border-border bg-[#f3f4f6] px-2 text-[13px] font-medium text-muted">
-                      {divisaFmt.prefix}
+                      {divisaPre}
                     </span>
                     <input
                       type="text"
                       inputMode={
-                        divisaFmt.fractionDigits > 0 ? "decimal" : "numeric"
+                        divisaDecimals != null && divisaDecimals > 0
+                          ? "decimal"
+                          : "numeric"
                       }
                       value={montoRaw}
                       onChange={(e) =>
                         setMontoRaw(e.target.value.replace(/[^\d.,]/g, ""))
                       }
-                      onBlur={() => {
-                        const n = parseMontoInputDs(montoRaw, divisa);
-                        if (n === null || n === 0) {
-                          setMontoRaw("");
-                          return;
-                        }
-                        setMontoRaw(fmtMontoInputDs(n, divisa));
-                      }}
+                      onBlur={() =>
+                        setMontoRaw(fmtMontoInput(montoRaw, divisaDecimals))
+                      }
                       placeholder={
-                        divisaFmt.fractionDigits > 0 ? "0.00" : "0"
+                        divisaDecimals != null && divisaDecimals > 0
+                          ? "0.00"
+                          : "0"
                       }
                       className="min-w-0 flex-1 border-0 px-2 text-[13px] outline-none"
                     />
@@ -453,21 +581,26 @@ export function DocumentoSoporteFormulario({
                 />
               </Field>
 
-              <Field label="Adjunto" required>
+              <Field label="Adjunto (PDF)" required>
                 <FileAttachmentField
                   value={
                     adjunto
                       ? { nombre: adjunto.nombre, sizeKb: adjunto.sizeKb }
                       : null
                   }
-                  accept=".pdf,image/*,.zip"
-                  onSelect={(file) =>
+                  accept="application/pdf,.pdf"
+                  emptyLabel="Adjuntar PDF"
+                  onSelect={(file) => {
+                    if (!isPdfFile(file)) {
+                      toast("El adjunto debe ser un PDF", "danger");
+                      return;
+                    }
                     setAdjunto({
                       nombre: file.name,
                       sizeKb: Math.max(1, Math.round(file.size / 1024)),
-                      mime: file.type || "application/octet-stream",
-                    })
-                  }
+                      mime: "application/pdf",
+                    });
+                  }}
                   onClear={() => setAdjunto(undefined)}
                 />
               </Field>

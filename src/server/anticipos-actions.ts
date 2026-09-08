@@ -37,6 +37,7 @@ import {
 import { odataStringKey } from "@/src/lib/ifs/client";
 import {
   applyDestinoNombres,
+  ifsStateToUi,
   queryToAnticipo,
   queryToAprobacion,
   queryToExtra,
@@ -650,6 +651,13 @@ export async function cancelarAnticipoAction(
 
   if (actor.fromIfs && actor.accessToken) {
     try {
+      const current = await getAdvanceQuery(actor.accessToken, no);
+      if (current && ifsStateToUi(current) !== "Lanzado") {
+        return {
+          ok: false,
+          error: "No se puede cancelar: la solicitud ya no está en Lanzado.",
+        };
+      }
       await cancelEmpAdvance(actor.accessToken, no);
       return { ok: true };
     } catch (err) {
@@ -666,7 +674,7 @@ export async function cancelarAnticipoAction(
         : { ok: false, missing: true };
     }
     if (row.estado !== "LANZADO") {
-      return { ok: false, error: "Solo se puede cancelar una solicitud Lanzado" };
+      return { ok: false, error: "No se puede cancelar: la solicitud ya no está en Lanzado." };
     }
     const solId = normalizeAnticipoId(row.solicitanteId);
     if (!actor.ids.includes(solId)) {

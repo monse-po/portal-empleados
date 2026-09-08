@@ -263,13 +263,12 @@ export function esSolicitudParaOtro(d: DocumentoSoporte): boolean {
  */
 export function getRegistradoPorChip(
   d: DocumentoSoporte,
-  sessionEmpleadoId: string,
+  _sessionEmpleadoId?: string,
 ): string | null {
-  const sessionId = normalizeId(sessionEmpleadoId);
-  if (normalizeId(d.registradoPorId) !== sessionId) {
-    return d.registradoPorNombre;
+  if (normalizeId(d.solicitadoPorId) === normalizeId(d.registradoPorId)) {
+    return null;
   }
-  return null;
+  return d.registradoPorNombre;
 }
 
 export function validarSignoMonto(

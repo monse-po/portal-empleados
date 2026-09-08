@@ -118,7 +118,7 @@ export function DocumentoSoporteDetalle({
               <ReadOnlyField label="No. Documento Original">
                 {documento.noDocumentoOriginal}
               </ReadOnlyField>
-              <ReadOnlyField label="Fecha Documento">
+              <ReadOnlyField label="Fecha de documento">
                 {documento.fechaDocumento}
               </ReadOnlyField>
             </DetailGrid>
@@ -160,8 +160,8 @@ export function DocumentoSoporteDetalle({
                 <ReadOnlyField label="Tamaño">
                   {formatSizeKb(documento.adjunto.sizeKb)}
                 </ReadOnlyField>
-                <ReadOnlyField label="Tipo MIME">
-                  {documento.adjunto.mime}
+                <ReadOnlyField label="Tipo">
+                  PDF
                 </ReadOnlyField>
               </DetailGrid>
             ) : (

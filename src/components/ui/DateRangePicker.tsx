@@ -301,8 +301,13 @@ function formatDiaMesAnio(d: Date): string {
   return `${d.getDate()} ${MES_CORTO[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** Campo suelto: mismo DD/MM/YYYY que tablas y detalle. */
 function formatFechaCampo(iso: string): string {
-  return formatFechaRangoCorto(iso, iso);
+  const d = isoToDate(iso);
+  if (!d) return "Elegir fecha…";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
 /** Un día → «3 sep 2026»; rango → «3 – 10 sep 2026». */

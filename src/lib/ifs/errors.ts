@@ -73,6 +73,12 @@ export function humanizeIfsDetail(detail: string): string | null {
       : "Esa fecha ya está cerrada para registro. Elige una fecha más reciente.";
   }
 
+  if (
+    /CNOTVALIDEVENT|no es un evento valido|not a valid event/i.test(text)
+  ) {
+    return "No se puede cancelar: la solicitud ya no está en Lanzado.";
+  }
+
   if (/CINVALIDDEST|codigo de destino no es valido/i.test(text)) {
     return "Ese destino no es válido en IFS. Elige un destino de la lista.";
   }

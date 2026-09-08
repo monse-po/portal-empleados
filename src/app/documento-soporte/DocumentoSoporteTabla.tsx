@@ -115,10 +115,7 @@ export function DocumentoSoporteTabla({
                     {row.fecha}
                   </td>
                   <td className={`${dataTd} align-top`}>
-                    <EmpleadoCell
-                      nombre={row.solicitadoPorNombre}
-                      codigo={row.solicitadoPorId}
-                    />
+                    <EmpleadoCell nombre={row.solicitadoPorNombre} />
                     {registradoPor ? (
                       <div
                         className="mt-1 inline-flex max-w-full flex-wrap items-baseline gap-x-1 rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug [overflow-wrap:anywhere]"
