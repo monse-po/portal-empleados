@@ -1,5 +1,6 @@
 import { format, parse } from "date-fns";
 import type { IconName } from "@/src/components/ui/Icon";
+import { empleadoFiltroNombre } from "@/src/lib/empleado-display";
 import { dmyToSortKey } from "@/src/lib/tiempo-bridge";
 import type {
   DocumentoSoporte,
@@ -9,15 +10,23 @@ import type {
 export type DocumentoSoporteFilterColumn =
   | "codigo"
   | "fecha"
+  | "beneficiario"
   | "nif"
   | "documento"
   | "concepto"
   | "estado";
 
+export type DocumentoSoporteFilterMultiColumn =
+  | "codigo"
+  | "beneficiario"
+  | "nif"
+  | "documento"
+  | "estado";
+
 export type DocumentoSoporteFilterRule =
   | {
       id: string;
-      column: "codigo" | "nif" | "documento" | "concepto";
+      column: "concepto";
       text: string;
     }
   | {
@@ -28,7 +37,7 @@ export type DocumentoSoporteFilterRule =
     }
   | {
       id: string;
-      column: "estado";
+      column: DocumentoSoporteFilterMultiColumn;
       values: string[];
     };
 
@@ -41,6 +50,7 @@ export type DocumentoSoporteFilterColumnDef = {
 export const DS_FILTER_COLUMNS_BASE: DocumentoSoporteFilterColumnDef[] = [
   { id: "codigo", label: "Código", icon: "copy" },
   { id: "fecha", label: "Solicitado", icon: "calendar" },
+  { id: "beneficiario", label: "Beneficiario", icon: "user" },
   { id: "nif", label: "NIF", icon: "userCircle" },
   { id: "documento", label: "No. Documento", icon: "paperclip" },
   { id: "concepto", label: "Concepto", icon: "pencil" },
@@ -93,6 +103,8 @@ function getFieldValue(
       return s.no;
     case "fecha":
       return s.fecha;
+    case "beneficiario":
+      return empleadoFiltroNombre(s.solicitadoPorNombre, s.solicitadoPorId);
     case "nif":
       return s.nif;
     case "documento":
@@ -108,7 +120,7 @@ function getFieldValue(
 
 export function getDistinctValues(
   registros: DocumentoSoporte[],
-  col: "estado",
+  col: DocumentoSoporteFilterMultiColumn,
 ): string[] {
   const set = new Set<string>();
   registros.forEach((s) => {
@@ -131,13 +143,14 @@ function matchRule(
       if (toKey !== null && dKey > toKey) return false;
       return true;
     }
+    case "codigo":
+    case "beneficiario":
+    case "nif":
+    case "documento":
     case "estado": {
       if (!rule.values.length) return true;
       return rule.values.includes(getFieldValue(s, rule.column));
     }
-    case "codigo":
-    case "nif":
-    case "documento":
     case "concepto": {
       const q = rule.text.trim().toLowerCase();
       if (!q) return true;
@@ -188,11 +201,12 @@ export function isRuleComplete(rule: DocumentoSoporteFilterRule): boolean {
   switch (rule.column) {
     case "fecha":
       return !!(rule.from || rule.to);
-    case "estado":
-      return rule.values.length > 0;
     case "codigo":
+    case "beneficiario":
     case "nif":
     case "documento":
+    case "estado":
+      return rule.values.length > 0;
     case "concepto":
       return !!rule.text.trim();
     default:
@@ -207,14 +221,15 @@ export function createEmptyRule(
   switch (column) {
     case "fecha":
       return { id, column: "fecha" };
-    case "estado":
-      return { id, column: "estado", values: [] };
     case "codigo":
+    case "beneficiario":
     case "nif":
     case "documento":
+    case "estado":
+      return { id, column, values: [] };
     case "concepto":
-      return { id, column, text: "" };
+      return { id, column: "concepto", text: "" };
     default:
-      return { id, column: "codigo", text: "" };
+      return { id, column: "concepto", text: "" };
   }
 }
