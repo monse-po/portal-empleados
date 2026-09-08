@@ -17,7 +17,7 @@ flowchart TB
     B1[cursor/modulo-tiempo]
     B2[cursor/modulo-anticipos]
     B3[cursor/modulo-___]
-    BS[cursor/shell-shared]
+    BS[cursor/ambiente-dev]
   end
 
   B1 -->|merge PR| main_branch
@@ -55,7 +55,7 @@ Fuente de verdad: **`src/lib/modules.ts`** (registro de módulos + rutas por rol
 |------|--------|
 | **`main`** | La verdad integrada. `npm run dev` con **todos** los módulos que ya entraron. |
 | **`cursor/modulo-*`** | Trabajo focalizado. Merge a `main` cuando el módulo (o par empleado+gerente) esté listo. |
-| **`cursor/shell-shared`** | Cambios que afectan a **todos** (Button, breadcrumb, sidebar, tokens). |
+| **`cursor/ambiente-dev`** | Lo que corre en el ambiente DEV (`hmv-empleados-dev`). |
 
 No mantengas ramas de módulo meses sin merge: se desincronizan en archivos compartidos.
 
@@ -107,7 +107,7 @@ src/lib/aprobacion-anticipos-filtros.ts
 .cursor/rules/30-anticipos-business.mdc
 ```
 
-### **Shell / compartido** (`cursor/shell-shared`)
+### **Ambiente DEV** (`cursor/ambiente-dev`)
 
 ```
 src/app/layout.tsx
@@ -120,7 +120,7 @@ src/components/ui/AppProviders.tsx  ← badges nav + sync cross-módulo
 .cursor/rules/02-design-system.mdc
 ```
 
-Si tocás algo en `shell-shared`, **avisa** en el PR porque impacta todos los módulos.
+Si tocás el shell (layout, tokens, `AppProviders`), **avisa** en el PR porque impacta todos los módulos.
 
 ---
 
@@ -166,9 +166,9 @@ Igual con `cursor/modulo-anticipos`.
 ### Cambiar botones / layout para todos
 
 ```bash
-git checkout cursor/shell-shared
+git checkout cursor/ambiente-dev
 # … Button, Sidebar, tokens …
-git checkout main && git merge cursor/shell-shared
+git checkout main && git merge cursor/ambiente-dev
 ```
 
 ---
@@ -202,7 +202,7 @@ git remote add origin https://github.com/ORG/portal-empleados.git
 git push -u origin main
 git push -u origin cursor/modulo-tiempo
 git push -u origin cursor/modulo-anticipos
-git push -u origin cursor/shell-shared
+git push -u origin cursor/ambiente-dev
 ```
 
 Hasta entonces, **todo queda solo en tu Mac** en `.git/`.
