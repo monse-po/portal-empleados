@@ -70,8 +70,8 @@ export function resolvePublicOrigin(request: Request): string {
 
 /**
  * redirect_uri del flujo actual.
- * - localhost → https://localhost:PORT/api/auth/callback/ifs (túnel)
- * - resto → IFS_OAUTH_REDIRECT_URI o origen público
+ * - localhost → IFS_OAUTH_REDIRECT_URI si es local (suele ser http://localhost:PORT)
+ * - resto → origen público (nunca un .env de localhost)
  */
 export function resolveOAuthRedirectUri(request: Request): string {
   const configured = getIfsConfig().oauthRedirectUri?.trim();
@@ -81,24 +81,19 @@ export function resolveOAuthRedirectUri(request: Request): string {
   const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 
   if (isLocal) {
-    // Usar la URI de .env.local (la misma que IAM). No reescribir host/scheme.
     if (configured) {
       try {
         const cfg = new URL(configured);
-        if (isLocalHost(cfg.host)) return configured;
+        if (isLocalHost(cfg.host)) {
+          return configured.replace(/\/$/, "");
+        }
       } catch {
         /* ignore */
       }
     }
-    // Túnel local (IFS a veces manda https://localhost:3001)
-    if (origin.startsWith("http://")) {
-      return `https://${origin.slice("http://".length)}/api/auth/callback/ifs`;
-    }
     return derived;
   }
 
-  // Origen público: siempre derivar del origin real para evitar
-  // que un .env con localhost override la URL pública.
   return derived;
 }
 
