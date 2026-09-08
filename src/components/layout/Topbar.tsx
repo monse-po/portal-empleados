@@ -11,7 +11,7 @@ import { NotificationBell } from "@/src/components/notifications/NotificationBel
 export function Topbar() {
   const { collapsed, toggleSidebar, mobileMenuOpen, toggleMobileMenu } =
     useShell();
-  const { isGerente } = useRole();
+  const { isGerente, canSwitchRole } = useRole();
 
   return (
     <header className="relative z-[100] flex h-[52px] shrink-0 items-center justify-between bg-white px-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] max-md:px-2 md:h-14 md:px-6">
@@ -60,12 +60,16 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-2 md:gap-3">
-        <span className="hidden items-center gap-1.5 rounded-full border-[1.5px] border-[#c7d9ed] bg-[#eef3f9] px-2.5 py-[3px] text-[11px] font-bold tracking-wide text-navy md:inline-flex">
-          <Icon name={isGerente ? "shieldCheck" : "clock"} size="sm" />
-          {isGerente ? "Gerente" : "Empleado"}
-        </span>
+        {canSwitchRole ? (
+          <span className="hidden items-center gap-1.5 rounded-full border-[1.5px] border-[#c7d9ed] bg-[#eef3f9] px-2.5 py-[3px] text-[11px] font-bold tracking-wide text-navy md:inline-flex">
+            <Icon name={isGerente ? "shieldCheck" : "user"} size="sm" />
+            {isGerente ? "Gerente" : "Empleado"}
+          </span>
+        ) : null}
 
-        <div className="hidden h-7 w-px bg-border md:block" />
+        {canSwitchRole ? (
+          <div className="hidden h-7 w-px bg-border md:block" />
+        ) : null}
 
         <NotificationBell />
 

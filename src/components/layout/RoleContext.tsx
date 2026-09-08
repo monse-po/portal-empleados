@@ -9,10 +9,12 @@ import {
   type ReactNode,
 } from "react";
 import { getHomePathForRole } from "@/src/lib/modules";
+import { fetchSessionUiRolAction } from "@/src/server/portal-acceso-session";
 
 export type UsuarioRol = "gerente" | "empleado";
 
 const STORAGE_KEY = "hmv-usuario-rol";
+const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
 
 type RoleContextValue = {
   rol: UsuarioRol;
@@ -20,38 +22,83 @@ type RoleContextValue = {
   isGerente: boolean;
   homePath: string;
   roleReady: boolean;
+  /** Solo demo local sin IFS. */
+  canSwitchRole: boolean;
 };
 
 const RoleContext = createContext<RoleContextValue | null>(null);
 
 function readStoredRol(): UsuarioRol {
-  if (typeof window === "undefined") return "gerente";
+  if (typeof window === "undefined") return "empleado";
   const stored = window.sessionStorage.getItem(STORAGE_KEY);
-  return stored === "empleado" ? "empleado" : "gerente";
+  return stored === "gerente" ? "gerente" : "empleado";
+}
+
+function persistRol(next: UsuarioRol) {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(STORAGE_KEY, next);
+  }
 }
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [rol, setRolState] = useState<UsuarioRol>("gerente");
+  const [rol, setRolState] = useState<UsuarioRol>("empleado");
   const [roleReady, setRoleReady] = useState(false);
+  const [canSwitchRole, setCanSwitchRole] = useState(!IFS_AUTH_ENABLED);
+  const [canApprove, setCanApprove] = useState(false);
 
   useEffect(() => {
-    setRolState(readStoredRol());
-    setRoleReady(true);
+    let cancelled = false;
+
+    const finish = (
+      next: UsuarioRol,
+      switchAllowed: boolean,
+      approve: boolean,
+    ) => {
+      if (cancelled) return;
+      setRolState(next);
+      persistRol(next);
+      setCanSwitchRole(switchAllowed);
+      setCanApprove(approve);
+      setRoleReady(true);
+    };
+
+    if (!IFS_AUTH_ENABLED) {
+      const stored = readStoredRol();
+      finish(stored, true, stored === "gerente");
+      return;
+    }
+
+    void fetchSessionUiRolAction()
+      .then((data) => {
+        finish("empleado", false, data.canApprove);
+      })
+      .catch(() => {
+        finish("empleado", false, false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const setRol = useCallback((next: UsuarioRol) => {
-    setRolState(next);
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(STORAGE_KEY, next);
-    }
-  }, []);
+  const setRol = useCallback(
+    (next: UsuarioRol) => {
+      if (roleReady && !canSwitchRole) return;
+      setRolState(next);
+      persistRol(next);
+    },
+    [canSwitchRole, roleReady],
+  );
+
+  const isGerente = canSwitchRole ? rol === "gerente" : canApprove;
 
   const value: RoleContextValue = {
     rol,
     setRol,
-    isGerente: rol === "gerente",
-    homePath: getHomePathForRole(rol),
+    isGerente,
+    homePath: getHomePathForRole(canSwitchRole ? rol : "empleado"),
     roleReady,
+    canSwitchRole,
   };
 
   return (
