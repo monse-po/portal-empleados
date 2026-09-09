@@ -13,7 +13,8 @@ import { Sidebar } from "@/src/components/layout/Sidebar";
 import { Topbar } from "@/src/components/layout/Topbar";
 import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
 
-const AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
+/** En local next.config deja esto vacío: no hay muro de /login. */
+const LOGIN_REQUIRED = process.env.NEXT_PUBLIC_PORTAL_LOGIN_REQUIRED === "true";
 
 type PortalShellProps = {
   children: React.ReactNode;
@@ -25,11 +26,11 @@ export function PortalShell({ children }: PortalShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isLogin = pathname === "/login";
   const [session, setSession] = useState<"unknown" | "ok" | "no">(
-    AUTH_ENABLED && !isLogin ? "unknown" : "ok",
+    LOGIN_REQUIRED && !isLogin ? "unknown" : "ok",
   );
 
   useEffect(() => {
-    if (!AUTH_ENABLED || isLogin) {
+    if (!LOGIN_REQUIRED || isLogin) {
       setSession("ok");
       return;
     }

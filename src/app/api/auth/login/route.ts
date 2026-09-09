@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { isIfsAuthReady } from "@/src/lib/ifs/config";
+import { isIfsAuthReady, isPortalLoginRequired } from "@/src/lib/ifs/config";
 import { expireStalePortalCookies } from "@/src/lib/ifs/clear-portal-cookies";
 import {
   LEGACY_SESSION_COOKIE,
@@ -8,6 +8,7 @@ import {
 } from "@/src/lib/ifs/constants";
 import {
   completeUserLoginFromTokens,
+  completeUserLoginFromVerifiedEmail,
   IfsLoginFlowError,
 } from "@/src/lib/ifs/complete-user-login";
 import {
@@ -77,7 +78,8 @@ export async function POST(request: Request) {
     preferred_username: emailRaw,
     username: emailRaw,
   });
-  if (!loginEmail || !password) {
+  const allowEmailOnly = !isPortalLoginRequired();
+  if (!loginEmail || (!password && !allowEmailOnly)) {
     return NextResponse.json({ error: "invalid_credentials" }, { status: 400 });
   }
   if (isSystemPortalEmail(loginEmail)) {
@@ -95,14 +97,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const tokens = await exchangePasswordGrant({
-      username: loginEmail,
-      password,
-    });
-    const login = await completeUserLoginFromTokens({
-      tokens,
-      typedEmail: loginEmail,
-    });
+    const login = password
+      ? await loginWithPasswordOrEmail(loginEmail, password, allowEmailOnly)
+      : await completeUserLoginFromVerifiedEmail(loginEmail);
     const origin = resolvePublicOrigin(request);
     const secure = origin.startsWith("https://");
     const response = NextResponse.json({ ok: true, next });
@@ -125,5 +122,25 @@ export async function POST(request: Request) {
     const code = classifyPasswordGrantError(err);
     const status = code === "invalid_credentials" ? 401 : 400;
     return NextResponse.json({ error: code }, { status });
+  }
+}
+
+async function loginWithPasswordOrEmail(
+  loginEmail: string,
+  password: string,
+  allowEmailOnly: boolean,
+) {
+  try {
+    const tokens = await exchangePasswordGrant({
+      username: loginEmail,
+      password,
+    });
+    return completeUserLoginFromTokens({
+      tokens,
+      typedEmail: loginEmail,
+    });
+  } catch (err) {
+    if (!allowEmailOnly) throw err;
+    return completeUserLoginFromVerifiedEmail(loginEmail);
   }
 }

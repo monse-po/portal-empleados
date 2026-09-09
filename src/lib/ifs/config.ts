@@ -112,6 +112,22 @@ export function isIfsAuthEnabled(): boolean {
   return process.env.IFS_AUTH_ENABLED === "true";
 }
 
+function isQaDevHost(): boolean {
+  const redirect = envFirst("IFS_OAUTH_REDIRECT_URI");
+  return redirect.includes("hmv-empleados-dev");
+}
+
+/**
+ * ¿Hay que mandar a /login si no hay sesión?
+ * Local y DEV (QA): no. El perfil sigue siendo el de IFS (correo asociado).
+ * PROD: sí si IFS_AUTH_ENABLED.
+ */
+export function isPortalLoginRequired(): boolean {
+  if (process.env.NODE_ENV !== "production") return false;
+  if (isQaDevHost()) return false;
+  return isIfsAuthEnabled();
+}
+
 export function isIfsAuthReady(): boolean {
   if (!isIfsAuthEnabled()) return false;
   const { oauthClientId, oauthClientSecret, oauthRedirectUri } = getIfsConfig();

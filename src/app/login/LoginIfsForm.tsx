@@ -6,6 +6,9 @@ import { Field } from "@/src/components/ui/Field";
 import { Icon } from "@/src/components/ui/Icon";
 import { loginErrorMessage } from "@/src/lib/ifs/login-messages";
 
+const PASSWORD_OPTIONAL =
+  process.env.NEXT_PUBLIC_PORTAL_LOGIN_REQUIRED !== "true";
+
 type LoginIfsFormProps = {
   next: string;
   defaultEmail?: string;
@@ -32,7 +35,8 @@ export function LoginIfsForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = email.trim();
-    if (!trimmed || !password || submitting) return;
+    if (!trimmed || submitting) return;
+    if (!PASSWORD_OPTIONAL && !password) return;
 
     setSubmitting(true);
     setError(null);
@@ -41,7 +45,11 @@ export function LoginIfsForm({
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email: trimmed, password, next }),
+        body: JSON.stringify({
+          email: trimmed,
+          password: PASSWORD_OPTIONAL ? "" : password,
+          next,
+        }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -73,7 +81,11 @@ export function LoginIfsForm({
       >
         Entrar con Microsoft
       </Button>
-      <p className="login-divider">o con correo y contraseña</p>
+      <p className="login-divider">
+        {PASSWORD_OPTIONAL
+          ? "o con el correo asociado en IFS"
+          : "o con correo y contraseña"}
+      </p>
       <Field label="Correo corporativo" required htmlFor="login-email">
         <div className="login-field-shell">
           <span className="login-field-icon">
@@ -92,34 +104,42 @@ export function LoginIfsForm({
           />
         </div>
       </Field>
-      <Field label="Contraseña" required htmlFor="login-password">
-        <div className="login-field-shell">
-          <span className="login-field-icon">
-            <Icon name="lock" size="sm" />
-          </span>
-          <input
-            id="login-password"
-            type={showPassword ? "text" : "password"}
-            required
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="login-input max-md:text-[16px]"
-          />
-          <button
-            type="button"
-            className="login-toggle"
-            onClick={() => setShowPassword((open) => !open)}
-            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-          >
-            <Icon name={showPassword ? "eyeOff" : "eye"} size="sm" />
-          </button>
-        </div>
+      {PASSWORD_OPTIONAL ? (
         <p className="login-hint">
-          Solo usuario IFS. La de Outlook va en Entrar con Microsoft.
+          Entra con el correo asociado al empleado en IFS.
         </p>
-      </Field>
+      ) : (
+        <Field label="Contraseña" required htmlFor="login-password">
+          <div className="login-field-shell">
+            <span className="login-field-icon">
+              <Icon name="lock" size="sm" />
+            </span>
+            <input
+              id="login-password"
+              type={showPassword ? "text" : "password"}
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="login-input max-md:text-[16px]"
+            />
+            <button
+              type="button"
+              className="login-toggle"
+              onClick={() => setShowPassword((open) => !open)}
+              aria-label={
+                showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+              }
+            >
+              <Icon name={showPassword ? "eyeOff" : "eye"} size="sm" />
+            </button>
+          </div>
+          <p className="login-hint">
+            Solo usuario IFS. La de Outlook va en Entrar con Microsoft.
+          </p>
+        </Field>
+      )}
       <Button
         type="submit"
         variant="secondary"

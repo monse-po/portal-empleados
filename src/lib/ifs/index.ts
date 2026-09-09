@@ -9,6 +9,7 @@ export {
   isIfsAuthEnabled,
   isIfsAuthReady,
   isIfsConfigured,
+  isPortalLoginRequired,
   type IfsConfig,
 } from "@/src/lib/ifs/config";
 export {

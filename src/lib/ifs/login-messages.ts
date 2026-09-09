@@ -22,7 +22,7 @@ export const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   microsoft_not_configured:
     "No se pudo abrir Microsoft. Inténtalo de nuevo o avisa a soporte.",
   user_not_in_ifs:
-    "Microsoft te reconoció, pero ese correo no está en IFS. Avisa a soporte.",
+    "Ese correo no está asociado a un empleado en IFS. Revisa el EmailId.",
 };
 
 export function loginErrorMessage(code: string | null | undefined): string {

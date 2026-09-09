@@ -1,4 +1,5 @@
 import { HMV_LOGO_SRC } from "@/src/lib/hmv-logo";
+import { isPortalLoginRequired } from "@/src/lib/ifs/config";
 import { LoginIfsForm } from "./LoginIfsForm";
 import "./login.css";
 
@@ -30,7 +31,9 @@ export function LoginScreen({
           </h1>
           <p className="login-form-action">Inicia sesión</p>
           <p className="login-form-copy">
-            Entra con tu cuenta Microsoft. El correo y contraseña de abajo es solo para usuario IFS.
+            {isPortalLoginRequired()
+              ? "Entra con tu cuenta Microsoft. El correo y contraseña de abajo es solo para usuario IFS."
+              : "Entra con el correo asociado al empleado en IFS. Por ahora no se pide contraseña."}
           </p>
         </header>
 
