@@ -23,11 +23,11 @@ export function readIfsEnv() {
   return {
     cempPortalBaseUrl: firstDefined(
       process.env.IFS_CEMP_PORTAL_BASE_URL,
-      "https://hmvdev.ifs360.cloud/int/ifsapplications/projection/v1/CEmpPortalServices.svc",
+      "https://hmvtest.ifs360.cloud/int/ifsapplications/projection/v1/CEmpPortalServices.svc",
     ),
     openIdConfigUrl: firstDefined(
       process.env.IFS_OPENID_CONFIG_URL,
-      "https://hmvdev.ifs360.cloud/auth/realms/hmvdev/.well-known/openid-configuration",
+      "https://hmvtest.ifs360.cloud/auth/realms/hmvtest/.well-known/openid-configuration",
     ),
     oauthClientId: firstDefined(
       process.env.IFS_OAUTH_CLIENT_ID,

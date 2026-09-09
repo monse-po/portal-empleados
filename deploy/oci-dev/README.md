@@ -21,8 +21,8 @@ Promoción DEV → TEST → PROD = mismo código, otro `.env` (`IFS_SYSTEM_URL`,
 | App | usuario `portalnext` · systemd `portal-next` · `127.0.0.1:3001` |
 | Postgres | 16 · `portal_hmv_dev` · `portal_app` · solo localhost |
 | URL | `https://hmv-empleados-dev.nubeportal.com` |
-| IFS | Keycloak realm, **no IDCS**. M2M `PORTAL_HMV_M2M`. Compañía `HMVINGCO`. |
-| Auth empleado | apagado hasta Entra ID de HMV |
+| IFS | Keycloak realm **hmvtest** (`https://hmvtest.ifs360.cloud`), client `IFS_EMP_PORTAL_USER`. Compañía `HMVINGCO`. |
+| Auth empleado | Encendido: correo y clave en `/login` (IFS valida, sin pantalla de IFS). |
 
 ## Doble clic desde tu Mac (recomendado)
 
@@ -42,8 +42,7 @@ La persona de Bastion necesita:
 
 Y de configs (en Vault / OneNote, **no por chat**):
 
-- Secret de `PORTAL_HMV_M2M` en el tenant **DEV** (confirmar que el client existe ahí; la nota lo nombra en `hmvtest`)
-- Hostname/realm DEV si no es `hmvdev` / `https://hmvdev.ifs360.cloud`
+- Secret de `IFS_EMP_PORTAL_USER` en el tenant **TEST** (`hmvtest` / `https://hmvtest.ifs360.cloud`)
 - Token del túnel Cloudflare (se genera en el dashboard)
 - Contraseña de `portal_app` (la definen al correr el script 02)
 
@@ -98,8 +97,8 @@ La VM necesita policy de instance principal `objectstorage` sobre ese bucket, o 
 
 - **Auth:** Keycloak del tenant IFS, no el IDCS de la tenancy OCI (`idcs-2563e239…`).
 - **No** definir `IFS_IDCS_DOMAIN_URL` / `IFS_IDCS_*`.
-- Sí: `IFS_USE_REALM_OAUTH=true`, `IFS_SYSTEM_URL`, `IFS_REALM`, client M2M.
-- Login de empleado (`IFS_AUTH_ENABLED`) se enciende cuando HMV entregue Entra + redirect URI a `https://hmv-empleados-dev.nubeportal.com/api/auth/callback/ifs`.
+- Sí: `IFS_USE_REALM_OAUTH=true`, `IFS_SYSTEM_URL=https://hmvtest.ifs360.cloud`, `IFS_REALM=hmvtest`, client `IFS_EMP_PORTAL_USER`.
+- Login de empleado: `IFS_AUTH_ENABLED=true` y `IFS_OAUTH_REDIRECT_URI=https://hmv-empleados-dev.nubeportal.com/api/auth/callback/ifs`.
 - La IP interna de IFS `12.0.2.235` es alcanzable por DRG; el hostname público `*.ifs360.cloud` sale por NAT. El `.env` usa hostname; no hace falta el IP interno.
 
 ## Rama

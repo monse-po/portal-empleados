@@ -1,5 +1,6 @@
-const DEFAULT_REALM = "hmvdev";
-const DEFAULT_SYSTEM = "https://hmvdev.ifs360.cloud";
+/** Este portal en DEV habla con IFS TEST, no con el tenant hmvdev. */
+const DEFAULT_REALM = "hmvtest";
+const DEFAULT_SYSTEM = "https://hmvtest.ifs360.cloud";
 
 const DEFAULT_SCOPE = "openid email profile microprofile-jwt";
 /** Scope Oracle IDCS para client_credentials (distinto del realm IFS). */

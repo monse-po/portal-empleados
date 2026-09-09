@@ -26,9 +26,9 @@ function authorizationEndpoint(): string {
 
 function getOAuthRealmConfig() {
   const systemUrl = (
-    process.env.IFS_SYSTEM_URL?.trim() || "https://hmvdev.ifs360.cloud"
+    process.env.IFS_SYSTEM_URL?.trim() || "https://hmvtest.ifs360.cloud"
   ).replace(/\/$/, "");
-  const realm = process.env.IFS_REALM?.trim() || "hmvdev";
+  const realm = process.env.IFS_REALM?.trim() || "hmvtest";
   return { systemUrl, realm };
 }
 
