@@ -39,19 +39,13 @@ export function LoginIfsForm({
         ok?: boolean;
         next?: string;
         error?: string;
-        oauth?: string;
       };
-      if (data.ok) {
-        window.location.assign(data.next?.startsWith("/") ? data.next : next);
+      if (!res.ok || !data.ok) {
+        setError(loginErrorMessage(data.error));
+        setSubmitting(false);
         return;
       }
-      // liz y cuentas federadas: IFS no acepta la clave aquí; entra en su pantalla.
-      if (data.oauth?.startsWith("/api/auth/login")) {
-        window.location.assign(data.oauth);
-        return;
-      }
-      setError(loginErrorMessage(data.error));
-      setSubmitting(false);
+      window.location.assign(data.next?.startsWith("/") ? data.next : next);
     } catch {
       setError(loginErrorMessage("token_exchange"));
       setSubmitting(false);

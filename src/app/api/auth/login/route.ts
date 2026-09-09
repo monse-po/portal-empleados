@@ -4,21 +4,15 @@ import { isIfsAuthReady } from "@/src/lib/ifs/config";
 import { expireStalePortalCookies } from "@/src/lib/ifs/clear-portal-cookies";
 import {
   LEGACY_SESSION_COOKIE,
-  OAUTH_BUNDLE_COOKIE,
   SESSION_COOKIE,
 } from "@/src/lib/ifs/constants";
 import {
   completeUserLoginFromTokens,
   IfsLoginFlowError,
 } from "@/src/lib/ifs/complete-user-login";
-import { sealOAuthBundle } from "@/src/lib/ifs/oauth-cookie-bundle";
 import {
-  buildAuthorizationUrl,
   classifyPasswordGrantError,
-  createOAuthState,
-  createPkcePair,
   exchangePasswordGrant,
-  resolveOAuthRedirectUri,
   resolvePublicOrigin,
 } from "@/src/lib/ifs/oauth-user";
 import {
@@ -34,89 +28,18 @@ function safeNext(raw: unknown): string {
     : "/hoja-tiempo";
 }
 
-/** 127.0.0.1 y localhost no comparten cookies: alinear con el callback de IFS. */
-function canonicalizeLocalLoginHost(
-  requestUrl: URL,
-  redirectUri: string,
-): URL | null {
-  if (requestUrl.hostname !== "127.0.0.1") return null;
-  try {
-    const callback = new URL(redirectUri);
-    if (callback.hostname !== "localhost") return null;
-    const aligned = new URL(
-      `${requestUrl.pathname}${requestUrl.search}`,
-      callback.origin,
-    );
-    return aligned;
-  } catch {
-    return null;
-  }
-}
-
-function oauthStartUrl(origin: string, email: string, next: string): string {
-  const dest = new URL("/api/auth/login", origin);
-  dest.searchParams.set("next", next);
-  dest.searchParams.set("email", email);
-  return dest.pathname + dest.search;
-}
-
-/** Abre el login de IFS (el que sí funciona con liz). */
+/** Enlaces viejos → formulario. La clave se valida aquí, no en la pantalla de IFS. */
 export async function GET(request: Request) {
-  if (!isIfsAuthReady()) {
-    return NextResponse.json(
-      { error: "IFS_AUTH_ENABLED requiere IFS_OAUTH_CLIENT_ID, SECRET y REDIRECT_URI" },
-      { status: 503 },
-    );
-  }
-
-  const jar = await cookies();
-  const sessionRaw = jar.get(SESSION_COOKIE)?.value;
-  const legacyRaw = jar.get(LEGACY_SESSION_COOKIE)?.value;
-  if (sessionRaw || legacyRaw) {
-    await destroyPersistedIfsSession(sessionRaw ?? legacyRaw);
-  }
-
-  const { verifier, challenge } = createPkcePair();
-  const state = createOAuthState();
-  const opts = sessionCookieOptions(600);
-
+  const origin = resolvePublicOrigin(request);
   const url = new URL(request.url);
+  const dest = new URL("/login", origin);
   const next = url.searchParams.get("next");
-  const loginHint = url.searchParams.get("email")?.trim();
-  const loginEmail = loginHint
-    ? resolveSessionEmail({
-        email: loginHint,
-        preferred_username: loginHint,
-        username: loginHint,
-      })
-    : undefined;
-  const redirectUri = resolveOAuthRedirectUri(request);
-  const localLogin = canonicalizeLocalLoginHost(url, redirectUri);
-  if (localLogin) {
-    return NextResponse.redirect(localLogin);
+  const email = url.searchParams.get("email")?.trim();
+  if (next && next.startsWith("/") && !next.startsWith("//")) {
+    dest.searchParams.set("next", next);
   }
-  const authUrl = buildAuthorizationUrl({
-    state,
-    codeChallenge: challenge,
-    loginHint: loginEmail ?? loginHint,
-    redirectUri,
-  });
-  const response = NextResponse.redirect(authUrl);
-
-  response.cookies.set(
-    OAUTH_BUNDLE_COOKIE,
-    sealOAuthBundle({
-      verifier,
-      state,
-      redirectUri,
-      next: next?.startsWith("/") ? next : undefined,
-      email: loginEmail ?? loginHint,
-    }),
-    opts,
-  );
-  expireStalePortalCookies(response, opts.secure ?? false);
-
-  return response;
+  if (email) dest.searchParams.set("email", email);
+  return NextResponse.redirect(dest);
 }
 
 export async function POST(request: Request) {
@@ -171,9 +94,6 @@ export async function POST(request: Request) {
     await destroyPersistedIfsSession(sessionRaw ?? legacyRaw);
   }
 
-  const origin = resolvePublicOrigin(request);
-  const oauth = oauthStartUrl(origin, loginEmail, next);
-
   try {
     const tokens = await exchangePasswordGrant({
       username: loginEmail,
@@ -183,6 +103,7 @@ export async function POST(request: Request) {
       tokens,
       typedEmail: loginEmail,
     });
+    const origin = resolvePublicOrigin(request);
     const secure = origin.startsWith("https://");
     const response = NextResponse.json({ ok: true, next });
     response.cookies.set(
@@ -194,7 +115,7 @@ export async function POST(request: Request) {
     return response;
   } catch (err) {
     if (err instanceof IfsLoginFlowError) {
-      return NextResponse.json({ error: err.code, oauth }, { status: 400 });
+      return NextResponse.json({ error: err.code }, { status: 400 });
     }
     const message = err instanceof Error ? err.message : String(err);
     console.error("[auth/login] fallo al iniciar sesión:", message);
@@ -202,6 +123,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "session_store" }, { status: 500 });
     }
     const code = classifyPasswordGrantError(err);
-    return NextResponse.json({ error: code, oauth }, { status: 401 });
+    const status = code === "invalid_credentials" ? 401 : 400;
+    return NextResponse.json({ error: code }, { status });
   }
 }
