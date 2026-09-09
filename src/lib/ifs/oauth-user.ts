@@ -167,13 +167,59 @@ export async function fetchOidcUserInfo(accessToken: string): Promise<{
   }
 }
 
+async function postTokenRequest(
+  body: URLSearchParams,
+  label: string,
+): Promise<OAuthTokens> {
+  const { oauthTokenUrl } = getIfsConfig();
+  const res = await fetch(oauthTokenUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: body.toString(),
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new IfsApiError(
+      `${label} ${res.status} ${res.statusText}`,
+      res.status,
+      text,
+    );
+  }
+
+  let json: {
+    access_token?: string;
+    refresh_token?: string;
+    id_token?: string;
+    expires_in?: number;
+  };
+  try {
+    json = JSON.parse(text) as typeof json;
+  } catch {
+    throw new Error(`${label}: respuesta no JSON`);
+  }
+
+  if (!json.access_token) {
+    throw new Error(`${label}: respuesta sin access_token`);
+  }
+
+  return {
+    accessToken: json.access_token,
+    refreshToken: json.refresh_token,
+    idToken: json.id_token,
+    expiresIn: json.expires_in ?? 3600,
+  };
+}
+
 export async function exchangeAuthorizationCode(input: {
   code: string;
   codeVerifier: string;
   redirectUri?: string;
 }): Promise<OAuthTokens> {
-  const { oauthClientId, oauthClientSecret, oauthTokenUrl, oauthRedirectUri } =
-    getIfsConfig();
+  const { oauthClientId, oauthClientSecret, oauthRedirectUri } = getIfsConfig();
   const redirectUri = input.redirectUri || oauthRedirectUri;
   if (!redirectUri) {
     throw new Error("Falta redirect_uri para canjear el código OAuth");
@@ -188,47 +234,57 @@ export async function exchangeAuthorizationCode(input: {
     code_verifier: input.codeVerifier,
   });
 
-  const res = await fetch(oauthTokenUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
-    body: body.toString(),
+  return postTokenRequest(body, "OAuth token");
+}
+
+export type PasswordGrantFailure =
+  | "invalid_credentials"
+  | "grant_disabled"
+  | "token_exchange";
+
+export function classifyPasswordGrantError(err: unknown): PasswordGrantFailure {
+  if (!(err instanceof IfsApiError)) return "token_exchange";
+  const blob = `${err.body} ${err.message}`.toLowerCase();
+  if (
+    /unauthorized_client|unsupported_grant_type|grant type not allowed|direct access grants|direct grants/.test(
+      blob,
+    )
+  ) {
+    return "grant_disabled";
+  }
+  if (
+    /invalid_grant|invalid user credentials|invalid username or password|account disabled|account is not fully set up/.test(
+      blob,
+    )
+  ) {
+    return "invalid_credentials";
+  }
+  if (err.status === 401) return "invalid_credentials";
+  return "token_exchange";
+}
+
+/** IFS valida correo y clave. No abre la pantalla de login de IFS. */
+export async function exchangePasswordGrant(input: {
+  username: string;
+  password: string;
+}): Promise<OAuthTokens> {
+  const { oauthClientId, oauthClientSecret, oauthScope } = getIfsConfig();
+  const body = new URLSearchParams({
+    grant_type: "password",
+    client_id: oauthClientId,
+    client_secret: oauthClientSecret,
+    username: input.username,
+    password: input.password,
+    scope: oauthScope,
   });
 
-  const text = await res.text();
-  if (!res.ok) {
-    throw new IfsApiError(
-      `OAuth token ${res.status} ${res.statusText}`,
-      res.status,
-      text,
-    );
-  }
-
-  const json = JSON.parse(text) as {
-    access_token?: string;
-    refresh_token?: string;
-    id_token?: string;
-    expires_in?: number;
-  };
-
-  if (!json.access_token) {
-    throw new Error("OAuth: respuesta sin access_token");
-  }
-
-  return {
-    accessToken: json.access_token,
-    refreshToken: json.refresh_token,
-    idToken: json.id_token,
-    expiresIn: json.expires_in ?? 3600,
-  };
+  return postTokenRequest(body, "OAuth password");
 }
 
 export async function refreshAccessToken(
   refreshToken: string,
 ): Promise<OAuthTokens> {
-  const { oauthClientId, oauthClientSecret, oauthTokenUrl } = getIfsConfig();
+  const { oauthClientId, oauthClientSecret } = getIfsConfig();
 
   const body = new URLSearchParams({
     grant_type: "refresh_token",
@@ -237,39 +293,9 @@ export async function refreshAccessToken(
     refresh_token: refreshToken,
   });
 
-  const res = await fetch(oauthTokenUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
-    body: body.toString(),
-  });
-
-  const text = await res.text();
-  if (!res.ok) {
-    throw new IfsApiError(
-      `OAuth refresh ${res.status} ${res.statusText}`,
-      res.status,
-      text,
-    );
-  }
-
-  const json = JSON.parse(text) as {
-    access_token?: string;
-    refresh_token?: string;
-    id_token?: string;
-    expires_in?: number;
-  };
-
-  if (!json.access_token) {
-    throw new Error("OAuth refresh: respuesta sin access_token");
-  }
-
+  const tokens = await postTokenRequest(body, "OAuth refresh");
   return {
-    accessToken: json.access_token,
-    refreshToken: json.refresh_token ?? refreshToken,
-    idToken: json.id_token,
-    expiresIn: json.expires_in ?? 3600,
+    ...tokens,
+    refreshToken: tokens.refreshToken ?? refreshToken,
   };
 }

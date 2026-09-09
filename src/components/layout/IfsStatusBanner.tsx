@@ -1,3 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
+
 type IfsSurface =
   | "timesheet"
   | "approval"
@@ -26,7 +31,7 @@ const SURFACE_LOGIN_NEXT: Record<IfsSurface, string> = {
 
 function loginHref(surface: IfsSurface, loginNext?: string): string {
   const next = loginNext ?? SURFACE_LOGIN_NEXT[surface];
-  return `/api/auth/login?next=${encodeURIComponent(next)}`;
+  return `/login?next=${encodeURIComponent(next)}`;
 }
 
 function isConnectedOk(
@@ -66,6 +71,28 @@ export function IfsStatusBanner({
   surface,
   loginNext,
 }: IfsStatusBannerProps) {
+  const [probe, setProbe] = useState({
+    ready: !IFS_AUTH_ENABLED,
+    connected: false,
+  });
+
+  useEffect(() => {
+    if (!IFS_AUTH_ENABLED) return;
+    let cancelled = false;
+    void getIfsSessionStatusAction()
+      .then((status) => {
+        if (!cancelled) {
+          setProbe({ ready: true, connected: Boolean(status.connected) });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setProbe({ ready: true, connected: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   if (!IFS_AUTH_ENABLED) {
     return (
       <p className="mb-2 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-1.5 text-[13px] text-[#1e40af]">
@@ -75,16 +102,22 @@ export function IfsStatusBanner({
     );
   }
 
-  if (isConnectedOk(connected, fromIfs, surface, warning)) {
+  const knownConnected = connected || probe.connected;
+
+  if (isConnectedOk(knownConnected, fromIfs, surface, warning)) {
     return null;
   }
 
-  if (connected && warning) {
+  if (knownConnected && warning) {
     return (
       <p className="alert-warn mb-2 px-3 py-2 text-[13px]">
         No se pudieron cargar los datos. Inténtalo de nuevo o avisa a soporte.
       </p>
     );
+  }
+
+  if (!probe.ready || knownConnected) {
+    return null;
   }
 
   return (

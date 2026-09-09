@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Field } from "@/src/components/ui/Field";
 import { Icon } from "@/src/components/ui/Icon";
+import { loginErrorMessage } from "@/src/lib/ifs/login-messages";
 
 type LoginIfsFormProps = {
   next: string;
@@ -18,19 +19,50 @@ export function LoginIfsForm({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = email.trim();
     if (!trimmed || !password || submitting) return;
 
     setSubmitting(true);
-    const params = new URLSearchParams({ email: trimmed, next });
-    window.location.href = `/api/auth/login?${params.toString()}`;
+    setError(null);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email: trimmed, password, next }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        next?: string;
+        error?: string;
+        oauth?: string;
+      };
+      if (data.ok) {
+        window.location.assign(data.next?.startsWith("/") ? data.next : next);
+        return;
+      }
+      // liz y cuentas federadas: IFS no acepta la clave aquí; entra en su pantalla.
+      if (data.oauth?.startsWith("/api/auth/login")) {
+        window.location.assign(data.oauth);
+        return;
+      }
+      setError(loginErrorMessage(data.error));
+      setSubmitting(false);
+    } catch {
+      setError(loginErrorMessage("token_exchange"));
+      setSubmitting(false);
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+      {error ? (
+        <p className="alert-warn login-error px-3 py-2 text-[13px]">{error}</p>
+      ) : null}
       <Field label="Correo corporativo" required htmlFor="login-email">
         <div className="login-field-shell">
           <span className="login-field-icon">

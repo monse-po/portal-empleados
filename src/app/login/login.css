@@ -120,20 +120,6 @@
   color: var(--muted);
 }
 
-.login-hint button {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--navy);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.login-hint button:hover {
-  text-decoration: underline;
-}
-
 .login-error {
   animation: login-shake 0.42s ease;
 }
