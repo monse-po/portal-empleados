@@ -1,3 +1,5 @@
+import { fetchIfsAccessToken } from "@/src/lib/ifs/auth";
+import { openCempPortalSession } from "@/src/lib/ifs/cemp-portal";
 import { fetchOidcUserInfo, type OAuthTokens } from "@/src/lib/ifs/oauth-user";
 import {
   createPersistedIfsSession,
@@ -59,5 +61,41 @@ export async function completeUserLoginFromTokens(input: {
     expiresAt: Date.now() + expiresIn * 1000,
   });
 
+  return { cookieValue, expiresIn, email };
+}
+
+/**
+ * Microsoft ya dijo quién es. Abrimos CEmp con el token del portal
+ * (mismo patrón que catálogos M2M) y guardamos sesión de este sitio.
+ */
+export async function completeUserLoginFromVerifiedEmail(
+  emailRaw: string,
+): Promise<CompletedIfsLogin> {
+  const email = resolveSessionEmail({
+    email: emailRaw,
+    preferred_username: emailRaw,
+    username: emailRaw,
+    upn: emailRaw,
+  });
+  if (!email) {
+    throw new IfsLoginFlowError("no_email_in_token");
+  }
+  if (isSystemPortalEmail(email)) {
+    throw new IfsLoginFlowError("system_account_email");
+  }
+
+  const m2m = await fetchIfsAccessToken();
+  try {
+    await openCempPortalSession(email, m2m.accessToken);
+  } catch {
+    throw new IfsLoginFlowError("user_not_in_ifs");
+  }
+
+  const expiresIn = Math.max(m2m.expiresIn || 0, 3600);
+  const { cookieValue } = await createPersistedIfsSession({
+    email,
+    accessToken: m2m.accessToken,
+    expiresAt: Date.now() + expiresIn * 1000,
+  });
   return { cookieValue, expiresIn, email };
 }

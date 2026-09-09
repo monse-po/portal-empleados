@@ -21,6 +21,14 @@ export function LoginIfsForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function startMicrosoft() {
+    const params = new URLSearchParams();
+    params.set("next", next);
+    const trimmed = email.trim();
+    if (trimmed) params.set("email", trimmed);
+    window.location.assign(`/api/auth/login/microsoft?${params.toString()}`);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = email.trim();
@@ -57,6 +65,15 @@ export function LoginIfsForm({
       {error ? (
         <p className="alert-warn login-error px-3 py-2 text-[13px]">{error}</p>
       ) : null}
+      <Button
+        type="button"
+        variant="primary"
+        className="h-12 w-full justify-center text-[14px] max-md:min-h-12 max-md:text-[15px]"
+        onClick={startMicrosoft}
+      >
+        Entrar con Microsoft
+      </Button>
+      <p className="login-divider">o con correo y contraseña</p>
       <Field label="Correo corporativo" required htmlFor="login-email">
         <div className="login-field-shell">
           <span className="login-field-icon">
@@ -105,7 +122,7 @@ export function LoginIfsForm({
       </Field>
       <Button
         type="submit"
-        variant="primary"
+        variant="secondary"
         className="h-12 w-full justify-center text-[14px] max-md:min-h-12 max-md:text-[15px]"
         loading={submitting}
         loadingLabel="Entrando…"

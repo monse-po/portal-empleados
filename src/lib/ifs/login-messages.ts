@@ -19,6 +19,10 @@ export const LOGIN_ERROR_MESSAGES: Record<string, string> = {
     "IFS no acepta este tipo de inicio de sesión. Avisa a soporte.",
   auth_unavailable:
     "El inicio de sesión no está disponible en este momento. Avisa a soporte.",
+  microsoft_not_configured:
+    "Microsoft aún no está registrado para este portal. Entra con correo y contraseña o avisa a soporte.",
+  user_not_in_ifs:
+    "Microsoft te reconoció, pero ese correo no está en IFS. Avisa a soporte.",
 };
 
 export function loginErrorMessage(code: string | null | undefined): string {
