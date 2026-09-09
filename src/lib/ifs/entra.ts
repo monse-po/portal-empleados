@@ -1,11 +1,14 @@
 import { createPkcePair, resolvePublicOrigin } from "@/src/lib/ifs/oauth-user";
 import { resolveSessionEmail } from "@/src/lib/ifs/session";
 
+/** App Entra que ya usa APEX. El callback nuestro es otro; Azure puede pedir registrarlo. */
+const APEX_ENTRA_CLIENT_ID = "67e4af8b-9623-4fb6-9497-b6bb04d89662";
+
 export function getEntraConfig() {
   const clientId = (
     process.env.IFS_ENTRA_CLIENT_ID?.trim() ||
     process.env.ENTRA_CLIENT_ID?.trim() ||
-    ""
+    APEX_ENTRA_CLIENT_ID
   );
   const tenant =
     process.env.IFS_ENTRA_TENANT?.trim() ||
@@ -37,7 +40,7 @@ export function buildEntraAuthorizationUrl(input: {
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
-    scope: "openid email profile User.Read",
+    scope: "User.Read",
     redirect_uri: input.redirectUri,
     state: input.state,
     code_challenge: input.codeChallenge,
@@ -65,7 +68,7 @@ export async function exchangeEntraCode(input: {
     code: input.code,
     redirect_uri: input.redirectUri,
     code_verifier: input.codeVerifier,
-    scope: "openid email profile User.Read",
+    scope: "User.Read",
   });
   if (secret) body.set("client_secret", secret);
 

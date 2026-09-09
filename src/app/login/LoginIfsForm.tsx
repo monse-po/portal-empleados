@@ -117,7 +117,7 @@ export function LoginIfsForm({
           </button>
         </div>
         <p className="login-hint">
-          La misma de tu acceso corporativo.
+          Solo usuario IFS. La de Outlook va en Entrar con Microsoft.
         </p>
       </Field>
       <Button
