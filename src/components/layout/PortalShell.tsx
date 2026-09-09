@@ -1,15 +1,19 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AppProviders } from "@/src/components/layout/AppProviders";
 import { RoleProvider } from "@/src/components/layout/RoleContext";
 import { ToastProvider } from "@/src/components/ui/Toast";
 import { FocusGuard } from "@/src/components/layout/FocusGuard";
+import { IfsSessionGuard } from "@/src/components/layout/IfsSessionGuard";
 import { MobileNavDrawer } from "@/src/components/layout/MobileNavDrawer";
 import { ShellContext } from "@/src/components/layout/ShellContext";
 import { Sidebar } from "@/src/components/layout/Sidebar";
 import { Topbar } from "@/src/components/layout/Topbar";
+import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+
+const AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
 
 type PortalShellProps = {
   children: React.ReactNode;
@@ -20,6 +24,34 @@ export function PortalShell({ children }: PortalShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isLogin = pathname === "/login";
+  const [session, setSession] = useState<"unknown" | "ok" | "no">(
+    AUTH_ENABLED && !isLogin ? "unknown" : "ok",
+  );
+
+  useEffect(() => {
+    if (!AUTH_ENABLED || isLogin) {
+      setSession("ok");
+      return;
+    }
+    let cancelled = false;
+    void fetch("/api/auth/session", { cache: "no-store" })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) {
+          setSession("ok");
+          return;
+        }
+        setSession("no");
+        const next = encodeURIComponent(pathname);
+        window.location.replace(`/login?next=${next}`);
+      })
+      .catch(() => {
+        if (!cancelled) setSession("ok");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLogin, pathname]);
 
   const toggleSidebar = () => setCollapsed((c) => !c);
   const toggleMobileMenu = useCallback(
@@ -32,6 +64,18 @@ export function PortalShell({ children }: PortalShellProps) {
     return (
       <ToastProvider>
         <main className="min-h-screen bg-[var(--bg)]">{children}</main>
+      </ToastProvider>
+    );
+  }
+
+  if (session !== "ok") {
+    return (
+      <ToastProvider>
+        <main className="flex min-h-screen items-center justify-center bg-[var(--bg)] px-4">
+          {session === "unknown" ? (
+            <LoadingNotice variant="panel" label="Comprobando sesión" />
+          ) : null}
+        </main>
       </ToastProvider>
     );
   }
@@ -50,6 +94,7 @@ export function PortalShell({ children }: PortalShellProps) {
             }}
           >
             <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
+              <IfsSessionGuard />
               <Topbar />
               <div className="flex min-h-0 flex-1 overflow-hidden">
                 <Sidebar />
