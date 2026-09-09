@@ -1,5 +1,7 @@
 import { isIfsAuthReady } from "@/src/lib/ifs/config";
 import { loginErrorMessage } from "@/src/lib/ifs/login-messages";
+import { getServerIfsSession } from "@/src/lib/ifs/session";
+import { redirect } from "next/navigation";
 import { LoginScreen } from "./LoginScreen";
 
 type LoginPageProps = {
@@ -14,6 +16,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       : "/hoja-tiempo";
   const canOauth = isIfsAuthReady();
   const errorText = error ? loginErrorMessage(error) : null;
+  const session = await getServerIfsSession();
+  if (session?.email) {
+    redirect(next);
+  }
 
   return (
     <LoginScreen

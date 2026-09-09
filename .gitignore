@@ -36,6 +36,7 @@ yarn-error.log*
 
 # OCI local deploy (OCIDs / API — no subir)
 /deploy/oci-dev/local/oci-dev.env
+/deploy/oci-prod/local/oci-prod.env
 
 # neon local project link (no secretos de conexión)
 .neon
