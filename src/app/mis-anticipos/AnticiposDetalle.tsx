@@ -19,6 +19,7 @@ import { useAnticipos } from "@/src/app/mis-anticipos/AnticiposContext";
 import {
   formatMonto,
   getBeneficiarioDetalle,
+  getBeneficiarioSolicitante,
   puedeCancelarEmpleado,
   type Anticipo,
   type AnticipoExtra,
@@ -37,10 +38,14 @@ export function AnticiposDetalle({
   onVolver,
   onCancelar,
 }: AnticiposDetalleProps) {
-  const { empleadoId } = useAnticipos();
+  const { empleadoId, sessionIds, sessionNombre } = useAnticipos();
   const puedeCancelar =
     empleadoId != null && puedeCancelarEmpleado(anticipo, empleadoId);
-  const solicitanteNombre = anticipo.solicitante ?? "—";
+  const solicitanteChip = getBeneficiarioSolicitante(
+    anticipo,
+    sessionIds,
+    sessionNombre,
+  );
   const beneficiario = getBeneficiarioDetalle(anticipo, extra);
   const aprobadorLabel = anticipo.aprobador?.trim() || "—";
   const companiaGasto =
@@ -79,14 +84,14 @@ export function AnticiposDetalle({
       <Card className="mb-3 overflow-visible">
         <CardBody className="py-4">
           <DetailSection icon="userCircle" title="Empleado beneficiario">
-            {anticipo.paraOtro && (
+            {solicitanteChip ? (
               <p className="mb-3 text-[12px] leading-snug text-muted">
                 Solicitado por{" "}
                 <span className="font-semibold text-[#374151]">
-                  {solicitanteNombre}
+                  {anticipo.solicitante ?? solicitanteChip}
                 </span>
               </p>
-            )}
+            ) : null}
             <DetailGrid>
               <ReadOnlyField label="Fecha de solicitud">
                 {anticipo.fecha}

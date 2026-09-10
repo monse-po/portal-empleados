@@ -29,6 +29,7 @@ function defaultIfsTokenUrl(): string {
 export type IfsConfig = {
   cempPortalBaseUrl: string;
   cempAdvanceBaseUrl: string;
+  cempDseBaseUrl: string;
   openIdConfigUrl: string;
   oauthClientId: string;
   oauthClientSecret: string;
@@ -74,6 +75,11 @@ export function getIfsConfig(): IfsConfig {
     cempAdvanceBaseUrl:
       envFirst("IFS_CEMP_ADVANCE_BASE_URL") ||
       `${system}/main/ifsapplications/projection/v1/CEmpAdvanceHandling.svc`,
+    cempDseBaseUrl:
+      envFirst("IFS_CEMP_DSE_BASE_URL") ||
+      (envFirst("IFS_CEMP_ADVANCE_BASE_URL") ||
+        `${system}/main/ifsapplications/projection/v1/CEmpAdvanceHandling.svc`
+      ).replace(/\/[^/]+\.svc\/?$/, "/CDseRequestHandling.svc"),
     openIdConfigUrl:
       envFirst("IFS_OPENID_CONFIG_URL") ||
       `${system}/auth/realms/${realm}/.well-known/openid-configuration`,

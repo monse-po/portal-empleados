@@ -233,9 +233,11 @@ export function SubproyectoCell({
 export function MontoCell({
   monto,
   divisa,
+  decimals,
 }: {
   monto: number;
   divisa?: string | null;
+  decimals?: number;
 }) {
   const div = (divisa || "COP").trim() || "COP";
   const prefix: Record<string, string> = {
@@ -245,7 +247,15 @@ export function MontoCell({
     PEN: "S/",
   };
   const pre = prefix[div] || "$";
-  const abs = Math.abs(monto).toLocaleString("es-CO");
+  const abs = Math.abs(monto).toLocaleString(
+    "es-CO",
+    decimals != null
+      ? {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        }
+      : undefined,
+  );
   const sign = monto < 0 ? "-" : "";
   return (
     <div className="min-w-0 text-right">

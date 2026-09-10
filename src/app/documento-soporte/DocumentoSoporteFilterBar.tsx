@@ -54,8 +54,10 @@ function valueOptionIcon(
 ): IconName {
   if (column === "estado") {
     if (val === "Aprobado") return "check";
+    if (val === "Emitido") return "receipt";
     if (val === "Rechazado") return "x";
-    if (val === "Cancelado" || val === "Anulado") return "ban";
+    if (val === "Cancelado") return "ban";
+    if (val === "Anulado") return "circleOff";
     if (val === "Lanzado") return "send";
     return "clock";
   }
@@ -78,6 +80,22 @@ function multiOptions(
       title: o.title,
       icon: "user",
     }));
+  }
+  if (column === "proyecto") {
+    return getDistinctValues(registros, "proyecto").map((id) => {
+      const row = registros.find((s) => s.proyectoId === id);
+      const nombre =
+        row?.proyectoNombre && row.proyectoNombre !== id
+          ? row.proyectoNombre
+          : "";
+      const label = nombre ? `${id} · ${nombre}` : id;
+      return {
+        value: id,
+        label,
+        title: label,
+        icon: "folderOpen" as const,
+      };
+    });
   }
   return buildFilterMultiOptions(
     "documento-soporte",
@@ -107,6 +125,8 @@ function searchPlaceholder(column: DocumentoSoporteFilterMultiColumn): string {
       return "Buscar código…";
     case "beneficiario":
       return "Buscar beneficiario…";
+    case "proyecto":
+      return "Buscar proyecto…";
     case "nif":
       return "Buscar NIF…";
     case "documento":
@@ -184,6 +204,7 @@ function isMultiColumn(
 ): column is DocumentoSoporteFilterMultiColumn {
   return (
     column === "codigo" ||
+    column === "proyecto" ||
     column === "beneficiario" ||
     column === "nif" ||
     column === "documento" ||

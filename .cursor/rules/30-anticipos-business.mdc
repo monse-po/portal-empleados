@@ -27,7 +27,7 @@ Cancelado / Rechazado / Pagado son finales. Sin borrador: nace al enviar. Tabs e
 
 ## R-01 — Para otro
 
-El anticipo es del **beneficiario** (su cuenta). Quien registra **no** la ve en Mis Anticipos ni en su histórico. Cascada compañía → proyecto → empleado; banco/cuenta del beneficiario solo lectura.
+El anticipo es del **beneficiario** (su cuenta). Quien registra **no** la ve en Mis Anticipos ni en su histórico. Cascada compañía → proyecto → empleado; banco/cuenta del beneficiario solo lectura. Chip **Solicitado por** solo si registró ≠ beneficiario (regla `04-chip-para-otro.mdc`).
 
 ## Cancelación
 

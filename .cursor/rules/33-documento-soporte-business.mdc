@@ -18,13 +18,16 @@ Fuente: `docs/documento-soporte/02-reglas-negocio-y-campos.md` y `03-referencia-
 | Estado | Quién | Notas |
 |--------|-------|-------|
 | Lanzado | Sistema al guardar | Estado inicial; sin borrador. Editable por quien registró. |
-| Aprobado | Contabilidad (IFS) | Historial solo consulta (seed/mock hoy) |
+| Aprobado | Contabilidad (IFS `Approved` / `Sent`) | En proceso; aún sin folio/CUDS |
+| Emitido | Contabilidad (IFS `Issued`) | Historial; ya hay folio/CUDS. Chip teal. |
 | Rechazado | Contabilidad (IFS) | Historial; nota; no reabrir |
-| Cancelado | Contabilidad (IFS) | Historial; no reabrir. Label único (no “Anulado”). |
+| Cancelado | Contabilidad (IFS `Cancelled`) | Historial; no reabrir. NIF+doc **sí** se puede repetir. |
+| Anulado | Contabilidad (IFS `Voided`) | Historial; no reabrir. Chip gris medio. NIF+doc **bloqueado**. |
 
 - Sesión capturista mock = Carlos Rivas (`SESSION_DS`), alineada al shell.
 - Provider global en `AppProviders`. Post-guardar → lista. Abrir fila → detalle (editar Lanzado desde detalle).
-- Rechazado / Cancelado / Aprobado → no se editan. Corrección = **nueva** solicitud.
+- Rechazado / Cancelado / Anulado / Aprobado / Emitido → no se editan. Corrección = **nueva** solicitud.
+- **Editar Lanzado:** IFS no deja cambiar Concepto, Fecha, Divisa ni beneficiario. El formulario los bloquea y avisa; editables: NIF, No. documento, monto, proyecto, tarjeta, adjunto.
 
 ```bash
 FOCUS=documento-soporte npm run dev
@@ -35,12 +38,12 @@ FOCUS=documento-soporte npm run dev
 
 | Tab | Estados |
 |-----|---------|
-| En proceso | Lanzado |
-| Historial | Aprobado, Rechazado, Cancelado |
+| En proceso | Lanzado, Aprobado |
+| Historial | Emitido, Rechazado, Cancelado, Anulado |
 
 ## Visibilidad (igual Anticipos)
 
-El empleado ve solicitudes donde es **Solicitado Por** o **Registrado por** (misma tabla).
+El empleado ve solicitudes donde es **Solicitado Por** o **Registrado por** (misma tabla). Chip **Registrado por** solo si registró ≠ beneficiario (regla `04-chip-para-otro.mdc`).
 
 ## Formulario portal (captura)
 
@@ -55,7 +58,7 @@ Automáticos: No. Solicitud (`DS####` mock / consecutivo IFS), Fecha Solicitud, 
 
 ## Anti-duplicados
 
-Bloquear mismo **NIF + No. Documento Original** (cross-company según Reglas; pendiente confirmar si incluye Empresa). Mensaje: ver Referencia Técnica.
+Bloquear mismo **NIF + No. Documento Original** si ya existe en Lanzado, Aprobado (incl. `Sent`), **Emitido** o **Anulado**. **Cancelado** y **Rechazado** no bloquean. Mensaje: ver Referencia Técnica.
 
 ## Fuera del portal MVP
 

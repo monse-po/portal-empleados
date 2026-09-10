@@ -112,7 +112,9 @@ export function buildAuthorizationUrl(input: {
   const params = new URLSearchParams({
     client_id: oauthClientId,
     response_type: "code",
-    scope: oauthScope,
+    scope: /\boffline_access\b/.test(oauthScope)
+      ? oauthScope
+      : `${oauthScope} offline_access`,
     redirect_uri: redirectUri,
     state: input.state,
     code_challenge: input.codeChallenge,

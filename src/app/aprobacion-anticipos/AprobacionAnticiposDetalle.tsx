@@ -20,6 +20,7 @@ import { useAsyncAction } from "@/src/lib/use-async-action";
 import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-registro";
 import { getDirectorProyecto } from "@/src/lib/anticipos-catalog";
 import { formatMonto } from "@/src/lib/anticipos-registro";
+import { sameDisplayName } from "@/src/lib/empleado-display";
 
 type AprobacionAnticiposDetalleProps = {
   solicitud: AnticipoAprobacion;
@@ -54,7 +55,9 @@ export function AprobacionAnticiposDetalle({
     ? `${director.nombre} (${director.codigo})`
     : solicitud.aprobador || "—";
   const estadoPill = resuelto ? solicitud.estadoApro : "Pendiente";
-  const muestraSolicitante = solicitud.solicitante !== solicitud.nombre;
+  const muestraSolicitante =
+    Boolean(solicitud.solicitante?.trim()) &&
+    !sameDisplayName(solicitud.solicitante, solicitud.nombre);
   const banner = getAprobacionEventBanner(solicitud);
 
   const handleRechazar = () => {

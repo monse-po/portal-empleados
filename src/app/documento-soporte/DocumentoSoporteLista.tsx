@@ -5,6 +5,10 @@ import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { FloatingActions } from "@/src/components/ui/FloatingActions";
 import { Icon } from "@/src/components/ui/Icon";
+import {
+  IfsConnectedChip,
+  IfsStatusBanner,
+} from "@/src/components/layout/IfsStatusBanner";
 import { DocumentoSoporteFilterBar } from "@/src/app/documento-soporte/DocumentoSoporteFilterBar";
 import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoporteContext";
 import { DocumentoSoporteTabla } from "@/src/app/documento-soporte/DocumentoSoporteTabla";
@@ -14,6 +18,7 @@ import {
   removeFilterByColumn,
   type DocumentoSoporteFilterRule,
 } from "@/src/lib/documento-soporte-filtros";
+import { ESTADOS_POR_TAB } from "@/src/lib/documento-soporte-mock";
 
 type DocumentoSoporteListaProps = {
   onOpenDetalle: (no: string) => void;
@@ -24,7 +29,8 @@ export function DocumentoSoporteLista({
   onOpenDetalle,
   onNuevo,
 }: DocumentoSoporteListaProps) {
-  const { tab, setTab, tabCounts, registrosActuales } = useDocumentoSoporte();
+  const { tab, setTab, tabCounts, registrosActuales, fromIfs, ifsConnected, ifsEmail } =
+    useDocumentoSoporte();
   const [filters, setFilters] = useState<DocumentoSoporteFilterRule[]>([]);
 
   const filtrados = useMemo(
@@ -34,16 +40,30 @@ export function DocumentoSoporteLista({
 
   const handleTab = (next: "pendientes" | "historial") => {
     setTab(next);
-    if (next === "pendientes") {
-      setFilters((prev) => removeFilterByColumn(prev, "estado"));
-    }
+    const allowed = new Set<string>(ESTADOS_POR_TAB[next]);
+    setFilters((prev) => {
+      const estado = prev.find((r) => r.column === "estado");
+      if (!estado || estado.column !== "estado") return prev;
+      const nextValues = estado.values.filter((v) => allowed.has(v));
+      if (!nextValues.length) return removeFilterByColumn(prev, "estado");
+      return prev.map((r) =>
+        r.column === "estado" ? { ...r, values: nextValues } : r,
+      );
+    });
   };
 
   return (
     <div className="view-wide max-md:pb-24">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-[#111]">Mis DSE</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-[#111]">Mis DSE</h1>
+            <IfsConnectedChip
+              surface="dse"
+              connected={ifsConnected}
+              fromIfs={fromIfs}
+            />
+          </div>
           <p className="mt-1 text-[13px] text-[#4b5563]">
             Solicita y consulta tus documentos de soporte
           </p>
@@ -55,6 +75,14 @@ export function DocumentoSoporteLista({
           </Button>
         </FloatingActions>
       </div>
+
+      <IfsStatusBanner
+        surface="dse"
+        loginNext="/documento-soporte"
+        connected={ifsConnected}
+        fromIfs={fromIfs}
+        email={ifsEmail}
+      />
 
       <DocumentoSoporteFilterBar
         registros={registrosActuales}

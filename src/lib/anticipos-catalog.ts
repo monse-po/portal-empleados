@@ -159,9 +159,16 @@ export function searchDestinos(query: string): DestinoSel[] {
 }
 
 /**
- * Parsea monto respetando el último separador como decimal (locale-agnóstico).
- * Los decimales permitidos vienen de IFS CurrencyRounding cuando existen.
+ * Parsea monto locale-agnóstico, incluyendo el agrupado que pone fmtMontoInput
+ * (`1.234.567` / `1,234,567`). Si hay dos separadores, el último es decimal.
+ * CurrencyRounding de IFS limita los decimales cuando existe.
  */
+function isThousandGrouped(unsigned: string, sep: "." | ","): boolean {
+  return sep === "."
+    ? /^\d{1,3}(\.\d{3})+$/.test(unsigned)
+    : /^\d{1,3}(,\d{3})+$/.test(unsigned);
+}
+
 export function parseMontoInput(
   value: string,
   decimals?: number | null,
@@ -171,6 +178,7 @@ export function parseMontoInput(
 
   const lastComma = s.lastIndexOf(",");
   const lastDot = s.lastIndexOf(".");
+  const unsigned = s.replace(/-/g, "");
   let normalized: string;
 
   if (lastComma >= 0 && lastDot >= 0) {
@@ -181,17 +189,29 @@ export function parseMontoInput(
       normalized = s.replace(/,/g, "");
     }
   } else if (lastComma >= 0) {
-    const frac = s.slice(lastComma + 1);
-    const treatAsDecimal =
-      decimals == null ? frac.length > 0 && frac.length <= 6 : frac.length <= decimals;
-    normalized = treatAsDecimal
-      ? s.replace(",", ".")
-      : s.replace(/,/g, "");
+    if (isThousandGrouped(unsigned, ",") || decimals === 0) {
+      normalized = s.replace(/,/g, "");
+    } else {
+      const frac = s.slice(lastComma + 1);
+      const treatAsDecimal =
+        decimals == null
+          ? frac.length > 0 && frac.length <= 6
+          : frac.length <= decimals;
+      normalized = treatAsDecimal
+        ? s.replace(",", ".")
+        : s.replace(/,/g, "");
+    }
   } else if (lastDot >= 0) {
-    const frac = s.slice(lastDot + 1);
-    const treatAsDecimal =
-      decimals == null ? frac.length > 0 && frac.length <= 6 : frac.length <= decimals;
-    normalized = treatAsDecimal ? s : s.replace(/\./g, "");
+    if (isThousandGrouped(unsigned, ".") || decimals === 0) {
+      normalized = s.replace(/\./g, "");
+    } else {
+      const frac = s.slice(lastDot + 1);
+      const treatAsDecimal =
+        decimals == null
+          ? frac.length > 0 && frac.length <= 6
+          : frac.length <= decimals;
+      normalized = treatAsDecimal ? s : s.replace(/\./g, "");
+    }
   } else {
     normalized = s;
   }

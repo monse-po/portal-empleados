@@ -1,9 +1,11 @@
 import { fetchIfsAccessToken } from "@/src/lib/ifs/auth";
 import { openCempPortalSession } from "@/src/lib/ifs/cemp-portal";
 import { fetchOidcUserInfo, type OAuthTokens } from "@/src/lib/ifs/oauth-user";
+import { IFS_SESSION_TTL_SEC } from "@/src/lib/ifs/constants";
 import {
   createPersistedIfsSession,
   isSystemPortalEmail,
+  nextIfsSessionExpiry,
   parseAccessTokenClaims,
   parseIdTokenClaims,
   resolveSessionEmail,
@@ -52,16 +54,17 @@ export async function completeUserLoginFromTokens(input: {
     throw new IfsLoginFlowError("system_account_email");
   }
 
-  const expiresIn = Math.max(tokens.expiresIn || 0, 3600);
   const { cookieValue } = await createPersistedIfsSession({
     email,
     name: mergedClaims.name,
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
-    expiresAt: Date.now() + expiresIn * 1000,
+    expiresAt: nextIfsSessionExpiry(),
+    tokenExpiresAt:
+      Date.now() + Math.max(tokens.expiresIn || 0, 60) * 1000,
   });
 
-  return { cookieValue, expiresIn, email };
+  return { cookieValue, expiresIn: IFS_SESSION_TTL_SEC, email };
 }
 
 /**
@@ -91,11 +94,11 @@ export async function completeUserLoginFromVerifiedEmail(
     throw new IfsLoginFlowError("user_not_in_ifs");
   }
 
-  const expiresIn = Math.max(m2m.expiresIn || 0, 3600);
   const { cookieValue } = await createPersistedIfsSession({
     email,
     accessToken: m2m.accessToken,
-    expiresAt: Date.now() + expiresIn * 1000,
+    expiresAt: nextIfsSessionExpiry(),
+    tokenExpiresAt: Date.now() + Math.max(m2m.expiresIn || 0, 60) * 1000,
   });
-  return { cookieValue, expiresIn, email };
+  return { cookieValue, expiresIn: IFS_SESSION_TTL_SEC, email };
 }

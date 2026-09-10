@@ -23,6 +23,7 @@ import {
   type Legalizacion,
 } from "@/src/lib/legalizaciones-mock";
 import { formatMonto, SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
+import { sameDisplayName } from "@/src/lib/empleado-display";
 
 type LegalizacionesDetalleProps = {
   legalizacion: Legalizacion;
@@ -102,7 +103,12 @@ export function LegalizacionesDetalle({
                 {formatMontoLegal(legalizacion.monto, legalizacion.div)}
               </div>
             </div>
-            {legalizacion.paraOtro && legalizacion.beneficiarioNombre ? (
+            {legalizacion.paraOtro &&
+            legalizacion.beneficiarioNombre &&
+            !sameDisplayName(
+              legalizacion.beneficiarioNombre,
+              SESSION_EMPLEADO.nombre,
+            ) ? (
               <div>
                 <div className="text-[11px] font-semibold uppercase text-muted">
                   Empleado beneficiario
