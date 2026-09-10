@@ -4,6 +4,7 @@ import {
   LEGACY_SESSION_COOKIE,
   SESSION_COOKIE,
 } from "@/src/lib/ifs/constants";
+import { isIfsAuthReady } from "@/src/lib/ifs/config";
 import { isSessionCookieAlive } from "@/src/lib/ifs/session-cookie";
 
 function isPublicPath(pathname: string): boolean {
@@ -20,9 +21,7 @@ function hasLiveSession(request: NextRequest): boolean {
   );
 }
 
-const AUTH_ENABLED =
-  process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true" ||
-  process.env.IFS_AUTH_ENABLED === "true";
+const AUTH_ENABLED = isIfsAuthReady();
 
 /**
  * Expira cookies legacy y, con login IFS encendido, no deja ver el portal
