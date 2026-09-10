@@ -197,7 +197,7 @@ if [[ "${MODE}" == "tunnel" || "${MODE}" == "tunnel-http" ]]; then
 fi
 
 info "Desplegando rama ${APP_BRANCH}…"
-ssh_vm "export APP_HOME='${APP_HOME}' APP_BRANCH='${APP_BRANCH}' OP_EMAIL='${PORTAL_OPERATOR_EMAIL}'; bash -s" <<'REMOTE'
+ssh_vm "export APP_HOME='${APP_HOME}' APP_BRANCH='${APP_BRANCH}' OP_EMAIL='${PORTAL_OPERATOR_EMAIL:-}'; bash -s" <<'REMOTE'
 set -euo pipefail
 
 # /opt/portal-next es de portalnext; opc entra con sudo
