@@ -48,7 +48,7 @@ export function UsarActividadRecienteChip({
         >
           {picked ? null : <Icon name="clock" size="xs" className="shrink-0" />}
           <span className="min-w-0 truncate">
-            {picked
+            {selected
               ? selected.actShort
               : TIEMPO_UI_COPY.usarRecientePlaceholder}
           </span>
