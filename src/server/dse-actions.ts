@@ -2,25 +2,38 @@
 
 import {
   cloneInitialDocumentos,
+  EMPRESAS_DS,
   findDuplicado,
   SESSION_DS,
   type DocumentoSoporte,
   type GuardarDocumentoSoporteInput,
 } from "@/src/lib/documento-soporte-mock";
-import { getEmployeesByCompany, getProjectsByCompany, getUserInfo } from "@/src/lib/ifs/cemp-portal";
+import { getEmployeesByCompany, getUserInfo } from "@/src/lib/ifs/cemp-portal";
 import {
   attachDseFile,
   createDseRequest,
   getDsePersonName,
   getDseRequest,
   dseStateLiteral,
+  listDseCompanies,
+  listDseCurrencyCodes,
+  listDseEmployees,
   listDseProjects,
   listDseRequests,
   searchDseSuppliers,
   updateDseRequest,
   type CDseRequest,
   type CDseSupplier,
+  type DseCurrencyCode,
+  type DseLovCompany,
+  type DseLovEmployee,
 } from "@/src/lib/ifs/cemp-dse";
+import {
+  currencyPrefix,
+  type DivisaOption,
+} from "@/src/lib/anticipos-ifs-catalog";
+import { DIVISAS_POR_COMPANIA } from "@/src/lib/anticipos-catalog";
+import { resolveCurrencyDecimals } from "@/src/lib/ifs/currency-codes-handling";
 import { odataStringKey } from "@/src/lib/ifs/client";
 import { isIfsAuthEnabled } from "@/src/lib/ifs/config";
 import {
@@ -57,28 +70,33 @@ function mockActor(): DseActor {
 }
 
 function employeeNeedlesMatch(
-  employee: { CEmpNo?: string; PersonId?: string; Identity?: string },
+  employee: {
+    EmpNo?: string;
+    CEmpNo?: string;
+    PersonId?: string;
+    Identity?: string;
+  },
   needles: string[],
 ): boolean {
   const wanted = new Set(
     needles.map((n) => n.trim().toLowerCase()).filter(Boolean),
   );
   if (!wanted.size) return false;
-  return [employee.CEmpNo, employee.PersonId, employee.Identity]
+  return [employee.EmpNo, employee.CEmpNo, employee.PersonId, employee.Identity]
     .map((v) => (v || "").trim().toLowerCase())
     .some((key) => Boolean(key) && wanted.has(key));
 }
 
-/** CompanyEmp.EmpNo — nunca PersonId (p. ej. JCORREA). */
+/** EmpNo de `ActiveEmployees` DSE — nunca PersonId (p. ej. JCORREA). */
 async function lookupCompanyEmpNo(
   accessToken: string,
   company: string,
   needles: string[],
 ): Promise<string> {
   if (!company.trim()) return "";
-  const employees = await getEmployeesByCompany(accessToken, company);
+  const employees = await listDseEmployees(accessToken, company);
   const match = employees.find((e) => employeeNeedlesMatch(e, needles));
-  return match?.CEmpNo?.trim() || "";
+  return match?.EmpNo?.trim() || "";
 }
 
 async function resolveActor(): Promise<DseActor> {
@@ -502,28 +520,204 @@ export async function fetchDseProjectsAction(): Promise<{
   }
   try {
     const rows = await listDseProjects(actor.accessToken);
-    let proyectos = uniqueProjects(rows);
-    if (!proyectos.length && actor.companyId) {
-      const fallback = await getProjectsByCompany(
-        actor.accessToken,
-        actor.companyId,
-      );
-      proyectos = uniqueProjects(fallback);
-    }
-    return { proyectos, fromIfs: true };
+    return { proyectos: uniqueProjects(rows), fromIfs: true };
   } catch (err) {
-    if (actor.companyId) {
-      try {
-        const fallback = await getProjectsByCompany(
-          actor.accessToken,
-          actor.companyId,
-        );
-        const proyectos = uniqueProjects(fallback);
-        if (proyectos.length) return { proyectos, fromIfs: true };
-      } catch {
-        /* usar error original */
-      }
-    }
     return { proyectos: [], fromIfs: false, error: formatIfsError(err) };
+  }
+}
+
+function fallbackDseCompanias(): { id: string; label: string }[] {
+  return EMPRESAS_DS.map((c) => ({ id: c.id, label: c.label }));
+}
+
+function mapDseCompanies(rows: DseLovCompany[]): { id: string; label: string }[] {
+  const seen = new Set<string>();
+  const out: { id: string; label: string }[] = [];
+  for (const row of rows) {
+    const id = row.CompanyId?.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const name = row.CompanyName?.trim();
+    const country = row.Country?.trim() || row.CountryCode?.trim();
+    const label = name
+      ? country && country !== name
+        ? `${id} – ${name} (${country})`
+        : `${id} – ${name}`
+      : id;
+    out.push({ id, label });
+  }
+  return out.sort((a, b) => a.id.localeCompare(b.id, "es"));
+}
+
+export type DseEmpleadoOption = {
+  id: string;
+  nombre: string;
+  sub: string;
+  empNo: string;
+};
+
+function mapDseEmployees(rows: DseLovEmployee[]): DseEmpleadoOption[] {
+  const seen = new Set<string>();
+  const out: DseEmpleadoOption[] = [];
+  for (const row of rows) {
+    const empNo = row.EmpNo?.trim();
+    if (!empNo || seen.has(empNo)) continue;
+    seen.add(empNo);
+    const nombre =
+      row.InternalDisplayName?.trim() || row.EmployeeName?.trim() || empNo;
+    out.push({
+      id: empNo,
+      nombre,
+      sub: empNo,
+      empNo,
+    });
+  }
+  return out.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+}
+
+/** Empresa de sesión + LOV `Reference_LovPersonCompany` (no GetExpenseCompany). */
+export async function fetchDseFormBootstrapAction(): Promise<{
+  companyId: string;
+  companyName: string;
+  companias: { id: string; label: string }[];
+  fromIfs: boolean;
+  error?: string;
+}> {
+  const fallback = fallbackDseCompanias();
+  const actor = await resolveActor();
+  if (!actor.accessToken) {
+    return {
+      companyId: actor.companyId || fallback[0]?.id || "HMVINGCO",
+      companyName: actor.companyId || fallback[0]?.label || "HMVINGCO",
+      companias: fallback,
+      fromIfs: false,
+    };
+  }
+
+  try {
+    const rows = await listDseCompanies(actor.accessToken);
+    const companias = mapDseCompanies(rows);
+    const companyId = actor.companyId || companias[0]?.id || fallback[0]?.id || "";
+    const companyName =
+      companias.find((c) => c.id === companyId)?.label ||
+      actor.companyId ||
+      companyId;
+    return {
+      companyId,
+      companyName,
+      companias: companias.length ? companias : fallback,
+      fromIfs: Boolean(companias.length),
+    };
+  } catch (err) {
+    return {
+      companyId: actor.companyId || fallback[0]?.id || "HMVINGCO",
+      companyName: actor.companyId || fallback[0]?.label || "HMVINGCO",
+      companias: fallback,
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
+  }
+}
+
+export async function fetchDseEmpleadosAction(companyId: string): Promise<{
+  empleados: DseEmpleadoOption[];
+  fromIfs: boolean;
+  error?: string;
+}> {
+  const company = companyId.trim();
+  if (!company) {
+    return { empleados: [], fromIfs: false, error: "Sin compañía" };
+  }
+
+  const actor = await resolveActor();
+  if (!actor.accessToken) {
+    return { empleados: [], fromIfs: false };
+  }
+
+  try {
+    const rows = await listDseEmployees(actor.accessToken, company);
+    return { empleados: mapDseEmployees(rows), fromIfs: true };
+  } catch (err) {
+    return {
+      empleados: [],
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
+  }
+}
+
+function fallbackDseDivisas(company: string): DivisaOption[] {
+  return (DIVISAS_POR_COMPANIA[company] || DIVISAS_POR_COMPANIA.HMVINGCO).map(
+    (d) => ({
+      code: d.code,
+      label: d.label,
+      pre: d.pre,
+      decimals: null,
+      roundingFromIfs: false,
+    }),
+  );
+}
+
+function mapDseCurrencyRows(rows: DseCurrencyCode[]): DivisaOption[] {
+  const seen = new Set<string>();
+  const out: DivisaOption[] = [];
+  for (const row of rows) {
+    const code = row.CurrencyCode?.trim();
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    const desc = row.Description?.trim();
+    const decimals = resolveCurrencyDecimals({
+      CurrencyRounding: row.CurrencyRounding,
+    });
+    out.push({
+      code,
+      label: desc ? `${code} – ${desc}` : code,
+      pre: currencyPrefix(code),
+      decimals,
+      roundingFromIfs: decimals != null,
+    });
+  }
+  return out.sort((a, b) => a.code.localeCompare(b.code));
+}
+
+/** Divisas de `CDseRequestHandling.Reference_CurrencyCode` por empresa del beneficiario. */
+export async function fetchDseDivisasAction(companyId: string): Promise<{
+  divisas: DivisaOption[];
+  fromIfs: boolean;
+  roundingFromIfs?: boolean;
+  error?: string;
+}> {
+  const company = companyId.trim();
+  const fallback = fallbackDseDivisas(company || "HMVINGCO");
+  if (!company) {
+    return { divisas: fallback, fromIfs: false, error: "Sin compañía" };
+  }
+
+  const actor = await resolveActor();
+  if (!actor.accessToken) {
+    return { divisas: fallback, fromIfs: false };
+  }
+
+  try {
+    const rows = await listDseCurrencyCodes(actor.accessToken, company);
+    const divisas = mapDseCurrencyRows(rows);
+    if (!divisas.length) {
+      return {
+        divisas: fallback,
+        fromIfs: false,
+        error: `Sin divisas IFS DSE para ${company}`,
+      };
+    }
+    return {
+      divisas,
+      fromIfs: true,
+      roundingFromIfs: divisas.some((d) => d.roundingFromIfs),
+    };
+  } catch (err) {
+    return {
+      divisas: fallback,
+      fromIfs: false,
+      error: formatIfsError(err),
+    };
   }
 }

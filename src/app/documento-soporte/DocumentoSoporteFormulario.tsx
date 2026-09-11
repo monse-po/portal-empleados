@@ -30,23 +30,16 @@ import {
   type AdjuntoMock,
   type NifLookupStatus,
 } from "@/src/lib/documento-soporte-mock";
-import {
-  parseMontoInput,
-  type EmpleadoAnticipo,
-} from "@/src/lib/anticipos-catalog";
+import { parseMontoInput } from "@/src/lib/anticipos-catalog";
 import { type DivisaOption } from "@/src/lib/anticipos-ifs-catalog";
+import { type LovItem } from "@/src/lib/mis-anticipos-mock";
 import {
-  COMPANIAS_HMV,
-  type LovItem,
-} from "@/src/lib/mis-anticipos-mock";
-import {
-  fetchAnticiposFormBootstrapAction,
-  fetchDivisasAnticipoAction,
-  fetchEmpleadosAnticipoAction,
-} from "@/src/server/anticipos-catalog-actions";
-import {
+  fetchDseDivisasAction,
+  fetchDseEmpleadosAction,
+  fetchDseFormBootstrapAction,
   fetchDseProjectsAction,
   lookupNifDseAction,
+  type DseEmpleadoOption,
   type DseSupplierMatch,
 } from "@/src/server/dse-actions";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
@@ -139,9 +132,11 @@ export function DocumentoSoporteFormulario({
     ) {
       return null;
     }
-    return (
-      COMPANIAS_HMV.find((c) => c.id === existing.empresaId) ?? null
-    );
+    return {
+      id: existing.empresaId,
+      nombre: existing.empresaLabel || existing.empresaId,
+      sub: existing.empresaId,
+    };
   });
   const [nif, setNif] = useState(existing?.nif ?? "");
   const [nifLookupStatus, setNifLookupStatus] =
@@ -184,10 +179,10 @@ export function DocumentoSoporteFormulario({
   const [saving, setSaving] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [divisasLoading, setDivisasLoading] = useState(false);
-  const [empleadosIfs, setEmpleadosIfs] = useState<EmpleadoAnticipo[]>([]);
+  const [empleadosIfs, setEmpleadosIfs] = useState<DseEmpleadoOption[]>([]);
   const [empleadosIfsLoading, setEmpleadosIfsLoading] = useState(false);
-  const [empresasIfs, setEmpresasIfs] = useState<LovItem[]>(
-    () => COMPANIAS_HMV,
+  const [empresasIfs, setEmpresasIfs] = useState<LovItem[]>(() =>
+    EMPRESAS_DS.map((c) => ({ id: c.id, nombre: c.label, sub: c.id })),
   );
   const [sessionCompanyId, setSessionCompanyId] = useState(
     existing && !paraOtro ? existing.empresaId : EMPRESA_DEFAULT.id,
@@ -195,7 +190,6 @@ export function DocumentoSoporteFormulario({
   const [sessionCompanyLabel, setSessionCompanyLabel] = useState(
     existing && !paraOtro ? existing.empresaLabel : EMPRESA_DEFAULT.label,
   );
-  const [sessionDivisas, setSessionDivisas] = useState<DivisaOption[]>([]);
 
   const divisaOpt = useMemo(
     () => divisas.find((d) => d.code === divisa) ?? null,
@@ -220,7 +214,6 @@ export function DocumentoSoporteFormulario({
     if (!next) {
       setEmpOtro(null);
       setCompBenef(null);
-      applyDivisas(sessionDivisas);
     }
   };
 
@@ -270,28 +263,13 @@ export function DocumentoSoporteFormulario({
   useEffect(() => {
     let cancelled = false;
     setCatalogLoading(true);
-    void fetchAnticiposFormBootstrapAction().then((result) => {
+    void fetchDseFormBootstrapAction().then((result) => {
       if (cancelled) return;
       setCatalogLoading(false);
-      const c = result.catalog;
-      if (!c) {
-        void fetchDivisasAnticipoAction(EMPRESA_DEFAULT.id).then((r) => {
-          if (cancelled) return;
-          setSessionDivisas(r.divisas);
-          if (!paraOtro) applyDivisas(r.divisas);
-        });
-        return;
-      }
-      const lov = companiasToLov(c.companiasGasto);
+      const lov = companiasToLov(result.companias);
       if (lov.length) setEmpresasIfs(lov);
-      setSessionCompanyId(c.companyId || EMPRESA_DEFAULT.id);
-      setSessionCompanyLabel(
-        c.companyName
-          ? `${c.companyId} – ${c.companyName}`
-          : EMPRESA_DEFAULT.label,
-      );
-      setSessionDivisas(c.divisas);
-      if (!paraOtro) applyDivisas(c.divisas);
+      setSessionCompanyId(result.companyId || EMPRESA_DEFAULT.id);
+      setSessionCompanyLabel(result.companyName || EMPRESA_DEFAULT.label);
     });
     return () => {
       cancelled = true;
@@ -314,7 +292,7 @@ export function DocumentoSoporteFormulario({
     let cancelled = false;
     setEmpleadosIfsLoading(true);
     setEmpleadosIfs([]);
-    void fetchEmpleadosAnticipoAction(compBenef.id).then((result) => {
+    void fetchDseEmpleadosAction(compBenef.id).then((result) => {
       if (cancelled) return;
       setEmpleadosIfsLoading(false);
       setEmpleadosIfs(result.empleados);
@@ -325,10 +303,15 @@ export function DocumentoSoporteFormulario({
   }, [paraOtro, compBenef?.id]);
 
   useEffect(() => {
-    if (!paraOtro || !empresaBeneficiarioId) return;
+    if (!empresaBeneficiarioId) {
+      setDivisas([]);
+      if (!esEdicion) setDivisa("");
+      setDivisasLoading(false);
+      return;
+    }
     let cancelled = false;
     setDivisasLoading(true);
-    void fetchDivisasAnticipoAction(empresaBeneficiarioId).then((result) => {
+    void fetchDseDivisasAction(empresaBeneficiarioId).then((result) => {
       if (cancelled) return;
       setDivisasLoading(false);
       applyDivisas(result.divisas);
@@ -336,7 +319,7 @@ export function DocumentoSoporteFormulario({
     return () => {
       cancelled = true;
     };
-  }, [paraOtro, empresaBeneficiarioId]);
+  }, [empresaBeneficiarioId, esEdicion]);
 
   useEffect(() => {
     if (nifDebounceRef.current) clearTimeout(nifDebounceRef.current);
@@ -556,7 +539,9 @@ export function DocumentoSoporteFormulario({
                 label={
                   proyectosLoading
                     ? "Cargando catálogo IFS"
-                    : "Cargando divisas IFS de la empresa del beneficiario"
+                    : catalogLoading
+                      ? "Cargando empresas IFS de Documento Soporte"
+                      : "Cargando divisas IFS de la empresa del beneficiario"
                 }
               />
             )}

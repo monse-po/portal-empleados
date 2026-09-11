@@ -81,6 +81,35 @@ export type CDseProject = {
   Objstate?: string;
 };
 
+/** LOV de divisa por compañía — `CDseRequestHandling.Reference_CurrencyCode`. */
+export type DseCurrencyCode = {
+  Company?: string;
+  CurrencyCode?: string;
+  Description?: string;
+  CurrencyRounding?: number | string | null;
+  ConvFactor?: number | null;
+  DecimalsInRate?: number | null;
+  Inverted?: boolean;
+};
+
+/** LOV de empresa — `CDseRequestHandling.Reference_LovPersonCompany`. */
+export type DseLovCompany = {
+  CompanyId?: string;
+  CompanyName?: string;
+  Country?: string;
+  CountryCode?: string;
+};
+
+/** LOV de empleado — `ActiveEmployees` / `Reference_LovCompanyPerson`. */
+export type DseLovEmployee = {
+  CompanyId?: string;
+  CompanyName?: string;
+  PersonId?: string;
+  EmpNo?: string;
+  EmployeeName?: string;
+  InternalDisplayName?: string;
+};
+
 type ODataCollection<T> = { value?: T[] };
 
 function dseBase(): string {
@@ -244,6 +273,59 @@ export async function listDseProjects(
 ): Promise<CDseProject[]> {
   return ifsFetchAllPages<CDseProject>(
     "/Reference_Project?$select=ProjectId,Name,Description,Objstate&$orderby=ProjectId",
+    init(accessToken),
+  );
+}
+
+/** Empresas visibles en el LOV de DSE (no GetExpenseCompany de Anticipos). */
+export async function listDseCompanies(
+  accessToken: string,
+): Promise<DseLovCompany[]> {
+  return ifsFetchAllPages<DseLovCompany>(
+    "/Reference_LovPersonCompany?$select=CompanyId,CompanyName,Country,CountryCode&$orderby=CompanyId",
+    init(accessToken),
+  );
+}
+
+/** Empleados activos de la compañía del DSE (no GetEmployees de Anticipos). */
+export async function listDseEmployees(
+  accessToken: string,
+  company: string,
+): Promise<DseLovEmployee[]> {
+  const companyKey = odataStringKey(company.trim());
+  if (!companyKey) return [];
+  const filter = `CompanyId eq '${companyKey}'`;
+  const qs =
+    `?$filter=${encodeURIComponent(filter)}` +
+    "&$select=CompanyId,CompanyName,PersonId,EmpNo,EmployeeName,InternalDisplayName" +
+    "&$orderby=EmployeeName";
+  try {
+    return await ifsFetchAllPages<DseLovEmployee>(
+      `/ActiveEmployees${qs}`,
+      init(accessToken),
+    );
+  } catch {
+    return ifsFetchAllPages<DseLovEmployee>(
+      `/Reference_LovCompanyPerson${qs}`,
+      init(accessToken),
+    );
+  }
+}
+
+/** Divisas habilitadas en la compañía del DSE (no el LOV de Anticipos). */
+export async function listDseCurrencyCodes(
+  accessToken: string,
+  company: string,
+): Promise<DseCurrencyCode[]> {
+  const companyKey = odataStringKey(company.trim());
+  if (!companyKey) return [];
+  const filter = `Company eq '${companyKey}'`;
+  const qs =
+    `?$filter=${encodeURIComponent(filter)}` +
+    "&$select=Company,CurrencyCode,Description,CurrencyRounding,ConvFactor,DecimalsInRate" +
+    "&$orderby=CurrencyCode";
+  return ifsFetchAllPages<DseCurrencyCode>(
+    `/Reference_CurrencyCode${qs}`,
     init(accessToken),
   );
 }
