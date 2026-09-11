@@ -29,18 +29,18 @@ function NavItem({ label, href, icon, count, active, collapsed }: NavItemProps) 
     <Link
       href={href}
       title={collapsed ? `${label}${count ? ` (${count})` : ""}` : undefined}
-      className={`relative mb-0.5 flex w-full cursor-pointer items-center gap-2 rounded-sm text-left text-[12.5px] transition-colors duration-[120ms] ${
+      className={`relative mb-0.5 flex w-full cursor-pointer items-center gap-2 rounded-sm text-left text-[13px] transition-colors duration-[120ms] ${
         collapsed ? "justify-center px-0 py-2.5" : "px-3 py-[9px]"
       } ${
         active
           ? "bg-[#eef3f9] font-semibold text-navy"
-          : "text-muted hover:bg-[#f1f5f9] hover:text-navy"
+          : "font-medium text-[#374151] hover:bg-[#f1f5f9] hover:text-navy"
       }`}
     >
       <Icon
         name={icon}
         size="md"
-        className={`w-5 shrink-0 text-center ${active ? "text-navy" : "text-muted"}`}
+        className={`w-5 shrink-0 text-center ${active ? "text-navy" : "text-[#4b5563]"}`}
       />
       {!collapsed && (
         <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span>
@@ -69,9 +69,44 @@ function NavSectionLabel({
 }) {
   if (collapsed) return null;
   return (
-    <div className="px-3.5 pb-1 pt-2.5 text-[9.5px] font-bold uppercase tracking-[0.09em] text-[#b0b7c3]">
+    <div className="px-3.5 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6b7280]">
       {children}
     </div>
+  );
+}
+
+function NavAprobacionesSkeleton({
+  collapsed,
+  count,
+  showDivider,
+}: {
+  collapsed: boolean;
+  count: number;
+  showDivider: boolean;
+}) {
+  return (
+    <>
+      {showDivider && !collapsed ? (
+        <div className="my-2.5 h-px bg-[#f0f0f0]" />
+      ) : null}
+      <NavSectionLabel collapsed={collapsed}>
+        Aprobaciones pendientes
+      </NavSectionLabel>
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={i}
+          className={`mb-0.5 flex items-center gap-2 ${
+            collapsed ? "justify-center px-0 py-2.5" : "px-3 py-[9px]"
+          }`}
+          aria-hidden
+        >
+          <span className="h-5 w-5 shrink-0 animate-pulse rounded bg-[#e5e9f0]" />
+          {!collapsed && (
+            <span className="h-3 w-[7.5rem] animate-pulse rounded bg-[#e5e9f0]" />
+          )}
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -122,7 +157,7 @@ function NavRouteItem({
 export function Sidebar() {
   const pathname = usePathname();
   const { collapsed } = useShell();
-  const { isGerente } = useRole();
+  const { isGerente, roleReady } = useRole();
   const modules = getVisibleModules();
 
   const gerenteRoutes = modules.flatMap((m) =>
@@ -151,6 +186,14 @@ export function Sidebar() {
           ))}
         </>
       )}
+
+      {!roleReady && !isGerente && gerenteRoutes.length > 0 ? (
+        <NavAprobacionesSkeleton
+          collapsed={collapsed}
+          count={gerenteRoutes.length}
+          showDivider={empleadoRoutes.length > 0}
+        />
+      ) : null}
 
       {isGerente && gerenteRoutes.length > 0 && (
         <>

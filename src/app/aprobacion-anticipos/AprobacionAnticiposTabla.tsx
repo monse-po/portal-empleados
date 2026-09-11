@@ -27,13 +27,17 @@ import {
   APRO_ANT_COLS_PEND,
   type AnticipoAprobacion,
 } from "@/src/lib/aprobacion-anticipos-registro";
+import { getBeneficiarioSolicitante } from "@/src/lib/anticipos-registro";
 import { nombreProyectoAnticipo } from "@/src/lib/mis-anticipos-mock";
-import { sameDisplayName } from "@/src/lib/empleado-display";
 
 function chipSolicitadoPor(s: AnticipoAprobacion): string | null {
-  const who = (s.solicitante || "").trim();
-  if (!who || sameDisplayName(who, s.nombre)) return null;
-  return who;
+  return getBeneficiarioSolicitante({
+    solicitante: s.solicitante,
+    solicitanteId: s.solicitanteId,
+    beneficiarioNombre: s.nombre,
+    beneficiarioId: s.cedula,
+    cedula: s.cedula,
+  });
 }
 
 type AprobacionAnticiposTablaProps = {
@@ -108,7 +112,7 @@ export function AprobacionAnticiposTabla({
         <EmpleadoCell nombre={s.nombre} codigo={s.cedula} />
         {solicitadoPor ? (
           <div
-            className="mt-1 inline-flex max-w-full flex-wrap items-baseline gap-x-1 rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug [overflow-wrap:anywhere]"
+            className="mt-1 inline-flex max-w-full items-baseline gap-x-1 whitespace-nowrap rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug"
             title={`Solicitado por ${solicitadoPor}`}
           >
             <span className="font-medium text-[#4b5563]">Solicitado por</span>
@@ -155,7 +159,7 @@ export function AprobacionAnticiposTabla({
         <EmpleadoCell nombre={s.nombre} codigo={s.cedula} />
         {solicitadoPor ? (
           <div
-            className="mt-1 inline-flex max-w-full flex-wrap items-baseline gap-x-1 rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug [overflow-wrap:anywhere]"
+            className="mt-1 inline-flex max-w-full items-baseline gap-x-1 whitespace-nowrap rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug"
             title={`Solicitado por ${solicitadoPor}`}
           >
             <span className="font-medium text-[#4b5563]">Solicitado por</span>

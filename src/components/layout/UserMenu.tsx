@@ -303,6 +303,12 @@ export function UserMenu() {
             onClick={() => {
               setOpen(false);
               if (IFS_AUTH_ENABLED) {
+                try {
+                  window.sessionStorage.removeItem("hmv-usuario-can-approve");
+                  window.sessionStorage.removeItem("hmv-usuario-rol");
+                } catch {
+                  /* ignore */
+                }
                 window.location.href = "/api/auth/ifs-logout";
                 return;
               }

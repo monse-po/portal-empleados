@@ -185,6 +185,7 @@ export function queryToAprobacion(row: CEmpAdvanceQuery): AnticipoAprobacion {
     proyN: a.proyN,
     tipo: a.tipo,
     solicitante: a.solicitante || "—",
+    solicitanteId: a.solicitanteId,
     cedula: a.cedula || a.beneficiarioId || "",
     nombre: a.beneficiarioNombre || "—",
     cuenta: "—",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Dropdown } from "@/src/components/ui/Dropdown";
 import { Field } from "@/src/components/ui/Field";
@@ -68,6 +68,12 @@ import {
   type TipoHoraCat,
 } from "@/src/lib/tiempo-schedule";
 import { DiaSinJornadaBanner } from "@/src/app/hoja-tiempo/DiaSinJornadaBanner";
+import { UsarActividadRecienteChip } from "@/src/app/hoja-tiempo/UsarActividadRecienteChip";
+import {
+  combosRecientesDistintos,
+  matchComboReciente,
+  type TiempoComboReciente,
+} from "@/src/lib/tiempo-recientes";
 import {
   pickScheduleColors,
   resolveSpecialDayLabel,
@@ -384,6 +390,8 @@ function RegistroHorasForm({
   });
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [tipoOpen, setTipoOpen] = useState(false);
+  const [recientesOpen, setRecientesOpen] = useState(false);
+  const autoFilledReciente = useRef(false);
   const { toast } = useToast();
   const useIfsCatalog = ifsConnected;
 
@@ -475,6 +483,24 @@ function RegistroHorasForm({
     (!useIfsCatalog || !!catalogError || (!catalogLoading && Boolean(catalog)));
   const tiposReady = !useIfsCatalogLive || !form.act || !tiposLoading;
   const formReady = catalogReady && tiposReady;
+
+  const combosRecientes = useMemo(() => {
+    if (isEdit) return [];
+    if (useIfsCatalog && catalogLoading && !catalog) return [];
+    return combosRecientesDistintos(
+      registros,
+      useIfsCatalogLive ? catalog : null,
+    );
+  }, [
+    isEdit,
+    useIfsCatalog,
+    catalogLoading,
+    catalog,
+    useIfsCatalogLive,
+    registros,
+  ]);
+  const comboSeleccionado = matchComboReciente(combosRecientes, form);
+  const mostrarChipRecientes = combosRecientes.length > 1;
 
   useEffect(() => {
     onReadyChange?.(formReady);
@@ -819,52 +845,64 @@ function RegistroHorasForm({
     await onSave(payload);
   };
 
-  const handleCopiarDiaAnterior = () => {
+  const applyComboReciente = (
+    combo: TiempoComboReciente,
+    opts?: { silent?: boolean },
+  ) => {
     if (!catalogReady) {
-      toast("Espera a que cargue el catálogo IFS", "warn");
+      if (!opts?.silent) toast(TIEMPO_UI_COPY.usarRecienteCatalogo, "warn");
       return;
     }
 
-    const fechas = Object.keys(registros).sort().reverse();
-    const anterior = fechas.find(
-      (f) => f < form.fecha && (registros[f]?.length ?? 0) > 0,
-    );
-
-    if (!anterior) {
-      toast("No hay registros de días anteriores", "warn");
+    if (useIfsCatalogLive && !catalog?.porProyecto[combo.proy]) {
+      if (!opts?.silent) toast(TIEMPO_UI_COPY.usarRecienteNoVigente, "warn");
       return;
     }
 
-    const ultimo = registros[anterior][registros[anterior].length - 1];
-    const proy = useIfsCatalogLive
-      ? resolveProyectoId(catalog, ultimo.proy)
-      : ultimo.proy;
-    const sub = useIfsCatalogLive
-      ? resolveSubproyectoId(catalog, proy, ultimo.subproy, ultimo.act)
-      : inferSubproyecto(proy, ultimo.act, ultimo.subproy);
-    const act = useIfsCatalogLive
-      ? resolveActividadId(catalog, proy, sub, ultimo.act)
-      : ultimo.act;
-
-    if (useIfsCatalogLive && !catalog?.porProyecto[proy]) {
-      toast(
-        "El proyecto del día anterior no está vigente en esta fecha. Elige otro.",
-        "warn",
+    const tipoNormal = tipoCat(combo.lastTipo) === "normal";
+    const omitirTipoHoras = soloExtras && tipoNormal;
+    let horas = "";
+    let tipo = "";
+    if (!omitirTipoHoras) {
+      tipo = combo.lastTipo;
+      const restantes = restantesNormalesMin(
+        calendarioFechas.length ? calendarioFechas : [form.fecha],
+        hoursByDate,
+        maxScheduleHours,
+        (fecha) => getHorasNormales(registros, fecha, editId),
       );
-      return;
+      const cabe =
+        !tipoNormal || combo.lastHoras <= restantes + 1e-6;
+      horas = cabe ? formatHorasValor(combo.lastHoras) : "";
     }
 
     patch({
-      proy,
-      sub,
-      act,
-      tipo: ultimo.tipo,
-      horas: formatHorasValor(ultimo.horas),
-      comentario: ultimo.comentario || "",
+      proy: combo.proy,
+      sub: combo.sub,
+      act: combo.act,
+      tipo,
+      horas,
+      comentario: "",
     });
     setErrors({});
-    toast(`Copiado del ${formatFechaLegible(anterior, false)}`, "navy");
+    if (opts?.silent) return;
+    toast(
+      omitirTipoHoras
+        ? TIEMPO_UI_COPY.usarRecienteJornadaToast
+        : TIEMPO_UI_COPY.usarRecienteToast,
+      "navy",
+    );
   };
+
+  useEffect(() => {
+    if (isEdit || plantilla || autoFilledReciente.current) return;
+    if (!catalogReady) return;
+    if (combosRecientes.length !== 1) return;
+    autoFilledReciente.current = true;
+    applyComboReciente(combosRecientes[0], { silent: true });
+    // Solo al abrir: una combinación distinta → el form ya viene lleno.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- alta única
+  }, [catalogReady, combosRecientes, isEdit, plantilla]);
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-2.5">
@@ -908,6 +946,17 @@ function RegistroHorasForm({
         </p>
       )}
 
+      {mostrarChipRecientes ? (
+        <UsarActividadRecienteChip
+          combos={combosRecientes}
+          selected={comboSeleccionado}
+          open={recientesOpen}
+          onOpenChange={setRecientesOpen}
+          onSelect={applyComboReciente}
+          disabled={!catalogReady}
+        />
+      ) : null}
+
       {scheduleReady && (etiquetaTipoDia || (jornadaCompleta && !diaSoloExtras)) ? (
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {etiquetaTipoDia ? (
@@ -946,22 +995,6 @@ function RegistroHorasForm({
         label="Proyecto"
         required
         error={errors.proy}
-        trailing={
-          <button
-            type="button"
-            onClick={handleCopiarDiaAnterior}
-            disabled={!catalogReady}
-            title={
-              catalogReady
-                ? "Copia proyecto, actividad y horas del último día con registro"
-                : "Espera a que cargue el catálogo IFS"
-            }
-            className="btn-link shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Icon name="copy" size="xs" />
-            Copiar día anterior
-          </button>
-        }
       >
         <SearchableSelect
           value={form.proy}

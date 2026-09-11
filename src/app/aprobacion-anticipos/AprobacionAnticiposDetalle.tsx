@@ -19,8 +19,10 @@ import { useToast } from "@/src/components/ui/Toast";
 import { useAsyncAction } from "@/src/lib/use-async-action";
 import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-registro";
 import { getDirectorProyecto } from "@/src/lib/anticipos-catalog";
-import { formatMonto } from "@/src/lib/anticipos-registro";
-import { sameDisplayName } from "@/src/lib/empleado-display";
+import {
+  formatMonto,
+  getBeneficiarioSolicitante,
+} from "@/src/lib/anticipos-registro";
 
 type AprobacionAnticiposDetalleProps = {
   solicitud: AnticipoAprobacion;
@@ -55,9 +57,13 @@ export function AprobacionAnticiposDetalle({
     ? `${director.nombre} (${director.codigo})`
     : solicitud.aprobador || "—";
   const estadoPill = resuelto ? solicitud.estadoApro : "Pendiente";
-  const muestraSolicitante =
-    Boolean(solicitud.solicitante?.trim()) &&
-    !sameDisplayName(solicitud.solicitante, solicitud.nombre);
+  const solicitadoPor = getBeneficiarioSolicitante({
+    solicitante: solicitud.solicitante,
+    solicitanteId: solicitud.solicitanteId,
+    beneficiarioNombre: solicitud.nombre,
+    beneficiarioId: solicitud.cedula,
+    cedula: solicitud.cedula,
+  });
   const banner = getAprobacionEventBanner(solicitud);
 
   const handleRechazar = () => {
@@ -108,14 +114,14 @@ export function AprobacionAnticiposDetalle({
       <Card className="mb-3 overflow-visible">
         <CardBody className="py-4">
           <DetailSection icon="userCircle" title="Empleado beneficiario">
-            {muestraSolicitante && (
+            {solicitadoPor ? (
               <p className="mb-3 text-[12px] leading-snug text-muted">
                 Solicitado por{" "}
                 <span className="font-semibold text-[#374151]">
-                  {solicitud.solicitante}
+                  {solicitadoPor}
                 </span>
               </p>
-            )}
+            ) : null}
             <DetailGrid>
               <ReadOnlyField label="Fecha de solicitud">
                 {solicitud.fecha}

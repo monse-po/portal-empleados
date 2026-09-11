@@ -16,6 +16,7 @@ export type AnticipoAprobacion = {
   proyN: string;
   tipo: AnticipoTipo;
   solicitante: string;
+  solicitanteId?: string;
   cedula: string;
   nombre: string;
   cuenta: string;

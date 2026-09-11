@@ -158,6 +158,7 @@ export function rowToAprobacion(row: AnticipoRow): AnticipoAprobacion {
     proyN: row.proyectoNombre,
     tipo: tipoDbToUi(row.tipo),
     solicitante: row.solicitanteNombre || "—",
+    solicitanteId: row.solicitanteId || undefined,
     cedula: benef.cedula,
     nombre: benef.nombre,
     cuenta: benef.cuenta,

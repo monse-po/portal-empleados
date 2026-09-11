@@ -763,6 +763,45 @@ function odataCollection<T>(raw: unknown): T[] {
   return Array.isArray(value) ? value : [];
 }
 
+function idsMatch(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
+ * ¿Esta persona es Manager de algún proyecto en IFS?
+ * Permiso estable (no depende de que haya pendientes hoy).
+ */
+export async function personManagesAnyProject(
+  accessToken: string,
+  companyId: string,
+  personId: string,
+): Promise<boolean> {
+  const manager = personId.trim();
+  if (!manager) return false;
+  const filter = encodeURIComponent(`Manager eq '${odataStringKey(manager)}'`);
+  const company = odataStringKey(companyId.trim());
+  const paths = [
+    companyId.trim()
+      ? `/GetProjects(Company='${company}')?$filter=${filter}&$select=ProjectId,Manager&$top=5`
+      : "",
+    `/Reference_ProjectInfoQuery?$filter=${filter}&$select=ProjectId,Manager&$top=5`,
+  ].filter(Boolean);
+
+  for (const path of paths) {
+    try {
+      const data = await ifsFetch<ODataCollection<ProjectInfoQuery>>(path, {
+        accessToken,
+      });
+      if (odataCollection<ProjectInfoQuery>(data).some((row) => idsMatch(row.Manager ?? "", manager))) {
+        return true;
+      }
+    } catch {
+      /* filtro no soportado en este entity */
+    }
+  }
+  return false;
+}
+
 /** Compañías del portal (CompanySet). */
 export async function getCompanies(
   accessToken: string,

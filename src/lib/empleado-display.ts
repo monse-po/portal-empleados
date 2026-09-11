@@ -91,5 +91,10 @@ export function sameDisplayName(
   const n = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
   const x = n(a || "");
   const y = n(b || "");
-  return Boolean(x && y && x === y);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  // "Ana Martínez" vs "Ana Martínez Rueda" — mismo nombre, un apellido más.
+  const [shorter, longer] = x.length <= y.length ? [x, y] : [y, x];
+  if (shorter.split(" ").length < 2) return false;
+  return longer.startsWith(`${shorter} `);
 }
