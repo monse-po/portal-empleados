@@ -108,7 +108,6 @@ export const MODULES: ModuleDef[] = [
   {
     id: "documento-soporte",
     label: "Documento de Soporte",
-    hidden: true,
     routes: [
       {
         path: "/documento-soporte",

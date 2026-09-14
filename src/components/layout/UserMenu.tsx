@@ -231,27 +231,7 @@ export function UserMenu() {
               <Icon name="userCircle" size="sm" className="text-muted" />
               Entrar con IFS
             </button>
-          ) : (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                toast(
-                  !IFS_AUTH_ENABLED
-                    ? "Ambiente DEMO"
-                    : profile?.empNo
-                      ? `Empleado IFS ${profile.empNo}`
-                      : "Perfil IFS",
-                  "navy",
-                );
-              }}
-              className="flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-3.5 py-2 text-left text-[12.5px] text-[#374151] hover:bg-[#f4f7fb]"
-            >
-              <Icon name="userCircle" size="sm" className="text-muted" />
-              Mi perfil
-            </button>
-          )}
+          ) : null}
 
           {canSwitchRole ? (
             <>
@@ -303,6 +283,12 @@ export function UserMenu() {
             onClick={() => {
               setOpen(false);
               if (IFS_AUTH_ENABLED) {
+                try {
+                  window.sessionStorage.removeItem("hmv-usuario-can-approve");
+                  window.sessionStorage.removeItem("hmv-usuario-rol");
+                } catch {
+                  /* ignore */
+                }
                 window.location.href = "/api/auth/ifs-logout";
                 return;
               }

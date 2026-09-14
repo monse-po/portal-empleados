@@ -16,15 +16,21 @@ export function LoginIfsForm({
   defaultEmail = "",
 }: LoginIfsFormProps) {
   const [email, setEmail] = useState(defaultEmail);
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function startMicrosoft() {
+    const params = new URLSearchParams();
+    params.set("next", next);
+    const trimmed = email.trim();
+    if (trimmed) params.set("email", trimmed);
+    window.location.assign(`/api/auth/login/microsoft?${params.toString()}`);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = email.trim();
-    if (!trimmed || !password || submitting) return;
+    if (!trimmed || submitting) return;
 
     setSubmitting(true);
     setError(null);
@@ -33,7 +39,10 @@ export function LoginIfsForm({
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email: trimmed, password, next }),
+        body: JSON.stringify({
+          email: trimmed,
+          next,
+        }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -57,6 +66,15 @@ export function LoginIfsForm({
       {error ? (
         <p className="alert-warn login-error px-3 py-2 text-[13px]">{error}</p>
       ) : null}
+      <Button
+        type="button"
+        variant="primary"
+        className="h-12 w-full justify-center text-[14px] max-md:min-h-12 max-md:text-[15px]"
+        onClick={startMicrosoft}
+      >
+        Entrar con Microsoft
+      </Button>
+      <p className="login-divider">o con el correo asociado en IFS</p>
       <Field label="Correo corporativo" required htmlFor="login-email">
         <div className="login-field-shell">
           <span className="login-field-icon">
@@ -74,38 +92,14 @@ export function LoginIfsForm({
             className="login-input max-md:text-[16px]"
           />
         </div>
-      </Field>
-      <Field label="Contraseña" required htmlFor="login-password">
-        <div className="login-field-shell">
-          <span className="login-field-icon">
-            <Icon name="lock" size="sm" />
-          </span>
-          <input
-            id="login-password"
-            type={showPassword ? "text" : "password"}
-            required
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="login-input max-md:text-[16px]"
-          />
-          <button
-            type="button"
-            className="login-toggle"
-            onClick={() => setShowPassword((open) => !open)}
-            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-          >
-            <Icon name={showPassword ? "eyeOff" : "eye"} size="sm" />
-          </button>
-        </div>
         <p className="login-hint">
-          La misma de tu acceso corporativo.
+          Entra con el correo asociado al empleado en IFS. No se pide
+          contraseña.
         </p>
       </Field>
       <Button
         type="submit"
-        variant="primary"
+        variant="secondary"
         className="h-12 w-full justify-center text-[14px] max-md:min-h-12 max-md:text-[15px]"
         loading={submitting}
         loadingLabel="Entrando…"

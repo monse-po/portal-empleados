@@ -19,12 +19,14 @@ Fuente de verdad: `src/components/ui/Pill.tsx` + tokens en `src/app/globals.css`
 | Label | Uso |
 |-------|-----|
 | Lanzado / Registrado | Enviado / en proceso (alias: Pendiente, En revisión; Mi Tiempo muestra **Registrado**) |
-| Aprobado | Cerrado OK |
+| Aprobado | Cerrado OK. En DSE también cubre IFS `Sent` (envío al PAC). |
+| Emitido | **Solo DSE** (IFS `Issued`). Ya hay folio/CUDS. |
 | Pagado | Solo Anticipos (post-tesorería) |
 | Rechazado | Cerrado KO |
-| Cancelado | Único label de baja (DSE/Anticipos/Legaliz.). **No usar “Anulado”** en UI |
+| Cancelado | Baja en Anticipos / Legalizaciones. En DSE = IFS `Cancelled` (NIF+doc se puede repetir). |
+| Anulado | **Solo DSE** (IFS `Voided`). Chip propio, más oscuro que Cancelado. NIF+doc queda bloqueado. |
 
-`normalizeEstadoLabel`: `Anulado` → `Cancelado`; legacy `Borrador` → `Registrado`. La acción gerente Tiempo “anular” (vuelve a Registrado) **no** es un chip Anulado.
+`normalizeEstadoLabel`: `Anulado` → `Cancelado` en Anticipos / Legalizaciones / Tiempo. **DSE no normaliza** Anulado (`EstadoDocumentoSoportePill`). Legacy `Borrador` → `Registrado`. La acción gerente Tiempo “anular” (vuelve a Registrado) **no** es un chip Anulado.
 
 ## Tokens CSS (`:root`)
 
@@ -32,9 +34,11 @@ Fuente de verdad: `src/components/ui/Pill.tsx` + tokens en `src/app/globals.css`
 |---------|--------|-------|
 | lanzado / registrado | `--pill-lanzado-*` / `--pill-registrado-*` | Azul envío |
 | aprobado | `--pill-aprobado-*` → `green-soft` / `green` | Mint soft |
+| emitido | `--pill-emitido-*` | Teal (solo DSE Issued) |
 | pagado | `--pill-pagado-*` → `green-pastel` `#c5ebd4` / `green-dark` | Pastel más lleno que Aprobado |
 | rechazado | `--pill-rechazado-*` | Rojo soft |
-| cancelado | `--pill-cancelado-*` | Gris |
+| cancelado | `--pill-cancelado-*` | Gris claro |
+| anulado | `--pill-anulado-*` | Gris medio, más oscuro que Cancelado (solo DSE Voided) |
 
 Cambiar color = editar token en `globals.css` (+ `@theme` / `tailwind.config.ts`). No hex sueltos en componentes.
 
@@ -44,9 +48,11 @@ Cambiar color = editar token en `globals.css` (+ `@theme` / `tailwind.config.ts`
 |--------|------|
 | Lanzado / Registrado / Pendiente | `send` |
 | Aprobado | `check` |
+| Emitido | `receipt` |
 | Pagado | `wallet` |
 | Rechazado | `x` |
 | Cancelado | `ban` |
+| Anulado | `circleOff` |
 
 Sin emojis.
 
@@ -57,7 +63,7 @@ Sin emojis.
 | Mi Tiempo | Registrado, Aprobado, Rechazado |
 | Anticipos | Lanzado, Aprobado, Pagado, Rechazado, Cancelado |
 | Legalizaciones | Lanzado, Aprobado, Rechazado, Cancelado |
-| DSE | Lanzado, Aprobado, Rechazado, Cancelado |
+| DSE | Lanzado, Aprobado, Emitido, Rechazado, Cancelado, Anulado |
 
 ## Geometría
 

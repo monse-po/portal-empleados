@@ -22,7 +22,7 @@ Promoción DEV → TEST → PROD = mismo código, otro `.env` (`IFS_SYSTEM_URL`,
 | Postgres | 16 · `portal_hmv_dev` · `portal_app` · solo localhost |
 | URL | `https://hmv-empleados-dev.nubeportal.com` |
 | IFS | Keycloak realm **hmvtest** (`https://hmvtest.ifs360.cloud`), client `IFS_EMP_PORTAL_USER`. Compañía `HMVINGCO`. |
-| Auth empleado | Encendido: correo y clave en `/login` (IFS valida, sin pantalla de IFS). |
+| Auth empleado | Encendido: Microsoft o correo IFS en `/login` (sin contraseña). |
 
 ## Doble clic desde tu Mac (recomendado)
 
@@ -99,6 +99,7 @@ La VM necesita policy de instance principal `objectstorage` sobre ese bucket, o 
 - **No** definir `IFS_IDCS_DOMAIN_URL` / `IFS_IDCS_*`.
 - Sí: `IFS_USE_REALM_OAUTH=true`, `IFS_SYSTEM_URL=https://hmvtest.ifs360.cloud`, `IFS_REALM=hmvtest`, client `IFS_EMP_PORTAL_USER`.
 - Login de empleado: `IFS_AUTH_ENABLED=true` y `IFS_OAUTH_REDIRECT_URI=https://hmv-empleados-dev.nubeportal.com/api/auth/callback/ifs`.
+- Microsoft (mismo viaje que APEX, otro callback): Azure debe registrar `https://hmv-empleados-dev.nubeportal.com/api/auth/callback/microsoft` y el `.env` lleva `IFS_ENTRA_CLIENT_ID` (+ secret si la app es confidencial).
 - La IP interna de IFS `12.0.2.235` es alcanzable por DRG; el hostname público `*.ifs360.cloud` sale por NAT. El `.env` usa hostname; no hace falta el IP interno.
 
 ## Rama

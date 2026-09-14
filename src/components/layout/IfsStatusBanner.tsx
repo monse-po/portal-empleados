@@ -8,7 +8,8 @@ type IfsSurface =
   | "approval"
   | "anticipos"
   | "anticipos-approval"
-  | "historico";
+  | "historico"
+  | "dse";
 
 type IfsStatusBannerProps = {
   connected: boolean;
@@ -27,6 +28,7 @@ const SURFACE_LOGIN_NEXT: Record<IfsSurface, string> = {
   anticipos: "/mis-anticipos",
   "anticipos-approval": "/aprobacion-anticipos",
   historico: "/historico-tiempo",
+  dse: "/documento-soporte",
 };
 
 function loginHref(surface: IfsSurface, loginNext?: string): string {

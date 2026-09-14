@@ -39,10 +39,16 @@
   --pill-aprobado-fg: var(--green);
   --pill-pagado-bg: var(--green-pastel);
   --pill-pagado-fg: var(--green-dark);
+  /** DSE Issued — folio/CUDS ya existe; distinto del mint de Aprobado. */
+  --pill-emitido-bg: #ccfbf1;
+  --pill-emitido-fg: #0f766e;
   --pill-rechazado-bg: #fee2e2;
   --pill-rechazado-fg: #b91c1c;
   --pill-cancelado-bg: #f3f4f6;
   --pill-cancelado-fg: #6b7280;
+  /** DSE Voided — gris medio, más oscuro que Cancelado, sin invertir. */
+  --pill-anulado-bg: #d1d5db;
+  --pill-anulado-fg: #374151;
   --pill-revision-bg: #fef9c3;
   --pill-revision-fg: #854d0e;
   --pill-registrado-bg: #e8eef4;
@@ -102,10 +108,14 @@
   --color-pill-aprobado-fg: var(--pill-aprobado-fg);
   --color-pill-pagado-bg: var(--pill-pagado-bg);
   --color-pill-pagado-fg: var(--pill-pagado-fg);
+  --color-pill-emitido-bg: var(--pill-emitido-bg);
+  --color-pill-emitido-fg: var(--pill-emitido-fg);
   --color-pill-rechazado-bg: var(--pill-rechazado-bg);
   --color-pill-rechazado-fg: var(--pill-rechazado-fg);
   --color-pill-cancelado-bg: var(--pill-cancelado-bg);
   --color-pill-cancelado-fg: var(--pill-cancelado-fg);
+  --color-pill-anulado-bg: var(--pill-anulado-bg);
+  --color-pill-anulado-fg: var(--pill-anulado-fg);
   --color-pill-revision-bg: var(--pill-revision-bg);
   --color-pill-revision-fg: var(--pill-revision-fg);
   --color-pill-registrado-bg: var(--pill-registrado-bg);

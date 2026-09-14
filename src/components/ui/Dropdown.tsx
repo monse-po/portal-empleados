@@ -84,30 +84,48 @@ export function Dropdown({
   useEffect(() => {
     if (!open) return;
 
-    const isInside = (target: EventTarget | null) => {
-      if (!(target instanceof Node)) return false;
-      return Boolean(
-        rootRef.current?.contains(target) || menuRef.current?.contains(target),
+    const isInside = (event: Event) => {
+      const nodes =
+        typeof event.composedPath === "function"
+          ? event.composedPath()
+          : event.target
+            ? [event.target]
+            : [];
+      return nodes.some(
+        (node) =>
+          node instanceof Node &&
+          (rootRef.current?.contains(node) || menuRef.current?.contains(node)),
       );
     };
 
-    // Capture: el Modal hace stopPropagation en bubble y si no, el clic fuera
-    // dentro del dialog no cerraría el menú portaleado.
-    const onPointerDown = (event: PointerEvent) => {
-      if (isInside(event.target)) return;
+    // Capture en window: el dialog del Modal hace stopPropagation y el menú
+    // va por portal (fuera del dialog). Sin esto, clic fuera no cierra.
+    const onPointerDown = (event: Event) => {
+      if (isInside(event)) return;
       onOpenChange(false);
     };
 
     const onFocusIn = (event: FocusEvent) => {
-      if (isInside(event.target)) return;
+      if (isInside(event)) return;
       onOpenChange(false);
     };
 
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("focusin", onFocusIn, true);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onOpenChange(false);
+    };
+
+    window.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("mousedown", onPointerDown, true);
+    window.addEventListener("focusin", onFocusIn, true);
+    window.addEventListener("keydown", onKeyDown, true);
     return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("focusin", onFocusIn, true);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("mousedown", onPointerDown, true);
+      window.removeEventListener("focusin", onFocusIn, true);
+      window.removeEventListener("keydown", onKeyDown, true);
     };
   }, [open, onOpenChange]);
 

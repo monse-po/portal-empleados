@@ -27,7 +27,18 @@ import {
   APRO_ANT_COLS_PEND,
   type AnticipoAprobacion,
 } from "@/src/lib/aprobacion-anticipos-registro";
+import { getBeneficiarioSolicitante } from "@/src/lib/anticipos-registro";
 import { nombreProyectoAnticipo } from "@/src/lib/mis-anticipos-mock";
+
+function chipSolicitadoPor(s: AnticipoAprobacion): string | null {
+  return getBeneficiarioSolicitante({
+    solicitante: s.solicitante,
+    solicitanteId: s.solicitanteId,
+    beneficiarioNombre: s.nombre,
+    beneficiarioId: s.cedula,
+    cedula: s.cedula,
+  });
+}
 
 type AprobacionAnticiposTablaProps = {
   registros: AnticipoAprobacion[];
@@ -78,7 +89,9 @@ export function AprobacionAnticiposTabla({
   const idsFiltrados = registros.map((r) => r.no);
   const { allSelected, someSelected } = getSelectionState(seleccion, idsFiltrados);
 
-  const renderRowPend = (s: AnticipoAprobacion) => (
+  const renderRowPend = (s: AnticipoAprobacion) => {
+    const solicitadoPor = chipSolicitadoPor(s);
+    return (
     <tr
       key={s.no}
       onClick={() => onOpenDetalle(s.no)}
@@ -95,8 +108,17 @@ export function AprobacionAnticiposTabla({
         {s.no}
       </td>
       <td className={`${dataTd} text-muted ${dataTdTruncate}`}>{s.fecha}</td>
-      <td className={dataTd}>
+      <td className={`${dataTd} align-top`}>
         <EmpleadoCell nombre={s.nombre} codigo={s.cedula} />
+        {solicitadoPor ? (
+          <div
+            className="mt-1 inline-flex max-w-full items-baseline gap-x-1 whitespace-nowrap rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug"
+            title={`Solicitado por ${solicitadoPor}`}
+          >
+            <span className="font-medium text-[#4b5563]">Solicitado por</span>
+            <span className="font-semibold text-navy">{solicitadoPor}</span>
+          </div>
+        ) : null}
       </td>
       <td className={dataTd}>
         <TipoAnticipoPill tipo={s.tipo} />
@@ -117,9 +139,12 @@ export function AprobacionAnticiposTabla({
         <MontoCell monto={s.monto} divisa={s.divisa} />
       </td>
     </tr>
-  );
+    );
+  };
 
-  const renderRowRes = (s: AnticipoAprobacion) => (
+  const renderRowRes = (s: AnticipoAprobacion) => {
+    const solicitadoPor = chipSolicitadoPor(s);
+    return (
     <tr
       key={s.no}
       onClick={() => onOpenDetalle(s.no)}
@@ -130,8 +155,17 @@ export function AprobacionAnticiposTabla({
         {s.no}
       </td>
       <td className={`${dataTd} text-muted ${dataTdTruncate}`}>{s.fecha}</td>
-      <td className={dataTd}>
+      <td className={`${dataTd} align-top`}>
         <EmpleadoCell nombre={s.nombre} codigo={s.cedula} />
+        {solicitadoPor ? (
+          <div
+            className="mt-1 inline-flex max-w-full items-baseline gap-x-1 whitespace-nowrap rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug"
+            title={`Solicitado por ${solicitadoPor}`}
+          >
+            <span className="font-medium text-[#4b5563]">Solicitado por</span>
+            <span className="font-semibold text-navy">{solicitadoPor}</span>
+          </div>
+        ) : null}
       </td>
       <td className={dataTd}>
         <TipoAnticipoPill tipo={s.tipo} />
@@ -158,7 +192,8 @@ export function AprobacionAnticiposTabla({
         {s.comentarioApro || "—"}
       </td>
     </tr>
-  );
+    );
+  };
 
   const pendHeaderCols: [string, string][] = [
     ["Código", "text-left"],

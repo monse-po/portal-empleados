@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { expireStalePortalCookies } from "@/src/lib/ifs/clear-portal-cookies";
+import { isPortalLoginRequired } from "@/src/lib/ifs/config";
 import {
   LEGACY_SESSION_COOKIE,
   SESSION_COOKIE,
 } from "@/src/lib/ifs/constants";
-import { isIfsAuthReady } from "@/src/lib/ifs/config";
 import { isSessionCookieAlive } from "@/src/lib/ifs/session-cookie";
 
 function isPublicPath(pathname: string): boolean {
@@ -21,7 +21,7 @@ function hasLiveSession(request: NextRequest): boolean {
   );
 }
 
-const AUTH_ENABLED = isIfsAuthReady();
+const LOGIN_REQUIRED = isPortalLoginRequired();
 
 /**
  * Expira cookies legacy y, con login IFS encendido, no deja ver el portal
@@ -31,7 +31,7 @@ export function proxy(request: NextRequest) {
   const secure = request.nextUrl.protocol === "https:";
   const { pathname, search } = request.nextUrl;
 
-  if (AUTH_ENABLED && !isPublicPath(pathname) && !hasLiveSession(request)) {
+  if (LOGIN_REQUIRED && !isPublicPath(pathname) && !hasLiveSession(request)) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
     login.search = "";

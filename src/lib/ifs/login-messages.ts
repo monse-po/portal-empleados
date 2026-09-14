@@ -14,11 +14,15 @@ export const LOGIN_ERROR_MESSAGES: Record<string, string> = {
     "Hay una sesión anterior en el navegador. Limpia las cookies del sitio o usa una ventana privada.",
   session_expired: "Tu sesión expiró. Vuelve a iniciar sesión.",
   invalid_credentials:
-    "Correo o contraseña incorrectos. Inténtalo de nuevo.",
+    "Ese correo no es válido. Escríbelo de nuevo.",
   grant_disabled:
     "IFS no acepta este tipo de inicio de sesión. Avisa a soporte.",
   auth_unavailable:
     "El inicio de sesión no está disponible en este momento. Avisa a soporte.",
+  microsoft_not_configured:
+    "No se pudo abrir Microsoft. Inténtalo de nuevo o avisa a soporte.",
+  user_not_in_ifs:
+    "Ese correo no está asociado a un empleado en IFS. Revisa el EmailId.",
 };
 
 export function loginErrorMessage(code: string | null | undefined): string {

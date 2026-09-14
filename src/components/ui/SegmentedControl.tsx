@@ -15,6 +15,7 @@ type SegmentedControlProps<T extends string> = {
   onChange: (value: T) => void;
   options: SegmentedOption<T>[];
   className?: string;
+  disabled?: boolean;
   "aria-label"?: string;
 };
 
@@ -23,6 +24,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   options,
   className = "",
+  disabled = false,
   "aria-label": ariaLabel,
 }: SegmentedControlProps<T>) {
   return (
@@ -43,10 +45,13 @@ export function SegmentedControl<T extends string>({
           <button
             key={option.value}
             type="button"
-            onClick={() => onChange(option.value)}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition-colors ${
-              active ? activeClass : inactiveClass
-            }`}
+            onClick={() => {
+              if (!disabled) onChange(option.value);
+            }}
+            disabled={disabled}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition-colors ${
+              disabled ? "cursor-not-allowed" : "cursor-pointer"
+            } ${active ? activeClass : disabled ? "text-muted" : inactiveClass}`}
           >
             {option.icon && <Icon name={option.icon} size="xs" />}
             {option.label}

@@ -9,14 +9,17 @@ import {
   ReadOnlyBlock,
   ReadOnlyField,
 } from "@/src/components/ui/DetailView";
+import { ProyectoCell } from "@/src/components/ui/DataTable";
 import { Icon } from "@/src/components/ui/Icon";
 import {
   EstadoDocumentoSoportePill,
   estadoDocumentoSoportePillProps,
 } from "@/src/components/ui/Pill";
+import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoporteContext";
 import {
   formatMontoDs,
   formatSizeKb,
+  getRegistradoPorChip,
   type DocumentoSoporte,
 } from "@/src/lib/documento-soporte-mock";
 
@@ -34,7 +37,10 @@ function getDocumentoBanner(documento: DocumentoSoporte) {
       motivo: documento.notaSolicitud,
     };
   }
-  if (documento.estado === "Aprobado" && documento.aprobadoPorNombre) {
+  if (
+    (documento.estado === "Aprobado" || documento.estado === "Emitido") &&
+    documento.aprobadoPorNombre
+  ) {
     return {
       autor: documento.aprobadoPorNombre,
       fecha: documento.fechaAprobacion || documento.fecha,
@@ -48,6 +54,13 @@ function getDocumentoBanner(documento: DocumentoSoporte) {
       motivo: documento.notaSolicitud || "Solicitud cancelada",
     };
   }
+  if (documento.estado === "Anulado") {
+    return {
+      autor: documento.aprobadoPorNombre || "Contabilidad",
+      fecha: documento.fechaAprobacion || documento.fecha,
+      motivo: documento.notaSolicitud || "Solicitud anulada",
+    };
+  }
   return null;
 }
 
@@ -56,7 +69,13 @@ export function DocumentoSoporteDetalle({
   onVolver,
   onContinuarEdicion,
 }: DocumentoSoporteDetalleProps) {
+  const { sessionIds, sessionNombre } = useDocumentoSoporte();
   const banner = getDocumentoBanner(documento);
+  const registradoPor = getRegistradoPorChip(
+    documento,
+    sessionIds,
+    sessionNombre,
+  );
 
   return (
     <div className="content-standard max-md:pb-24">
@@ -86,12 +105,11 @@ export function DocumentoSoporteDetalle({
       <Card className="mb-3 overflow-visible">
         <CardBody className="py-4">
           <DetailSection icon="send" title="Datos de la solicitud">
-            {documento.registradoPorId.replace(/\D/g, "") !==
-            documento.solicitadoPorId.replace(/\D/g, "") ? (
+            {registradoPor ? (
               <p className="mb-3 text-[12px] leading-snug text-muted">
                 Registrado por{" "}
                 <span className="font-semibold text-[#374151]">
-                  {documento.registradoPorNombre}
+                  {registradoPor}
                 </span>
               </p>
             ) : null}
@@ -114,15 +132,22 @@ export function DocumentoSoporteDetalle({
         <CardBody className="py-4">
           <DetailSection icon="pencil" title="Documento del proveedor">
             <DetailGrid>
+              <ReadOnlyField label="Proyecto">
+                <ProyectoCell
+                  inline
+                  codigo={documento.proyectoId}
+                  nombre={documento.proyectoNombre}
+                />
+              </ReadOnlyField>
               <ReadOnlyField label="NIF">{documento.nif}</ReadOnlyField>
               <ReadOnlyField label="No. Documento Original">
                 {documento.noDocumentoOriginal}
               </ReadOnlyField>
+            </DetailGrid>
+            <DetailGrid className="mt-3">
               <ReadOnlyField label="Fecha de documento">
                 {documento.fechaDocumento}
               </ReadOnlyField>
-            </DetailGrid>
-            <DetailGrid className="mt-3">
               <ReadOnlyField label="Forma de pago">
                 {documento.tarjetaUltimos4
                   ? "Pagado con tarjeta corporativa"
@@ -133,6 +158,8 @@ export function DocumentoSoporteDetalle({
                   ? `•••• ${documento.tarjetaUltimos4}`
                   : "—"}
               </ReadOnlyField>
+            </DetailGrid>
+            <DetailGrid className="mt-3">
               <ReadOnlyField label="Monto" highlight>
                 {formatMontoDs(documento.monto, documento.divisa)}
               </ReadOnlyField>

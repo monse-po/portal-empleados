@@ -198,6 +198,7 @@ Si una fila abre otro nivel (proyecto → empleados, empleado → registros), la
 - **Cómo:** navy, semibold, subrayado en todo el texto, `cursor-pointer`
 - **Checkbox** = seleccionar para aprobar. **Enlace** = entrar. El resto de la fila no navega.
 - No apilar una segunda línea (“ver empleados”). Hueco = `—`.
+- Chip **Registrado por** / **Solicitado por** solo si quien registró ≠ beneficiario (regla `04-chip-para-otro.mdc`). Nunca repetir el mismo nombre.
 
 ## Formularios
 

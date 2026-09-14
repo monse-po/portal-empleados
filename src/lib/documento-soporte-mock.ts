@@ -6,8 +6,10 @@
 export type DocumentoSoporteEstado =
   | "Lanzado"
   | "Aprobado"
+  | "Emitido"
   | "Rechazado"
-  | "Cancelado";
+  | "Cancelado"
+  | "Anulado";
 
 export type DocumentoSoporteTipo = "DSE" | "NA";
 
@@ -47,6 +49,10 @@ export type DocumentoSoporte = {
   fechaAprobacion?: string;
   /** true = Historial */
   disponible: boolean;
+  /** IFS IsEditAllowed + estado Lanzado. */
+  editable?: boolean;
+  proyectoId?: string;
+  proyectoNombre?: string;
 };
 
 export type GuardarDocumentoSoporteInput = {
@@ -63,6 +69,12 @@ export type GuardarDocumentoSoporteInput = {
   divisa: string;
   monto: number;
   adjunto?: AdjuntoMock;
+  /** PDF en base64 para IFS (sin prefijo data:). */
+  adjuntoBase64?: string;
+  solicitadoPorEmpCompany?: string;
+  proyectoId?: string;
+  proyectoNombre?: string;
+  supplierId?: string;
   tipoAjuste?: string;
   documentoSoporteAnular?: string;
   cudsAnular?: string;
@@ -100,8 +112,8 @@ export const ESTADOS_POR_TAB: Record<
   DocumentoSoporteTab,
   DocumentoSoporteEstado[]
 > = {
-  pendientes: ["Lanzado"],
-  historial: ["Aprobado", "Rechazado", "Cancelado"],
+  pendientes: ["Lanzado", "Aprobado"],
+  historial: ["Emitido", "Rechazado", "Cancelado", "Anulado"],
 };
 
 export function hoyDMY(fecha = new Date()): string {
@@ -134,7 +146,7 @@ export const DIVISA_FORMAT_DS: Record<
   string,
   { locale: string; fractionDigits: number; prefix: string }
 > = {
-  COP: { locale: "es-CO", fractionDigits: 0, prefix: "$" },
+  COP: { locale: "es-CO", fractionDigits: 2, prefix: "$" },
   USD: { locale: "en-US", fractionDigits: 2, prefix: "US$" },
   MXN: { locale: "es-MX", fractionDigits: 2, prefix: "$" },
 };
@@ -238,37 +250,98 @@ export function nuevoCodigoDocumento(
 }
 
 export function esHistorialEstado(estado: DocumentoSoporteEstado): boolean {
-  return estado !== "Lanzado";
+  return (
+    estado === "Emitido" ||
+    estado === "Rechazado" ||
+    estado === "Cancelado" ||
+    estado === "Anulado"
+  );
+}
+
+function idsMatch(a: string, b: string): boolean {
+  const x = a.trim().toLowerCase();
+  const y = b.trim().toLowerCase();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const dx = x.replace(/\D/g, "");
+  const dy = y.replace(/\D/g, "");
+  return Boolean(dx && dy && dx === dy);
 }
 
 export function documentoVisibleParaEmpleado(
   d: DocumentoSoporte,
-  sessionEmpleadoId: string,
+  sessionEmpleadoId: string | string[],
 ): boolean {
-  const sessionId = normalizeId(sessionEmpleadoId);
-  return (
-    normalizeId(d.solicitadoPorId) === sessionId ||
-    normalizeId(d.registradoPorId) === sessionId
+  const ids = (Array.isArray(sessionEmpleadoId)
+    ? sessionEmpleadoId
+    : [sessionEmpleadoId]
+  )
+    .map((id) => id.trim())
+    .filter(Boolean);
+  return ids.some(
+    (id) =>
+      idsMatch(d.solicitadoPorId, id) || idsMatch(d.registradoPorId, id),
   );
 }
 
-/** true si quien registra ≠ a nombre de (solicitud para otro). */
-export function esSolicitudParaOtro(d: DocumentoSoporte): boolean {
-  return normalizeId(d.solicitadoPorId) !== normalizeId(d.registradoPorId);
+function sameDisplayName(a: string, b: string): boolean {
+  const n = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const x = n(a);
+  const y = n(b);
+  return Boolean(x && y && x === y);
+}
+
+function sessionIdList(raw?: string | string[]): string[] {
+  return (Array.isArray(raw) ? raw : raw ? [raw] : [])
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+function matchesSessionValue(value: string, sessionIds: string[]): boolean {
+  return sessionIds.some((id) => idsMatch(value, id));
 }
 
 /**
- * Chip bajo Beneficiario (mismo patrón Anticipos `getBeneficiarioSolicitante`):
- * solo si otro empleado registró la solicitud (no el usuario en sesión).
+ * true si quien registra ≠ beneficiario.
+ * EmpNo y PersonId IFS no se tratan como personas distintas.
+ */
+export function esSolicitudParaOtro(
+  d: DocumentoSoporte,
+  sessionEmpleadoId?: string | string[],
+  sessionNombre?: string,
+): boolean {
+  return getRegistradoPorChip(d, sessionEmpleadoId, sessionNombre) != null;
+}
+
+/**
+ * Chip bajo Beneficiario: solo si otro empleado registró la solicitud.
+ * Yo registré para mí (PersonId ≠ EmpNo) → sin chip.
  */
 export function getRegistradoPorChip(
   d: DocumentoSoporte,
-  _sessionEmpleadoId?: string,
+  sessionEmpleadoId?: string | string[],
+  sessionNombre?: string,
 ): string | null {
-  if (normalizeId(d.solicitadoPorId) === normalizeId(d.registradoPorId)) {
+  if (idsMatch(d.solicitadoPorId, d.registradoPorId)) return null;
+  if (sameDisplayName(d.solicitadoPorNombre, d.registradoPorNombre)) {
     return null;
   }
-  return d.registradoPorNombre;
+
+  const ids = sessionIdList(sessionEmpleadoId);
+  const yoBeneficiario =
+    matchesSessionValue(d.solicitadoPorId, ids) ||
+    Boolean(
+      sessionNombre && sameDisplayName(sessionNombre, d.solicitadoPorNombre),
+    );
+  const yoRegistre =
+    matchesSessionValue(d.registradoPorId, ids) ||
+    Boolean(
+      sessionNombre && sameDisplayName(sessionNombre, d.registradoPorNombre),
+    );
+  if (yoBeneficiario && yoRegistre) return null;
+
+  const nombre = d.registradoPorNombre.trim();
+  return nombre ? nombre : null;
 }
 
 export function validarSignoMonto(
@@ -287,6 +360,7 @@ export function validarSignoMonto(
   return null;
 }
 
+/** Cancelado y Rechazado liberan NIF+doc. Anulado (IFS Voided) lo bloquea. */
 export function findDuplicado(
   items: Record<string, DocumentoSoporte>,
   nif: string,
@@ -324,6 +398,8 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     concepto: "Hospedaje visita a obra — Medellín",
     divisa: "COP",
     monto: 850000,
+    proyectoId: "PRY2024001",
+    proyectoNombre: "Modernización PTF Cusiana – Bloque B",
     adjunto: {
       nombre: "factura-hospedaje.pdf",
       sizeKb: 420,
@@ -348,6 +424,8 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     concepto: "Taxi aeropuerto — cliente Norte (a nombre de María)",
     divisa: "COP",
     monto: 120000,
+    proyectoId: "PRY2024003",
+    proyectoNombre: "Renovación Subestación La Loma 500 kV",
     adjunto: {
       nombre: "recibo-taxi.jpg",
       sizeKb: 890,
@@ -372,6 +450,8 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     concepto: "Equipos de medición — Proyecto Beta",
     divisa: "USD",
     monto: 2400,
+    proyectoId: "PRY2025002",
+    proyectoNombre: "Obras Civiles Mina Sur – Fase III",
     adjunto: {
       nombre: "cotizacion-equipos.pdf",
       sizeKb: 1280,
@@ -379,7 +459,7 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     },
     aprobadoPorNombre: "Ana Contabilidad",
     fechaAprobacion: "16/07/2026",
-    disponible: true,
+    disponible: false,
   },
   DS0004: {
     no: "DS0004",
@@ -430,6 +510,61 @@ const DOCUMENTOS_MOCK: Record<string, DocumentoSoporte> = {
     },
     disponible: true,
   },
+  DS0006: {
+    no: "DS0006",
+    fecha: "05/08/2026",
+    tipo: "DSE",
+    estado: "Anulado",
+    empresaId: "HMVINGCO",
+    empresaLabel: EMPRESAS_DS[0].label,
+    registradoPorId: SESSION_DS.id,
+    registradoPorNombre: SESSION_DS.nombre,
+    solicitadoPorId: SESSION_DS.id,
+    solicitadoPorNombre: SESSION_DS.nombre,
+    nif: "900777888",
+    noDocumentoOriginal: "FV-ANUL-01",
+    fechaDocumento: "04/08/2026",
+    concepto: "Servicio de consultoría — anulado; NIF + documento no se reutilizan",
+    divisa: "COP",
+    monto: 1800000,
+    proyectoId: "PRY2024001",
+    proyectoNombre: "Modernización PTF Cusiana – Bloque B",
+    adjunto: {
+      nombre: "factura-consultoria.pdf",
+      sizeKb: 280,
+      mime: "application/pdf",
+    },
+    notaSolicitud: "Documento anulado en IFS",
+    disponible: true,
+  },
+  DS0007: {
+    no: "DS0007",
+    fecha: "08/08/2026",
+    tipo: "DSE",
+    estado: "Emitido",
+    empresaId: "HMVINGCO",
+    empresaLabel: EMPRESAS_DS[0].label,
+    registradoPorId: SESSION_DS.id,
+    registradoPorNombre: SESSION_DS.nombre,
+    solicitadoPorId: SESSION_DS.id,
+    solicitadoPorNombre: SESSION_DS.nombre,
+    nif: "901334455",
+    noDocumentoOriginal: "FV-EMI-01",
+    fechaDocumento: "07/08/2026",
+    concepto: "Alimentación obra — DSE emitido ante DIAN",
+    divisa: "COP",
+    monto: 245000,
+    proyectoId: "PRY2024003",
+    proyectoNombre: "Renovación Subestación La Loma 500 kV",
+    adjunto: {
+      nombre: "recibo-alimentacion.pdf",
+      sizeKb: 190,
+      mime: "application/pdf",
+    },
+    aprobadoPorNombre: "Ana Contabilidad",
+    fechaAprobacion: "09/08/2026",
+    disponible: true,
+  },
 };
 
 export function cloneInitialDocumentos(): Record<string, DocumentoSoporte> {
@@ -439,7 +574,7 @@ export function cloneInitialDocumentos(): Record<string, DocumentoSoporte> {
 export function countDocumentosTab(
   items: Record<string, DocumentoSoporte>,
   tab: DocumentoSoporteTab,
-  sessionEmpleadoId: string,
+  sessionEmpleadoId: string | string[],
 ): number {
   return Object.values(items).filter(
     (d) =>
@@ -451,7 +586,7 @@ export function countDocumentosTab(
 export function getDocumentosTab(
   items: Record<string, DocumentoSoporte>,
   tab: DocumentoSoporteTab,
-  sessionEmpleadoId: string,
+  sessionEmpleadoId: string | string[],
 ): DocumentoSoporte[] {
   return Object.values(items)
     .filter(
@@ -469,10 +604,11 @@ export function dmyToIso(dmy: string): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Anchos fijos — Beneficiario alineado a Anticipos (~260px). */
+/** Anchos fijos — Proyecto alineado a Anticipos (~200px). */
 export const DS_COLS_PEND = [
   "72px",
   "88px",
+  "200px",
   "260px",
   "100px",
   "110px",

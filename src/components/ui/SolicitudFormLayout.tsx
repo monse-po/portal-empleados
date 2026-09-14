@@ -122,6 +122,8 @@ type SolicitudParaSectionProps = {
   empleado: LovItem | null;
   onEmpleadoChange: (item: LovItem | null) => void;
   empleados: LovItem[];
+  /** DSE en edición: EmpNo/empresa no son updatable en IFS. */
+  locked?: boolean;
 };
 
 /**
@@ -138,6 +140,7 @@ export function SolicitudParaSection({
   empleado,
   onEmpleadoChange,
   empleados,
+  locked = false,
 }: SolicitudParaSectionProps) {
   return (
     <FormSection icon="send" title="Solicitud para">
@@ -149,6 +152,7 @@ export function SolicitudParaSection({
                 aria-label="Solicitud para"
                 value={paraOtro ? "otro" : "mi"}
                 onChange={(v) => onParaOtroChange(v === "otro")}
+                disabled={locked}
                 options={[
                   { value: "mi", label: "Para mí" },
                   { value: "otro", label: "Para otro empleado" },
@@ -165,6 +169,7 @@ export function SolicitudParaSection({
                       items={empresas}
                       placeholder="Seleccionar empresa"
                       searchPlaceholder="Buscar empresa o país..."
+                      disabled={locked}
                     />
                   </Field>
                 </div>
@@ -178,6 +183,7 @@ export function SolicitudParaSection({
                         placeholder="Seleccionar empleado"
                         searchPlaceholder="Buscar por cédula o nombre…"
                         valueLabel={(it) => it.nombre}
+                        disabled={locked}
                       />
                     </Field>
                   </div>
@@ -194,7 +200,12 @@ export function SolicitudParaSection({
             </span>
           </div>
         </div>
-        {paraOtro ? (
+        {locked ? (
+          <p className="text-[11.5px] leading-snug text-muted">
+            El beneficiario no se puede cambiar. Si está mal, crea una
+            solicitud nueva.
+          </p>
+        ) : paraOtro ? (
           <p className="text-[11.5px] leading-snug text-muted">
             Queda a nombre del empleado seleccionado; tú figuras como
             solicitante.

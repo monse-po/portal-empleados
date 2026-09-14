@@ -27,6 +27,12 @@ export const TIEMPO_UI_COPY = {
   searchProject: "Buscar proyecto...",
   searchSubproject: "Buscar subproyecto...",
   searchActivity: "Buscar actividad...",
+  usarRecientePlaceholder: "Usar una actividad reciente…",
+  usarRecienteToast: "Listo · revisa las horas y envía",
+  usarRecienteJornadaToast: "Listo · jornada completa, elige extras y horas",
+  usarRecienteNoVigente:
+    "Esa actividad ya no está vigente en esta fecha. Elige otra.",
+  usarRecienteCatalogo: "Espera a que cargue el catálogo IFS",
   estadoRegistrado: "Registrado",
   estadoLanzado: "Registrado",
   guardar: "Guardar",

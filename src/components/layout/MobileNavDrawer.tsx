@@ -71,7 +71,7 @@ function DrawerLink({
       <Icon
         name={route.icon}
         size="md"
-        className={active ? "text-navy" : "text-muted"}
+        className={active ? "text-navy" : "text-[#4b5563]"}
       />
       <span className="min-w-0 flex-1 whitespace-nowrap">{route.navLabel}</span>
       {count !== undefined && count > 0 && (
@@ -131,41 +131,59 @@ export function MobileNavDrawer() {
         role="navigation"
         aria-label="Menú principal"
       >
-        {roleReady ? (
-          <div className="flex flex-col gap-0.5 p-3">
-            {empleadoRoutes.length > 0 && (
-              <>
-                <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#b0b7c3]">
-                  Mis solicitudes
-                </p>
-                {empleadoRoutes.map((route) => (
-                  <DrawerLink
-                    key={route.path}
-                    route={route}
-                    onNavigate={closeMobileMenu}
-                  />
-                ))}
-              </>
-            )}
-            {isGerente && gerenteRoutes.length > 0 && (
-              <>
-                {empleadoRoutes.length > 0 && (
-                  <div className="my-2 h-px bg-[#f0f0f0]" />
-                )}
-                <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#b0b7c3]">
-                  Aprobaciones
-                </p>
-                {gerenteRoutes.map((route) => (
-                  <DrawerLink
-                    key={route.path}
-                    route={route}
-                    onNavigate={closeMobileMenu}
-                  />
-                ))}
-              </>
-            )}
-          </div>
-        ) : null}
+        <div className="flex flex-col gap-0.5 p-3">
+          {empleadoRoutes.length > 0 && (
+            <>
+              <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6b7280]">
+                Mis solicitudes
+              </p>
+              {empleadoRoutes.map((route) => (
+                <DrawerLink
+                  key={route.path}
+                  route={route}
+                  onNavigate={closeMobileMenu}
+                />
+              ))}
+            </>
+          )}
+          {!roleReady && !isGerente && gerenteRoutes.length > 0 ? (
+            <>
+              {empleadoRoutes.length > 0 && (
+                <div className="my-2 h-px bg-[#f0f0f0]" />
+              )}
+              <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6b7280]">
+                Aprobaciones
+              </p>
+              {gerenteRoutes.map((route) => (
+                <div
+                  key={route.path}
+                  className="flex min-h-12 items-center gap-3 px-3"
+                  aria-hidden
+                >
+                  <span className="h-5 w-5 shrink-0 animate-pulse rounded bg-[#e5e9f0]" />
+                  <span className="h-3 w-[8rem] animate-pulse rounded bg-[#e5e9f0]" />
+                </div>
+              ))}
+            </>
+          ) : null}
+          {isGerente && gerenteRoutes.length > 0 && (
+            <>
+              {empleadoRoutes.length > 0 && (
+                <div className="my-2 h-px bg-[#f0f0f0]" />
+              )}
+              <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6b7280]">
+                Aprobaciones
+              </p>
+              {gerenteRoutes.map((route) => (
+                <DrawerLink
+                  key={route.path}
+                  route={route}
+                  onNavigate={closeMobileMenu}
+                />
+              ))}
+            </>
+          )}
+        </div>
       </nav>
     </div>
   );

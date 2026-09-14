@@ -45,21 +45,30 @@ export function SearchableSelect({
   const [q, setQ] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  const uniqueOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return options.filter((opt) => {
+      if (!opt.value || seen.has(opt.value)) return false;
+      seen.add(opt.value);
+      return true;
+    });
+  }, [options]);
+
   const selected = useMemo(
-    () => options.find((opt) => opt.value === value) ?? null,
-    [options, value],
+    () => uniqueOptions.find((opt) => opt.value === value) ?? null,
+    [uniqueOptions, value],
   );
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query) return options;
-    return options.filter((opt) => {
+    if (!query) return uniqueOptions;
+    return uniqueOptions.filter((opt) => {
       const haystack = [opt.value, opt.label, opt.hint ?? ""]
         .join(" ")
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [options, q]);
+  }, [uniqueOptions, q]);
 
   useEffect(() => {
     if (!open) return;

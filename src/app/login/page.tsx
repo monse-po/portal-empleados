@@ -20,9 +20,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   if (session?.email) {
     redirect(next);
   }
-  if (!canOauth) {
-    redirect(next);
-  }
 
   return (
     <LoginScreen

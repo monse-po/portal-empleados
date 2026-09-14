@@ -17,9 +17,11 @@ const variants = {
   lanzado: "bg-pill-lanzado-bg text-pill-lanzado-fg",
   revision: "bg-pill-revision-bg text-pill-revision-fg",
   pagado: "bg-pill-pagado-bg text-pill-pagado-fg",
+  emitido: "bg-pill-emitido-bg text-pill-emitido-fg",
   /** Alias de lanzado (legacy). */
   enviado: "bg-pill-lanzado-bg text-pill-lanzado-fg",
   cancelado: "bg-pill-cancelado-bg text-pill-cancelado-fg",
+  anulado: "bg-pill-anulado-bg text-pill-anulado-fg",
   gasto: "bg-pill-gasto-bg text-pill-gasto-fg",
   viaje: "bg-pill-viaje-bg text-pill-viaje-fg",
   inactivo: "bg-pill-cancelado-bg text-muted",
@@ -65,9 +67,12 @@ export type EstadoPortalLabel =
 
 /** Icono Lucide homologado por estado (todos los módulos). */
 export function estadoPillIcon(estado: string): IconName | null {
+  if (estado === "Anulado") return "circleOff";
+  if (estado === "Emitido") return "receipt";
   const e = normalizeEstadoLabel(estado);
   if (e === "Lanzado" || e === "Pendiente" || e === "Registrado") return "send";
   if (e === "Aprobado") return "check";
+  if (e === "Emitido") return "receipt";
   if (e === "Pagado") return "wallet";
   if (e === "Rechazado") return "x";
   if (e === "Cancelado") return "ban";
@@ -76,7 +81,8 @@ export function estadoPillIcon(estado: string): IconName | null {
 
 /**
  * Normaliza labels legacy / alias → label de producto.
- * Anulado → Cancelado (nunca mostrar “Anulado” en chips).
+ * Anulado → Cancelado en Anticipos / Legalizaciones / Tiempo.
+ * DSE muestra Anulado (IFS Voided) vía EstadoDocumentoSoportePill.
  * Borrador (legacy Mi Tiempo) → Lanzado/Registrado vía mapa del módulo.
  */
 export function normalizeEstadoLabel(estado: string): string {
@@ -258,12 +264,19 @@ export const estadoDocumentoSoportePillVariant: Record<string, PillVariant> = {
   Pendiente: "lanzado",
   Lanzado: "lanzado",
   Aprobado: "aprobado",
+  Emitido: "emitido",
   Rechazado: "rechazado",
   Cancelado: "cancelado",
-  Anulado: "cancelado",
+  Anulado: "anulado",
 };
 
 export function estadoDocumentoSoportePillProps(estado: string) {
+  if (estado === "Anulado" || estado === "Voided") {
+    return { variant: "anulado" as PillVariant, label: "Anulado" };
+  }
+  if (estado === "Emitido" || estado === "Issued") {
+    return { variant: "emitido" as PillVariant, label: "Emitido" };
+  }
   const label = normalizeEstadoLabel(estado);
   return {
     variant:

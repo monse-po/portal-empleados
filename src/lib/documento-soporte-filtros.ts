@@ -10,6 +10,7 @@ import type {
 export type DocumentoSoporteFilterColumn =
   | "codigo"
   | "fecha"
+  | "proyecto"
   | "beneficiario"
   | "nif"
   | "documento"
@@ -18,6 +19,7 @@ export type DocumentoSoporteFilterColumn =
 
 export type DocumentoSoporteFilterMultiColumn =
   | "codigo"
+  | "proyecto"
   | "beneficiario"
   | "nif"
   | "documento"
@@ -50,6 +52,7 @@ export type DocumentoSoporteFilterColumnDef = {
 export const DS_FILTER_COLUMNS_BASE: DocumentoSoporteFilterColumnDef[] = [
   { id: "codigo", label: "Código", icon: "copy" },
   { id: "fecha", label: "Solicitado", icon: "calendar" },
+  { id: "proyecto", label: "Proyecto", icon: "folderOpen" },
   { id: "beneficiario", label: "Beneficiario", icon: "user" },
   { id: "nif", label: "NIF", icon: "userCircle" },
   { id: "documento", label: "No. Documento", icon: "paperclip" },
@@ -63,12 +66,9 @@ export const DS_FILTER_COLUMN_ESTADO: DocumentoSoporteFilterColumnDef = {
 };
 
 export function getFilterColumns(
-  tab: DocumentoSoporteTab,
+  _tab: DocumentoSoporteTab,
 ): DocumentoSoporteFilterColumnDef[] {
-  if (tab === "historial") {
-    return [...DS_FILTER_COLUMNS_BASE, DS_FILTER_COLUMN_ESTADO];
-  }
-  return DS_FILTER_COLUMNS_BASE;
+  return [...DS_FILTER_COLUMNS_BASE, DS_FILTER_COLUMN_ESTADO];
 }
 
 export function getFilterColumnDef(
@@ -103,6 +103,8 @@ function getFieldValue(
       return s.no;
     case "fecha":
       return s.fecha;
+    case "proyecto":
+      return s.proyectoId || "";
     case "beneficiario":
       return empleadoFiltroNombre(s.solicitadoPorNombre, s.solicitadoPorId);
     case "nif":
@@ -144,6 +146,7 @@ function matchRule(
       return true;
     }
     case "codigo":
+    case "proyecto":
     case "beneficiario":
     case "nif":
     case "documento":
@@ -202,6 +205,7 @@ export function isRuleComplete(rule: DocumentoSoporteFilterRule): boolean {
     case "fecha":
       return !!(rule.from || rule.to);
     case "codigo":
+    case "proyecto":
     case "beneficiario":
     case "nif":
     case "documento":
@@ -222,6 +226,7 @@ export function createEmptyRule(
     case "fecha":
       return { id, column: "fecha" };
     case "codigo":
+    case "proyecto":
     case "beneficiario":
     case "nif":
     case "documento":

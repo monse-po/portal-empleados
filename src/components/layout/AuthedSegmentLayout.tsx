@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
-import { isIfsAuthReady } from "@/src/lib/ifs/config";
+import { isPortalLoginRequired } from "@/src/lib/ifs/config";
 import { getServerIfsSession } from "@/src/lib/ifs/session";
 
-/** Layout de módulos: muro de login solo si IFS OAuth está listo. */
+/** Layout de módulos del portal: sin sesión IFS, a /login (no shell ni DSE). */
 export default async function AuthedSegmentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  if (isIfsAuthReady()) {
+  if (isPortalLoginRequired()) {
     const session = await getServerIfsSession();
     if (!session?.email) redirect("/login");
   }

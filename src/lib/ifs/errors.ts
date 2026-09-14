@@ -87,6 +87,14 @@ export function humanizeIfsDetail(detail: string): string | null {
     return "Ese empleado no está configurado como proveedor en IFS. Elige a otro o pide a Administración que lo configure.";
   }
 
+  if (/CompanyEmp\.EMPLOYEE|Employee \S+ does not exist/i.test(text)) {
+    return "Ese empleado no existe en la empresa IFS. Revisa la compañía o elige otro beneficiario.";
+  }
+
+  if (/is not updatable/i.test(text)) {
+    return "Ese campo no se puede cambiar en una solicitud ya creada. Ajusta monto, NIF o documento.";
+  }
+
   if (/ORA-06531|uninitialized collection/i.test(text)) {
     return "No se pudo completar la aprobación en IFS. Intenta de nuevo o avisa a tu jefe.";
   }

@@ -1,4 +1,5 @@
 import type { IconName } from "@/src/components/ui/Icon";
+import { sameDisplayName } from "@/src/lib/empleado-display";
 
 export type AnticipoEstado =
   | "Lanzado"
@@ -73,7 +74,9 @@ export function normalizeAnticipoId(id: string): string {
   return id.replace(/\./g, "").trim().toUpperCase();
 }
 
-export function getAnticipoBeneficiarioId(a: Anticipo): string {
+export function getAnticipoBeneficiarioId(
+  a: Pick<Anticipo, "beneficiarioId" | "cedula">,
+): string {
   return (
     a.beneficiarioId ??
     normalizeAnticipoId(a.cedula ?? "")
@@ -106,9 +109,16 @@ export function getBeneficiarioNombre(a: Anticipo): string {
   return a.beneficiarioNombre ?? "—";
 }
 
-function sameDisplayName(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
-}
+/** Campos que el chip Solicitado por necesita (lista empleado o aprobación). */
+export type AnticipoIdentidadChip = Pick<
+  Anticipo,
+  | "solicitante"
+  | "solicitanteId"
+  | "beneficiarioNombre"
+  | "beneficiarioId"
+  | "cedula"
+  | "paraOtro"
+>;
 
 function sessionIdSet(raw?: string | string[]): Set<string> {
   const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
@@ -139,7 +149,7 @@ function nombresDistintos(solName: string, benName: string): boolean {
  * Yo pedí para mí → no chip. Yo pedí para otro (o alguien para mí) → chip.
  */
 export function getBeneficiarioSolicitante(
-  a: Anticipo,
+  a: AnticipoIdentidadChip,
   sessionIds?: string | string[],
   sessionNombre?: string,
 ): string | null {

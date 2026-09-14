@@ -7,14 +7,10 @@ import {
   SESSION_COOKIE,
 } from "@/src/lib/ifs/constants";
 import {
-  completeUserLoginFromTokens,
+  completeUserLoginFromVerifiedEmail,
   IfsLoginFlowError,
 } from "@/src/lib/ifs/complete-user-login";
-import {
-  classifyPasswordGrantError,
-  exchangePasswordGrant,
-  resolvePublicOrigin,
-} from "@/src/lib/ifs/oauth-user";
+import { resolvePublicOrigin } from "@/src/lib/ifs/oauth-user";
 import {
   destroyPersistedIfsSession,
   isSystemPortalEmail,
@@ -28,7 +24,7 @@ function safeNext(raw: unknown): string {
     : "/hoja-tiempo";
 }
 
-/** Enlaces viejos → formulario. La clave se valida aquí, no en la pantalla de IFS. */
+/** Enlaces viejos → formulario. El correo se valida contra CEmpPortalUserSet. */
 export async function GET(request: Request) {
   const origin = resolvePublicOrigin(request);
   const url = new URL(request.url);
@@ -48,7 +44,6 @@ export async function POST(request: Request) {
   }
 
   let emailRaw = "";
-  let password = "";
   let next = "/hoja-tiempo";
 
   const contentType = request.headers.get("content-type") ?? "";
@@ -56,16 +51,13 @@ export async function POST(request: Request) {
     if (contentType.includes("application/json")) {
       const body = (await request.json()) as {
         email?: unknown;
-        password?: unknown;
         next?: unknown;
       };
       emailRaw = typeof body.email === "string" ? body.email.trim() : "";
-      password = typeof body.password === "string" ? body.password : "";
       next = safeNext(body.next);
     } else {
       const form = await request.formData();
       emailRaw = String(form.get("email") ?? "").trim();
-      password = String(form.get("password") ?? "");
       next = safeNext(form.get("next"));
     }
   } catch {
@@ -77,7 +69,7 @@ export async function POST(request: Request) {
     preferred_username: emailRaw,
     username: emailRaw,
   });
-  if (!loginEmail || !password) {
+  if (!loginEmail) {
     return NextResponse.json({ error: "invalid_credentials" }, { status: 400 });
   }
   if (isSystemPortalEmail(loginEmail)) {
@@ -95,14 +87,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const tokens = await exchangePasswordGrant({
-      username: loginEmail,
-      password,
-    });
-    const login = await completeUserLoginFromTokens({
-      tokens,
-      typedEmail: loginEmail,
-    });
+    const login = await completeUserLoginFromVerifiedEmail(loginEmail);
     const origin = resolvePublicOrigin(request);
     const secure = origin.startsWith("https://");
     const response = NextResponse.json({ ok: true, next });
@@ -122,8 +107,6 @@ export async function POST(request: Request) {
     if (message.includes("PortalIfsSession") || message.includes("prisma")) {
       return NextResponse.json({ error: "session_store" }, { status: 500 });
     }
-    const code = classifyPasswordGrantError(err);
-    const status = code === "invalid_credentials" ? 401 : 400;
-    return NextResponse.json({ error: code }, { status });
+    return NextResponse.json({ error: "token_exchange" }, { status: 400 });
   }
 }

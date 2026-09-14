@@ -5,22 +5,13 @@ import { DocumentoSoporteDetalle } from "@/src/app/documento-soporte/DocumentoSo
 import { DocumentoSoporteFormulario } from "@/src/app/documento-soporte/DocumentoSoporteFormulario";
 import { DocumentoSoporteLista } from "@/src/app/documento-soporte/DocumentoSoporteLista";
 import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoporteContext";
+import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+import { LOADING_COPY } from "@/src/lib/copy/loading";
 
 type Vista = "lista" | "detalle" | "form";
 
-function puedeEditar(
-  estado: string,
-  registradoPorId: string,
-  sessionEmpleadoId: string,
-): boolean {
-  return (
-    estado === "Lanzado" &&
-    registradoPorId.replace(/\D/g, "") === sessionEmpleadoId.replace(/\D/g, "")
-  );
-}
-
 export function DocumentoSoporteView() {
-  const { getDocumento, sessionEmpleadoId } = useDocumentoSoporte();
+  const { getDocumento, loaded, loadError } = useDocumentoSoporte();
   const [vista, setVista] = useState<Vista>("lista");
   const [detalleNo, setDetalleNo] = useState<string | null>(null);
   const [editNo, setEditNo] = useState<string | null>(null);
@@ -31,13 +22,33 @@ export function DocumentoSoporteView() {
     setEditNo(null);
   };
 
+  if (!loaded) {
+    return (
+      <div className="view-wide flex min-h-[320px] items-center justify-center">
+        <LoadingNotice
+          variant="inline"
+          icon="folderOpen"
+          label={LOADING_COPY.generic.label}
+        />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="view-wide flex min-h-[240px] flex-col items-center justify-center gap-2 text-center text-[13px]">
+        <p className="text-[#374151]">{loadError}</p>
+        <p className="text-muted">Inicia sesión con tu correo @h-mv.com</p>
+      </div>
+    );
+  }
+
   if (vista === "form") {
     return (
       <DocumentoSoporteFormulario
         editNo={editNo}
         onVolver={volverLista}
         onGuardado={() => {
-          // Post-envío → inicio de la sección (lista).
           volverLista();
         }}
       />
@@ -52,11 +63,7 @@ export function DocumentoSoporteView() {
           documento={documento}
           onVolver={volverLista}
           onContinuarEdicion={
-            puedeEditar(
-              documento.estado,
-              documento.registradoPorId,
-              sessionEmpleadoId,
-            )
+            documento.editable
               ? () => {
                   setEditNo(documento.no);
                   setVista("form");

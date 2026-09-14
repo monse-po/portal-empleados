@@ -14,6 +14,7 @@ import { fetchSessionUiRolAction } from "@/src/server/portal-acceso-session";
 export type UsuarioRol = "gerente" | "empleado";
 
 const STORAGE_KEY = "hmv-usuario-rol";
+const CAN_APPROVE_KEY = "hmv-usuario-can-approve";
 const IFS_AUTH_ENABLED = process.env.NEXT_PUBLIC_IFS_AUTH_ENABLED === "true";
 
 type RoleContextValue = {
@@ -40,6 +41,16 @@ function persistRol(next: UsuarioRol) {
   }
 }
 
+function readStoredCanApprove(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.sessionStorage.getItem(CAN_APPROVE_KEY) === "1";
+}
+
+function persistCanApprove(approve: boolean) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(CAN_APPROVE_KEY, approve ? "1" : "0");
+}
+
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [rol, setRolState] = useState<UsuarioRol>("empleado");
   const [roleReady, setRoleReady] = useState(false);
@@ -55,10 +66,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       approve: boolean,
     ) => {
       if (cancelled) return;
+      const stable = approve || readStoredCanApprove();
       setRolState(next);
       persistRol(next);
+      persistCanApprove(stable);
       setCanSwitchRole(switchAllowed);
-      setCanApprove(approve);
+      setCanApprove(stable);
       setRoleReady(true);
     };
 
@@ -68,12 +81,16 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (readStoredCanApprove()) {
+      setCanApprove(true);
+    }
+
     void fetchSessionUiRolAction()
       .then((data) => {
         finish("empleado", false, data.canApprove);
       })
       .catch(() => {
-        finish("empleado", false, false);
+        finish("empleado", false, readStoredCanApprove());
       });
 
     return () => {

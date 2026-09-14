@@ -30,7 +30,8 @@ export function LoginScreen({
           </h1>
           <p className="login-form-action">Inicia sesión</p>
           <p className="login-form-copy">
-            Escribe tu correo y contraseña para entrar.
+            Entra con Microsoft o con el correo asociado al empleado en IFS.
+            No se pide contraseña.
           </p>
         </header>
 

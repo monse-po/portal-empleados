@@ -218,6 +218,19 @@ sudo -u portalnext -H bash -lc "
 echo "--- env IFS PROD (no copiar hmvtest / DEV) ---"
 ENVF="${APP_HOME}/.env"
 sudo -u portalnext test -f "${ENVF}"
+if sudo -u portalnext grep -qE '^IFS_SYSTEM_URL=.*hmvtest|^IFS_REALM=hmvtest|^IFS_OAUTH_REDIRECT_URI=.*hmv-empleados-dev' "${ENVF}"; then
+  echo "ERROR: el .env de esta VM apunta a IFS TEST o al host DEV."
+  echo "Configs debe pegar IFS_SYSTEM_URL, IFS_REALM e IFS_OAUTH_CLIENT_SECRET de producción."
+  exit 1
+fi
+if sudo -u portalnext grep -qE '^IFS_SYSTEM_URL=.*REPLACE-PROD|^IFS_REALM=REPLACE-PROD' "${ENVF}"; then
+  echo "ERROR: el .env todavía tiene REPLACE-PROD. Pega el tenant IFS de producción."
+  exit 1
+fi
+if ! sudo -u portalnext grep -qE '^IFS_OAUTH_CLIENT_SECRET=.+' "${ENVF}"; then
+  echo "ERROR: falta IFS_OAUTH_CLIENT_SECRET en ${ENVF}."
+  exit 1
+fi
 if sudo -u portalnext grep -q '^IFS_AUTH_ENABLED=' "${ENVF}"; then
   sudo -u portalnext sed -i 's|^IFS_AUTH_ENABLED=.*|IFS_AUTH_ENABLED=true|' "${ENVF}"
 else
