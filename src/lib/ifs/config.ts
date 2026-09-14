@@ -118,19 +118,12 @@ export function isIfsAuthEnabled(): boolean {
   return process.env.IFS_AUTH_ENABLED === "true";
 }
 
-function isQaDevHost(): boolean {
-  const redirect = envFirst("IFS_OAUTH_REDIRECT_URI");
-  return redirect.includes("hmv-empleados-dev");
-}
-
 /**
- * ¿Hay que mandar a /login si no hay sesión?
- * Local y DEV (QA): no. El perfil sigue siendo el de IFS (correo asociado).
- * PROD: sí si IFS_AUTH_ENABLED.
+ * Sin sesión IFS no se muestra el portal (ni shell ni listas vacías).
+ * Encendido con `IFS_AUTH_ENABLED=true`. Demo local: apaga esa flag.
+ * `next.config.ts` debe usar el mismo criterio en `NEXT_PUBLIC_PORTAL_LOGIN_REQUIRED`.
  */
 export function isPortalLoginRequired(): boolean {
-  if (process.env.NODE_ENV !== "production") return false;
-  if (isQaDevHost()) return false;
   return isIfsAuthEnabled();
 }
 

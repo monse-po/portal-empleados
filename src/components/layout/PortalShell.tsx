@@ -13,7 +13,7 @@ import { Sidebar } from "@/src/components/layout/Sidebar";
 import { Topbar } from "@/src/components/layout/Topbar";
 import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
 
-/** En local next.config deja esto vacío: no hay muro de /login. */
+/** Sin sesión IFS no se pinta el shell. Alineado con isPortalLoginRequired(). */
 const LOGIN_REQUIRED = process.env.NEXT_PUBLIC_PORTAL_LOGIN_REQUIRED === "true";
 
 type PortalShellProps = {
