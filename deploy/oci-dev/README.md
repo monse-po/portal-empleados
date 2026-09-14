@@ -22,7 +22,7 @@ Promoción DEV → TEST → PROD = mismo código, otro `.env` (`IFS_SYSTEM_URL`,
 | Postgres | 16 · `portal_hmv_dev` · `portal_app` · solo localhost |
 | URL | `https://hmv-empleados-dev.nubeportal.com` |
 | IFS | Keycloak realm **hmvtest** (`https://hmvtest.ifs360.cloud`), client `IFS_EMP_PORTAL_USER`. Compañía `HMVINGCO`. |
-| Auth empleado | Encendido: correo y clave en `/login` (IFS valida, sin pantalla de IFS). |
+| Auth empleado | Encendido: Microsoft o correo IFS en `/login` (sin contraseña). |
 
 ## Doble clic desde tu Mac (recomendado)
 

@@ -14,7 +14,7 @@ export const LOGIN_ERROR_MESSAGES: Record<string, string> = {
     "Hay una sesión anterior en el navegador. Limpia las cookies del sitio o usa una ventana privada.",
   session_expired: "Tu sesión expiró. Vuelve a iniciar sesión.",
   invalid_credentials:
-    "Correo o contraseña incorrectos. Inténtalo de nuevo.",
+    "Ese correo no es válido. Escríbelo de nuevo.",
   grant_disabled:
     "IFS no acepta este tipo de inicio de sesión. Avisa a soporte.",
   auth_unavailable:

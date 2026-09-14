@@ -6,9 +6,6 @@ import { Field } from "@/src/components/ui/Field";
 import { Icon } from "@/src/components/ui/Icon";
 import { loginErrorMessage } from "@/src/lib/ifs/login-messages";
 
-const PASSWORD_OPTIONAL =
-  process.env.NEXT_PUBLIC_PORTAL_LOGIN_REQUIRED !== "true";
-
 type LoginIfsFormProps = {
   next: string;
   defaultEmail?: string;
@@ -19,8 +16,6 @@ export function LoginIfsForm({
   defaultEmail = "",
 }: LoginIfsFormProps) {
   const [email, setEmail] = useState(defaultEmail);
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +31,6 @@ export function LoginIfsForm({
     e.preventDefault();
     const trimmed = email.trim();
     if (!trimmed || submitting) return;
-    if (!PASSWORD_OPTIONAL && !password) return;
 
     setSubmitting(true);
     setError(null);
@@ -47,7 +41,6 @@ export function LoginIfsForm({
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
           email: trimmed,
-          password: PASSWORD_OPTIONAL ? "" : password,
           next,
         }),
       });
@@ -81,11 +74,7 @@ export function LoginIfsForm({
       >
         Entrar con Microsoft
       </Button>
-      <p className="login-divider">
-        {PASSWORD_OPTIONAL
-          ? "o con el correo asociado en IFS"
-          : "o con correo y contraseña"}
-      </p>
+      <p className="login-divider">o con el correo asociado en IFS</p>
       <Field label="Correo corporativo" required htmlFor="login-email">
         <div className="login-field-shell">
           <span className="login-field-icon">
@@ -103,43 +92,11 @@ export function LoginIfsForm({
             className="login-input max-md:text-[16px]"
           />
         </div>
-      </Field>
-      {PASSWORD_OPTIONAL ? (
         <p className="login-hint">
-          Entra con el correo asociado al empleado en IFS.
+          Entra con el correo asociado al empleado en IFS. No se pide
+          contraseña.
         </p>
-      ) : (
-        <Field label="Contraseña" required htmlFor="login-password">
-          <div className="login-field-shell">
-            <span className="login-field-icon">
-              <Icon name="lock" size="sm" />
-            </span>
-            <input
-              id="login-password"
-              type={showPassword ? "text" : "password"}
-              required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="login-input max-md:text-[16px]"
-            />
-            <button
-              type="button"
-              className="login-toggle"
-              onClick={() => setShowPassword((open) => !open)}
-              aria-label={
-                showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-              }
-            >
-              <Icon name={showPassword ? "eyeOff" : "eye"} size="sm" />
-            </button>
-          </div>
-          <p className="login-hint">
-            Solo usuario IFS. La de Outlook va en Entrar con Microsoft.
-          </p>
-        </Field>
-      )}
+      </Field>
       <Button
         type="submit"
         variant="secondary"
