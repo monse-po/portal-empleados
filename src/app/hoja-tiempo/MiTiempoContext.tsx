@@ -39,6 +39,7 @@ import {
 } from "@/src/server/mi-tiempo-catalog-actions";
 import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 import { horasMesDesdePrograma } from "@/src/lib/tiempo-schedule";
+import { portalActionError } from "@/src/lib/ifs/errors";
 
 export type RegistrarModalState = {
   editId?: string;
@@ -184,7 +185,7 @@ export function MiTiempoProvider({
         result.warning
           ? result.sessionExpired
             ? TIEMPO_UI_COPY.ifsTimesheetWarning.sessionExpired
-            : TIEMPO_UI_COPY.ifsTimesheetWarning.fetchFailed
+            : result.warning
           : null,
       );
       setRegistrosError(null);
@@ -217,11 +218,14 @@ export function MiTiempoProvider({
     setRegistrosError(null);
     try {
       applyGrouped(await getRegistrosGroupedAction());
-    } catch {
+    } catch (error) {
       setRegistrosFromIfs(false);
       setRegistrosIfsWarning(null);
       setRegistrosError(
-        "No se pudieron cargar los registros. Revisa la conexión o la base de datos.",
+        portalActionError(
+          error,
+          "No se pudieron cargar los registros. Revisa la conexión IFS o la base de datos.",
+        ),
       );
     } finally {
       setRegistrosLoaded(true);
@@ -237,12 +241,15 @@ export function MiTiempoProvider({
         const result = await getRegistrosGroupedAction();
         if (cancelled) return;
         applyGrouped(result);
-      } catch {
+      } catch (error) {
         if (cancelled) return;
         setRegistrosFromIfs(false);
         setRegistrosIfsWarning(null);
         setRegistrosError(
-          "No se pudieron cargar los registros. Revisa la conexión o la base de datos.",
+          portalActionError(
+            error,
+            "No se pudieron cargar los registros. Revisa la conexión IFS o la base de datos.",
+          ),
         );
       } finally {
         if (!cancelled) setRegistrosLoaded(true);
@@ -287,7 +294,9 @@ export function MiTiempoProvider({
 
   const upsertRegistro = useCallback(
     async (reg: RegistroMock) => {
-      const saved = await upsertRegistroAction(reg);
+      const result = await upsertRegistroAction(reg);
+      if (!result.ok) throw new Error(result.error);
+      const saved = result.registro;
       applyGrouped(await getRegistrosGroupedAction());
       if (isRegistroEnviado(saved.estado)) {
         onIngresarHojas?.([registroToHoja(saved)]);
@@ -300,7 +309,9 @@ export function MiTiempoProvider({
   const upsertRegistros = useCallback(
     async (regs: RegistroMock[]) => {
       if (!regs.length) return;
-      const saved = await upsertRegistrosAction(regs);
+      const result = await upsertRegistrosAction(regs);
+      if (!result.ok) throw new Error(result.error);
+      const saved = result.registros;
       applyGrouped(await getRegistrosGroupedAction());
       const enviados = saved.filter((row) => isRegistroEnviado(row.estado));
       if (enviados.length) {
@@ -313,7 +324,8 @@ export function MiTiempoProvider({
 
   const deleteRegistro = useCallback(
     async (id: string) => {
-      await deleteRegistroAction(id);
+      const result = await deleteRegistroAction(id);
+      if (!result.ok) throw new Error(result.error);
       if (isIfsRegistroId(id)) {
         applyGrouped(await getRegistrosGroupedAction());
       } else {

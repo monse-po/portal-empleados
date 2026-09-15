@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
+import { sanitizePortalErrorMessage } from "@/src/lib/ifs/errors";
 
 type IfsSurface =
   | "timesheet"
@@ -113,7 +114,7 @@ export function IfsStatusBanner({
   if (knownConnected && warning) {
     return (
       <p className="alert-warn mb-2 px-3 py-2 text-[13px]">
-        No se pudieron cargar los datos. Inténtalo de nuevo o avisa a soporte.
+        {sanitizePortalErrorMessage(warning)}
       </p>
     );
   }

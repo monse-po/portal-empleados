@@ -197,6 +197,7 @@ export async function listMisAnticiposAction(): Promise<{
   sessionNombre: string;
   fromIfs: boolean;
   fromDb: boolean;
+  error?: string;
 }> {
   const actor = await resolveActor();
 
@@ -304,7 +305,18 @@ export async function listMisAnticiposAction(): Promise<{
       };
     }
   } catch (err) {
-    if (!isDbUnavailable(err)) throw err;
+    console.error("[anticipos] listMis db", err);
+    if (!isDbUnavailable(err)) {
+      return {
+        anticipos: {},
+        extras: {},
+        sessionIds: actor.ids,
+        sessionNombre: actor.nombre,
+        fromIfs: false,
+        fromDb: false,
+        error: formatIfsError(err) || "No se pudieron cargar los anticipos.",
+      };
+    }
   }
 
   return {
@@ -324,6 +336,7 @@ export async function listAprobacionAnticiposAction(
   sessionNombre: string;
   fromIfs: boolean;
   fromDb: boolean;
+  error?: string;
 }> {
   const actor = await resolveActor();
 
@@ -415,7 +428,16 @@ export async function listAprobacionAnticiposAction(
       };
     }
   } catch (err) {
-    if (!isDbUnavailable(err)) throw err;
+    console.error("[anticipos] listAprobacion db", err);
+    if (!isDbUnavailable(err)) {
+      return {
+        solicitudes: {},
+        sessionNombre: actor.nombre,
+        fromIfs: false,
+        fromDb: false,
+        error: formatIfsError(err) || "No se pudieron cargar las solicitudes.",
+      };
+    }
   }
 
   return {
@@ -567,8 +589,13 @@ export async function lanzarAnticipoAction(
     });
     existingNos = existing.map((r) => r.codigo);
   } catch (err) {
-    if (!isDbUnavailable(err)) throw err;
-    return { no: "", error: "No hay base de datos para guardar el anticipo" };
+    console.error("[anticipos] lanzar db list", err);
+    return {
+      no: "",
+      error: isDbUnavailable(err)
+        ? "No hay base de datos para guardar el anticipo"
+        : formatIfsError(err) || "No se pudo guardar el anticipo",
+    };
   }
 
   const nos: Record<string, Anticipo> = actor.fromIfs
@@ -637,7 +664,7 @@ export async function lanzarAnticipoAction(
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Error al guardar";
+    const msg = formatIfsError(err) || "Error al guardar";
     return { no: "", error: msg };
   }
 
@@ -708,7 +735,7 @@ export async function cancelarAnticipoAction(
     if (isDbUnavailable(err) && !actor.fromIfs) {
       return { ok: false, missing: true };
     }
-    const msg = err instanceof Error ? err.message : "Error al cancelar";
+    const msg = formatIfsError(err) || "Error al cancelar";
     return { ok: false, error: msg };
   }
 }
@@ -811,7 +838,7 @@ export async function decidirAnticiposAction(input: {
     if (isDbUnavailable(err) && !actor.fromIfs) {
       return { ok: true, persisted: [], missing: nos };
     }
-    const msg = err instanceof Error ? err.message : "Error al decidir";
+    const msg = formatIfsError(err) || "Error al decidir";
     return { ok: false, persisted, missing, error: msg };
   }
 

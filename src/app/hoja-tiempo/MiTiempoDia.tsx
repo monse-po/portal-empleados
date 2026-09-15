@@ -28,7 +28,7 @@ import {
   shiftFechaMes,
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
-import { formatIfsError } from "@/src/lib/ifs/errors";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { fetchScheduleHoursAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
 import { TiempoRegistroMobileCard } from "@/src/app/hoja-tiempo/TiempoRegistroMobileCard";
@@ -460,8 +460,10 @@ export function MiTiempoDia({
             toast("Registro eliminado", "navy");
           } catch (err) {
             toast(
-              formatIfsError(err) ||
-                "No se pudo eliminar el registro. Intenta de nuevo.",
+              portalActionError(
+                err,
+                "No se pudo eliminar el registro en IFS. Recarga e intenta de nuevo.",
+              ),
               "danger",
             );
           }

@@ -39,6 +39,7 @@ import {
   isTiempoRegistroMutable,
 } from "@/src/lib/tiempo-registro-rules";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -628,9 +629,10 @@ function ListaTab({
             toast("Registro eliminado", "navy");
           } catch (err) {
             toast(
-              err instanceof Error
-                ? err.message
-                : "No se pudo eliminar el registro. Intenta de nuevo.",
+              portalActionError(
+                err,
+                "No se pudo eliminar el registro en IFS. Recarga e intenta de nuevo.",
+              ),
               "danger",
             );
           }

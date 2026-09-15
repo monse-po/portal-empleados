@@ -366,3 +366,8 @@ export function mensajeSoloExtrasSinJornada(
 export function mensajeSoloExtrasJornadaCompleta(maxHours: number): string {
   return `Ya completaste tu jornada (${formatScheduleHoursLabel(maxHours)} h). Solo puedes registrar horas extras`;
 }
+
+/** IFS no acepta extras hasta completar las diurnas normales del día. */
+export function mensajeExtrasAntesDeCompletarJornada(restantes: number): string {
+  return `Completa primero las ${formatScheduleHoursLabel(restantes)} h de jornada normal (DN). Después puedes registrar extras.`;
+}

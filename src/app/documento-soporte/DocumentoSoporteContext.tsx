@@ -18,6 +18,7 @@ import {
   type DocumentoSoporteTab,
   type GuardarDocumentoSoporteInput,
 } from "@/src/lib/documento-soporte-mock";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import {
   guardarDocumentoSoporteAction,
@@ -82,16 +83,19 @@ export function DocumentoSoporteProvider({
       setSessionEmpNo(result.sessionEmpNo || result.sessionIds[0] || SESSION_DS.id);
       setSessionNombre(result.sessionNombre || SESSION_DS.nombre);
       setFromIfs(result.fromIfs);
-      if (IFS_AUTH_ENABLED && !result.fromIfs) {
+      if (result.error) {
+        setLoadError(result.error);
+      } else if (IFS_AUTH_ENABLED && !result.fromIfs) {
         setLoadError(
           "No hay sesión IFS. Entra con IFS para ver y crear documentos de soporte.",
         );
       }
     } catch (error) {
       setLoadError(
-        error instanceof Error
-          ? error.message
-          : "No se pudieron cargar los documentos de soporte.",
+        portalActionError(
+          error,
+          "No se pudieron cargar los documentos de soporte.",
+        ),
       );
       setDocumentos({});
       setFromIfs(false);

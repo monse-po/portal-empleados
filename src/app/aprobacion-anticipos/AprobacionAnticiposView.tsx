@@ -10,6 +10,7 @@ import {
 } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposModals";
 import { useAprobacionAnticipos } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposContext";
 import { useToast } from "@/src/components/ui/Toast";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { formatMonto } from "@/src/lib/anticipos-registro";
 
 type Vista = "lista" | "detalle";
@@ -105,7 +106,7 @@ export function AprobacionAnticiposView() {
       setComentarioAprobar("");
       if (enDetalle) volverLista();
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Error al aprobar", "danger");
+      toast(portalActionError(error, "IFS no pudo aprobar. Revisa que la solicitud siga en Lanzado."), "danger");
     }
   };
 
@@ -116,7 +117,7 @@ export function AprobacionAnticiposView() {
       setRechazarTargets([]);
       if (enDetalle) volverLista();
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Error al rechazar", "danger");
+      toast(portalActionError(error, "IFS no pudo rechazar. Revisa que la solicitud siga en Lanzado."), "danger");
     }
   };
 
@@ -127,7 +128,7 @@ export function AprobacionAnticiposView() {
       toast(toastRechazados([solicitud.no]), "danger");
       volverLista();
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Error al rechazar", "danger");
+      toast(portalActionError(error, "IFS no pudo rechazar. Revisa que la solicitud siga en Lanzado."), "danger");
     }
   };
 

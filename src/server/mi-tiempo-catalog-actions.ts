@@ -212,7 +212,7 @@ export async function fetchTiposHoraAction(input: {
       } catch (err) {
         return {
           tipos: [],
-          error: err instanceof Error ? err.message : "Error al leer tipos de hora",
+          error: formatIfsError(err),
         };
       }
     });

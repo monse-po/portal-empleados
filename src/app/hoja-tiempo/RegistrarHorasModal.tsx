@@ -50,7 +50,7 @@ import {
   isAusenciaExcepcionNoLaborable,
   portalPuedeMutarTipoHora,
 } from "@/src/lib/tiempo-ausencias";
-import { formatIfsError } from "@/src/lib/ifs/errors";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { getJornadaLimiteFromSistema } from "@/src/lib/tiempo-config";
 import {
   atNormalLimit,
@@ -64,6 +64,7 @@ import {
   isJornadaNormalCompleta,
   mensajeSoloExtrasJornadaCompleta,
   mensajeSoloExtrasSinJornada,
+  mensajeExtrasAntesDeCompletarJornada,
   normalLimitErrorMessage,
   horasInputFormatError,
   parseHorasInput,
@@ -352,6 +353,20 @@ function validateForm(
         } else {
           errors.horas = `${normalLimitErrorMessage(topeDia, horasExistentes)} · ${formatFechaLegible(fecha, false)}`;
         }
+        break;
+      }
+    }
+  } else if (form.tipo && fechas.length && cat === "extra") {
+    for (const fecha of fechas) {
+      const topeDia = topeNormalesDelDia(fecha, hoursByDate, maxScheduleHours);
+      if (topeDia <= 0) continue;
+      const horasExistentes = getHorasNormales(registros, fecha, editId);
+      if (!atNormalLimit(horasExistentes, topeDia)) {
+        const faltan = Math.max(
+          0,
+          Math.round((topeDia - horasExistentes) * 100) / 100,
+        );
+        errors.tipo = `${mensajeExtrasAntesDeCompletarJornada(faltan)} · ${formatFechaLegible(fecha, false)}`;
         break;
       }
     }
@@ -711,6 +726,27 @@ function RegistroHorasForm({
     tipos,
     useIfsCatalogLive,
   );
+  const restantesDn = useMemo(
+    () =>
+      restantesNormalesMin(
+        calendarioFechas.length ? calendarioFechas : form.fecha ? [form.fecha] : [],
+        hoursByDate,
+        maxScheduleHours,
+        (fecha) => getHorasNormales(registros, fecha, editId),
+      ),
+    [
+      calendarioFechas,
+      form.fecha,
+      hoursByDate,
+      maxScheduleHours,
+      registros,
+      editId,
+    ],
+  );
+  const extrasAntesDeJornada =
+    tipoCatSeleccionado === "extra" &&
+    !diaSoloExtras &&
+    restantesDn > 1e-6;
   const horasPlaceholder = useMemo(() => {
     if (soloExtras || tipoCatSeleccionado === "extra") {
       return TIEMPO_UI_COPY.horasPlaceholderSinTope;
@@ -989,7 +1025,10 @@ function RegistroHorasForm({
         />
       ) : null}
 
-      {scheduleReady && (etiquetaTipoDia || (jornadaCompleta && !diaSoloExtras)) ? (
+      {scheduleReady &&
+      (etiquetaTipoDia ||
+        (jornadaCompleta && !diaSoloExtras) ||
+        extrasAntesDeJornada) ? (
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {etiquetaTipoDia ? (
             <DiaSinJornadaBanner
@@ -1018,6 +1057,16 @@ function RegistroHorasForm({
             >
               <Icon name="clock" size="xs" className="shrink-0" />
               {TIEMPO_UI_COPY.jornadaCompletaSoloExtras}
+            </div>
+          ) : null}
+          {extrasAntesDeJornada ? (
+            <div
+              className="inline-flex w-fit max-w-full items-center gap-1.5 rounded-lg border border-[#fde68a] bg-[#fffbeb] px-2.5 py-1.5 text-[12px] font-semibold leading-none text-[#92400e]"
+              role="status"
+              title={mensajeExtrasAntesDeCompletarJornada(restantesDn)}
+            >
+              <Icon name="clock" size="xs" className="shrink-0" />
+              {TIEMPO_UI_COPY.extrasAntesDeCompletarJornada}
             </div>
           ) : null}
         </div>
@@ -1346,8 +1395,10 @@ export function RegistrarHorasModal() {
       }
     } catch (err) {
       toast(
-        formatIfsError(err) ||
-          "No se pudo guardar el registro en IFS. Intenta de nuevo.",
+        portalActionError(
+          err,
+          "IFS rechazó el registro. Completa primero la jornada normal (DN) o elige un tipo de hora válido para esa actividad.",
+        ),
         "danger",
       );
     } finally {

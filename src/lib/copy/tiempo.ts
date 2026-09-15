@@ -11,6 +11,8 @@ export const TIEMPO_UI_COPY = {
   tipoHoraProgramaHint: "Los tipos disponibles dependen de tu programa de trabajo.",
   /** Banner corto cuando las diurnas normales del día ya están en el tope. */
   jornadaCompletaSoloExtras: "Jornada completa · solo extras",
+  /** Hint cuando eligen extras y aún falta DN. */
+  extrasAntesDeCompletarJornada: "Completa DN antes de extras",
   horasPlaceholderSinTope: "Ej. 0.5",
   /** Ayuda fija: IFS usa DayHours decimal. */
   horasAyudaDecimales: "0.25 = 15 min · 0.5 = 30 min · 1 = 1 h",
