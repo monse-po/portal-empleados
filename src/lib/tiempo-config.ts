@@ -27,13 +27,25 @@ export const TIEMPO_JORNADA_POR_COMPANIA: Record<string, TiempoJornadaCompania> 
       pais: "MX",
       maxNormalHoursPerDay: 9,
     },
-    HMVPERU: {
-      companyId: "HMVPERU",
+    HMVINGPE: {
+      companyId: "HMVINGPE",
       pais: "PE",
       maxNormalHoursPerDay: 8,
     },
+    /** Alias de catálogos/mock; en IFS la compañía es HMVINGPE. */
+    HMVPERU: {
+      companyId: "HMVINGPE",
+      pais: "PE",
+      maxNormalHoursPerDay: 8,
+    },
+    HMVINGCH: {
+      companyId: "HMVINGCH",
+      pais: "CL",
+      maxNormalHoursPerDay: 9,
+    },
+    /** Alias de catálogos/mock; en IFS la compañía es HMVINGCH. */
     HMVCHL: {
-      companyId: "HMVCHL",
+      companyId: "HMVINGCH",
       pais: "CL",
       maxNormalHoursPerDay: 9,
     },

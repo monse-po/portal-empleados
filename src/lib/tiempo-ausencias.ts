@@ -1,8 +1,9 @@
 import { TIEMPO_JORNADA_POR_COMPANIA } from "@/src/lib/tiempo-config";
 
 /**
- * Códigos de ausencia Colombia (AUSGEN + EXCEP).
- * Chile/Perú pueden tener los mismos códigos en el LOV IFS.
+ * Códigos de ausencia **Colombia** (AUSGEN + EXCEP) en el tipo de hora.
+ * Chile/Perú no usan estos códigos: cargan DN en actividades GA
+ * (p. ej. GA3004.01.01 Vacaciones Chile, GA2004.01.01 Vacaciones Perú).
  */
 export const AUSENCIA_REPORT_CODES = ["INMED", "VACAC", "AUSGE"] as const;
 
@@ -47,8 +48,8 @@ export function isAusenciaExcepcionNoLaborable(
 }
 
 /**
- * Chile y Perú registran ausencias en el portal.
- * Colombia las recibe por la API Absence Receive (Midasoft), no por EmpPortalTimeRegList.
+ * Chile y Perú registran ausencias en el portal como DN sobre la actividad GA.
+ * Colombia las recibe por Absence Receive (Midasoft); el portal no muta VACAC/AUSGE/INMED.
  */
 export function portalPuedeRegistrarAusencias(
   companyId: string | null | undefined,

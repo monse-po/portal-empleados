@@ -39,17 +39,24 @@ Implementación:
 
 ## Ausencias por país
 
-El origen de `VACAC` / `AUSGE` / `INMED` lo define la **compañía del empleado**, no el proyecto.
+Hay **dos modelos**. El portal no inventa tipo de hora: usa el LOV IFS (`GetValidActReportCode`).
 
-| País | Compañía típica | En el portal |
-|------|-----------------|--------------|
-| Colombia | `HMVINGCO` | **No** se registran ni editan ni eliminan. Llegan por API Absence Receive (Midasoft). |
-| Chile | `HMVCHL` | Sí, vía `EmpPortalTimeRegList` (LOV IFS). |
-| Perú | `HMVPERU` | Sí, vía `EmpPortalTimeRegList` (LOV IFS). |
+### Colombia (`HMVINGCO`)
 
-- `VACAC` / `AUSGE` (AUSGEN): solo días con jornada.
-- `INMED` (EXCEP): también fin de semana y festivo, **si** el LOV IFS lo ofrece (Chile/Perú). En Colombia el portal lo oculta.
-- Implementación: `tiempo-ausencias.ts` → filtro en `fetchTiposHoraAction` + `assertPortalPuedeMutarTipoHora` al guardar.
+El tipo de hora **sí** es la etiqueta: `VACAC` / `AUSGE` / `INMED` en actividades `GA100x`. Esos códigos **no** se registran ni editan ni eliminan en el portal; llegan por API Absence Receive (Midasoft).
+
+### Chile (`HMVINGCH`) y Perú (`HMVINGPE`)
+
+El control va por **proyecto / subproyecto / actividad**, no por tipo de hora. El empleado carga horas en la actividad de vacaciones o ausencia y el LOV trae **`DN`**. `TipoHoraPill` muestra DN; la etiqueta (Vacaciones, etc.) está en la actividad, no en el código de reporte.
+
+| País | Compañía | Actividad típica | Tipo en LOV |
+|------|----------|------------------|---------------|
+| Chile | `HMVINGCH` | `GA3004.01.01` Vacaciones | `DN` |
+| Perú | `HMVINGPE` | `GA2004.01.01` Vacaciones; `GA2001.*` ausencias; `GA2003.*` incapacidades | `DN` |
+
+- Colombia: `VACAC` / `AUSGE` solo días con jornada; `INMED` también no hábil si el LOV lo ofrece. El portal los oculta.
+- Chile/Perú: registran `DN` en esas actividades vía `EmpPortalTimeRegList`.
+- Implementación: `tiempo-ausencias.ts` → filtro de códigos de ausencia **solo Colombia** en `fetchTiposHoraAction` + `assertPortalPuedeMutarTipoHora` al guardar.
 
 Reglas:
 
