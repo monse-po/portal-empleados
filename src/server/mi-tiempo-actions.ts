@@ -283,7 +283,7 @@ async function registrarNuevosEnIfs(
   const toSend = regs.map((reg) => ({ ...reg, estado: "Registrado" as const }));
 
   try {
-    const raw = await withIfsPortalSession((ifs) => {
+    const raw = await withIfsPortalSession(async (ifs) => {
       for (const reg of toSend) {
         await assertPuedeMutarTipoEnIfs(ifs, reg.tipo);
       }
