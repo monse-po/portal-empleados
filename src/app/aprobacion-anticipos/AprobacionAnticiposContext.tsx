@@ -21,6 +21,7 @@ import {
   listAprobacionAnticiposAction,
 } from "@/src/server/anticipos-actions";
 import { createNotificacionesAnticipoDecisionAction } from "@/src/server/notificacion-actions";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { ANTICIPOS_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 import { useTableSelection } from "@/src/lib/use-table-selection";
@@ -78,11 +79,10 @@ export function AprobacionAnticiposProvider({
       const data = await listAprobacionAnticiposAction();
       setSolicitudes(data.solicitudes);
       setFromIfs(data.fromIfs);
+      if (data.error) setLoadError(data.error);
     } catch (error) {
       setLoadError(
-        error instanceof Error
-          ? error.message
-          : "No se pudieron cargar las solicitudes.",
+        portalActionError(error, "No se pudieron cargar las solicitudes."),
       );
       setSolicitudes({});
       setFromIfs(false);

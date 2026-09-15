@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/src/components/ui/Toast";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import { AprobacionDetalle, horasLabel } from "@/src/app/aprobacion-tiempo/AprobacionDetalle";
 import { AprobacionLista } from "@/src/app/aprobacion-tiempo/AprobacionLista";
@@ -66,9 +67,15 @@ export function AprobacionView() {
           toast(result.warning, "warn");
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
-          toast("No se pudo cargar la bandeja de aprobación.", "danger");
+          toast(
+            portalActionError(
+              error,
+              "No se pudo cargar la bandeja de aprobación.",
+            ),
+            "danger",
+          );
         }
       })
       .finally(() => {

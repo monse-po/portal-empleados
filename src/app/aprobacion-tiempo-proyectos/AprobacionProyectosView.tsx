@@ -51,6 +51,7 @@ import {
 import { createNotificacionesTiempoDecisionAction } from "@/src/server/notificacion-actions";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { useTableSelection } from "@/src/lib/use-table-selection";
+import { portalActionError } from "@/src/lib/ifs/errors";
 
 type Tab = "pend" | "res";
 type DecisionScope = "registros" | "proyecto";
@@ -117,9 +118,15 @@ export function AprobacionProyectosView() {
         if (cancelled) return;
         if (result.warning) toast(result.warning, "warn");
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
-          toast("No se pudo cargar el resumen por proyecto.", "danger");
+          toast(
+            portalActionError(
+              error,
+              "No se pudo cargar el resumen por proyecto.",
+            ),
+            "danger",
+          );
         }
       })
       .finally(() => {

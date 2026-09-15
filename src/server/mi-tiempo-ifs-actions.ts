@@ -22,6 +22,7 @@ import { assertPuedeMutarTipoEnIfs } from "@/src/server/tiempo-ausencias-ifs";
 export type IfsSendResult = {
   /** id público del registro local → legacyId IFS (`ifs-pt-{seq}`) */
   legacyIds: Record<string, string>;
+  error?: string;
 };
 
 /**
@@ -62,13 +63,12 @@ export async function sendRegistrosToIfsAction(
       return { legacyIds };
     });
   } catch (err) {
-    if (err instanceof IfsSessionExpiredError) {
-      throw new Error("Tu sesión con IFS expiró. Vuelve a iniciar sesión.");
-    }
-    if (err instanceof Error && err.message.startsWith("IFS rechazó")) {
-      throw err;
-    }
-    throw new Error(formatIfsError(err));
+    console.error("[mi-tiempo] sendRegistrosToIfs", err);
+    const error =
+      err instanceof IfsSessionExpiredError
+        ? "Tu sesión con IFS expiró. Vuelve a iniciar sesión."
+        : formatIfsError(err);
+    return { legacyIds: {}, error };
   }
 }
 

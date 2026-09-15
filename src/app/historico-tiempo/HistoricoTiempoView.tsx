@@ -36,6 +36,7 @@ import { downloadHistoricoPdf } from "@/src/lib/historico-pdf";
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import { fetchTiempoCatalogAction, getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { getHistoricoRegistrosAction } from "@/src/server/historico-tiempo-actions";
+import { portalActionError, sanitizePortalErrorMessage } from "@/src/lib/ifs/errors";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 
@@ -98,9 +99,7 @@ export function HistoricoTiempoView() {
       }
     } catch (error) {
       setLoadError(
-        error instanceof Error
-          ? error.message
-          : "No se pudo cargar el histórico.",
+        portalActionError(error, "No se pudo cargar el histórico."),
       );
       setAprobados([]);
     } finally {
@@ -204,7 +203,9 @@ export function HistoricoTiempoView() {
             />
           </div>
           {loadError ? (
-            <p className="alert-warn mt-2 px-3 py-2 text-sm">{loadError}</p>
+            <p className="alert-warn mt-2 px-3 py-2 text-sm">
+              {sanitizePortalErrorMessage(loadError)}
+            </p>
           ) : null}
         </div>
         {filas.length > 0 ? (

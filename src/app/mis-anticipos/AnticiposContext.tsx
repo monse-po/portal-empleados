@@ -22,6 +22,7 @@ import {
   lanzarAnticipoAction,
   listMisAnticiposAction,
 } from "@/src/server/anticipos-actions";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import {
   ANTICIPOS_CHANGED_EVENT,
@@ -104,16 +105,16 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
       setSessionNombre(result.sessionNombre || "");
       setEmpleadoId(result.sessionIds[0] ?? null);
       setFromIfs(result.fromIfs);
-      if (IFS_AUTH_ENABLED && !result.fromIfs) {
+      if (result.error) {
+        setLoadError(result.error);
+      } else if (IFS_AUTH_ENABLED && !result.fromIfs) {
         setLoadError(
           "No hay sesión IFS. Entra con IFS para ver y crear anticipos en Employee Advances.",
         );
       }
     } catch (error) {
       setLoadError(
-        error instanceof Error
-          ? error.message
-          : "No se pudieron cargar los anticipos.",
+        portalActionError(error, "No se pudieron cargar los anticipos."),
       );
       setAnticipos({});
       setExtras({});

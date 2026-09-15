@@ -7,6 +7,7 @@ import { DocumentoSoporteLista } from "@/src/app/documento-soporte/DocumentoSopo
 import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoporteContext";
 import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
 import { LOADING_COPY } from "@/src/lib/copy/loading";
+import { sanitizePortalErrorMessage } from "@/src/lib/ifs/errors";
 
 type Vista = "lista" | "detalle" | "form";
 
@@ -37,7 +38,9 @@ export function DocumentoSoporteView() {
   if (loadError) {
     return (
       <div className="view-wide flex min-h-[240px] flex-col items-center justify-center gap-2 text-center text-[13px]">
-        <p className="text-[#374151]">{loadError}</p>
+        <p className="text-[#374151]">
+          {sanitizePortalErrorMessage(loadError)}
+        </p>
         <p className="text-muted">Inicia sesión con tu correo @h-mv.com</p>
       </div>
     );

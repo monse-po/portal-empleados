@@ -8,11 +8,7 @@ import { listAprobacionAnticiposAction } from "@/src/server/anticipos-actions";
 import { getTiempoEmpleadoContext } from "@/src/server/portal-user-profile";
 
 async function requireAnticipoEmpleado() {
-  const empleado = await getTiempoEmpleadoContext();
-  if (!empleado) {
-    throw new Error("Sesión IFS requerida.");
-  }
-  return empleado;
+  return getTiempoEmpleadoContext();
 }
 
 export async function getAprobacionAnticiposAction(): Promise<
@@ -27,7 +23,8 @@ export async function aprobarAnticiposAction(
   comentario = "",
   aprobadorNombre = "Gerente",
 ): Promise<void> {
-  await requireAnticipoEmpleado();
+  const empleado = await requireAnticipoEmpleado();
+  if (!empleado) return;
   const fecha = hoyDMY();
 
   await prisma.anticipo.updateMany({
@@ -50,7 +47,8 @@ export async function rechazarAnticiposAction(
   comentario: string,
   aprobadorNombre = "Gerente",
 ): Promise<void> {
-  await requireAnticipoEmpleado();
+  const empleado = await requireAnticipoEmpleado();
+  if (!empleado) return;
   const fecha = hoyDMY();
 
   await prisma.anticipo.updateMany({

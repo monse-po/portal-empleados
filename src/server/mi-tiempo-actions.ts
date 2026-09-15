@@ -13,7 +13,7 @@ import {
   type CempPortalSession,
 } from "@/src/lib/ifs/cemp-portal";
 import { openPortalActor } from "@/src/server/portal-actor";
-import { formatIfsError } from "@/src/lib/ifs/errors";
+import { formatIfsBusinessErrors, formatIfsError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
   withValidIfsSession,
@@ -78,6 +78,17 @@ export type EnviarDiaResult = {
   error?: string;
   warning?: string;
 };
+
+/** Next oculta `throw new Error` en producción; devolvemos el texto al cliente. */
+export type UpsertRegistroResult =
+  | { ok: true; registro: RegistroMock }
+  | { ok: false; error: string };
+
+export type UpsertRegistrosResult =
+  | { ok: true; registros: RegistroMock[] }
+  | { ok: false; error: string };
+
+export type DeleteRegistroResult = { ok: true } | { ok: false; error: string };
 
 async function findRowByPublicId(id: string) {
   if (isIfsRegistroId(id)) return null;
@@ -182,32 +193,41 @@ export async function getRegistrosGroupedAction(): Promise<{
   warning?: string;
   sessionExpired?: boolean;
 }> {
-  // DEV compartible: sin OAuth, leer/escribir Neon (perfil demo).
-  if (!isIfsAuthEnabled()) {
+  try {
+    // DEV compartible: sin OAuth, leer/escribir Neon (perfil demo).
+    if (!isIfsAuthEnabled()) {
+      return {
+        registros: await getRegistrosGroupedFromNeon(),
+        fromIfs: false,
+        activePeriod: null,
+      };
+    }
+
+    const ifsResult = await fetchRegistrosFromIfsAction();
+
+    if (!ifsResult.grouped) {
+      return {
+        registros: {},
+        fromIfs: false,
+        activePeriod: ifsResult.activePeriod ?? null,
+        warning: ifsResult.error,
+        sessionExpired: ifsResult.sessionExpired,
+      };
+    }
+
     return {
-      registros: await getRegistrosGroupedFromNeon(),
-      fromIfs: false,
-      activePeriod: null,
+      registros: ifsResult.grouped,
+      fromIfs: true,
+      activePeriod: ifsResult.activePeriod ?? null,
     };
-  }
-
-  const ifsResult = await fetchRegistrosFromIfsAction();
-
-  if (!ifsResult.grouped) {
+  } catch (err) {
+    console.error("[mi-tiempo] getRegistrosGrouped", err);
     return {
       registros: {},
       fromIfs: false,
-      activePeriod: ifsResult.activePeriod ?? null,
-      warning: ifsResult.error,
-      sessionExpired: ifsResult.sessionExpired,
+      warning: ifsUserMessage(err, "No se pudieron cargar los registros."),
     };
   }
-
-  return {
-    registros: ifsResult.grouped,
-    fromIfs: true,
-    activePeriod: ifsResult.activePeriod ?? null,
-  };
 }
 
 export async function getRegistrosDiaAction(
@@ -240,7 +260,7 @@ async function upsertRegistroIfs(reg: RegistroMock): Promise<RegistroMock> {
       ]);
       const errors = extractEmpTimeUpdateErrors(raw);
       if (errors.length) {
-        throw new Error(errors[0]);
+        throw new Error(formatIfsBusinessErrors(errors));
       }
     });
   } catch (err) {
@@ -291,7 +311,7 @@ async function registrarNuevosEnIfs(
     });
     const errors = extractEmpTimeRegErrors(raw);
     if (errors.length) {
-      throw new Error(errors[0]);
+      throw new Error(formatIfsBusinessErrors(errors));
     }
   } catch (err) {
     throw new Error(
@@ -308,17 +328,14 @@ async function registrarNuevosEnIfs(
 
   const enviados = (matches.length ? matches : toSend).map(asRegistrado);
   try {
-    await createNotificacionesTiempoEnvioAction(enviados, {
-      empleadoId: SESSION_EMPLEADO_ID,
-      empleadoNombre: SESSION_EMPLEADO.nombre,
-    });
+    await createNotificacionesTiempoEnvioAction(enviados);
   } catch (error) {
     console.error("[notificaciones] error al crear envío", error);
   }
   return enviados;
 }
 
-export async function upsertRegistroAction(
+async function upsertRegistroInternal(
   reg: RegistroMock,
 ): Promise<RegistroMock> {
   if (!isIfsAuthEnabled()) {
@@ -338,20 +355,42 @@ export async function upsertRegistroAction(
   return created;
 }
 
+export async function upsertRegistroAction(
+  reg: RegistroMock,
+): Promise<UpsertRegistroResult> {
+  try {
+    return { ok: true, registro: await upsertRegistroInternal(reg) };
+  } catch (err) {
+    console.error("[mi-tiempo] upsert registro", err);
+    return {
+      ok: false,
+      error: ifsUserMessage(err, "No se pudo guardar el registro en IFS."),
+    };
+  }
+}
+
 export async function upsertRegistrosAction(
   regs: RegistroMock[],
-): Promise<RegistroMock[]> {
-  if (!regs.length) return [];
-  const existentes = regs.filter((reg) => isIfsRegistroId(reg.id) || reg.ifs);
-  const nuevos = regs.filter((reg) => !isIfsRegistroId(reg.id) && !reg.ifs);
-  const out: RegistroMock[] = [];
-  for (const reg of existentes) {
-    out.push(await upsertRegistroAction(reg));
+): Promise<UpsertRegistrosResult> {
+  if (!regs.length) return { ok: true, registros: [] };
+  try {
+    const existentes = regs.filter((reg) => isIfsRegistroId(reg.id) || reg.ifs);
+    const nuevos = regs.filter((reg) => !isIfsRegistroId(reg.id) && !reg.ifs);
+    const out: RegistroMock[] = [];
+    for (const reg of existentes) {
+      out.push(await upsertRegistroInternal(reg));
+    }
+    if (nuevos.length) {
+      out.push(...(await registrarNuevosEnIfs(nuevos)));
+    }
+    return { ok: true, registros: out };
+  } catch (err) {
+    console.error("[mi-tiempo] upsert registros", err);
+    return {
+      ok: false,
+      error: ifsUserMessage(err, "No se pudo registrar el tiempo en IFS."),
+    };
   }
-  if (nuevos.length) {
-    out.push(...(await registrarNuevosEnIfs(nuevos)));
-  }
-  return out;
 }
 
 async function deleteRegistroIfs(id: string): Promise<void> {
@@ -381,7 +420,7 @@ async function deleteRegistroIfs(id: string): Promise<void> {
       ]);
       const errors = extractEmpTimeDeleteErrors(raw);
       if (errors.length) {
-        throw new Error(errors[0]);
+        throw new Error(formatIfsBusinessErrors(errors));
       }
     });
   } catch (err) {
@@ -391,16 +430,27 @@ async function deleteRegistroIfs(id: string): Promise<void> {
   }
 }
 
-export async function deleteRegistroAction(id: string): Promise<void> {
-  if (isIfsRegistroId(id)) {
-    await deleteRegistroIfs(id);
-    return;
+export async function deleteRegistroAction(
+  id: string,
+): Promise<DeleteRegistroResult> {
+  try {
+    if (isIfsRegistroId(id)) {
+      await deleteRegistroIfs(id);
+      return { ok: true };
+    }
+    const existing = await findRowByPublicId(id);
+    if (!existing || existing.estado === RegistroEstadoDb.APROBADO) {
+      return { ok: false, error: "Este registro no se puede eliminar." };
+    }
+    await prisma.registroTiempo.delete({ where: { id: existing.id } });
+    return { ok: true };
+  } catch (err) {
+    console.error("[mi-tiempo] delete registro", err);
+    return {
+      ok: false,
+      error: ifsUserMessage(err, "No se pudo eliminar el registro en IFS."),
+    };
   }
-  const existing = await findRowByPublicId(id);
-  if (!existing || existing.estado === RegistroEstadoDb.APROBADO) {
-    throw new Error("Este registro no se puede eliminar.");
-  }
-  await prisma.registroTiempo.delete({ where: { id: existing.id } });
 }
 
 export async function enviarDiaAction(fecha: string): Promise<EnviarDiaResult> {
@@ -481,7 +531,7 @@ export async function enviarFechasAction(
         return {
           enviados: [],
           sentToIfs: false,
-          error: rowErrors[0],
+          error: formatIfsBusinessErrors(rowErrors),
         };
       }
       sentToIfs = true;
@@ -535,10 +585,7 @@ export async function enviarFechasAction(
 
   if (sentToIfs && ifsVisible) {
     try {
-      await createNotificacionesTiempoEnvioAction(enviadosBase, {
-        empleadoId: SESSION_EMPLEADO_ID,
-        empleadoNombre: SESSION_EMPLEADO.nombre,
-      });
+      await createNotificacionesTiempoEnvioAction(enviadosBase);
     } catch (error) {
       console.error("[notificaciones] error al crear envío", error);
     }
@@ -566,10 +613,7 @@ export async function enviarFechasAction(
 
   const enviados = ifsVisible ? enviadosBase : updated.map(toRegistroMock);
   try {
-    await createNotificacionesTiempoEnvioAction(enviados, {
-      empleadoId: SESSION_EMPLEADO_ID,
-      empleadoNombre: SESSION_EMPLEADO.nombre,
-    });
+    await createNotificacionesTiempoEnvioAction(enviados);
   } catch (error) {
     console.error("[notificaciones] error al crear envío", error);
   }
@@ -751,7 +795,7 @@ export async function resolverAprobacionTiempoAction(input: {
           succeeded = true;
           break;
         }
-        lastError = errors[0];
+        lastError = formatIfsBusinessErrors(errors);
         // Si el evento primario falla por literal, probar fallback; si es stale, no insiste.
         if (isStaleApprovalError(lastError)) break;
       } catch (err) {
@@ -795,16 +839,21 @@ export async function updateRegistroEstadoAction(
   estado: RegistroEstado,
   comentarioRechazo = "",
 ): Promise<RegistroMock | null> {
-  const existing = await findRowByPublicId(id);
-  if (!existing) return null;
+  try {
+    const existing = await findRowByPublicId(id);
+    if (!existing) return null;
 
-  const updated = await prisma.registroTiempo.update({
-    where: { id: existing.id },
-    data: {
-      estado: estadoUiToDb(estado),
-      comentarioRechazo,
-    },
-  });
+    const updated = await prisma.registroTiempo.update({
+      where: { id: existing.id },
+      data: {
+        estado: estadoUiToDb(estado),
+        comentarioRechazo,
+      },
+    });
 
-  return toRegistroMock(updated);
+    return toRegistroMock(updated);
+  } catch (err) {
+    console.error("[mi-tiempo] updateRegistroEstado", err);
+    return null;
+  }
 }

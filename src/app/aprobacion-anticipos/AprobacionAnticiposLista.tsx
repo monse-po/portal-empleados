@@ -41,6 +41,7 @@ export function AprobacionAnticiposLista({
     fromIfs,
     ifsConnected,
     ifsEmail,
+    loadError,
   } = useAprobacionAnticipos();
 
   const [filters, setFilters] = useState<AproAntFilterRule[]>([]);
@@ -67,6 +68,7 @@ export function AprobacionAnticiposLista({
             surface="anticipos-approval"
             connected={ifsConnected}
             fromIfs={fromIfs}
+            warning={loadError}
           />
         </div>
         <p className="mt-1 text-[13px] text-[#4b5563]">
@@ -79,6 +81,7 @@ export function AprobacionAnticiposLista({
             connected={ifsConnected}
             fromIfs={fromIfs}
             email={ifsEmail}
+            warning={loadError}
           />
         </div>
       </div>

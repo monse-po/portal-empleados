@@ -12,6 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Icon, type IconName } from "@/src/components/ui/Icon";
+import { sanitizePortalErrorMessage } from "@/src/lib/ifs/errors";
 
 export type ToastVariant = "green" | "danger" | "navy" | "warn";
 
@@ -170,7 +171,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (message: string, variant: ToastVariant = "navy") => {
       nextIdRef.current += 1;
       const id = nextIdRef.current;
-      setItems((prev) => [...prev, { id, message, variant }]);
+      setItems((prev) => [
+        ...prev,
+        {
+          id,
+          message:
+            variant === "danger" || variant === "warn"
+              ? sanitizePortalErrorMessage(message)
+              : message,
+          variant,
+        },
+      ]);
     },
     [],
   );

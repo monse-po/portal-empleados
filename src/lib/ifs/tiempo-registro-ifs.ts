@@ -1,3 +1,4 @@
+import { formatIfsBusinessErrors } from "@/src/lib/ifs/errors";
 import type { EmpTimeReg } from "@/src/lib/ifs/types";
 import type { RegistroMock } from "@/src/lib/tiempo-registro";
 
@@ -30,21 +31,7 @@ function extractRegisterResponseItems(raw: unknown): EmpTimeReg[] {
 
 /** Lanza si IFS devolvió ErrorMsg en alguna fila. */
 export function formatIfsRegisterErrors(errors: string[]): string {
-  const joined = errors.join(" · ");
-  if (
-    joined.includes("COTCANREP005") ||
-    /periodo no esta activo/i.test(joined)
-  ) {
-    const periodo = joined.match(/\b20\d{4}\b/)?.[0];
-    const periodoLabel = periodo
-      ? `${periodo.slice(0, 4)}-${periodo.slice(4)}`
-      : "ese mes";
-    return (
-      `IFS no tiene abierto el periodo ${periodoLabel} para reportar horas normales (HRNOR). ` +
-      "Pide a Contabilidad/TI que active el periodo en IFS, o registra en una fecha de un mes ya abierto."
-    );
-  }
-  return `IFS rechazó el envío: ${joined}`;
+  return formatIfsBusinessErrors(errors);
 }
 
 export function assertRegisterTimeResponse(raw: unknown): void {

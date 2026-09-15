@@ -231,6 +231,7 @@ export async function listMisDocumentosSoporteAction(): Promise<{
   sessionEmpNo: string;
   sessionNombre: string;
   fromIfs: boolean;
+  error?: string;
 }> {
   const actor = await resolveActor();
 
@@ -289,7 +290,15 @@ export async function listMisDocumentosSoporteAction(): Promise<{
         fromIfs: true,
       };
     } catch (err) {
-      throw new Error(formatIfsError(err));
+      console.error("[dse] list failed", err);
+      return {
+        documentos: {},
+        sessionIds: actor.ids,
+        sessionEmpNo: actor.empNo,
+        sessionNombre: actor.nombre,
+        fromIfs: false,
+        error: formatIfsError(err),
+      };
     }
   }
 

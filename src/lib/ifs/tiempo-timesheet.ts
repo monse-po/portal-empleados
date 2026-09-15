@@ -306,26 +306,33 @@ function extractErrorMsgs(
     .filter((msg): msg is string => !!msg);
 }
 
+function respRowsFromRaw(
+  raw: unknown,
+  key: string,
+): Array<{ ErrorMsg?: string; Status?: string }> | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const root = raw as Record<string, unknown>;
+  const direct = root[key];
+  if (Array.isArray(direct)) return direct;
+  const nested = root.value;
+  if (nested && typeof nested === "object") {
+    const inner = (nested as Record<string, unknown>)[key];
+    if (Array.isArray(inner)) return inner;
+  }
+  return undefined;
+}
+
 /** Extrae ErrorMsg de la respuesta EmpPortalTimeRegList (si viene). */
 export function extractEmpTimeRegErrors(raw: unknown): string[] {
-  if (!raw || typeof raw !== "object") return [];
-  return extractErrorMsgs(
-    (raw as { EmpTimeRegResp?: EmpTimeReg[] }).EmpTimeRegResp,
-  );
+  return extractErrorMsgs(respRowsFromRaw(raw, "EmpTimeRegResp"));
 }
 
 export function extractEmpTimeUpdateErrors(raw: unknown): string[] {
-  if (!raw || typeof raw !== "object") return [];
-  return extractErrorMsgs(
-    (raw as { EmpTimeUpdateResp?: EmpTimeUpdate[] }).EmpTimeUpdateResp,
-  );
+  return extractErrorMsgs(respRowsFromRaw(raw, "EmpTimeUpdateResp"));
 }
 
 export function extractEmpTimeDeleteErrors(raw: unknown): string[] {
-  if (!raw || typeof raw !== "object") return [];
-  return extractErrorMsgs(
-    (raw as { EmpTimeDeleteResp?: EmpTimeDelete[] }).EmpTimeDeleteResp,
-  );
+  return extractErrorMsgs(respRowsFromRaw(raw, "EmpTimeDeleteResp"));
 }
 
 export function mapRegistroToEmpTimeUpdate(

@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { useToast } from "@/src/components/ui/Toast";
+import {
+  portalActionError,
+  sanitizePortalErrorMessage,
+} from "@/src/lib/ifs/errors";
 import { AnticiposDetalle } from "@/src/app/mis-anticipos/AnticiposDetalle";
 import { AnticiposFormulario } from "@/src/app/mis-anticipos/AnticiposFormulario";
 import { AnticiposLista } from "@/src/app/mis-anticipos/AnticiposLista";
@@ -49,7 +53,7 @@ function AnticiposViewInner() {
       volverLista();
     } catch (error) {
       toast(
-        error instanceof Error ? error.message : "No se pudo cancelar",
+        portalActionError(error, "No se pudo cancelar el anticipo en IFS. Solo se cancela en estado Lanzado."),
         "danger",
       );
     }
@@ -70,7 +74,9 @@ function AnticiposViewInner() {
   if (loadError) {
     return (
       <div className="view-wide flex min-h-[240px] flex-col items-center justify-center gap-2 text-center text-[13px]">
-        <p className="text-[#374151]">{loadError}</p>
+        <p className="text-[#374151]">
+          {sanitizePortalErrorMessage(loadError)}
+        </p>
         <p className="text-muted">Inicia sesión con tu correo @h-mv.com</p>
       </div>
     );
@@ -86,7 +92,7 @@ function AnticiposViewInner() {
             return codigo;
           } catch (error) {
             toast(
-              error instanceof Error ? error.message : "No se pudo lanzar",
+              portalActionError(error, "No se pudo lanzar el anticipo en IFS. Revisa destino, proveedor del empleado o la sesión."),
               "danger",
             );
             return null;

@@ -20,6 +20,7 @@ import {
   SolicitudParaSection,
 } from "@/src/components/ui/SolicitudFormLayout";
 import { useToast } from "@/src/components/ui/Toast";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoporteContext";
 import {
   dmyToIso,
@@ -485,7 +486,7 @@ export function DocumentoSoporteFormulario({
       onGuardado(result.codigo);
     } catch (error) {
       toast(
-        error instanceof Error ? error.message : "No se pudo guardar el DSE",
+        portalActionError(error, "No se pudo guardar el DSE en IFS. Revisa NIF, documento, proyecto o el adjunto."),
         "danger",
       );
     } finally {
