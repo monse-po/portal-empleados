@@ -183,6 +183,20 @@ export type LovReportCostCodeRow = {
   ReportCostName?: string;
   ReportCostType?: "Time" | "Cost" | "Material" | string;
   ReportCode?: string;
+  ReportCodeGroupId?: string;
+  ReportCostGroupId?: string;
+  ReportCodeGroupDesc?: string;
+  CReportCostGrpType?: string;
+};
+
+/** Reference_ReportCost — grupo/tipo IFS del código de reporte. */
+export type ReportCostRow = {
+  Company?: string;
+  ReportCostCode?: string;
+  Description?: string;
+  ReportCostGroupId?: string;
+  ReportCodeGroupDesc?: string;
+  CReportCostGrpType?: string;
 };
 
 /** CompanySet / GetExpenseCompany. */

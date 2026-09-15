@@ -246,7 +246,14 @@ function fechasDelForm(
   const calendario = fechasCalendarioDelForm(form, editId);
   if (editId) return calendario;
   const cat = resolveTipoCatSeleccionado(form, tipos, useIfsCatalog);
-  return fechasRegistroSegunTipo(calendario, cat, hoursByDate, form.tipo);
+  const groupId = tipos.find((tipo) => tipo.code === form.tipo)?.groupId;
+  return fechasRegistroSegunTipo(
+    calendario,
+    cat,
+    hoursByDate,
+    form.tipo,
+    groupId,
+  );
 }
 
 function validateForm(
@@ -273,7 +280,13 @@ function validateForm(
   if (!form.act) errors.act = "Requerido";
   if (!form.fecha) errors.fecha = "Requerido";
   if (!form.tipo) errors.tipo = "Requerido";
-  else if (!portalPuedeMutarTipoHora(form.tipo, companyId)) {
+  else if (
+    !portalPuedeMutarTipoHora(
+      form.tipo,
+      companyId,
+      tipos.find((tipo) => tipo.code === form.tipo),
+    )
+  ) {
     errors.tipo = TIEMPO_UI_COPY.ausenciaColombiaPortal;
   }
 
@@ -292,7 +305,10 @@ function validateForm(
     form.tipo &&
     cat &&
     cat !== "extra" &&
-    !isAusenciaExcepcionNoLaborable(form.tipo)
+    !isAusenciaExcepcionNoLaborable(
+      form.tipo,
+      tipos.find((tipo) => tipo.code === form.tipo)?.groupId,
+    )
   ) {
     const sinJornada = calendario.filter(
       (fecha) => !isDiaConJornadaNormal(fecha, hoursByDate),

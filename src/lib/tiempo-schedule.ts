@@ -275,7 +275,7 @@ export function restantesNormalesMin(
  * - Con jornada y cupo → el LOV tal cual (prioridad IFS)
  */
 export function filterTiposPorPrograma<
-  T extends { cat: TipoHoraCat; code?: string },
+  T extends { cat: TipoHoraCat; code?: string; groupId?: string },
 >(
   tipos: T[],
   fechas: string[],
@@ -286,7 +286,8 @@ export function filterTiposPorPrograma<
   if (opts?.soloExtras) {
     return tipos.filter(
       (tipo) =>
-        tipo.cat === "extra" || isAusenciaExcepcionNoLaborable(tipo.code),
+        tipo.cat === "extra" ||
+        isAusenciaExcepcionNoLaborable(tipo.code, tipo.groupId),
     );
   }
   const todosSinJornada = fechas.every(
@@ -295,7 +296,8 @@ export function filterTiposPorPrograma<
   if (todosSinJornada) {
     return tipos.filter(
       (tipo) =>
-        tipo.cat === "extra" || isAusenciaExcepcionNoLaborable(tipo.code),
+        tipo.cat === "extra" ||
+        isAusenciaExcepcionNoLaborable(tipo.code, tipo.groupId),
     );
   }
   return tipos;
@@ -311,9 +313,10 @@ export function fechasRegistroSegunTipo(
   cat: TipoHoraCat | undefined,
   hoursByDate: Record<string, number> | null | undefined,
   tipoCode?: string,
+  groupId?: string,
 ): string[] {
   if (!fechasCalendario.length) return [];
-  if (cat === "extra" || isAusenciaExcepcionNoLaborable(tipoCode)) {
+  if (cat === "extra" || isAusenciaExcepcionNoLaborable(tipoCode, groupId)) {
     return fechasCalendario;
   }
   if (cat === "normal" || cat === "otro") {

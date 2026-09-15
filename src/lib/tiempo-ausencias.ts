@@ -1,16 +1,27 @@
 import { TIEMPO_JORNADA_POR_COMPANIA } from "@/src/lib/tiempo-config";
 
 /**
- * Códigos de ausencia **Colombia** (AUSGEN + EXCEP) en el tipo de hora.
- * Chile/Perú no usan estos códigos: cargan DN en actividades GA
- * (p. ej. GA3004.01.01 Vacaciones Chile, GA2004.01.01 Vacaciones Perú).
+ * Ausencias según **IFS**, no según un proyecto fijo (GA3004, etc.).
+ *
+ * - Chile/Perú: el empleado registra en las actividades que `GetValidEmpPrjAct`
+ *   le asigne; el tipo lo da `GetValidActReportCode` (suele ser DN).
+ * - Colombia: el portal no muta códigos cuyo LOV/ReportCost IFS marca ausencia
+ *   (`CReportCostGrpType=ABSENCE` o grupos AUSGEN/EXCEP).
+ *
+ * La lista de códigos es solo fallback si IFS no manda grupo.
  */
 export const AUSENCIA_REPORT_CODES = ["INMED", "VACAC", "AUSGE"] as const;
 
-/** INMED (grupo EXCEP): se puede reportar en fin de semana y festivo. */
-const AUSENCIA_EXCEP_NO_LABORABLE = new Set(["INMED"]);
+const IFS_AUSENCIA_GROUP_TYPE = "ABSENCE";
+const IFS_AUSENCIA_GROUP_IDS = new Set(["AUSGEN", "EXCEP"]);
 
 const COLOMBIA_COMPANY_IDS = new Set(["HMVINGCO"]);
+
+export type AusenciaIfsMeta = {
+  code?: string | null;
+  groupId?: string | null;
+  groupType?: string | null;
+};
 
 export function normalizeCompanyId(
   raw: string | null | undefined,
@@ -40,16 +51,27 @@ export function isAusenciaReportCode(
   return (AUSENCIA_REPORT_CODES as readonly string[]).includes(c);
 }
 
-/** INMED sí en día no hábil; VACAC/AUSGE no. */
+/** Clasifica con metadatos IFS (grupo/tipo); si faltan, usa el código. */
+export function isAusenciaIfsMeta(meta: AusenciaIfsMeta): boolean {
+  const type = (meta.groupType ?? "").trim().toUpperCase();
+  if (type === IFS_AUSENCIA_GROUP_TYPE) return true;
+  const group = (meta.groupId ?? "").trim().toUpperCase();
+  if (IFS_AUSENCIA_GROUP_IDS.has(group)) return true;
+  return isAusenciaReportCode(meta.code);
+}
+
+/** INMED / grupo EXCEP: se puede reportar en día no hábil. */
 export function isAusenciaExcepcionNoLaborable(
-  code: string | null | undefined,
+  code?: string | null,
+  groupId?: string | null,
 ): boolean {
-  return AUSENCIA_EXCEP_NO_LABORABLE.has((code ?? "").trim().toUpperCase());
+  if ((groupId ?? "").trim().toUpperCase() === "EXCEP") return true;
+  return (code ?? "").trim().toUpperCase() === "INMED";
 }
 
 /**
- * Chile y Perú registran ausencias en el portal como DN sobre la actividad GA.
- * Colombia las recibe por Absence Receive (Midasoft); el portal no muta VACAC/AUSGE/INMED.
+ * Chile y Perú registran ausencias en el portal (actividad IFS + tipo del LOV).
+ * Colombia las recibe por Absence Receive (Midasoft).
  */
 export function portalPuedeRegistrarAusencias(
   companyId: string | null | undefined,
@@ -61,17 +83,17 @@ export function portalPuedeRegistrarAusencias(
 export function portalPuedeMutarTipoHora(
   tipo: string,
   companyId: string | null | undefined,
+  meta?: AusenciaIfsMeta,
 ): boolean {
-  if (!isAusenciaReportCode(tipo)) return true;
+  if (!isAusenciaIfsMeta({ code: tipo, ...meta })) return true;
   return portalPuedeRegistrarAusencias(companyId);
 }
 
-export function filterTiposAusenciaPortal<T extends { code: string }>(
-  tipos: T[],
-  companyId: string | null | undefined,
-): T[] {
+export function filterTiposAusenciaPortal<
+  T extends AusenciaIfsMeta & { code: string },
+>(tipos: T[], companyId: string | null | undefined): T[] {
   if (portalPuedeRegistrarAusencias(companyId)) return tipos;
-  return tipos.filter((tipo) => !isAusenciaReportCode(tipo.code));
+  return tipos.filter((tipo) => !isAusenciaIfsMeta(tipo));
 }
 
 export const MSG_AUSENCIA_COLOMBIA_PORTAL =
@@ -80,8 +102,9 @@ export const MSG_AUSENCIA_COLOMBIA_PORTAL =
 export function assertPortalPuedeMutarTipoHora(
   tipo: string,
   companyId: string | null | undefined,
+  meta?: AusenciaIfsMeta,
 ): void {
-  if (!portalPuedeMutarTipoHora(tipo, companyId)) {
+  if (!portalPuedeMutarTipoHora(tipo, companyId, meta)) {
     throw new Error(MSG_AUSENCIA_COLOMBIA_PORTAL);
   }
 }
