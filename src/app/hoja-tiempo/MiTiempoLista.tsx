@@ -36,8 +36,7 @@ import {
 import { ifsColorPastel } from "@/src/lib/ifs/schedule-day-color";
 import {
   getListaRegistrosPorDia,
-  isRegistroEditable,
-  isRegistroEliminable,
+  isTiempoRegistroMutable,
 } from "@/src/lib/tiempo-registro-rules";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
@@ -418,7 +417,7 @@ function CalendarioTab({
 function ListaTab({
   onSelectDia,
 }: Pick<MiTiempoListaProps, "onSelectDia">) {
-  const { registros, mesBounds, openRegistrarModal, deleteRegistro } =
+  const { registros, mesBounds, openRegistrarModal, deleteRegistro, companyId } =
     useMiTiempo();
   const { toast } = useToast();
   const [registroAEliminar, setRegistroAEliminar] =
@@ -427,7 +426,7 @@ function ListaTab({
     filterRegistrosPorMes(registros, mesBounds),
   );
   const hayFilasEditables = dias.some((dia) =>
-    dia.registros.some((r) => isRegistroEditable(r.estado)),
+    dia.registros.some((r) => isTiempoRegistroMutable(r, companyId)),
   );
 
   const columnas: { label: string; align: string }[] = [
@@ -469,8 +468,9 @@ function ListaTab({
                     <TiempoRegistroMobileCard
                       key={r.id}
                       registro={r}
+                      companyId={companyId}
                       onOpen={
-                        isRegistroEditable(r.estado)
+                        isTiempoRegistroMutable(r, companyId)
                           ? () =>
                               openRegistrarModal({
                                 editId: r.id,
@@ -480,7 +480,7 @@ function ListaTab({
                           : undefined
                       }
                       onDelete={
-                        isRegistroEliminable(r.estado)
+                        isTiempoRegistroMutable(r, companyId)
                           ? () => setRegistroAEliminar(r)
                           : undefined
                       }
@@ -551,8 +551,8 @@ function ListaTab({
                       </td>
                     </tr>
                     {dia.registros.map((r) => {
-                      const esEditable = isRegistroEditable(r.estado);
-                      const puedeEliminar = isRegistroEliminable(r.estado);
+                      const esEditable = isTiempoRegistroMutable(r, companyId);
+                      const puedeEliminar = isTiempoRegistroMutable(r, companyId);
                       return (
                       <tr
                         key={r.id}

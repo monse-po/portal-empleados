@@ -46,6 +46,10 @@ import {
 } from "@/src/server/mi-tiempo-catalog-actions";
 import { LOADING_COPY, loadingPlaceholder } from "@/src/lib/copy/loading";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
+import {
+  isAusenciaExcepcionNoLaborable,
+  portalPuedeMutarTipoHora,
+} from "@/src/lib/tiempo-ausencias";
 import { formatIfsError } from "@/src/lib/ifs/errors";
 import { getJornadaLimiteFromSistema } from "@/src/lib/tiempo-config";
 import {
@@ -242,7 +246,7 @@ function fechasDelForm(
   const calendario = fechasCalendarioDelForm(form, editId);
   if (editId) return calendario;
   const cat = resolveTipoCatSeleccionado(form, tipos, useIfsCatalog);
-  return fechasRegistroSegunTipo(calendario, cat, hoursByDate);
+  return fechasRegistroSegunTipo(calendario, cat, hoursByDate, form.tipo);
 }
 
 function validateForm(
@@ -255,6 +259,7 @@ function validateForm(
   hoursByDate: Record<string, number> | null | undefined,
   scheduleReady: boolean,
   dayTypeDesc?: string | null,
+  companyId?: string | null,
 ): Partial<Record<FieldKey, string>> {
   const errors: Partial<Record<FieldKey, string>> = {};
 
@@ -268,6 +273,9 @@ function validateForm(
   if (!form.act) errors.act = "Requerido";
   if (!form.fecha) errors.fecha = "Requerido";
   if (!form.tipo) errors.tipo = "Requerido";
+  else if (!portalPuedeMutarTipoHora(form.tipo, companyId)) {
+    errors.tipo = TIEMPO_UI_COPY.ausenciaColombiaPortal;
+  }
 
   const calendario = fechasCalendarioDelForm(form, editId);
   const cat = resolveTipoCatSeleccionado(form, tipos, useIfsCatalog);
@@ -279,7 +287,13 @@ function validateForm(
     useIfsCatalog,
   );
 
-  if (form.fecha && form.tipo && cat && cat !== "extra") {
+  if (
+    form.fecha &&
+    form.tipo &&
+    cat &&
+    cat !== "extra" &&
+    !isAusenciaExcepcionNoLaborable(form.tipo)
+  ) {
     const sinJornada = calendario.filter(
       (fecha) => !isDiaConJornadaNormal(fecha, hoursByDate),
     );
@@ -342,7 +356,8 @@ function RegistroHorasForm({
   onReadyChange,
   saving = false,
 }: RegistroHorasFormProps) {
-  const { mesBounds: bounds, specialDays, weekdayColor } = useMiTiempo();
+  const { mesBounds: bounds, specialDays, weekdayColor, companyId } =
+    useMiTiempo();
   const scheduleColors = useMemo(
     () => pickScheduleColors(specialDays),
     [specialDays],
@@ -787,6 +802,7 @@ function RegistroHorasForm({
         form.fecha,
         etiquetaTipoDia === "festivo" ? "festivo" : "fin_semana",
       ),
+      companyId,
     );
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {

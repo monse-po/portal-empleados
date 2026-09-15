@@ -3,15 +3,13 @@
 import { EstadoTiempoPill } from "@/src/components/ui/Pill";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import { ProyectoCell } from "@/src/components/ui/DataTable";
-import {
-  isRegistroEditable,
-  isRegistroEliminable,
-} from "@/src/lib/tiempo-registro-rules";
+import { isTiempoRegistroMutable } from "@/src/lib/tiempo-registro-rules";
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 type TiempoRegistroMobileCardProps = {
   registro: RegistroMock;
+  companyId?: string | null;
   onOpen?: () => void;
   onDelete?: () => void;
   deleteDisabled?: boolean;
@@ -19,12 +17,13 @@ type TiempoRegistroMobileCardProps = {
 
 export function TiempoRegistroMobileCard({
   registro,
+  companyId,
   onOpen,
   onDelete,
   deleteDisabled,
 }: TiempoRegistroMobileCardProps) {
-  const editable = isRegistroEditable(registro.estado);
-  const canDelete = isRegistroEliminable(registro.estado) && onDelete;
+  const editable = isTiempoRegistroMutable(registro, companyId);
+  const canDelete = editable && onDelete;
   const clickable = Boolean(editable && onOpen);
 
   return (

@@ -784,6 +784,22 @@ export const TIPO_HORA: Record<string, TipoHoraMeta> = {
     cat: "otro",
     icon: "incapacidad",
   },
+  VACAC: {
+    s: "Vacaciones",
+    n: "Vacaciones",
+    c: "#475569",
+    b: "#f1f5f9",
+    cat: "otro",
+    icon: "sun",
+  },
+  AUSGE: {
+    s: "Ausencia",
+    n: "Ausencias generales",
+    c: "#475569",
+    b: "#f1f5f9",
+    cat: "otro",
+    icon: "calendar",
+  },
 };
 
 const TIPO_HORA_DEFAULT: TipoHoraMeta = {

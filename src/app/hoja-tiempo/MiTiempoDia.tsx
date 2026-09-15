@@ -37,8 +37,7 @@ import {
   scheduleSourceLabel as formatScheduleSource,
 } from "@/src/lib/tiempo-config";
 import {
-  isRegistroEditable,
-  isRegistroEliminable,
+  isTiempoRegistroMutable,
 } from "@/src/lib/tiempo-registro-rules";
 import {
   atNormalLimit,
@@ -97,6 +96,7 @@ export function MiTiempoDia({
     openRegistrarModal,
     deleteRegistro,
     specialDays,
+    companyId,
   } = useMiTiempo();
   const { toast } = useToast();
   const [registroAEliminar, setRegistroAEliminar] = useState<RegistroMock | null>(
@@ -139,7 +139,7 @@ export function MiTiempoDia({
   const contador = getContadorStyle(normales, maxScheduleHours);
   const hayFilasEditables =
     !esHistorial &&
-    diaRegs.some((r) => isRegistroEditable(r.estado));
+    diaRegs.some((r) => isTiempoRegistroMutable(r, companyId));
   const fechaLabel = formatFechaLegible(fecha);
   const fechaCorta = formatFechaCorta(fecha);
   const fechaAnterior = shiftFechaMes(fecha, -1, mesBounds);
@@ -332,8 +332,9 @@ export function MiTiempoDia({
                 <TiempoRegistroMobileCard
                   key={r.id}
                   registro={r}
+                  companyId={companyId}
                   onOpen={
-                    isRegistroEditable(r.estado) && !esHistorial
+                    isTiempoRegistroMutable(r, companyId) && !esHistorial
                       ? () =>
                           openRegistrarModal({
                             editId: r.id,
@@ -343,7 +344,7 @@ export function MiTiempoDia({
                       : undefined
                   }
                   onDelete={
-                    isRegistroEliminable(r.estado) && !esHistorial
+                    isTiempoRegistroMutable(r, companyId) && !esHistorial
                       ? () => setRegistroAEliminar(r)
                       : undefined
                   }
@@ -373,8 +374,8 @@ export function MiTiempoDia({
             </thead>
             <tbody>
               {diaRegs.map((r: RegistroMock) => {
-                const esEditable = isRegistroEditable(r.estado);
-                const puedeEliminar = isRegistroEliminable(r.estado);
+                const esEditable = isTiempoRegistroMutable(r, companyId);
+                const puedeEliminar = isTiempoRegistroMutable(r, companyId);
                 return (
                   <tr
                     key={r.id}

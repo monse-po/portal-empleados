@@ -32,6 +32,11 @@ export const TIEMPO_JORNADA_POR_COMPANIA: Record<string, TiempoJornadaCompania> 
       pais: "PE",
       maxNormalHoursPerDay: 8,
     },
+    HMVCHL: {
+      companyId: "HMVCHL",
+      pais: "CL",
+      maxNormalHoursPerDay: 9,
+    },
   };
 
 export const TIEMPO_JORNADA_DEFAULT_COMPANY_ID = "HMVINGCO";

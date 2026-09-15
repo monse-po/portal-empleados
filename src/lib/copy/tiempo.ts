@@ -24,6 +24,8 @@ export const TIEMPO_UI_COPY = {
    */
   selectHourTypeSoloDnIfs:
     "Esta actividad solo tiene DN en IFS · no hay extras",
+  ausenciaColombiaPortal:
+    "En Colombia las ausencias (vacaciones, incapacidades y permisos) se cargan por integración, no desde el portal.",
   searchProject: "Buscar proyecto...",
   searchSubproject: "Buscar subproyecto...",
   searchActivity: "Buscar actividad...",
