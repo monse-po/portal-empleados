@@ -17,7 +17,7 @@ import {
 } from "@/src/lib/ifs/tiempo-registro-ifs";
 import { mapEmployeeTimesheetToRegistros } from "@/src/lib/ifs/tiempo-timesheet";
 import type { RegistroMock } from "@/src/lib/tiempo-registro";
-import { assertPortalPuedeMutarTipoHora } from "@/src/lib/tiempo-ausencias";
+import { assertPuedeMutarTipoEnIfs } from "@/src/server/tiempo-ausencias-ifs";
 
 export type IfsSendResult = {
   /** id público del registro local → legacyId IFS (`ifs-pt-{seq}`) */
@@ -41,7 +41,7 @@ export async function sendRegistrosToIfsAction(
       );
 
       for (const reg of registros) {
-        assertPortalPuedeMutarTipoHora(reg.tipo, ifs.user.CompanyId);
+        await assertPuedeMutarTipoEnIfs(ifs, reg.tipo);
       }
 
       const entries = registros.map(registroToEmpTimeReg);

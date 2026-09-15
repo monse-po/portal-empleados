@@ -39,29 +39,24 @@ Implementación:
 
 ## Ausencias por país
 
-Hay **dos modelos**. El portal no inventa tipo de hora: usa el LOV IFS (`GetValidActReportCode`).
+Hay **dos modelos**. El portal no lista proyectos ni códigos fijos: usa el catálogo IFS del empleado (`GetValidEmpPrjAct` + `GetValidActReportCode`). Si en IFS cambian o agregan actividades/códigos, el portal los toma igual.
 
-### Colombia (`HMVINGCO`)
+### Colombia (`HMVINGCO` y compañías `*INGCO`)
 
-El tipo de hora **sí** es la etiqueta: `VACAC` / `AUSGE` / `INMED` en actividades `GA100x`. Esos códigos **no** se registran ni editan ni eliminan en el portal; llegan por API Absence Receive (Midasoft).
+El tipo de hora **sí** identifica la ausencia: IFS marca esos códigos con `CReportCostGrpType=ABSENCE` (grupos `AUSGEN` / `EXCEP`; hoy `VACAC`, `AUSGE`, `INMED`). **No** se registran ni editan ni eliminan en el portal; llegan por API Absence Receive (Midasoft). El portal oculta cualquier código que IFS clasifique así, no solo esos tres nombres.
 
-### Chile (`HMVINGCH`) y Perú (`HMVINGPE`)
+### Chile y Perú (p. ej. `HMVINGCH`, `HMVINGPE`)
 
-El control va por **proyecto / subproyecto / actividad**, no por tipo de hora. El empleado carga horas en la actividad de vacaciones o ausencia y el LOV trae **`DN`**. `TipoHoraPill` muestra DN; la etiqueta (Vacaciones, etc.) está en la actividad, no en el código de reporte.
+El control va por **la actividad que IFS asigne al empleado**, no por un proyecto hardcodeado ni por etiqueta de tipo. El empleado carga horas en esa actividad y el LOV trae lo que IFS permita (hoy suele ser **`DN`** en vacaciones/ausencias). `TipoHoraPill` muestra ese código; el nombre (Vacaciones, etc.) está en la actividad.
 
-| País | Compañía | Actividad típica | Tipo en LOV |
-|------|----------|------------------|---------------|
-| Chile | `HMVINGCH` | `GA3004.01.01` Vacaciones | `DN` |
-| Perú | `HMVINGPE` | `GA2004.01.01` Vacaciones; `GA2001.*` ausencias; `GA2003.*` incapacidades | `DN` |
-
-- Colombia: `VACAC` / `AUSGE` solo días con jornada; `INMED` también no hábil si el LOV lo ofrece. El portal los oculta.
-- Chile/Perú: registran `DN` en esas actividades vía `EmpPortalTimeRegList`.
-- Implementación: `tiempo-ausencias.ts` → filtro de códigos de ausencia **solo Colombia** en `fetchTiposHoraAction` + `assertPortalPuedeMutarTipoHora` al guardar.
+- Colombia: `VACAC` / `AUSGE` (AUSGEN) solo días con jornada; `INMED` / grupo `EXCEP` también no hábil si el LOV lo ofrece. El portal los oculta.
+- Chile/Perú: registran el tipo del LOV en las actividades vigentes vía `EmpPortalTimeRegList`.
+- Implementación: `tiempo-ausencias.ts` filtra por metadatos IFS del LOV + `Reference_ReportCost` al guardar.
 
 Reglas:
 
 - `isRegistroEditable` / `isRegistroEliminable` en `src/lib/tiempo-registro-rules.ts` — bloqueo solo en **Aprobado**.
-- `isTiempoRegistroMutable` — además Colombia no edita/elimina `VACAC` / `AUSGE` / `INMED`.
+- `isTiempoRegistroMutable` — además Colombia no edita/elimina tipos que IFS marca como ausencia.
 - Filas IFS (`ifs-pt-*`) en Registrado/Rechazado: editar → `EmpPortalTimeUpdateList`; eliminar → `EmpPortalTimeDeleteList` (requiere sesión IFS + Objid/Objversion).
 - Al guardar edición, **preservar** el estado actual (salvo flujos de sync gerente).
 - **Sync gerente:** editar Registrado refresca la fila en aprobación; borrar Registrado lo retira de la cola (`retirarHojas`).

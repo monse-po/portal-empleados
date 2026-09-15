@@ -27,6 +27,7 @@ import type {
   ProjectInfoQuery,
   UserInfo,
   ValidActReportCodeParams,
+  ReportCostRow,
 } from "@/src/lib/ifs/types";
 
 type ODataCollection<T> = { value?: T[] };
@@ -743,6 +744,27 @@ export async function getEmployeeTimesheetForEmp(
     return await getReportItemsByEmpNo(session, empNo);
   } catch {
     return getReferenceReportItemsByEmpNo(session.accessToken, empNo);
+  }
+}
+
+/** Grupo/tipo IFS del código de reporte (ausencia = CReportCostGrpType ABSENCE). */
+export async function getReportCost(
+  accessToken: string,
+  company: string,
+  reportCostCode: string,
+): Promise<ReportCostRow | null> {
+  const companyKey = odataStringKey(company.trim());
+  const codeKey = odataStringKey(reportCostCode.trim());
+  if (!companyKey || !codeKey) return null;
+  try {
+    return await ifsFetch<ReportCostRow>(
+      `/Reference_ReportCost(Company='${companyKey}',ReportCostCode='${codeKey}')` +
+        "?$select=Company,ReportCostCode,ReportCostGroupId,CReportCostGrpType",
+      { accessToken },
+    );
+  } catch (err) {
+    if (err instanceof IfsApiError && err.status === 404) return null;
+    throw err;
   }
 }
 

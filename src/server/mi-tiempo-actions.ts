@@ -68,6 +68,7 @@ import { fetchRegistrosFromIfsAction } from "@/src/server/mi-tiempo-timesheet-ac
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 import { isRegistroEditable } from "@/src/lib/tiempo-registro-rules";
 import { assertPortalPuedeMutarTipoHora } from "@/src/lib/tiempo-ausencias";
+import { assertPuedeMutarTipoEnIfs } from "@/src/server/tiempo-ausencias-ifs";
 
 export type EnviarDiaResult = {
   enviados: RegistroMock[];
@@ -232,7 +233,7 @@ async function upsertRegistroIfs(reg: RegistroMock): Promise<RegistroMock> {
 
   try {
     await withIfsPortalSession(async (ifs) => {
-      assertPortalPuedeMutarTipoHora(reg.tipo, ifs.user.CompanyId);
+      await assertPuedeMutarTipoEnIfs(ifs, reg.tipo);
       const meta = await resolveIfsMeta(ifs, reg);
       const raw = await updateTimeEntries(ifs, [
         mapRegistroToEmpTimeUpdate(reg, meta),
@@ -284,7 +285,7 @@ async function registrarNuevosEnIfs(
   try {
     const raw = await withIfsPortalSession((ifs) => {
       for (const reg of toSend) {
-        assertPortalPuedeMutarTipoHora(reg.tipo, ifs.user.CompanyId);
+        await assertPuedeMutarTipoEnIfs(ifs, reg.tipo);
       }
       return registerTimeEntries(ifs, mapRegistrosToEmpTimeReg(toSend));
     });
@@ -374,7 +375,7 @@ async function deleteRegistroIfs(id: string): Promise<void> {
       if (!isRegistroEditable(row.estado)) {
         throw new Error("Los registros aprobados no se pueden eliminar.");
       }
-      assertPortalPuedeMutarTipoHora(row.tipo, ifs.user.CompanyId);
+      await assertPuedeMutarTipoEnIfs(ifs, row.tipo);
       const raw = await deleteTimeEntries(ifs, [
         mapRegistroToEmpTimeDelete(row, meta),
       ]);
