@@ -20,6 +20,7 @@ import {
   type TiempoCatalog,
   type TiempoTipoHoraOption,
 } from "@/src/lib/ifs/tiempo-catalog";
+import { filterTiposAusenciaPortal } from "@/src/lib/tiempo-ausencias";
 import type {
   LovReportCostCodeRow,
   ValidEmpPrjActRow,
@@ -201,7 +202,13 @@ export async function fetchTiposHoraAction(input: {
         const rows =
           (raw as { value?: LovReportCostCodeRow[] }).value ??
           (Array.isArray(raw) ? (raw as LovReportCostCodeRow[]) : []);
-        return { tipos: mapReportCodesToTipos(rows) };
+        const empCompanyId = ifs.user.CompanyId?.trim() || input.companyId;
+        return {
+          tipos: filterTiposAusenciaPortal(
+            mapReportCodesToTipos(rows),
+            empCompanyId,
+          ),
+        };
       } catch (err) {
         return {
           tipos: [],
@@ -297,6 +304,8 @@ export async function fetchEmployeeScheduleAction(): Promise<{
   weekdayColor: string | null;
   /** Total GetHoursSummary.ScheduleHours (si IFS lo manda). */
   scheduleHours: number | null;
+  /** Compañía del empleado (CEmpPortalUser.CompanyId). */
+  companyId: string | null;
   fromIfs: boolean;
   error?: string;
   sessionExpired?: boolean;
@@ -309,6 +318,7 @@ export async function fetchEmployeeScheduleAction(): Promise<{
     >,
     weekdayColor: null as string | null,
     scheduleHours: null as number | null,
+    companyId: null as string | null,
     fromIfs: false,
   };
   const session = await getServerIfsSession();
@@ -323,16 +333,26 @@ export async function fetchEmployeeScheduleAction(): Promise<{
           liveSession.email,
           liveSession.accessToken,
         );
-        const programa = await getEmployeeHoursPrograma(ifs);
-        return {
-          hoursByDate: programa.hoursByDate,
-          specialDays: programa.specialDays,
-          weekdayColor: programa.weekdayColor,
-          scheduleHours: programa.scheduleHours,
-          fromIfs:
-            Object.keys(programa.hoursByDate).length > 0 ||
-            programa.scheduleHours != null,
-        };
+        const companyId = ifs.user.CompanyId?.trim() || null;
+        try {
+          const programa = await getEmployeeHoursPrograma(ifs);
+          return {
+            hoursByDate: programa.hoursByDate,
+            specialDays: programa.specialDays,
+            weekdayColor: programa.weekdayColor,
+            scheduleHours: programa.scheduleHours,
+            companyId,
+            fromIfs:
+              Object.keys(programa.hoursByDate).length > 0 ||
+              programa.scheduleHours != null,
+          };
+        } catch (err) {
+          return {
+            ...empty,
+            companyId,
+            error: formatIfsError(err),
+          };
+        }
       } catch (err) {
         return {
           ...empty,

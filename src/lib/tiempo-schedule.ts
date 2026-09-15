@@ -8,6 +8,7 @@ import {
   etiquetaFestivo,
   etiquetaFinSemana,
 } from "@/src/lib/ifs/schedule-day-color";
+import { isAusenciaExcepcionNoLaborable } from "@/src/lib/tiempo-ausencias";
 
 /** Fallback interno si falta config de compañía (no usar como regla de negocio). */
 export const FALLBACK_SCHEDULE_HOURS =
@@ -269,11 +270,13 @@ export function restantesNormalesMin(
 
 /**
  * Filtro mínimo sobre el LOV IFS (no inventa tipos).
- * - Días sin jornada → quita no-extras (respeta lo que IFS mandó)
+ * - Días sin jornada → extras + INMED (excepción no laborable)
  * - opts.soloExtras → idem
  * - Con jornada y cupo → el LOV tal cual (prioridad IFS)
  */
-export function filterTiposPorPrograma<T extends { cat: TipoHoraCat }>(
+export function filterTiposPorPrograma<
+  T extends { cat: TipoHoraCat; code?: string },
+>(
   tipos: T[],
   fechas: string[],
   hoursByDate: Record<string, number> | null | undefined,
@@ -281,29 +284,38 @@ export function filterTiposPorPrograma<T extends { cat: TipoHoraCat }>(
 ): T[] {
   if (!fechas.length) return tipos;
   if (opts?.soloExtras) {
-    return tipos.filter((tipo) => tipo.cat === "extra");
+    return tipos.filter(
+      (tipo) =>
+        tipo.cat === "extra" || isAusenciaExcepcionNoLaborable(tipo.code),
+    );
   }
   const todosSinJornada = fechas.every(
     (fecha) => !isDiaConJornadaNormal(fecha, hoursByDate),
   );
   if (todosSinJornada) {
-    return tipos.filter((tipo) => tipo.cat === "extra");
+    return tipos.filter(
+      (tipo) =>
+        tipo.cat === "extra" || isAusenciaExcepcionNoLaborable(tipo.code),
+    );
   }
   return tipos;
 }
 
 /**
  * Días a registrar según tipo:
+ * - extra e INMED → todos los días del rango (festivos/fines incluidos)
  * - normal/otro → solo días con jornada
- * - extra → todos los días del rango (festivos/fines incluidos)
  */
 export function fechasRegistroSegunTipo(
   fechasCalendario: string[],
   cat: TipoHoraCat | undefined,
   hoursByDate: Record<string, number> | null | undefined,
+  tipoCode?: string,
 ): string[] {
   if (!fechasCalendario.length) return [];
-  if (cat === "extra") return fechasCalendario;
+  if (cat === "extra" || isAusenciaExcepcionNoLaborable(tipoCode)) {
+    return fechasCalendario;
+  }
   if (cat === "normal" || cat === "otro") {
     return filterFechasConJornadaNormal(fechasCalendario, hoursByDate);
   }

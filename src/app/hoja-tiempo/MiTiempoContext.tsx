@@ -91,6 +91,8 @@ type MiTiempoContextValue = {
   registrosFromIfs: boolean;
   ifsConnected: boolean;
   ifsEmail: string | null;
+  /** Compañía IFS del empleado (para reglas por país). */
+  companyId: string | null;
   /** Periodo IFS (YYYYMM). Null si no hay sesión o IFS no lo mandó. */
   activePeriod: string | null;
   /** Mes registrable: ActivePeriod de IFS, o mes del reloj si no hay periodo. */
@@ -155,6 +157,7 @@ export function MiTiempoProvider({
   const [registrosFromIfs, setRegistrosFromIfs] = useState(false);
   const [ifsConnected, setIfsConnected] = useState(false);
   const [ifsEmail, setIfsEmail] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [activePeriod, setActivePeriod] = useState<string | null>(null);
   const [mesBounds, setMesBounds] = useState<MesActualBounds>(() =>
     getMesActualBounds(),
@@ -202,6 +205,7 @@ export function MiTiempoProvider({
     );
     setWeekdayColor(result.weekdayColor?.trim() || null);
     setScheduleHoursIfs(result.scheduleHours);
+    setCompanyId(result.companyId?.trim() || null);
   }, []);
 
   const horasMesPrograma = useMemo(
@@ -369,6 +373,7 @@ export function MiTiempoProvider({
       registrosFromIfs,
       ifsConnected,
       ifsEmail,
+      companyId,
       activePeriod,
       mesBounds,
       hoursByDate,
@@ -393,6 +398,7 @@ export function MiTiempoProvider({
       registrosFromIfs,
       ifsConnected,
       ifsEmail,
+      companyId,
       activePeriod,
       mesBounds,
       hoursByDate,

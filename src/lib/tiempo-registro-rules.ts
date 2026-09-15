@@ -1,4 +1,5 @@
 import type { RegistroEstado, RegistroMock } from "@/src/lib/tiempo-registro";
+import { portalPuedeMutarTipoHora } from "@/src/lib/tiempo-ausencias";
 
 /** Registrado: ya está en IFS; el aprobador aún no confirma. */
 export function isRegistroEnviado(estado: RegistroEstado): boolean {
@@ -13,6 +14,18 @@ export function isRegistroEditable(estado: RegistroEstado): boolean {
 /** Eliminable bajo las mismas reglas que edición. */
 export function isRegistroEliminable(estado: RegistroEstado): boolean {
   return isRegistroEditable(estado);
+}
+
+/**
+ * Editable/eliminable en UI: no Aprobado, y Colombia no muta ausencias
+ * (VACAC / AUSGE / INMED entran por API, no por el portal).
+ */
+export function isTiempoRegistroMutable(
+  reg: { estado: RegistroEstado; tipo: string },
+  companyId?: string | null,
+): boolean {
+  if (!isRegistroEditable(reg.estado)) return false;
+  return portalPuedeMutarTipoHora(reg.tipo, companyId);
 }
 
 export function labelEstadoRegistro(estado: RegistroEstado): string {

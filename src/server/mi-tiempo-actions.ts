@@ -67,6 +67,7 @@ import { createNotificacionesTiempoEnvioAction } from "@/src/server/notificacion
 import { fetchRegistrosFromIfsAction } from "@/src/server/mi-tiempo-timesheet-actions";
 import type { HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
 import { isRegistroEditable } from "@/src/lib/tiempo-registro-rules";
+import { assertPortalPuedeMutarTipoHora } from "@/src/lib/tiempo-ausencias";
 
 export type EnviarDiaResult = {
   enviados: RegistroMock[];
@@ -137,6 +138,7 @@ async function upsertRegistroNeon(reg: RegistroMock): Promise<RegistroMock> {
   if (!isRegistroEditable(reg.estado)) {
     throw new Error("Los registros aprobados no se pueden modificar.");
   }
+  assertPortalPuedeMutarTipoHora(reg.tipo, SESSION_EMPLEADO.companiaDefault);
   await ensureRegistroTiempoRefs(
     SESSION_EMPLEADO_ID,
     SESSION_EMPLEADO.nombre,
@@ -230,6 +232,7 @@ async function upsertRegistroIfs(reg: RegistroMock): Promise<RegistroMock> {
 
   try {
     await withIfsPortalSession(async (ifs) => {
+      assertPortalPuedeMutarTipoHora(reg.tipo, ifs.user.CompanyId);
       const meta = await resolveIfsMeta(ifs, reg);
       const raw = await updateTimeEntries(ifs, [
         mapRegistroToEmpTimeUpdate(reg, meta),
@@ -279,9 +282,12 @@ async function registrarNuevosEnIfs(
   const toSend = regs.map((reg) => ({ ...reg, estado: "Registrado" as const }));
 
   try {
-    const raw = await withIfsPortalSession((ifs) =>
-      registerTimeEntries(ifs, mapRegistrosToEmpTimeReg(toSend)),
-    );
+    const raw = await withIfsPortalSession((ifs) => {
+      for (const reg of toSend) {
+        assertPortalPuedeMutarTipoHora(reg.tipo, ifs.user.CompanyId);
+      }
+      return registerTimeEntries(ifs, mapRegistrosToEmpTimeReg(toSend));
+    });
     const errors = extractEmpTimeRegErrors(raw);
     if (errors.length) {
       throw new Error(errors[0]);
@@ -368,6 +374,7 @@ async function deleteRegistroIfs(id: string): Promise<void> {
       if (!isRegistroEditable(row.estado)) {
         throw new Error("Los registros aprobados no se pueden eliminar.");
       }
+      assertPortalPuedeMutarTipoHora(row.tipo, ifs.user.CompanyId);
       const raw = await deleteTimeEntries(ifs, [
         mapRegistroToEmpTimeDelete(row, meta),
       ]);

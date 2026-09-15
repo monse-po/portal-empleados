@@ -1,6 +1,6 @@
 ---
 description: Reglas de negocio del módulo Tiempo (registro de horas)
-globs: src/app/hoja-tiempo/**,src/lib/mi-tiempo-mock.ts,src/lib/tiempo-config.ts,src/lib/tiempo-registro-rules.ts,src/server/mi-tiempo-actions.ts
+globs: src/app/hoja-tiempo/**,src/lib/mi-tiempo-mock.ts,src/lib/tiempo-config.ts,src/lib/tiempo-ausencias.ts,src/lib/tiempo-registro-rules.ts,src/server/mi-tiempo-actions.ts
 alwaysApply: false
 ---
 
@@ -37,9 +37,24 @@ Implementación:
 
 **No hay Borrador.** Al guardar, el registro se envía a IFS y queda **Registrado**.
 
+## Ausencias por país
+
+El origen de `VACAC` / `AUSGE` / `INMED` lo define la **compañía del empleado**, no el proyecto.
+
+| País | Compañía típica | En el portal |
+|------|-----------------|--------------|
+| Colombia | `HMVINGCO` | **No** se registran ni editan ni eliminan. Llegan por API Absence Receive (Midasoft). |
+| Chile | `HMVCHL` | Sí, vía `EmpPortalTimeRegList` (LOV IFS). |
+| Perú | `HMVPERU` | Sí, vía `EmpPortalTimeRegList` (LOV IFS). |
+
+- `VACAC` / `AUSGE` (AUSGEN): solo días con jornada.
+- `INMED` (EXCEP): también fin de semana y festivo, **si** el LOV IFS lo ofrece (Chile/Perú). En Colombia el portal lo oculta.
+- Implementación: `tiempo-ausencias.ts` → filtro en `fetchTiposHoraAction` + `assertPortalPuedeMutarTipoHora` al guardar.
+
 Reglas:
 
 - `isRegistroEditable` / `isRegistroEliminable` en `src/lib/tiempo-registro-rules.ts` — bloqueo solo en **Aprobado**.
+- `isTiempoRegistroMutable` — además Colombia no edita/elimina `VACAC` / `AUSGE` / `INMED`.
 - Filas IFS (`ifs-pt-*`) en Registrado/Rechazado: editar → `EmpPortalTimeUpdateList`; eliminar → `EmpPortalTimeDeleteList` (requiere sesión IFS + Objid/Objversion).
 - Al guardar edición, **preservar** el estado actual (salvo flujos de sync gerente).
 - **Sync gerente:** editar Registrado refresca la fila en aprobación; borrar Registrado lo retira de la cola (`retirarHojas`).
