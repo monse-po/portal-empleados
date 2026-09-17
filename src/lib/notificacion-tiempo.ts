@@ -1,8 +1,4 @@
 import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
-import {
-  empleadoDbIdFromEmail,
-  type PortalUserProfile,
-} from "@/src/lib/portal-user-profile";
 import type { RegistroMock } from "@/src/lib/tiempo-registro";
 import { baseProyectoCodigo } from "@/src/lib/proyecto-display";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
@@ -108,57 +104,6 @@ export function toNotificacionUi(row: NotificacionRow): NotificacionUi {
 
 export function normalizeNotifEmpleadoId(cedula: string): string {
   return cedula.replace(/\./g, "").trim();
-}
-
-type NotifIdentityInput = Pick<
-  PortalUserProfile,
-  "empNo" | "ifsEmpId" | "empleadoDbId" | "personId" | "email"
->;
-
-function pushNotifId(out: Set<string>, value?: string | null) {
-  const id = normalizeNotifEmpleadoId(value ?? "");
-  if (!id || id === "—") return;
-  out.add(id);
-  const upper = id.toUpperCase();
-  const lower = id.toLowerCase();
-  if (upper !== id) out.add(upper);
-  if (lower !== id) out.add(lower);
-  const digits = id.replace(/\D/g, "");
-  if (digits) out.add(digits);
-}
-
-export function notifEmpleadoMatchesSession(
-  empleadoId: string | null | undefined,
-  ids: string[],
-): boolean {
-  if (!empleadoId || !ids.length) return false;
-  const n = normalizeNotifEmpleadoId(empleadoId);
-  if (ids.includes(n) || ids.includes(n.toUpperCase()) || ids.includes(n.toLowerCase())) {
-    return true;
-  }
-  const digits = n.replace(/\D/g, "");
-  return Boolean(digits && ids.includes(digits));
-}
-
-/** Claves con las que el inbox puede encontrar a esta sesión (EmpNo ≠ PersonId). */
-export function notifSessionIds(profile: NotifIdentityInput): string[] {
-  const out = new Set<string>();
-  pushNotifId(out, profile.empNo);
-  pushNotifId(out, profile.ifsEmpId);
-  pushNotifId(out, profile.empleadoDbId);
-  pushNotifId(out, profile.personId);
-  if (profile.email) pushNotifId(out, empleadoDbIdFromEmail(profile.email));
-  return [...out];
-}
-
-/** EmpNo IFS primero: es el mismo id que llega en la bandeja de aprobación. */
-export function canonicalNotifEmpleadoId(profile: NotifIdentityInput): string {
-  return (
-    normalizeNotifEmpleadoId(profile.empNo ?? "") ||
-    normalizeNotifEmpleadoId(profile.ifsEmpId ?? "") ||
-    normalizeNotifEmpleadoId(profile.empleadoDbId ?? "") ||
-    ""
-  );
 }
 
 function buildAprobacionHref(): string {
