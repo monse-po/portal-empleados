@@ -3,13 +3,9 @@ import {
   type PortalUserProfile,
 } from "@/src/lib/portal-user-profile";
 import type { RegistroMock } from "@/src/lib/tiempo-registro";
-import {
-  formatProyectoAprobacion,
-  formatProyectoAprobacionPorCod,
-  hojaNoFromRegistro,
-  isoToDmy,
-  proyCodAprobacion,
-} from "@/src/lib/tiempo-bridge";
+import { baseProyectoCodigo } from "@/src/lib/proyecto-display";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
+import { isoToDmy, proyCodAprobacion } from "@/src/lib/tiempo-bridge";
 
 export type NotificacionEmpleado = {
   empleadoId: string;
@@ -67,7 +63,25 @@ export type HojaNotificacionInput = {
   cedula: string;
   nombre: string;
   proy: string;
+  horas?: number;
 };
+
+function proyectoNotif(proy: string): string {
+  return baseProyectoCodigo(proy) || proy.split("·")[0]?.trim() || proy;
+}
+
+function horasNotif(n: number): string {
+  return `${formatHorasValor(n)} h`;
+}
+
+function sumHorasNotif(
+  items: Array<{ horas?: number }>,
+): number {
+  return items.reduce((sum, item) => {
+    const n = Number(item.horas);
+    return Number.isFinite(n) ? sum + n : sum;
+  }, 0);
+}
 
 type NotificacionRow = {
   id: string;
@@ -85,7 +99,7 @@ export function toNotificacionUi(row: NotificacionRow): NotificacionUi {
     titulo: row.titulo,
     mensaje: row.mensaje,
     leida: row.leida,
-    href: row.href ?? "/aprobacion-tiempo",
+    href: row.href ?? "/aprobacion-tiempo-proyectos",
     createdAt: row.createdAt.toISOString(),
     registrosCount: row.registrosCount,
   };
@@ -146,11 +160,8 @@ export function canonicalNotifEmpleadoId(profile: NotifIdentityInput): string {
   );
 }
 
-function buildAprobacionHref(hojaNo?: string): string {
-  if (hojaNo) {
-    return `/aprobacion-tiempo?no=${encodeURIComponent(hojaNo)}`;
-  }
-  return "/aprobacion-tiempo";
+function buildAprobacionHref(): string {
+  return "/aprobacion-tiempo-proyectos";
 }
 
 function miTiempoHref(): string {
@@ -184,28 +195,24 @@ export function buildNotificacionesTiempoEnvio(
   const sample = registros[0];
   const proyectoId = sample.proy;
   const proyectoCod = proyCodAprobacion(sample.proy);
+  const horasTxt = horasNotif(registros.reduce((s, r) => s + r.horas, 0));
+  const quien = empleadoNombre.trim() || "Alguien de tu equipo";
 
   let mensaje: string;
   let href: string;
 
-  if (count === 1) {
-    const hojaNo = hojaNoFromRegistro(sample);
-    const proyLabel = formatProyectoAprobacion(sample.proy);
-    mensaje = `${empleadoNombre} envió ${hojaNo} del ${fechaLegible} · ${proyLabel}`;
-    href = buildAprobacionHref(hojaNo);
-  } else if (unicoProyecto) {
-    const proyLabel = formatProyectoAprobacion(sample.proy);
-    mensaje = `${empleadoNombre} envió ${count} registros del ${fechaLegible} · ${proyLabel}`;
+  if (count === 1 || unicoProyecto) {
+    mensaje = `${quien} registró ${horasTxt} del ${fechaLegible} en ${proyectoNotif(sample.proy)}.`;
     href = buildAprobacionHref();
   } else {
-    mensaje = `${empleadoNombre} envió ${count} registros del ${fechaLegible} · ${proyIds.length} proyectos`;
-    href = "/aprobacion-tiempo";
+    mensaje = `${quien} registró ${horasTxt} del ${fechaLegible} en ${proyIds.length} proyectos.`;
+    href = "/aprobacion-tiempo-proyectos";
   }
 
   return [
     {
       tipo: NOTIF_TIPO_TIEMPO_ENVIO,
-      titulo: "Horas pendientes de aprobación",
+      titulo: "Horas por aprobar",
       mensaje,
       empleadoId,
       empleadoNombre,
@@ -220,23 +227,19 @@ export function buildNotificacionesTiempoEnvio(
 
 const DECISION_META: Record<
   NotificacionDecision,
-  { tipo: string; titulo: string; verb: string; suffix?: string }
+  { tipo: string; titulo: string }
 > = {
   aprobado: {
     tipo: NOTIF_TIPO_TIEMPO_APROBADO,
     titulo: "Horas aprobadas",
-    verb: "aprobado",
   },
   rechazado: {
     tipo: NOTIF_TIPO_TIEMPO_RECHAZADO,
     titulo: "Horas rechazadas",
-    verb: "rechazado",
   },
   anulado: {
     tipo: NOTIF_TIPO_TIEMPO_ANULADO,
-    titulo: "Aprobación anulada",
-    verb: "anulado",
-    suffix: " · vuelve a Registrado; puedes editarlo",
+    titulo: "Puedes editar tus horas",
   },
 };
 
@@ -290,29 +293,25 @@ export function buildNotificacionesTiempoDecision(
     const sample = group[0];
     const count = group.length;
     const fechas = [...new Set(group.map((h) => h.fecha))];
-    const proyCods = [...new Set(group.map((h) => h.proy))];
+    const proyCods = [...new Set(group.map((h) => proyectoNotif(h.proy)))];
     const unicoProyecto = proyCods.length === 1;
-    const proyLabel = formatProyectoAprobacionPorCod(sample.proy);
-    const fechaLabel =
-      fechas.length === 1 ? fechas[0] : `${fechas.length} fechas`;
-
-    const seLote =
-      meta.verb === "anulado"
-        ? "Se anularon"
-        : meta.verb === "rechazado"
-          ? "Se rechazaron"
-          : "Se aprobaron";
+    const proy = proyectoNotif(sample.proy);
+    const fecha = fechas.length === 1 ? fechas[0] : null;
+    const horas = sumHorasNotif(group);
+    const cuanto = horas > 0 ? `Tus ${horasNotif(horas)}` : "Tus horas";
+    const enProy = unicoProyecto
+      ? `en ${proy}`
+      : `en ${proyCods.length} proyectos`;
+    const delFecha = fecha ? ` del ${fecha}` : "";
 
     let mensaje: string;
-    if (count === 1) {
-      mensaje = `${sample.no} del ${sample.fecha} · ${proyLabel} fue ${meta.verb}`;
-    } else if (unicoProyecto) {
-      mensaje = `${seLote} ${count} registros del ${fechaLabel} · ${proyLabel}`;
+    if (decision === "anulado") {
+      mensaje = `El gerente devolvió ${cuanto.toLowerCase()}${delFecha} ${enProy}. Ya las puedes editar en Mi Tiempo.`;
+    } else if (decision === "rechazado") {
+      mensaje = `${cuanto}${delFecha} ${enProy} fueron rechazadas.`;
     } else {
-      mensaje = `${seLote} ${count} registros en ${proyCods.length} proyectos`;
+      mensaje = `${cuanto}${delFecha} ${enProy} quedaron aprobadas.`;
     }
-
-    if (meta.suffix) mensaje += meta.suffix;
 
     if (decision === "rechazado" && comentario?.trim()) {
       const short =

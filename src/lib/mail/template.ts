@@ -49,7 +49,7 @@ function loteChipLabel(count: number, href?: string): string {
   if (href?.includes("anticipo")) {
     return count === 1 ? "1 anticipo" : `${count} anticipos`;
   }
-  return count === 1 ? "1 registro" : `${count} registros`;
+  return count === 1 ? "1 día" : `${count} días`;
 }
 
 function splitMotivo(text: string): { cuerpo: string; motivo?: string } {
@@ -59,7 +59,7 @@ function splitMotivo(text: string): { cuerpo: string; motivo?: string } {
 }
 
 function countFromText(text: string): number | undefined {
-  const match = text.match(/(\d+)\s+(registros|anticipos)\b/i);
+  const match = text.match(/(\d+)\s+(días|registros|anticipos)\b/i);
   if (!match) return undefined;
   const n = Number(match[1]);
   return Number.isFinite(n) && n > 1 ? n : undefined;
@@ -156,7 +156,7 @@ export const MAIL_PREVIEW_SCENARIOS: Array<{
     id: "tiempo-aprobado",
     toName: "Liz Lino",
     subject: "Horas aprobadas",
-    text: "HT-0001 del 15/09/2026 · proyecto fue aprobado",
+    text: "Tus 8 h del 15/09/2026 en TIC1000 quedaron aprobadas.",
     href: "/hoja-tiempo",
     registrosCount: 1,
   },
@@ -164,7 +164,7 @@ export const MAIL_PREVIEW_SCENARIOS: Array<{
     id: "tiempo-aprobado-lote",
     toName: "Liz Lino",
     subject: "Horas aprobadas",
-    text: "Se aprobaron 3 registros del 15/09/2026 · proyecto",
+    text: "Tus 24 h del 15/09/2026 en TIC1000 quedaron aprobadas.",
     href: "/hoja-tiempo",
     registrosCount: 3,
   },
@@ -172,7 +172,7 @@ export const MAIL_PREVIEW_SCENARIOS: Array<{
     id: "tiempo-rechazado",
     toName: "Liz Lino",
     subject: "Horas rechazadas",
-    text: "HT-0001 del 15/09/2026 · proyecto fue rechazado · Motivo: falta soporte de campo",
+    text: "Tus 8 h del 15/09/2026 en TIC1000 fueron rechazadas. · Motivo: falta soporte de campo",
     href: "/hoja-tiempo",
     registrosCount: 1,
   },
@@ -180,7 +180,7 @@ export const MAIL_PREVIEW_SCENARIOS: Array<{
     id: "tiempo-anulado",
     toName: "Liz Lino",
     subject: "Aprobación anulada",
-    text: "HT-0001 del 15/09/2026 · proyecto fue anulado · vuelve a Registrado; puedes editarlo",
+    text: "El gerente devolvió tus 8 h del 15/09/2026 en TIC1000. Ya las puedes editar en Mi Tiempo.",
     href: "/hoja-tiempo",
     registrosCount: 1,
   },
@@ -188,7 +188,7 @@ export const MAIL_PREVIEW_SCENARIOS: Array<{
     id: "anticipo-aprobado",
     toName: "Liz Lino",
     subject: "Anticipo aprobado",
-    text: "AG23001 · proyecto fue aprobado",
+    text: "Se aprobó tu anticipo en TIC1000.",
     href: "/mis-anticipos",
     registrosCount: 1,
   },
@@ -196,7 +196,7 @@ export const MAIL_PREVIEW_SCENARIOS: Array<{
     id: "anticipo-aprobado-lote",
     toName: "Liz Lino",
     subject: "Anticipo aprobado",
-    text: "Se aprobaron 3 anticipos",
+    text: "Se aprobaron 3 anticipos.",
     href: "/mis-anticipos",
     registrosCount: 3,
   },
@@ -204,7 +204,7 @@ export const MAIL_PREVIEW_SCENARIOS: Array<{
     id: "anticipo-rechazado",
     toName: "Liz Lino",
     subject: "Anticipo rechazado",
-    text: "AG23001 · proyecto fue rechazado · Motivo: el destino no coincide con el viaje",
+    text: "Se rechazó tu anticipo en TIC1000. · Motivo: el destino no coincide con el viaje",
     href: "/mis-anticipos",
     registrosCount: 1,
   },

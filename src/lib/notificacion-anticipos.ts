@@ -1,3 +1,4 @@
+import { baseProyectoCodigo } from "@/src/lib/proyecto-display";
 import { normalizeNotifEmpleadoId } from "@/src/lib/notificacion-tiempo";
 
 export const NOTIF_TIPO_ANTICIPO_APROBADO = "ANTICIPO_APROBADO" as const;
@@ -43,7 +44,6 @@ export function buildNotificacionesAnticipoDecision(
     ? NOTIF_TIPO_ANTICIPO_APROBADO
     : NOTIF_TIPO_ANTICIPO_RECHAZADO;
   const titulo = aprobado ? "Anticipo aprobado" : "Anticipo rechazado";
-  const verb = aprobado ? "aprobado" : "rechazado";
 
   const byEmpleado = new Map<string, AnticipoNotificacionInput[]>();
   for (const s of solicitudes) {
@@ -70,15 +70,18 @@ export function buildNotificacionesAnticipoDecision(
   for (const [empleadoId, group] of byEmpleado) {
     const sample = group[0];
     const count = group.length;
-    const proyLabel = sample.proy || "proyecto";
+    const proyLabel =
+      baseProyectoCodigo(sample.proy) || sample.proy || "tu proyecto";
 
     let mensaje: string;
     if (count === 1) {
-      mensaje = `${sample.no} · ${proyLabel} fue ${verb}`;
+      mensaje = aprobado
+        ? `Se aprobó tu anticipo en ${proyLabel}.`
+        : `Se rechazó tu anticipo en ${proyLabel}.`;
     } else {
       mensaje = aprobado
-        ? `Se aprobaron ${count} anticipos`
-        : `Se rechazaron ${count} anticipos`;
+        ? `Se aprobaron ${count} anticipos.`
+        : `Se rechazaron ${count} anticipos.`;
     }
 
     if (!aprobado && comentario?.trim()) {

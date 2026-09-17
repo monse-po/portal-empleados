@@ -12,6 +12,7 @@ import {
 import {
   filterHojasByTab,
   getAprobacionKpis,
+  horasNum,
   hoyDMY,
   sumHorasHojas,
   type HojaAprobacion,
@@ -30,6 +31,7 @@ function toHojaNotifInput(hoja: HojaAprobacion): HojaNotificacionInput {
     cedula: hoja.cedula,
     nombre: hoja.nombre,
     proy: hoja.proy,
+    horas: horasNum(hoja.horas) || undefined,
   };
 }
 

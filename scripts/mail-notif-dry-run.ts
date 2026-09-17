@@ -53,7 +53,7 @@ async function main() {
       to,
       toName: to.startsWith("liz") ? "Liz Lino" : "Monse",
       subject: "Horas rechazadas",
-      text: "HT-0001 del 15/09/2026 · proyecto fue rechazado · Motivo: prueba portal",
+      text: "Tus 8 h del 15/09/2026 en TIC1000 fueron rechazadas. · Motivo: prueba portal",
       href: "/hoja-tiempo",
     });
     console.log(`→ Anticipo aprobado a ${to}`);
@@ -61,7 +61,7 @@ async function main() {
       to,
       toName: to.startsWith("liz") ? "Liz Lino" : "Monse",
       subject: "Anticipo aprobado",
-      text: "AG23001 · proyecto fue aprobado",
+      text: "Se aprobó tu anticipo en TIC1000.",
       href: "/mis-anticipos",
     });
   }
