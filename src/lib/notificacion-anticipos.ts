@@ -44,12 +44,11 @@ export function buildNotificacionesAnticipoDecision(
     : NOTIF_TIPO_ANTICIPO_RECHAZADO;
   const titulo = aprobado ? "Anticipo aprobado" : "Anticipo rechazado";
   const verb = aprobado ? "aprobado" : "rechazado";
-  const verbPlural = aprobado ? "aprobados" : "rechazados";
 
   const byEmpleado = new Map<string, AnticipoNotificacionInput[]>();
   for (const s of solicitudes) {
-    const id = normalizeNotifEmpleadoId(s.cedula || s.nombre);
-    if (!id) continue;
+    const id = normalizeNotifEmpleadoId(s.cedula);
+    if (!id || id === "—") continue;
     const list = byEmpleado.get(id) ?? [];
     list.push(s);
     byEmpleado.set(id, list);
@@ -77,7 +76,9 @@ export function buildNotificacionesAnticipoDecision(
     if (count === 1) {
       mensaje = `${sample.no} · ${proyLabel} fue ${verb}`;
     } else {
-      mensaje = `${count} anticipos fueron ${verbPlural}`;
+      mensaje = aprobado
+        ? `Se aprobaron ${count} anticipos`
+        : `Se rechazaron ${count} anticipos`;
     }
 
     if (!aprobado && comentario?.trim()) {

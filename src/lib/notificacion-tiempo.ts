@@ -1,4 +1,7 @@
-import { SESSION_EMPLEADO } from "@/src/lib/mis-anticipos-mock";
+import {
+  empleadoDbIdFromEmail,
+  type PortalUserProfile,
+} from "@/src/lib/portal-user-profile";
 import type { RegistroMock } from "@/src/lib/tiempo-registro";
 import {
   formatProyectoAprobacion,
@@ -90,6 +93,57 @@ export function toNotificacionUi(row: NotificacionRow): NotificacionUi {
 
 export function normalizeNotifEmpleadoId(cedula: string): string {
   return cedula.replace(/\./g, "").trim();
+}
+
+type NotifIdentityInput = Pick<
+  PortalUserProfile,
+  "empNo" | "ifsEmpId" | "empleadoDbId" | "personId" | "email"
+>;
+
+function pushNotifId(out: Set<string>, value?: string | null) {
+  const id = normalizeNotifEmpleadoId(value ?? "");
+  if (!id || id === "—") return;
+  out.add(id);
+  const upper = id.toUpperCase();
+  const lower = id.toLowerCase();
+  if (upper !== id) out.add(upper);
+  if (lower !== id) out.add(lower);
+  const digits = id.replace(/\D/g, "");
+  if (digits) out.add(digits);
+}
+
+export function notifEmpleadoMatchesSession(
+  empleadoId: string | null | undefined,
+  ids: string[],
+): boolean {
+  if (!empleadoId || !ids.length) return false;
+  const n = normalizeNotifEmpleadoId(empleadoId);
+  if (ids.includes(n) || ids.includes(n.toUpperCase()) || ids.includes(n.toLowerCase())) {
+    return true;
+  }
+  const digits = n.replace(/\D/g, "");
+  return Boolean(digits && ids.includes(digits));
+}
+
+/** Claves con las que el inbox puede encontrar a esta sesión (EmpNo ≠ PersonId). */
+export function notifSessionIds(profile: NotifIdentityInput): string[] {
+  const out = new Set<string>();
+  pushNotifId(out, profile.empNo);
+  pushNotifId(out, profile.ifsEmpId);
+  pushNotifId(out, profile.empleadoDbId);
+  pushNotifId(out, profile.personId);
+  if (profile.email) pushNotifId(out, empleadoDbIdFromEmail(profile.email));
+  return [...out];
+}
+
+/** EmpNo IFS primero: es el mismo id que llega en la bandeja de aprobación. */
+export function canonicalNotifEmpleadoId(profile: NotifIdentityInput): string {
+  return (
+    normalizeNotifEmpleadoId(profile.empNo ?? "") ||
+    normalizeNotifEmpleadoId(profile.ifsEmpId ?? "") ||
+    normalizeNotifEmpleadoId(profile.empleadoDbId ?? "") ||
+    ""
+  );
 }
 
 function buildAprobacionHref(hojaNo?: string): string {
@@ -212,7 +266,8 @@ export function buildNotificacionesTiempoDecision(
   const byEmpleado = new Map<string, HojaNotificacionInput[]>();
 
   for (const hoja of hojas) {
-    const id = normalizeNotifEmpleadoId(hoja.cedula || SESSION_EMPLEADO.cedula);
+    const id = normalizeNotifEmpleadoId(hoja.cedula);
+    if (!id || id === "—") continue;
     const list = byEmpleado.get(id) ?? [];
     list.push(hoja);
     byEmpleado.set(id, list);
@@ -241,20 +296,20 @@ export function buildNotificacionesTiempoDecision(
     const fechaLabel =
       fechas.length === 1 ? fechas[0] : `${fechas.length} fechas`;
 
-    const verbPlural =
+    const seLote =
       meta.verb === "anulado"
-        ? "anulados"
+        ? "Se anularon"
         : meta.verb === "rechazado"
-          ? "rechazados"
-          : "aprobados";
+          ? "Se rechazaron"
+          : "Se aprobaron";
 
     let mensaje: string;
     if (count === 1) {
       mensaje = `${sample.no} del ${sample.fecha} · ${proyLabel} fue ${meta.verb}`;
     } else if (unicoProyecto) {
-      mensaje = `${count} registros del ${fechaLabel} · ${proyLabel} fueron ${verbPlural}`;
+      mensaje = `${seLote} ${count} registros del ${fechaLabel} · ${proyLabel}`;
     } else {
-      mensaje = `${count} registros (${proyCods.length} proyectos) fueron ${verbPlural}`;
+      mensaje = `${seLote} ${count} registros en ${proyCods.length} proyectos`;
     }
 
     if (meta.suffix) mensaje += meta.suffix;
@@ -272,7 +327,7 @@ export function buildNotificacionesTiempoDecision(
       titulo: meta.titulo,
       mensaje,
       empleadoId,
-      empleadoNombre: sample.nombre || SESSION_EMPLEADO.nombre,
+      empleadoNombre: sample.nombre?.trim() || "Empleado",
       proyectoId: sample.proy,
       proyectoCod: sample.proy,
       fechaIso: fechas[0] || "",

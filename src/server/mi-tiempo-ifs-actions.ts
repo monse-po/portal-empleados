@@ -6,6 +6,7 @@ import {
 } from "@/src/lib/ifs/cemp-portal";
 import { openPortalSession } from "@/src/server/portal-actor";
 import { formatIfsError } from "@/src/lib/ifs/errors";
+import { mensajeRegistroDiaNoLaborable } from "@/src/lib/tiempo-schedule";
 import {
   IfsSessionExpiredError,
   withValidIfsSession,
@@ -67,7 +68,11 @@ export async function sendRegistrosToIfsAction(
     const error =
       err instanceof IfsSessionExpiredError
         ? "Tu sesión con IFS expiró. Vuelve a iniciar sesión."
-        : formatIfsError(err);
+        : /CREPSCHEXT002|no se permite el registro de horas en d[ií]as no laborables|no es laborable en tu programa|no reconoce ese día como laborable/i.test(
+            err instanceof Error ? err.message : String(err),
+          )
+          ? mensajeRegistroDiaNoLaborable(registros.map((reg) => reg.fecha))
+          : formatIfsError(err);
     return { legacyIds: {}, error };
   }
 }

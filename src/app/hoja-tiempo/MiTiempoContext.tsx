@@ -172,6 +172,7 @@ export function MiTiempoProvider({
   > | null>(null);
   const [weekdayColor, setWeekdayColor] = useState<string | null>(null);
   const [scheduleHoursIfs, setScheduleHoursIfs] = useState<number | null>(null);
+  const [scheduleFromIfs, setScheduleFromIfs] = useState(false);
   const [modal, setModal] = useState<RegistrarModalState>(null);
   const registroGuardadoHandler = useRef<RegistroGuardadoHandler | undefined>(
     undefined,
@@ -206,12 +207,19 @@ export function MiTiempoProvider({
     );
     setWeekdayColor(result.weekdayColor?.trim() || null);
     setScheduleHoursIfs(result.scheduleHours);
+    setScheduleFromIfs(result.fromIfs);
     setCompanyId(result.companyId?.trim() || null);
   }, []);
 
   const horasMesPrograma = useMemo(
-    () => horasMesDesdePrograma(hoursByDate, mesBounds, scheduleHoursIfs),
-    [hoursByDate, mesBounds, scheduleHoursIfs],
+    () =>
+      horasMesDesdePrograma(
+        hoursByDate,
+        mesBounds,
+        scheduleHoursIfs,
+        scheduleFromIfs,
+      ),
+    [hoursByDate, mesBounds, scheduleHoursIfs, scheduleFromIfs],
   );
 
   const reloadRegistros = useCallback(async () => {

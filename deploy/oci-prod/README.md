@@ -1,6 +1,6 @@
 # OCI PROD — `vm-portal-prod`
 
-Portal nuevo (Next.js) en la VM PROD. **No reutiliza** realm, client, secret ni `redirect_uri` de DEV (`hmvtest`).
+Portal nuevo (Next.js) en la VM PROD. **No reutiliza** realm, client, secret ni `redirect_uri` de DEV (`hmvdev`).
 
 El código es el mismo. IAM y el `.env` de esta VM son otros.
 

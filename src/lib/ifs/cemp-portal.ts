@@ -29,6 +29,7 @@ import type {
   ValidActReportCodeParams,
   ReportCostRow,
 } from "@/src/lib/ifs/types";
+import { inferDayTypeFromCalendar } from "@/src/lib/tiempo-schedule";
 
 type ODataCollection<T> = { value?: T[] };
 
@@ -601,7 +602,7 @@ function isWeekdayType(dayType?: string | null): boolean {
   return (dayType ?? "").trim().toUpperCase() === "WEEKDAY";
 }
 
-/** Programa del empleado: días + totales de GetHoursSummary. */
+/** Programa IFS: días (calendario) y horas (tope). En HORAS-COL las horas van 0; los días siguen existiendo. */
 export async function getEmployeeHoursPrograma(
   session: CempPortalSession,
 ): Promise<EmployeeHoursPrograma> {
@@ -613,16 +614,25 @@ export async function getEmployeeHoursPrograma(
     const iso = (day.AccountDate ?? "").slice(0, 10);
     if (!iso) continue;
     const hours = finiteHours(day.ScheduleHours);
-    if (hours != null) hoursByDate[iso] = hours;
-    const dayType = day.DayType?.trim() ?? "";
+    hoursByDate[iso] = hours ?? 0;
+    const reportedType = day.DayType?.trim() ?? "";
+    const dayType = reportedType
+      ? reportedType.toUpperCase()
+      : inferDayTypeFromCalendar(iso);
     const colorName = day.ColorName?.trim() ?? "";
     if (isWeekdayType(dayType)) {
-      if (!weekdayColor && colorName) weekdayColor = colorName;
+      if (!weekdayColor && colorName && colorName.toUpperCase() !== "#000000") {
+        weekdayColor = colorName;
+      }
+      specialDays[iso] = {
+        dayType: "WEEKDAY",
+        dayTypeDesc: day.DayTypeDesc?.trim() ?? "",
+        colorName,
+      };
       continue;
     }
-    if (!dayType) continue;
     specialDays[iso] = {
-      dayType: dayType.toUpperCase(),
+      dayType,
       dayTypeDesc: day.DayTypeDesc?.trim() ?? "",
       colorName,
     };

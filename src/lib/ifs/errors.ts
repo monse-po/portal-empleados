@@ -160,6 +160,14 @@ export function humanizeIfsDetail(detail: string): string | null {
     return "Ese empleado no existe en la empresa IFS. Revisa la compañía o elige otro beneficiario.";
   }
 
+  if (
+    /CREPSCHEXT002|no se permite el registro de horas en d[ií]as no laborables/i.test(
+      text,
+    )
+  ) {
+    return "IFS rechazó el día como no laborable. Si es lun–vie, el calendario de días sí aplica; no hay que programar horas.";
+  }
+
   if (/is not updatable/i.test(text)) {
     return "Ese campo no se puede cambiar en una solicitud ya creada. Ajusta monto, NIF o documento.";
   }
