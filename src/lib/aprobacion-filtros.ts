@@ -3,6 +3,7 @@ import type { IconName } from "@/src/components/ui/Icon";
 import { dmyToSortKey } from "@/src/lib/tiempo-bridge";
 import { TIPO_HORA } from "@/src/lib/mi-tiempo-mock";
 import { horasNum, type HojaAprobacion } from "@/src/lib/aprobacion-tiempo-mock";
+import { empleadoFiltroNombre } from "@/src/lib/empleado-display";
 
 export type AproFilterColumn =
   | "fecha"
@@ -106,7 +107,7 @@ function getFieldValue(h: HojaAprobacion, col: AproFilterColumn): string {
     case "fecha":
       return h.fecha;
     case "empleado":
-      return h.solicitante || h.nombre || "";
+      return empleadoFiltroNombre(h.nombre || h.solicitante, h.cedula);
     case "tipo":
       return h.tipo;
     case "proyecto":

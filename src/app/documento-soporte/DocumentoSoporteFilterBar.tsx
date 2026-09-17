@@ -30,12 +30,14 @@ import {
   removeFilterByColumn,
   upsertFilterRule,
   type DocumentoSoporteFilterColumn,
+  type DocumentoSoporteFilterMultiColumn,
   type DocumentoSoporteFilterRule,
 } from "@/src/lib/documento-soporte-filtros";
 import type {
   DocumentoSoporte,
   DocumentoSoporteTab,
 } from "@/src/lib/documento-soporte-mock";
+import { distinctEmpleadoFiltroOptions } from "@/src/lib/empleado-display";
 
 type DocumentoSoporteFilterBarProps = {
   registros: DocumentoSoporte[];
@@ -52,8 +54,10 @@ function valueOptionIcon(
 ): IconName {
   if (column === "estado") {
     if (val === "Aprobado") return "check";
+    if (val === "Emitido") return "receipt";
     if (val === "Rechazado") return "x";
-    if (val === "Cancelado" || val === "Anulado") return "ban";
+    if (val === "Cancelado") return "ban";
+    if (val === "Anulado") return "circleOff";
     if (val === "Lanzado") return "send";
     return "clock";
   }
@@ -61,9 +65,38 @@ function valueOptionIcon(
 }
 
 function multiOptions(
-  column: "estado",
+  column: DocumentoSoporteFilterMultiColumn,
   registros: DocumentoSoporte[],
 ): FilterDropdownOption[] {
+  if (column === "beneficiario") {
+    return distinctEmpleadoFiltroOptions(
+      registros.map((s) => ({
+        nombre: s.solicitadoPorNombre,
+        codigo: s.solicitadoPorId,
+      })),
+    ).map((o) => ({
+      value: o.value,
+      label: o.label,
+      title: o.title,
+      icon: "user",
+    }));
+  }
+  if (column === "proyecto") {
+    return getDistinctValues(registros, "proyecto").map((id) => {
+      const row = registros.find((s) => s.proyectoId === id);
+      const nombre =
+        row?.proyectoNombre && row.proyectoNombre !== id
+          ? row.proyectoNombre
+          : "";
+      const label = nombre ? `${id} · ${nombre}` : id;
+      return {
+        value: id,
+        label,
+        title: label,
+        icon: "folderOpen" as const,
+      };
+    });
+  }
   return buildFilterMultiOptions(
     "documento-soporte",
     column,
@@ -77,9 +110,6 @@ function multiOptions(
 
 function filterOperatorLabel(column: DocumentoSoporteFilterColumn): string {
   switch (column) {
-    case "codigo":
-    case "nif":
-    case "documento":
     case "concepto":
       return "contiene";
     case "fecha":
@@ -89,24 +119,42 @@ function filterOperatorLabel(column: DocumentoSoporteFilterColumn): string {
   }
 }
 
+function searchPlaceholder(column: DocumentoSoporteFilterMultiColumn): string {
+  switch (column) {
+    case "codigo":
+      return "Buscar código…";
+    case "beneficiario":
+      return "Buscar beneficiario…";
+    case "proyecto":
+      return "Buscar proyecto…";
+    case "nif":
+      return "Buscar NIF…";
+    case "documento":
+      return "Buscar documento…";
+    default:
+      return "Buscar…";
+  }
+}
+
 function useColumnFilterActions(
   column: DocumentoSoporteFilterColumn,
   onChange: Dispatch<SetStateAction<DocumentoSoporteFilterRule[]>>,
 ) {
   const toggleMulti = (val: string) => {
+    const col = column as DocumentoSoporteFilterMultiColumn;
     onChange((prev) => {
-      const rule = getFilterForColumn(prev, "estado");
-      const current = rule?.column === "estado" ? rule.values : [];
+      const rule = getFilterForColumn(prev, column);
+      const current = rule?.column === col ? rule.values : [];
       const nextValues = current.includes(val)
         ? current.filter((v) => v !== val)
         : [...current, val];
-      if (!nextValues.length) return removeFilterByColumn(prev, "estado");
-      const base: Extract<DocumentoSoporteFilterRule, { column: "estado" }> =
-        rule?.column === "estado"
+      if (!nextValues.length) return removeFilterByColumn(prev, column);
+      const base: Extract<DocumentoSoporteFilterRule, { column: typeof col }> =
+        rule?.column === col
           ? rule
-          : (createEmptyRule("estado") as Extract<
+          : (createEmptyRule(col) as Extract<
               DocumentoSoporteFilterRule,
-              { column: "estado" }
+              { column: typeof col }
             >);
       return upsertFilterRule(prev, { ...base, values: nextValues });
     });
@@ -131,19 +179,18 @@ function useColumnFilterActions(
   };
 
   const setText = (text: string) => {
-    const col = column as "codigo" | "nif" | "documento" | "concepto";
     if (!text.trim()) {
       onChange((prev) => removeFilterByColumn(prev, column));
       return;
     }
     onChange((prev) => {
       const rule = getFilterForColumn(prev, column);
-      const base: Extract<DocumentoSoporteFilterRule, { column: typeof col }> =
-        rule?.column === col
+      const base: Extract<DocumentoSoporteFilterRule, { column: "concepto" }> =
+        rule?.column === "concepto"
           ? rule
-          : (createEmptyRule(col) as Extract<
+          : (createEmptyRule("concepto") as Extract<
               DocumentoSoporteFilterRule,
-              { column: typeof col }
+              { column: "concepto" }
             >);
       return upsertFilterRule(prev, { ...base, text });
     });
@@ -154,8 +201,15 @@ function useColumnFilterActions(
 
 function isMultiColumn(
   column: DocumentoSoporteFilterColumn,
-): column is "estado" {
-  return column === "estado";
+): column is DocumentoSoporteFilterMultiColumn {
+  return (
+    column === "codigo" ||
+    column === "proyecto" ||
+    column === "beneficiario" ||
+    column === "nif" ||
+    column === "documento" ||
+    column === "estado"
+  );
 }
 
 function FilterValuePanel({
@@ -180,12 +234,14 @@ function FilterValuePanel({
   );
 
   if (isMultiColumn(column)) {
-    const values = existing?.column === "estado" ? existing.values : [];
+    const values = existing?.column === column ? existing.values : [];
     return (
       <FilterOptionsMenu
-        options={multiOptions("estado", registros)}
+        options={multiOptions(column, registros)}
         selected={values}
         onToggle={toggleMulti}
+        searchable={column !== "estado"}
+        searchPlaceholder={searchPlaceholder(column)}
         multiple={multiple}
         closeOnSelect={!multiple}
         onClose={onDone}
@@ -206,13 +262,7 @@ function FilterValuePanel({
     );
   }
 
-  const text =
-    existing?.column === "codigo" ||
-    existing?.column === "nif" ||
-    existing?.column === "documento" ||
-    existing?.column === "concepto"
-      ? existing.text
-      : "";
+  const text = existing?.column === "concepto" ? existing.text : "";
   return (
     <div className="p-1.5">
       <input
@@ -240,12 +290,7 @@ function chipSummary(
     return linearChipValue(rule.values, options);
   }
   if (rule.column === "fecha") return linearFechaChip(rule.from, rule.to, isoToDmy);
-  if (
-    rule.column === "codigo" ||
-    rule.column === "nif" ||
-    rule.column === "documento" ||
-    rule.column === "concepto"
-  ) {
+  if (rule.column === "concepto") {
     return linearTextChip(rule.text);
   }
   return null;

@@ -5,6 +5,7 @@ export type PortalUserProfile = {
   companyName?: string;
   empNo?: string;
   ifsEmpId?: string;
+  personId?: string;
   /** Clave en Empleado / RegistroTiempo.empleadoId */
   empleadoDbId: string;
   source: "ifs" | "demo";

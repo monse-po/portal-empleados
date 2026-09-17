@@ -15,6 +15,9 @@ export const IMPERSONATE_COOKIE = "hmv_impersonate";
 /** OAuth consolidado (una sola cookie en lugar de 5). */
 export const OAUTH_BUNDLE_COOKIE = "hmv_oauth_ctx";
 
+/** Vida de la sesión del portal (cookie + BD). El access token IFS se renueva aparte. */
+export const IFS_SESSION_TTL_SEC = 8 * 60 * 60;
+
 /** Cookies OAuth antiguas — se expiran en middleware para liberar header. */
 export const LEGACY_OAUTH_COOKIES = [
   "hmv_oauth_pkce",

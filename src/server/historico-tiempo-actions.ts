@@ -12,7 +12,7 @@ import {
   resolveActorEmpNo,
 } from "@/src/lib/ifs/cemp-portal";
 import { openPortalActor } from "@/src/server/portal-actor";
-import { IfsApiError } from "@/src/lib/ifs/errors";
+import { IfsApiError, formatIfsError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
   withValidIfsSession,
@@ -70,6 +70,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
   empNo?: string;
   empName?: string;
   confirmedHours?: number;
+  fromIfs?: boolean;
   sessionExpired?: boolean;
   error?: string;
 }> {
@@ -86,6 +87,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
         registros: sortRegistrosHistorico(registros),
         desdeIso,
         empName: "Usuario DEMO",
+        fromIfs: false,
       };
     }
     return {
@@ -149,8 +151,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
           }
           collected.push(...mapped);
         } catch (err) {
-          if (!(err instanceof IfsApiError)) throw err;
-          console.warn("[historico] ProjectTransactionSet", err.message);
+          console.warn("[historico] ProjectTransactionSet", err);
         }
       }
 
@@ -159,8 +160,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
         const raw = await getEmployeeReportItemsHistorico(ifs, desdeIso);
         collected.push(...mapReportItemsHistoricoToRegistros(raw));
       } catch (err) {
-        if (!(err instanceof IfsApiError)) throw err;
-        console.warn("[historico] ReportItemSet", err.message);
+        console.warn("[historico] ReportItemSet", err);
       }
 
       // 4) Reference_EmpReportItem por EmpNo (histórico global del empleado)
@@ -174,8 +174,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
           );
           collected.push(...mapReportItemsHistoricoToRegistros(raw));
         } catch (err) {
-          if (!(err instanceof IfsApiError)) throw err;
-          console.warn("[historico] Reference_EmpReportItem", err.message);
+          console.warn("[historico] Reference_EmpReportItem", err);
         }
       }
 
@@ -194,8 +193,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
           }
           collected.push(...mapped);
         } catch (err) {
-          if (!(err instanceof IfsApiError)) throw err;
-          console.warn("[historico] canal main", err.message);
+          console.warn("[historico] canal main", err);
         }
       }
 
@@ -233,6 +231,7 @@ export async function getHistoricoRegistrosAction(): Promise<{
       empNo: payload.empNo,
       empName: payload.empName,
       confirmedHours: payload.confirmedHours,
+      fromIfs: true,
     };
   } catch (err) {
     if (err instanceof IfsSessionExpiredError) {
@@ -248,13 +247,13 @@ export async function getHistoricoRegistrosAction(): Promise<{
         registros: [],
         desdeIso,
         sessionExpired: true,
-        error: err.message,
+        error: formatIfsError(err),
       };
     }
     return {
       registros: [],
       desdeIso,
-      error: err instanceof Error ? err.message : "Error al leer histórico desde IFS",
+      error: formatIfsError(err) || "Error al leer histórico desde IFS",
     };
   }
 }

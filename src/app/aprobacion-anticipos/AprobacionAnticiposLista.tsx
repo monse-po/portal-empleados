@@ -4,6 +4,10 @@ import { useMemo, useState } from "react";
 import { Card } from "@/src/components/ui/Card";
 import { BulkActionButtons } from "@/src/components/ui/BulkSelectionBar";
 import { Icon } from "@/src/components/ui/Icon";
+import {
+  IfsConnectedChip,
+  IfsStatusBanner,
+} from "@/src/components/layout/IfsStatusBanner";
 import { AprobacionAnticiposFilterBar } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposFilterBar";
 import { useAprobacionAnticipos } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposContext";
 import { AprobacionAnticiposTabla } from "@/src/app/aprobacion-anticipos/AprobacionAnticiposTabla";
@@ -13,50 +17,7 @@ import {
   removeFilterByColumn,
   type AproAntFilterRule,
 } from "@/src/lib/aprobacion-anticipos-filtros";
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  alert,
-  navy,
-  smallValue,
-}: {
-  label: string;
-  value: string | number;
-  sub: string;
-  alert?: boolean;
-  navy?: boolean;
-  smallValue?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border px-4 py-4 ${
-        alert
-          ? "border-[#fcd34d] bg-[#fffbeb]"
-          : navy
-            ? "border-[#c7d9ed] bg-[#eef3f9]"
-            : "border-border bg-white"
-      }`}
-    >
-      <div
-        className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${
-          navy ? "text-navy" : "text-muted"
-        }`}
-      >
-        {label}
-      </div>
-      <div
-        className={`font-extrabold leading-none ${smallValue ? "text-lg" : "text-[28px]"} ${alert ? "text-[#b45309]" : "text-navy"}`}
-      >
-        {value}
-      </div>
-      <div className={`mt-1.5 text-[11px] ${navy ? "text-navy/70" : "text-muted"}`}>
-        {sub}
-      </div>
-    </div>
-  );
-}
+import { KpiCard } from "@/src/components/ui/KpiCard";
 
 type AprobacionAnticiposListaProps = {
   onOpenDetalle: (no: string) => void;
@@ -77,6 +38,10 @@ export function AprobacionAnticiposLista({
     seleccion,
     clearSeleccion,
     registrosActuales,
+    fromIfs,
+    ifsConnected,
+    ifsEmail,
+    loadError,
   } = useAprobacionAnticipos();
 
   const [filters, setFilters] = useState<AproAntFilterRule[]>([]);
@@ -97,10 +62,28 @@ export function AprobacionAnticiposLista({
   return (
     <div className="view-wide max-md:pb-24">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-[#111]">Aprobar anticipos</h1>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-[#111]">Aprobar anticipos</h1>
+          <IfsConnectedChip
+            surface="anticipos-approval"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+            warning={loadError}
+          />
+        </div>
         <p className="mt-1 text-[13px] text-[#4b5563]">
           Solicitudes de tu equipo pendientes de revisión · HMVINGCO
         </p>
+        <div className="mt-3">
+          <IfsStatusBanner
+            surface="anticipos-approval"
+            loginNext="/aprobacion-anticipos"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+            email={ifsEmail}
+            warning={loadError}
+          />
+        </div>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -158,7 +141,7 @@ export function AprobacionAnticiposLista({
             }`}
           >
             <Icon name="clock" size="sm" />
-            Pendientes
+            Por aprobar
             <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
               {tabCounts.pendientes}
             </span>

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { parseBearerToken, isLocalDevRuntime } from "@/src/lib/ifs/dev-local";
-import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
+import { IFS_SESSION_TTL_SEC, SESSION_COOKIE } from "@/src/lib/ifs/constants";
 import {
   createPersistedIfsSession,
+  nextIfsSessionExpiry,
   resolveSessionEmail,
   sessionCookieOptions,
 } from "@/src/lib/ifs/session";
@@ -36,10 +37,14 @@ export async function POST(request: Request) {
   const { cookieValue } = await createPersistedIfsSession({
     email,
     accessToken,
-    expiresAt: Date.now() + 3600_000,
+    expiresAt: nextIfsSessionExpiry(),
   });
 
   const response = NextResponse.json({ ok: true, email });
-  response.cookies.set(SESSION_COOKIE, cookieValue, sessionCookieOptions(3600));
+  response.cookies.set(
+    SESSION_COOKIE,
+    cookieValue,
+    sessionCookieOptions(IFS_SESSION_TTL_SEC),
+  );
   return response;
 }

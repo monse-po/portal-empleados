@@ -1,4 +1,4 @@
-import { ifsFetch, odataStringKey } from "@/src/lib/ifs/client";
+import { ifsFetch, ifsFetchAllPages, odataStringKey } from "@/src/lib/ifs/client";
 import { getIfsConfig } from "@/src/lib/ifs/config";
 
 export type CRequestType = "Expenses" | "Travel";
@@ -37,6 +37,24 @@ export type CEmpAdvances = CEmpAdvancesInsert & {
   Objstate?: CEmpAdvancesState;
 };
 
+/** LOV de Destination en CEmpAdvanceHandling (`CityCodeSet` / DestinationRef). */
+export type AdvanceCityCode = {
+  CountryCode?: string;
+  Country?: string;
+  StateCode?: string;
+  State?: string;
+  StateName?: string;
+  CountyCode?: string;
+  County?: string;
+  CountyName?: string;
+  CityCode?: string;
+  City?: string;
+  CityName?: string;
+  DestinationCode?: string;
+  DestinationDesc?: string;
+  Description?: string;
+};
+
 export type CEmpAdvanceQuery = {
   RequestNo?: string;
   Description?: string;
@@ -50,6 +68,7 @@ export type CEmpAdvanceQuery = {
   CreatorName?: string;
   PrepaymentType?: string;
   ProjectId?: string;
+  ProjectName?: string;
   EmpNo?: string;
   SupplierId?: string;
   CurrencyCode?: string;
@@ -91,6 +110,127 @@ function collection<T>(raw: unknown): T[] {
   if (Array.isArray(raw)) return raw as T[];
   const value = (raw as ODataCollection<T> | null)?.value;
   return Array.isArray(value) ? value : [];
+}
+
+function cityCodeRowKey(row: AdvanceCityCode): string {
+  return [
+    row.CountryCode,
+    row.StateCode,
+    row.CountyCode,
+    row.CityCode,
+    row.CityName,
+  ]
+    .join("|")
+    .toLowerCase();
+}
+
+function mergeCityCodes(
+  target: AdvanceCityCode[],
+  seen: Set<string>,
+  rows: AdvanceCityCode[],
+) {
+  for (const row of rows) {
+    const key = cityCodeRowKey(row);
+    if (!key.replace(/\|/g, "") || seen.has(key)) continue;
+    seen.add(key);
+    target.push(row);
+  }
+}
+
+/**
+ * CityCodeSet sin filtro a menudo devuelve 1–2 filas “de muestra”.
+ * El LOV real aparece al pedir por CountryCode y seguir nextLink.
+ */
+export async function listAdvanceCityCodes(
+  accessToken: string,
+): Promise<AdvanceCityCode[]> {
+  const all: AdvanceCityCode[] = [];
+  const seen = new Set<string>();
+  const cfg = init(accessToken);
+
+  mergeCityCodes(
+    all,
+    seen,
+    await ifsFetchAllPages<AdvanceCityCode>("/CityCodeSet", cfg, 80),
+  );
+
+  const countries = new Set(["CL", "CO", "EC", "MX", "PE", "US"]);
+  for (const row of all) {
+    const country = row.CountryCode?.trim().toUpperCase();
+    if (country) countries.add(country);
+  }
+
+  await Promise.all(
+    [...countries].map(async (country) => {
+      const rows = await ifsFetchAllPages<AdvanceCityCode>(
+        `/CityCodeSet?$filter=CountryCode eq '${country}'`,
+        cfg,
+        80,
+      );
+      mergeCityCodes(all, seen, rows);
+    }),
+  );
+
+  return all;
+}
+
+export async function getAdvanceCityByDestination(
+  accessToken: string,
+  destination: string,
+): Promise<AdvanceCityCode | null> {
+  const raw = destination.trim();
+  if (!raw) return null;
+  const parts = raw.split("-").map((part) => part.trim()).filter(Boolean);
+  const parsed =
+    parts.length >= 4
+      ? {
+          countryCode: parts[0],
+          stateCode: parts[1],
+          countyCode: parts[2],
+          cityCode: parts.slice(3).join("-"),
+        }
+      : parts.length === 1
+        ? { cityCode: parts[0] }
+        : {};
+  const cfg = init(accessToken);
+
+  if (parsed.countryCode && parsed.cityCode) {
+    const key =
+      `/CityCodeSet(CountryCode='${odataStringKey(parsed.countryCode)}'` +
+      `,StateCode='${odataStringKey(parsed.stateCode || "")}'` +
+      `,CountyCode='${odataStringKey(parsed.countyCode || "")}'` +
+      `,CityCode='${odataStringKey(parsed.cityCode)}')`;
+    try {
+      return await ifsFetch<AdvanceCityCode>(key, cfg);
+    } catch {
+      /* probar filtro */
+    }
+  }
+
+  const filters: string[] = [];
+  if (parsed.countryCode && parsed.cityCode) {
+    filters.push(
+      `CountryCode eq '${odataStringKey(parsed.countryCode)}' and CityCode eq '${odataStringKey(parsed.cityCode)}'`,
+    );
+  }
+  if (parsed.cityCode) {
+    filters.push(`CityCode eq '${odataStringKey(parsed.cityCode)}'`);
+  }
+  filters.push(`DestinationCode eq '${odataStringKey(raw)}'`);
+
+  for (const filter of filters) {
+    try {
+      const data = await ifsFetch<ODataCollection<AdvanceCityCode>>(
+        `/CityCodeSet?$filter=${encodeURIComponent(filter)}&$top=5`,
+        cfg,
+      );
+      const rows = collection<AdvanceCityCode>(data);
+      if (rows[0]) return rows[0];
+    } catch {
+      /* siguiente filtro */
+    }
+  }
+  return null;
 }
 
 function stripOdataMeta(row: Record<string, unknown>): Record<string, unknown> {
@@ -197,6 +337,43 @@ export async function listAdvanceQueries(
     init(accessToken),
   );
   return collection<CEmpAdvanceQuery>(data);
+}
+
+/** Solicitudes por CreatedBy / EmpNo (GetYourRequests no trae “para otro”). */
+export async function listEmpAdvances(
+  accessToken: string,
+  filter: string,
+): Promise<CEmpAdvances[]> {
+  const data = await ifsFetch<ODataCollection<CEmpAdvances>>(
+    `/CEmpAdvancesSet?$filter=${encodeURIComponent(filter)}&$top=200`,
+    init(accessToken),
+  );
+  return collection<CEmpAdvances>(data);
+}
+
+export function empAdvanceToQuery(row: CEmpAdvances): CEmpAdvanceQuery {
+  return {
+    RequestNo: row.RequestNo,
+    Description: row.Description,
+    Company: row.Company,
+    InvCompany: row.InvCompany,
+    RequestDate: row.RequestDate,
+    RequestedBy: row.RequestedBy,
+    CreatedBy: row.CreatedBy,
+    ProjectId: row.ProjectId,
+    EmpNo: row.EmpNo,
+    SupplierId: row.SupplierId,
+    CurrencyCode: row.CurrencyCode,
+    Amount: row.Amount,
+    Objstate: row.Objstate,
+    RequestType: row.RequestType,
+    DepartureDate: row.DepartureDate,
+    ReturnDate: row.ReturnDate,
+    Destination: row.Destination,
+    ApproverId: row.Approver,
+    ApproverComment: row.ApproverComment,
+    ApprovedDate: row.ApprovedDate,
+  };
 }
 
 function stateBlob(row: Pick<CEmpAdvances, "Objstate"> & { State?: string }): string {

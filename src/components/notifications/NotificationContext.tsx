@@ -17,7 +17,9 @@ import {
   marcarTodasNotificacionesLeidasAction,
 } from "@/src/server/notificacion-actions";
 import { useRole } from "@/src/components/layout/RoleContext";
+import { scheduleIdleWork } from "@/src/lib/schedule-idle-work";
 import type { NotificacionUi } from "@/src/lib/notificacion-tiempo";
+import { usePathname } from "next/navigation";
 
 type NotificationContextValue = {
   items: NotificacionUi[];
@@ -33,6 +35,7 @@ const NotificationContext = createContext<NotificationContextValue | null>(null)
 const POLL_MS = 20_000;
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const { isGerente, roleReady, rol } = useRole();
   const [items, setItems] = useState<NotificacionUi[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -93,18 +96,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     setItems([]);
     setUnreadCount(0);
-    void load();
+    const eager = pathname.startsWith("/notificaciones");
+    const cancelIdle = eager
+      ? (void load(), () => {})
+      : scheduleIdleWork(() => {
+          if (!cancelled) void load();
+        });
     const timer = window.setInterval(() => void load(), POLL_MS);
     const onFocus = () => void load();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
     return () => {
       cancelled = true;
+      cancelIdle();
       window.clearInterval(timer);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [roleReady, fetchForRole, rol]);
+  }, [roleReady, fetchForRole, rol, pathname]);
 
   const markRead = useCallback(async (id: string) => {
     await marcarNotificacionLeidaAction(id);

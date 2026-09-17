@@ -6,7 +6,7 @@ import {
   resolveActorEmpNo,
 } from "@/src/lib/ifs/cemp-portal";
 import { openPortalActor } from "@/src/server/portal-actor";
-import { IfsApiError } from "@/src/lib/ifs/errors";
+import { IfsApiError, formatIfsError } from "@/src/lib/ifs/errors";
 import {
   IfsSessionExpiredError,
   withValidIfsSession,
@@ -55,11 +55,11 @@ export async function fetchRegistrosFromIfsAction(): Promise<{
       return { grouped: null, sessionExpired: true, error: err.message };
     }
     if (err instanceof IfsApiError && err.status === 401) {
-      return { grouped: null, sessionExpired: true, error: err.message };
+      return { grouped: null, sessionExpired: true, error: formatIfsError(err) };
     }
     return {
       grouped: null,
-      error: err instanceof Error ? err.message : "Error al leer IFS",
+      error: formatIfsError(err) || "Error al leer IFS",
     };
   }
 }

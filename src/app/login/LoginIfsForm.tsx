@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Field } from "@/src/components/ui/Field";
-
-const inputClass =
-  "h-12 w-full rounded-[5px] border border-border bg-white px-3.5 text-[14px] text-text transition-colors focus:border-navy focus:outline-none max-md:text-[16px]";
+import { Icon } from "@/src/components/ui/Icon";
+import { loginErrorMessage } from "@/src/lib/ifs/login-messages";
 
 type LoginIfsFormProps = {
   next: string;
@@ -17,53 +16,95 @@ export function LoginIfsForm({
   defaultEmail = "",
 }: LoginIfsFormProps) {
   const [email, setEmail] = useState(defaultEmail);
-  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+  function startMicrosoft() {
+    const params = new URLSearchParams();
+    params.set("next", next);
+    const trimmed = email.trim();
+    if (trimmed) params.set("email", trimmed);
+    window.location.assign(`/api/auth/login/microsoft?${params.toString()}`);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = email.trim();
-    if (!trimmed || !password || submitting) return;
+    if (!trimmed || submitting) return;
 
     setSubmitting(true);
-    window.location.href = next;
+    setError(null);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          email: trimmed,
+          next,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        next?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.ok) {
+        setError(loginErrorMessage(data.error));
+        setSubmitting(false);
+        return;
+      }
+      window.location.assign(data.next?.startsWith("/") ? data.next : next);
+    } catch {
+      setError(loginErrorMessage("token_exchange"));
+      setSubmitting(false);
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+      {error ? (
+        <p className="alert-warn login-error px-3 py-2 text-[13px]">{error}</p>
+      ) : null}
+      <Button
+        type="button"
+        variant="primary"
+        className="h-12 w-full justify-center text-[14px] max-md:min-h-12 max-md:text-[15px]"
+        onClick={startMicrosoft}
+      >
+        Entrar con Microsoft
+      </Button>
+      <p className="login-divider">o con el correo asociado en IFS</p>
       <Field label="Correo corporativo" required htmlFor="login-email">
-        <input
-          id="login-email"
-          type="email"
-          required
-          autoComplete="username"
-          inputMode="email"
-          placeholder="liz.lino@veyron.com.mx"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className={inputClass}
-        />
-      </Field>
-      <Field label="Contraseña" required htmlFor="login-password">
-        <input
-          id="login-password"
-          type="password"
-          required
-          autoComplete="current-password"
-          placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={inputClass}
-        />
+        <div className="login-field-shell">
+          <span className="login-field-icon">
+            <Icon name="mail" size="sm" />
+          </span>
+          <input
+            id="login-email"
+            type="email"
+            required
+            autoComplete="username"
+            inputMode="email"
+            placeholder="correo@h-mv.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="login-input max-md:text-[16px]"
+          />
+        </div>
+        <p className="login-hint">
+          Entra con el correo asociado al empleado en IFS. No se pide
+          contraseña.
+        </p>
       </Field>
       <Button
         type="submit"
-        variant="primary"
+        variant="secondary"
         className="h-12 w-full justify-center text-[14px] max-md:min-h-12 max-md:text-[15px]"
         loading={submitting}
         loadingLabel="Entrando…"
       >
-        Entrar
+        Iniciar sesión
       </Button>
     </form>
   );

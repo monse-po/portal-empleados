@@ -62,7 +62,7 @@ Dos perfiles — ver regla `10-tables-filters.mdc`:
 - **`main`:** app integrada; debe correr siempre con `npm run dev`.
 - **`cursor/modulo-tiempo`:** `/hoja-tiempo` + `/aprobacion-tiempo` + Prisma/server actions tiempo.
 - **`cursor/modulo-anticipos`:** `/mis-anticipos` + `/aprobacion-anticipos` + libs anticipos.
-- **`cursor/shell-shared`:** layout, `src/components/ui/*`, tokens, `AppProviders`.
+- **`cursor/ambiente-dev`:** lo que corre en el ambiente DEV (`hmv-empleados-dev`).
 - **`cursor/modulo-documento-soporte`:** `/documento-soporte` (MVP mock empleado).
 - Módulos nuevos: `cursor/modulo-{nombre}` desde `main`; merge al integrar par empleado+gerente.
 

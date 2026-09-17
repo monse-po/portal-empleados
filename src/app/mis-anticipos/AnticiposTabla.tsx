@@ -8,7 +8,8 @@ import { TipoAnticipoPill } from "@/src/components/ui/TipoAnticipoPill";
 import {
   DataTable,
   dataTd,
-  dataTdResSecondary,
+  EmpleadoCell,
+  MontoCell,
   ProyectoCell,
   dataTdTruncate,
   dataThWithAlign,
@@ -18,12 +19,11 @@ import { TablePagination } from "@/src/components/ui/TablePagination";
 import {
   ANTICIPOS_COLS_HIST,
   ANTICIPOS_COLS_PEND,
-  formatMonto,
   getBeneficiarioNombre,
   getBeneficiarioSolicitante,
-  nombreAprobador,
   type Anticipo,
 } from "@/src/lib/anticipos-registro";
+import { nombreProyectoAnticipo } from "@/src/lib/mis-anticipos-mock";
 
 type AnticiposTablaProps = {
   registros: Anticipo[];
@@ -49,7 +49,7 @@ export function AnticiposTabla({
   hasFilters,
   onOpenDetalle,
 }: AnticiposTablaProps) {
-  const { tab, empleadoId } = useAnticipos();
+  const { tab, sessionIds, sessionNombre } = useAnticipos();
   const esHistorial = tab === "disponibles";
 
   const [page, setPage] = useState(1);
@@ -83,43 +83,14 @@ export function AnticiposTabla({
   const visibles = registros.slice(start, start + TABLE_PAGE_SIZE);
 
   const renderAprobador = (s: Anticipo) => {
-    const nombre = nombreAprobador(s.aprobador);
-    if (nombre && s.aprobador) {
+    if (s.aprobador) {
       return (
-        <td className={dataTd}>
-          <div className="flex min-w-0 items-baseline gap-1.5 leading-tight">
-            <span className="shrink-0 font-mono text-[10px] font-bold text-navy">
-              {s.aprobador}
-            </span>
-            <span
-              className={`min-w-0 ${dataTdTruncate} text-[11.5px] font-medium text-[#374151]`}
-              title={nombre}
-            >
-              {nombre}
-            </span>
-          </div>
-          {s.fechaAprob ? (
-            <div className={`${dataTdResSecondary} text-muted`}>
-              {s.fechaAprob}
-            </div>
-          ) : (
-            <div className={`${dataTdResSecondary} italic`}>
-              Pendiente de aprobar
-            </div>
-          )}
+        <td className={`${dataTd} ${dataTdTruncate}`} title={s.aprobador}>
+          {s.aprobador}
         </td>
       );
     }
-    if (s.estado === "Cancelado") {
-      return (
-        <td className={`${dataTd} text-[#d1d5db]`}>—</td>
-      );
-    }
-    return (
-      <td className={`${dataTd} text-[11.5px] italic text-[#9ca3af]`}>
-        Pendiente
-      </td>
-    );
+    return <td className={`${dataTd} text-[#d1d5db]`}>—</td>;
   };
 
   const renderPagado = (s: Anticipo) => {
@@ -159,9 +130,11 @@ export function AnticiposTabla({
         </thead>
         <tbody>
           {visibles.map((s) => {
-            const solicitanteBenef = empleadoId
-              ? getBeneficiarioSolicitante(s, empleadoId)
-              : null;
+            const solicitanteBenef = getBeneficiarioSolicitante(
+              s,
+              sessionIds,
+              sessionNombre,
+            );
             const nombreBenef = getBeneficiarioNombre(s);
             return (
               <tr
@@ -179,21 +152,22 @@ export function AnticiposTabla({
                   {s.fecha}
                 </td>
                 <td className={dataTd}>
-                  <ProyectoCell codigo={s.proy} nombre={s.proyN} />
+                  <ProyectoCell
+                    codigo={s.proy}
+                    nombre={nombreProyectoAnticipo(s.proy, s.proyN)}
+                  />
                 </td>
                 <td className={dataTd}>
                   <TipoAnticipoPill tipo={s.tipo} />
                 </td>
-                <td className={`${dataTd} align-top`}>
-                  <div
-                    className="font-medium leading-snug text-[#374151] [overflow-wrap:anywhere]"
-                    title={nombreBenef}
-                  >
-                    {nombreBenef}
-                  </div>
+                  <td className={`${dataTd} align-top`}>
+                  <EmpleadoCell
+                    nombre={nombreBenef}
+                    codigo={s.cedula || s.beneficiarioId}
+                  />
                   {solicitanteBenef ? (
                     <div
-                      className="mt-1 inline-flex max-w-full flex-wrap items-baseline gap-x-1 rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug [overflow-wrap:anywhere]"
+                      className="mt-1 inline-flex max-w-full items-baseline gap-x-1 whitespace-nowrap rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug"
                       title={`Solicitado por ${solicitanteBenef}`}
                     >
                       <span className="font-medium text-[#4b5563]">
@@ -206,10 +180,7 @@ export function AnticiposTabla({
                   ) : null}
                 </td>
                 <td className={`${dataTd} text-right`}>
-                  <div className="font-semibold leading-snug">
-                    {formatMonto(s.monto, s.div)}
-                  </div>
-                  <div className={dataTdResSecondary}>{s.div}</div>
+                  <MontoCell monto={s.monto} divisa={s.div} />
                 </td>
                 <td
                   className={`${dataTd} text-[#374151] ${dataTdTruncate}`}

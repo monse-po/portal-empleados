@@ -3,10 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/src/components/ui/Card";
 import { BulkActionButtons } from "@/src/components/ui/BulkSelectionBar";
-import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
+import {
+  IfsConnectedChip,
+  IfsStatusBanner,
+} from "@/src/components/layout/IfsStatusBanner";
 import { Icon } from "@/src/components/ui/Icon";
 import { useToast } from "@/src/components/ui/Toast";
 import {
+  AnularModal,
   AprobarModal,
   RechazarModal,
 } from "@/src/app/aprobacion-tiempo/AprobacionModals";
@@ -22,6 +26,7 @@ import {
   hojaRegistroId,
 } from "@/src/app/aprobacion-tiempo-proyectos/AprobacionProyectosRegistrosTabla";
 import {
+  mapApprovalTimesheetToHojas,
   mapApprovalTimesheetToHojasByProyecto,
   type HorasProyectoAprobacion,
 } from "@/src/lib/ifs/tiempo-approval";
@@ -30,70 +35,47 @@ import {
   hayFiltrosActivos,
   type AproFilterRule,
 } from "@/src/lib/aprobacion-filtros";
-import { horasNum } from "@/src/lib/aprobacion-tiempo-mock";
+import {
+  getAprobacionKpisFromList,
+  horasNum,
+  sumHorasHojas,
+  type HojaAprobacion,
+} from "@/src/lib/aprobacion-tiempo-mock";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
+import { KpiCard } from "@/src/components/ui/KpiCard";
+import { toastAnulados } from "@/src/lib/tiempo-bridge";
+import type { HojaNotificacionInput } from "@/src/lib/notificacion-tiempo";
 import {
   getResumenProyectosAprobacionAction,
   resolverAprobacionTiempoAction,
 } from "@/src/server/mi-tiempo-actions";
+import { createNotificacionesTiempoDecisionAction } from "@/src/server/notificacion-actions";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { useTableSelection } from "@/src/lib/use-table-selection";
+import { portalActionError } from "@/src/lib/ifs/errors";
+import { useAprobacionOptional } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 
 type Tab = "pend" | "res";
 type DecisionScope = "registros" | "proyecto";
 
 function roundHoras(n: number): number {
-  return Math.round(n * 10) / 10;
+  return Math.round(n * 100) / 100;
 }
 
-function formatHoras(n: number): string {
-  const r = roundHoras(n);
-  return Number.isInteger(r) ? `${r}` : r.toFixed(1);
-}
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  alert,
-  navy,
-}: {
-  label: string;
-  value: string | number;
-  sub: string;
-  alert?: boolean;
-  navy?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border px-4 py-3 ${
-        alert
-          ? "border-[#fcd34d] bg-[#fffbeb]"
-          : navy
-            ? "border-[#c7d9ed] bg-[#eef3f9]"
-            : "border-border bg-white"
-      }`}
-    >
-      <div
-        className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${
-          navy ? "text-navy" : "text-muted"
-        }`}
-      >
-        {label}
-      </div>
-      <div
-        className={`text-[22px] font-extrabold leading-none ${alert ? "text-[#b45309]" : "text-navy"}`}
-      >
-        {value}
-      </div>
-      <div className={`mt-1.5 text-[11px] ${navy ? "text-navy/70" : "text-muted"}`}>
-        {sub}
-      </div>
-    </div>
-  );
+function toHojaNotifInput(hoja: HojaAprobacion): HojaNotificacionInput {
+  return {
+    no: hoja.no,
+    fecha: hoja.fecha,
+    cedula: hoja.cedula,
+    nombre: hoja.nombre,
+    proy: hoja.proy,
+    horas: horasNum(hoja.horas) || undefined,
+  };
 }
 
 export function AprobacionProyectosView() {
   const { toast } = useToast();
+  const syncPendientesDesdeDb = useAprobacionOptional()?.syncPendientesDesdeDb;
   const [proyectos, setProyectos] = useState<HorasProyectoAprobacion[]>([]);
   const [raw, setRaw] = useState<unknown>({ value: [] });
   const [loaded, setLoaded] = useState(false);
@@ -108,6 +90,7 @@ export function AprobacionProyectosView() {
   );
   const [aprobarTargets, setAprobarTargets] = useState<string[]>([]);
   const [rechazarTargets, setRechazarTargets] = useState<string[]>([]);
+  const [anularTargets, setAnularTargets] = useState<string[]>([]);
   const [decisionScope, setDecisionScope] = useState<DecisionScope>("registros");
   const {
     seleccion,
@@ -139,9 +122,15 @@ export function AprobacionProyectosView() {
         if (cancelled) return;
         if (result.warning) toast(result.warning, "warn");
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
-          toast("No se pudo cargar el resumen por proyecto.", "danger");
+          toast(
+            portalActionError(
+              error,
+              "No se pudo cargar el resumen por proyecto.",
+            ),
+            "danger",
+          );
         }
       })
       .finally(() => {
@@ -151,6 +140,13 @@ export function AprobacionProyectosView() {
       cancelled = true;
     };
   }, [cargar, toast]);
+
+  useEffect(() => {
+    if (!syncPendientesDesdeDb) return;
+    syncPendientesDesdeDb(
+      mapApprovalTimesheetToHojas(raw, { includeResolved: false }),
+    );
+  }, [raw, syncPendientesDesdeDb]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -182,26 +178,21 @@ export function AprobacionProyectosView() {
     [hojasTabBase, filters],
   );
 
-  const tabCounts = {
-    pend: hojasPend.length,
-    res: hojasRes.length,
-  };
+  const tabHoras = useMemo(
+    () => ({
+      pend: roundHoras(sumHorasHojas(hojasPend)),
+      res: roundHoras(sumHorasHojas(hojasRes)),
+    }),
+    [hojasPend, hojasRes],
+  );
 
-  const kpis = useMemo(() => {
-    const conCola = proyectos.filter((p) => p.pendienteIds.length > 0);
-    return {
-      pendientes: roundHoras(
-        proyectos.reduce((s, p) => s + p.horasPendientes, 0),
+  const kpis = useMemo(
+    () =>
+      getAprobacionKpisFromList(
+        mapApprovalTimesheetToHojas(raw, { includeResolved: true }),
       ),
-      aprobadas: roundHoras(
-        proyectos.reduce((s, p) => s + p.horasAprobadas, 0),
-      ),
-      registradas: roundHoras(
-        proyectos.reduce((s, p) => s + p.horasAcumuladas, 0),
-      ),
-      proyectosCola: conCola.length,
-    };
-  }, [proyectos]);
+    [raw],
+  );
 
   const selectedKeys = [...seleccion];
   const filtrosActivos = hayFiltrosActivos(filters);
@@ -358,7 +349,7 @@ export function AprobacionProyectosView() {
       return;
     }
 
-    const horasLabelTxt = formatHoras(resolved.horas);
+    const horasLabelTxt = formatHorasValor(resolved.horas);
     toast(
       decision === "aprobado"
         ? `${resolved.label} · ${horasLabelTxt}h aprobadas`
@@ -369,15 +360,78 @@ export function AprobacionProyectosView() {
     await cargar();
   };
 
+  const confirmarAnulacion = async () => {
+    const picked = hojasRes.filter((h) =>
+      anularTargets.includes(hojaRegistroId(h)),
+    );
+    const registroIds = picked
+      .map((h) => h.registroId || hojaRegistroId(h))
+      .filter(Boolean);
+    if (!registroIds.length) {
+      toast("Ese registro ya no está resuelto.", "warn");
+      setAnularTargets([]);
+      await cargar();
+      return;
+    }
+
+    const result = await resolverAprobacionTiempoAction({
+      registroIds,
+      decision: "anulado",
+    });
+    if (!result.ok) {
+      toast(result.error || "No se pudo anular la decisión.", "danger");
+      return;
+    }
+
+    void createNotificacionesTiempoDecisionAction({
+      decision: "anulado",
+      hojas: picked.map(toHojaNotifInput),
+    }).catch((error) => {
+      console.error("[notificaciones] no se pudo notificar anulación", error);
+    });
+
+    toast(toastAnulados(picked.map((h) => h.no)), "green");
+    setAnularTargets([]);
+    await cargar();
+  };
+
+  const anularResolved = (() => {
+    const picked = hojasRes.filter((h) =>
+      anularTargets.includes(hojaRegistroId(h)),
+    );
+    const horas = roundHoras(
+      picked.reduce((s, h) => s + horasNum(h.horas), 0),
+    );
+    if (picked.length === 1) {
+      const h = picked[0];
+      return {
+        label: `${h.fecha} · ${h.actividad}`,
+        horas,
+      };
+    }
+    return {
+      label: `${picked.length} registros`,
+      horas,
+    };
+  })();
+
   const aprobarResolved = resolverTargets(aprobarTargets);
   const rechazarResolved = resolverTargets(rechazarTargets);
 
   return (
     <div className="view-wide max-md:pb-24">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-[#111]">Aprobar Tiempo</h1>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-[#111]">Aprobar Tiempo</h1>
+          <IfsConnectedChip
+            surface="approval"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+            warning={ifsWarning}
+          />
+        </div>
         <p className="mt-1 text-[13px] text-[#4b5563]">
-          Elige un proyecto y resuelve sus horas.
+          Horas extras de tu equipo. Elige un proyecto para aprobar o rechazar.
         </p>
         <div className="mt-3">
           <IfsStatusBanner
@@ -391,23 +445,23 @@ export function AprobacionProyectosView() {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-3 gap-2">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <KpiCard
           label="Horas por aprobar"
-          value={formatHoras(kpis.pendientes)}
-          sub={`${kpis.proyectosCola} proyectos`}
-          alert
+          value={formatHorasValor(kpis.horasPendientes)}
+          sub="Pendientes de tu decisión"
+          alert={kpis.horasPendientes > 0}
         />
         <KpiCard
           label="Horas aprobadas"
-          value={formatHoras(kpis.aprobadas)}
-          sub="Confirmadas"
+          value={formatHorasValor(kpis.horasAprobadas)}
+          sub="Ya aprobadas este mes"
           navy
         />
         <KpiCard
-          label="Horas registradas"
-          value={formatHoras(kpis.registradas)}
-          sub="Total reportado"
+          label="Horas rechazadas"
+          value={formatHorasValor(kpis.horasRechazadas)}
+          sub="Rechazadas este mes"
         />
       </div>
 
@@ -422,8 +476,8 @@ export function AprobacionProyectosView() {
         </aside>
 
         <section className="min-w-0 flex-1">
+          <div className="flex flex-col overflow-hidden bg-[#f5f7fa] lg:sticky lg:top-[72px] lg:z-20 lg:max-h-[calc(100dvh-8rem)]">
           {proyectoActual ? (
-            <div className="bg-[#f5f7fa] lg:sticky lg:top-[72px] lg:z-20">
               <AprobacionFilterBar
                 key={`${proyectoSeleccionado}-${tab}`}
                 hideColumns={["proyecto"]}
@@ -440,12 +494,11 @@ export function AprobacionProyectosView() {
                   ) : undefined
                 }
               />
-            </div>
           ) : null}
 
-          <Card className="mb-0 overflow-hidden p-0">
+          <Card className="mb-0 flex min-h-0 flex-1 flex-col !overflow-hidden p-0">
             {proyectoActual ? (
-              <div className="flex items-center justify-between gap-3 border-b-2 border-[#e5e9f0] px-2">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b-2 border-[#e5e9f0] bg-white px-2">
                 <div className="flex">
                   <button
                     type="button"
@@ -457,9 +510,12 @@ export function AprobacionProyectosView() {
                     }`}
                   >
                     <Icon name="clock" size="sm" />
-                    Pendientes
-                    <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-                      {tabCounts.pend}
+                    Horas por aprobar
+                    <span
+                      className="rounded-full bg-[#fffbeb] px-2 py-0.5 text-[10px] font-semibold text-[#b45309]"
+                      title="Horas por aprobar"
+                    >
+                      {formatHorasValor(tabHoras.pend)}h
                     </span>
                   </button>
                   <button
@@ -472,26 +528,21 @@ export function AprobacionProyectosView() {
                     }`}
                   >
                     <Icon name="checkSquare" size="sm" />
-                    Resueltas
-                    <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-                      {tabCounts.res}
+                    Horas resueltas
+                    <span
+                      className="rounded-full bg-green-bg px-2 py-0.5 text-[10px] font-semibold text-green"
+                      title="Horas ya resueltas"
+                    >
+                      {formatHorasValor(tabHoras.res)}h
                     </span>
                   </button>
                 </div>
                 <div className="flex items-baseline gap-2.5 pr-3">
-                  {filtrosActivos ? (
-                    <span className="text-[12px] tabular-nums text-muted">
-                      {hojasTab.length} de {hojasTabBase.length}
-                    </span>
-                  ) : null}
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                    Total
+                    Horas registradas totales
                   </span>
                   <span className="text-[18px] font-extrabold tabular-nums text-navy">
-                    {formatHoras(
-                      hojasTab.reduce((s, h) => s + horasNum(h.horas), 0),
-                    )}
-                    h
+                    {formatHorasValor(tabHoras.pend + tabHoras.res)}
                   </span>
                 </div>
               </div>
@@ -516,9 +567,11 @@ export function AprobacionProyectosView() {
                 seleccion={seleccion}
                 onToggle={toggleSeleccion}
                 onToggleLote={toggleSeleccionLote}
+                onAnular={(id) => setAnularTargets([id])}
               />
             )}
           </Card>
+          </div>
         </section>
       </div>
 
@@ -526,7 +579,7 @@ export function AprobacionProyectosView() {
         open={aprobarTargets.length > 0}
         registroLabel={aprobarResolved.label}
         empleado={aprobarResolved.empleado || "Empleado"}
-        horas={formatHoras(aprobarResolved.horas)}
+        horas={formatHorasValor(aprobarResolved.horas)}
         onClose={() => setAprobarTargets([])}
         onConfirm={async () => {
           const targets = [...aprobarTargets];
@@ -543,6 +596,13 @@ export function AprobacionProyectosView() {
           await confirmarDecision(targets, "rechazado", motivo);
           setRechazarTargets([]);
         }}
+      />
+      <AnularModal
+        open={anularTargets.length > 0}
+        registroLabel={anularResolved.label}
+        horas={formatHorasValor(anularResolved.horas)}
+        onClose={() => setAnularTargets([])}
+        onConfirm={confirmarAnulacion}
       />
     </div>
   );

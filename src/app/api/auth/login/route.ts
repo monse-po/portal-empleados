@@ -4,27 +4,78 @@ import { isIfsAuthReady } from "@/src/lib/ifs/config";
 import { expireStalePortalCookies } from "@/src/lib/ifs/clear-portal-cookies";
 import {
   LEGACY_SESSION_COOKIE,
-  OAUTH_BUNDLE_COOKIE,
   SESSION_COOKIE,
 } from "@/src/lib/ifs/constants";
-import { sealOAuthBundle } from "@/src/lib/ifs/oauth-cookie-bundle";
 import {
-  buildAuthorizationUrl,
-  createOAuthState,
-  createPkcePair,
-  resolveOAuthRedirectUri,
-} from "@/src/lib/ifs/oauth-user";
+  completeUserLoginFromVerifiedEmail,
+  IfsLoginFlowError,
+} from "@/src/lib/ifs/complete-user-login";
+import { resolvePublicOrigin } from "@/src/lib/ifs/oauth-user";
 import {
   destroyPersistedIfsSession,
+  isSystemPortalEmail,
   resolveSessionEmail,
   sessionCookieOptions,
 } from "@/src/lib/ifs/session";
 
+function safeNext(raw: unknown): string {
+  return typeof raw === "string" && raw.startsWith("/") && !raw.startsWith("//")
+    ? raw
+    : "/hoja-tiempo";
+}
+
+/** Enlaces viejos → formulario. El correo se valida contra CEmpPortalUserSet. */
 export async function GET(request: Request) {
+  const origin = resolvePublicOrigin(request);
+  const url = new URL(request.url);
+  const dest = new URL("/login", origin);
+  const next = url.searchParams.get("next");
+  const email = url.searchParams.get("email")?.trim();
+  if (next && next.startsWith("/") && !next.startsWith("//")) {
+    dest.searchParams.set("next", next);
+  }
+  if (email) dest.searchParams.set("email", email);
+  return NextResponse.redirect(dest);
+}
+
+export async function POST(request: Request) {
   if (!isIfsAuthReady()) {
+    return NextResponse.json({ error: "auth_unavailable" }, { status: 503 });
+  }
+
+  let emailRaw = "";
+  let next = "/hoja-tiempo";
+
+  const contentType = request.headers.get("content-type") ?? "";
+  try {
+    if (contentType.includes("application/json")) {
+      const body = (await request.json()) as {
+        email?: unknown;
+        next?: unknown;
+      };
+      emailRaw = typeof body.email === "string" ? body.email.trim() : "";
+      next = safeNext(body.next);
+    } else {
+      const form = await request.formData();
+      emailRaw = String(form.get("email") ?? "").trim();
+      next = safeNext(form.get("next"));
+    }
+  } catch {
+    return NextResponse.json({ error: "invalid_credentials" }, { status: 400 });
+  }
+
+  const loginEmail = resolveSessionEmail({
+    email: emailRaw,
+    preferred_username: emailRaw,
+    username: emailRaw,
+  });
+  if (!loginEmail) {
+    return NextResponse.json({ error: "invalid_credentials" }, { status: 400 });
+  }
+  if (isSystemPortalEmail(loginEmail)) {
     return NextResponse.json(
-      { error: "IFS_AUTH_ENABLED requiere IFS_OAUTH_CLIENT_ID, SECRET y REDIRECT_URI" },
-      { status: 503 },
+      { error: "system_account_email" },
+      { status: 400 },
     );
   }
 
@@ -35,41 +86,27 @@ export async function GET(request: Request) {
     await destroyPersistedIfsSession(sessionRaw ?? legacyRaw);
   }
 
-  const { verifier, challenge } = createPkcePair();
-  const state = createOAuthState();
-  const opts = sessionCookieOptions(600);
-
-  const url = new URL(request.url);
-  const next = url.searchParams.get("next");
-  const loginHint = url.searchParams.get("email")?.trim();
-  const loginEmail = loginHint
-    ? resolveSessionEmail({
-        email: loginHint,
-        preferred_username: loginHint,
-        username: loginHint,
-      })
-    : undefined;
-  const redirectUri = resolveOAuthRedirectUri(request);
-  const authUrl = buildAuthorizationUrl({
-    state,
-    codeChallenge: challenge,
-    loginHint: loginEmail ?? loginHint,
-    redirectUri,
-  });
-  const response = NextResponse.redirect(authUrl);
-
-  response.cookies.set(
-    OAUTH_BUNDLE_COOKIE,
-    sealOAuthBundle({
-      verifier,
-      state,
-      redirectUri,
-      next: next?.startsWith("/") ? next : undefined,
-      email: loginEmail ?? loginHint,
-    }),
-    opts,
-  );
-  expireStalePortalCookies(response, opts.secure ?? false);
-
-  return response;
+  try {
+    const login = await completeUserLoginFromVerifiedEmail(loginEmail);
+    const origin = resolvePublicOrigin(request);
+    const secure = origin.startsWith("https://");
+    const response = NextResponse.json({ ok: true, next });
+    response.cookies.set(
+      SESSION_COOKIE,
+      login.cookieValue,
+      sessionCookieOptions(login.expiresIn),
+    );
+    expireStalePortalCookies(response, secure);
+    return response;
+  } catch (err) {
+    if (err instanceof IfsLoginFlowError) {
+      return NextResponse.json({ error: err.code }, { status: 400 });
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[auth/login] fallo al iniciar sesión:", message);
+    if (message.includes("PortalIfsSession") || message.includes("prisma")) {
+      return NextResponse.json({ error: "session_store" }, { status: 500 });
+    }
+    return NextResponse.json({ error: "token_exchange" }, { status: 400 });
+  }
 }

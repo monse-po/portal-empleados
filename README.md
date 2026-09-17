@@ -58,7 +58,7 @@ Ver **[docs/MODULES.md](./docs/MODULES.md)** — mapa de módulos, ramas `cursor
 | `main` | App completa integrada |
 | `cursor/modulo-tiempo` | Hoja de tiempo + aprobación tiempo + BD |
 | `cursor/modulo-anticipos` | Anticipos + aprobación anticipos |
-| `cursor/shell-shared` | UI compartida, layout, design system |
+| `cursor/ambiente-dev` | Lo que corre en el ambiente DEV |
 
 ## Build
 

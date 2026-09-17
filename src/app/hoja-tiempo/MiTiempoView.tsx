@@ -11,6 +11,7 @@ import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
 import { LOADING_COPY, loadingPlaceholder } from "@/src/lib/copy/loading";
 import { useAsyncAction } from "@/src/lib/use-async-action";
 import { recientePorId } from "@/src/lib/recientes-dummy";
+import { sanitizePortalErrorMessage } from "@/src/lib/ifs/errors";
 
 type Vista = "lista" | "dia";
 
@@ -108,7 +109,9 @@ export function MiTiempoView() {
   if (registrosError) {
     return (
       <div className="view-wide flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
-        <p className="max-w-md text-[13px] text-[#374151]">{registrosError}</p>
+        <p className="max-w-md text-[13px] text-[#374151]">
+          {sanitizePortalErrorMessage(registrosError)}
+        </p>
         <Button
           variant="primary"
           onClick={() => void retryLoad()}

@@ -21,6 +21,7 @@ import {
 import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
 import { TiempoRegistroMobileCard } from "@/src/app/hoja-tiempo/TiempoRegistroMobileCard";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
+import { IfsConnectedChip } from "@/src/components/layout/IfsStatusBanner";
 import {
   buildCalendarioGrid,
   filterRegistrosPorMes,
@@ -32,12 +33,13 @@ import {
   type RegistroEstado,
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
+import { ifsColorPastel } from "@/src/lib/ifs/schedule-day-color";
 import {
   getListaRegistrosPorDia,
-  isRegistroEditable,
-  isRegistroEliminable,
+  isTiempoRegistroMutable,
 } from "@/src/lib/tiempo-registro-rules";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -63,11 +65,35 @@ function CalendarioEstadoDia({ estado }: { estado: RegistroEstado }) {
   );
 }
 
+function EtiquetaCalendario({
+  esFestivo,
+  etiqueta,
+  color,
+}: {
+  esFestivo: boolean;
+  etiqueta: string;
+  color?: string;
+}) {
+  const fallback = esFestivo ? "text-orange" : "text-[#60a5fa]";
+  return (
+    <span
+      className={`inline-flex max-w-full items-center gap-1 text-[10px] font-semibold leading-none ${color ? "" : fallback}`}
+      style={color ? { color } : undefined}
+    >
+      <Icon name={esFestivo ? "star" : "moon"} size="xs" className="shrink-0" />
+      <span className="truncate">{etiqueta}</span>
+    </span>
+  );
+}
+
 function CalendarioLineaTipo({ tipo }: { tipo: string }) {
   const m = getTipoHoraMeta(tipo);
   return (
-    <span className="inline-flex min-w-0 items-center gap-1 text-[10px] font-medium text-[#9ca3af]">
-      <Icon name={m.icon} size="xs" className="shrink-0 opacity-70" />
+    <span
+      className="inline-flex min-w-0 items-center gap-1 text-[10px] font-semibold leading-none"
+      style={{ color: m.c }}
+    >
+      <Icon name={m.icon} size="xs" className="shrink-0" />
       <span className="truncate">{m.s || tipo}</span>
     </span>
   );
@@ -172,8 +198,15 @@ function HorasResumenBar() {
 function CalendarioTab({
   onSelectDia,
 }: Pick<MiTiempoListaProps, "onSelectDia">) {
-  const { registros, mesBounds, horasMesPrograma, openRegistrarModal } =
-    useMiTiempo();
+  const {
+    registros,
+    mesBounds,
+    horasMesPrograma,
+    specialDays,
+    weekdayColor,
+    openRegistrarModal,
+  } = useMiTiempo();
+  const weekdayPastel = weekdayColor ? ifsColorPastel(weekdayColor) : undefined;
   const registrosMes = useMemo(
     () => filterRegistrosPorMes(registros, mesBounds),
     [registros, mesBounds],
@@ -185,7 +218,7 @@ function CalendarioTab({
     return d;
   }, []);
   const mesRef = useMemo(() => mesRefFromBounds(mesBounds), [mesBounds]);
-  const celdas = buildCalendarioGrid(mesRef, registrosMes, hoy);
+  const celdas = buildCalendarioGrid(mesRef, registrosMes, hoy, specialDays);
   const weekRows = Math.max(1, Math.ceil(celdas.length / 7));
 
   return (
@@ -205,7 +238,12 @@ function CalendarioTab({
 
           <div
             className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-border bg-border max-md:min-h-0 max-md:flex-1 max-md:rounded-none max-md:border-0 max-md:[grid-template-rows:auto_repeat(var(--cal-weeks),minmax(0,1fr))]"
-            style={{ ["--cal-weeks" as string]: weekRows }}
+            style={{
+              ["--cal-weeks" as string]: weekRows,
+              ...(weekdayPastel
+                ? { ["--cal-weekday-pastel" as string]: weekdayPastel }
+                : {}),
+            }}
           >
             {DIAS_SEMANA.map((d, i) => (
               <div
@@ -228,13 +266,25 @@ function CalendarioTab({
                 );
               }
 
-              const dayNumberClass = celda.esFestivo
-                ? "font-semibold text-orange"
-                : celda.esHoy
-                  ? "font-extrabold text-navy"
-                  : celda.esFinSemana
-                    ? "font-semibold text-[#60a5fa]"
-                    : "font-semibold text-[#374151]";
+              const dayInk =
+                (celda.esFestivo || celda.esFinSemana) && celda.etiquetaColor
+                  ? celda.etiquetaColor
+                  : undefined;
+              const dayNumberClass = dayInk
+                ? celda.esHoy
+                  ? "font-extrabold"
+                  : "font-semibold"
+                : celda.esFestivo
+                  ? "font-semibold text-orange"
+                  : celda.esHoy
+                    ? "font-extrabold text-navy"
+                    : celda.esFinSemana
+                      ? "font-semibold text-[#60a5fa]"
+                      : "font-semibold text-[#374151]";
+              const numeroStyle = dayInk ? { color: dayInk } : undefined;
+              const estadoEnSegundaLinea = Boolean(
+                celda.resumen && (celda.etiqueta || celda.esHoy),
+              );
 
               return (
                 <button
@@ -255,7 +305,11 @@ function CalendarioTab({
                       origen: "lista",
                     });
                   }}
-                  className={`relative flex ${CAL_DIA_CELL} cursor-pointer flex-col items-start p-2.5 text-left transition-[filter,box-shadow] duration-100 hover:brightness-[0.96] max-md:items-stretch max-md:p-0.5 max-md:touch-manipulation ${
+                  className={`relative flex ${CAL_DIA_CELL} cursor-pointer flex-col items-start p-2.5 text-left transition-[background-color,filter,box-shadow] duration-100 max-md:items-stretch max-md:p-0.5 max-md:touch-manipulation ${
+                    !celda.esFestivo && !celda.esFinSemana && weekdayPastel
+                      ? "hover:!bg-[var(--cal-weekday-pastel)]"
+                      : "hover:brightness-[0.96]"
+                  } ${
                     celda.esHoy
                       ? celda.esFestivo
                         ? "z-[1] ring-2 ring-inset ring-orange/70"
@@ -264,16 +318,26 @@ function CalendarioTab({
                   }`}
                   style={{ background: celda.bg }}
                 >
-                  <div className="flex h-6 w-full shrink-0 items-center justify-center md:hidden">
+                  <div className="flex h-6 w-full shrink-0 items-center justify-center gap-0.5 md:hidden">
                     <span
                       className={`inline-flex h-6 min-w-6 items-center justify-center text-[12px] leading-none ${
-                        celda.esHoy
+                        celda.esHoy && !dayInk
                           ? "rounded-full bg-navy font-bold text-white"
                           : dayNumberClass
                       }`}
+                      style={
+                        celda.esHoy && !dayInk ? undefined : numeroStyle
+                      }
                     >
                       {celda.dia}
                     </span>
+                    {celda.etiqueta ? (
+                      <EtiquetaCalendario
+                        esFestivo={celda.esFestivo}
+                        etiqueta={celda.etiqueta}
+                        color={celda.etiquetaColor}
+                      />
+                    ) : null}
                   </div>
                   {celda.resumen ? (
                     <div
@@ -288,16 +352,17 @@ function CalendarioTab({
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span
                           className={`text-[13px] leading-none ${dayNumberClass}`}
+                          style={numeroStyle}
                         >
                           {celda.dia}
                         </span>
-                        {celda.esFestivo && (
-                          <Icon
-                            name="star"
-                            size="xs"
-                            className="shrink-0 text-[#f59e0b]"
+                        {celda.etiqueta ? (
+                          <EtiquetaCalendario
+                            esFestivo={celda.esFestivo}
+                            etiqueta={celda.etiqueta}
+                            color={celda.etiquetaColor}
                           />
-                        )}
+                        ) : null}
                         {celda.esHoy && (
                           <span
                             className={`rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wide ${
@@ -309,7 +374,7 @@ function CalendarioTab({
                             Hoy
                           </span>
                         )}
-                        {celda.resumen && (
+                        {celda.resumen && !estadoEnSegundaLinea && (
                           <CalendarioEstadoDia
                             estado={celda.resumen.estadoDia}
                           />
@@ -327,18 +392,17 @@ function CalendarioTab({
                         </span>
                       )}
                     </div>
-
-                    {celda.esFestivo && (
-                      <div className="mt-1.5">
-                        <span className="text-[10px] font-semibold leading-none text-orange">
-                          Festivo
-                        </span>
+                    {estadoEnSegundaLinea && celda.resumen ? (
+                      <div className="mt-1">
+                        <CalendarioEstadoDia
+                          estado={celda.resumen.estadoDia}
+                        />
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
                   {celda.resumen && celda.resumen.lineas.length > 0 && (
-                    <div className="mt-2 hidden min-h-0 w-full flex-1 overflow-y-auto overscroll-contain md:block">
+                    <div className={`${estadoEnSegundaLinea ? "mt-1" : "mt-2"} hidden min-h-0 w-full flex-1 overflow-y-auto overscroll-contain md:block`}>
                       <div className="flex flex-col gap-0.5">
                         {celda.resumen.lineas.map((l) => (
                           <div
@@ -346,7 +410,7 @@ function CalendarioTab({
                             className="flex items-center justify-between gap-1 text-[10px] leading-tight"
                           >
                             <CalendarioLineaTipo tipo={l.tipo} />
-                            <span className="shrink-0 font-semibold text-[#9ca3af]">
+                            <span className="shrink-0 font-semibold tabular-nums text-[#374151]">
                               {formatHorasValor(l.horas)}
                             </span>
                           </div>
@@ -366,7 +430,7 @@ function CalendarioTab({
 function ListaTab({
   onSelectDia,
 }: Pick<MiTiempoListaProps, "onSelectDia">) {
-  const { registros, mesBounds, openRegistrarModal, deleteRegistro } =
+  const { registros, mesBounds, openRegistrarModal, deleteRegistro, companyId } =
     useMiTiempo();
   const { toast } = useToast();
   const [registroAEliminar, setRegistroAEliminar] =
@@ -375,7 +439,7 @@ function ListaTab({
     filterRegistrosPorMes(registros, mesBounds),
   );
   const hayFilasEditables = dias.some((dia) =>
-    dia.registros.some((r) => isRegistroEditable(r.estado)),
+    dia.registros.some((r) => isTiempoRegistroMutable(r, companyId)),
   );
 
   const columnas: { label: string; align: string }[] = [
@@ -417,8 +481,9 @@ function ListaTab({
                     <TiempoRegistroMobileCard
                       key={r.id}
                       registro={r}
+                      companyId={companyId}
                       onOpen={
-                        isRegistroEditable(r.estado)
+                        isTiempoRegistroMutable(r, companyId)
                           ? () =>
                               openRegistrarModal({
                                 editId: r.id,
@@ -428,7 +493,7 @@ function ListaTab({
                           : undefined
                       }
                       onDelete={
-                        isRegistroEliminable(r.estado)
+                        isTiempoRegistroMutable(r, companyId)
                           ? () => setRegistroAEliminar(r)
                           : undefined
                       }
@@ -499,8 +564,8 @@ function ListaTab({
                       </td>
                     </tr>
                     {dia.registros.map((r) => {
-                      const esEditable = isRegistroEditable(r.estado);
-                      const puedeEliminar = isRegistroEliminable(r.estado);
+                      const esEditable = isTiempoRegistroMutable(r, companyId);
+                      const puedeEliminar = isTiempoRegistroMutable(r, companyId);
                       return (
                       <tr
                         key={r.id}
@@ -576,9 +641,10 @@ function ListaTab({
             toast("Registro eliminado", "navy");
           } catch (err) {
             toast(
-              err instanceof Error
-                ? err.message
-                : "No se pudo eliminar el registro. Intenta de nuevo.",
+              portalActionError(
+                err,
+                "No se pudo eliminar el registro en IFS. Recarga e intenta de nuevo.",
+              ),
               "danger",
             );
           }
@@ -629,8 +695,21 @@ export function MiTiempoLista({
   onTabChange,
   onSelectDia,
 }: MiTiempoListaProps) {
-  const { openRegistrarModal } = useMiTiempo();
+  const {
+    openRegistrarModal,
+    ifsConnected,
+    registrosFromIfs,
+    registrosIfsWarning,
+  } = useMiTiempo();
   const openNuevo = () => openRegistrarModal({ origen: "lista" });
+  const connectedChip = (
+    <IfsConnectedChip
+      surface="timesheet"
+      connected={ifsConnected}
+      fromIfs={registrosFromIfs}
+      warning={registrosIfsWarning}
+    />
+  );
 
   return (
     <div
@@ -640,12 +719,14 @@ export function MiTiempoLista({
           : "max-md:px-2 max-md:pt-2 max-md:pb-24"
       }`}
     >
-      <h1 className="mb-4 hidden text-xl font-bold text-[#111] md:block">
-        Mi Tiempo
-      </h1>
-      <h1 className="mb-3 shrink-0 text-lg font-bold text-[#111] md:hidden">
-        Mi Tiempo
-      </h1>
+      <div className="mb-4 hidden items-center gap-2.5 md:flex">
+        <h1 className="text-xl font-bold text-[#111]">Mi Tiempo</h1>
+        {connectedChip}
+      </div>
+      <div className="mb-3 flex shrink-0 items-center gap-2 md:hidden">
+        <h1 className="text-lg font-bold text-[#111]">Mi Tiempo</h1>
+        {connectedChip}
+      </div>
 
       <HorasResumenBar />
 

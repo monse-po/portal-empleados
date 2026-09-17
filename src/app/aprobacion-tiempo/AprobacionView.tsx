@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/src/components/ui/Toast";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import { AprobacionDetalle, horasLabel } from "@/src/app/aprobacion-tiempo/AprobacionDetalle";
 import { AprobacionLista } from "@/src/app/aprobacion-tiempo/AprobacionLista";
@@ -14,6 +15,8 @@ import {
 import { toastAprobados, toastAnulados, toastRechazados } from "@/src/lib/tiempo-bridge";
 import { getHojasPendientesAprobacionAction } from "@/src/server/mi-tiempo-actions";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
+import { RouteLoading } from "@/src/components/layout/RouteLoading";
+import { LOADING_COPY } from "@/src/lib/copy/loading";
 
 type Vista = "lista" | "detalle";
 
@@ -64,9 +67,15 @@ export function AprobacionView() {
           toast(result.warning, "warn");
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
-          toast("No se pudo cargar la bandeja de aprobación.", "danger");
+          toast(
+            portalActionError(
+              error,
+              "No se pudo cargar la bandeja de aprobación.",
+            ),
+            "danger",
+          );
         }
       })
       .finally(() => {
@@ -201,8 +210,12 @@ export function AprobacionView() {
     if (enDetalle) volverLista();
   };
 
-  const confirmarAnulacion = () => {
-    anular(anularTargets);
+  const confirmarAnulacion = async () => {
+    const result = await anular(anularTargets);
+    if (!result.ok) {
+      toast(result.error || "No se pudo anular.", "danger");
+      return;
+    }
     toast(toastAnulados(anularTargets), "green");
     setAnularTargets([]);
     if (enDetalle) volverLista();
@@ -210,9 +223,7 @@ export function AprobacionView() {
 
   if (!pendientesLoaded) {
     return (
-      <div className="content-standard flex min-h-[240px] items-center justify-center">
-        <p className="text-[13px] text-muted">Cargando datos…</p>
-      </div>
+      <RouteLoading icon="checkSquare" label={LOADING_COPY.generic.label} />
     );
   }
 

@@ -6,6 +6,7 @@ import {
   filterAnticiposByTab,
   getBeneficiarioNombre,
 } from "@/src/lib/anticipos-registro";
+import { empleadoFiltroNombre } from "@/src/lib/empleado-display";
 
 export type AnticipoFilterColumn =
   | "codigo"
@@ -98,7 +99,10 @@ function getFieldValue(s: Anticipo, col: AnticipoFilterColumn): string {
     case "tipo":
       return s.tipo;
     case "beneficiario":
-      return getBeneficiarioNombre(s);
+      return empleadoFiltroNombre(
+        getBeneficiarioNombre(s),
+        s.cedula || s.beneficiarioId,
+      );
     case "motivo":
       return s.motivo;
     case "estado":
@@ -224,7 +228,7 @@ export function createEmptyRule(column: AnticipoFilterColumn): AnticipoFilterRul
 export function getAnticiposRegistrosTab(
   anticipos: Record<string, Anticipo>,
   tab: AnticipoTab,
-  sessionEmpleadoId: string,
+  sessionEmpleadoId: string | string[],
 ): Anticipo[] {
   return filterAnticiposByTab(anticipos, tab, sessionEmpleadoId);
 }

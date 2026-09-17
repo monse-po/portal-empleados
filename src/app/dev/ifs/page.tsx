@@ -341,7 +341,7 @@ export default async function IfsDevPage() {
         <p className="mt-4 rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-3 text-sm text-[#92400e]">
           No hay cookie de sesión.{" "}
           <Link
-            href="/api/auth/login?next=/dev/ifs"
+            href="/login?next=/dev/ifs"
             className="font-semibold underline"
           >
             Entrar con IFS

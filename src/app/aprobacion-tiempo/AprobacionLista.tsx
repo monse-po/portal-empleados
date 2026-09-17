@@ -7,55 +7,18 @@ import { Icon } from "@/src/components/ui/Icon";
 import { AprobacionFilterBar } from "@/src/app/aprobacion-tiempo/AprobacionFilterBar";
 import { useAprobacion } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 import { AprobacionTabla } from "@/src/app/aprobacion-tiempo/AprobacionTabla";
-import { IfsStatusBanner } from "@/src/components/layout/IfsStatusBanner";
+import {
+  IfsConnectedChip,
+  IfsStatusBanner,
+} from "@/src/components/layout/IfsStatusBanner";
 import {
   applyAproFilters,
   hayFiltrosActivos,
   removeFilterByColumn,
   type AproFilterRule,
 } from "@/src/lib/aprobacion-filtros";
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  alert,
-  navy,
-}: {
-  label: string;
-  value: string | number;
-  sub: string;
-  alert?: boolean;
-  navy?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border px-4 py-4 ${
-        alert
-          ? "border-[#fcd34d] bg-[#fffbeb]"
-          : navy
-            ? "border-[#c7d9ed] bg-[#eef3f9]"
-            : "border-border bg-white"
-      }`}
-    >
-      <div
-        className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${
-          navy ? "text-navy" : "text-muted"
-        }`}
-      >
-        {label}
-      </div>
-      <div
-        className={`text-[28px] font-extrabold leading-none ${alert ? "text-[#b45309]" : "text-navy"}`}
-      >
-        {value}
-      </div>
-      <div className={`mt-1.5 text-[11px] ${navy ? "text-navy/70" : "text-muted"}`}>
-        {sub}
-      </div>
-    </div>
-  );
-}
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
+import { KpiCard } from "@/src/components/ui/KpiCard";
 
 type AprobacionListaProps = {
   onOpenDetalle: (no: string) => void;
@@ -102,6 +65,7 @@ export function AprobacionLista({
     () => applyAproFilters(registrosActuales, filters),
     [registrosActuales, filters],
   );
+  const filtrosActivos = hayFiltrosActivos(filters);
 
   const handleTab = (next: "pend" | "res") => {
     setTab(next);
@@ -114,32 +78,28 @@ export function AprobacionLista({
   const body = (
     <>
       {embedded ? null : (
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
           <KpiCard
-            label="Pendientes"
-            value={kpis.pendientes}
-            sub="Requieren acción"
-            alert
+            label="Horas por aprobar"
+            value={formatHorasValor(kpis.horasPendientes)}
+            sub="Pendientes de tu decisión"
+            alert={kpis.horasPendientes > 0}
           />
           <KpiCard
-            label="Aprobadas este mes"
-            value={kpis.aprobadas}
-            sub={`${kpis.horasAprobadas} aprobadas`}
+            label="Horas aprobadas"
+            value={formatHorasValor(kpis.horasAprobadas)}
+            sub="Ya aprobadas este mes"
             navy
           />
           <KpiCard
-            label="Rechazadas"
-            value={kpis.rechazadas}
-            sub="Este mes"
-          />
-          <KpiCard
-            label="Horas por aprobar"
-            value={kpis.horasPendientes}
-            sub="En registros pendientes"
+            label="Horas rechazadas"
+            value={formatHorasValor(kpis.horasRechazadas)}
+            sub="Rechazadas este mes"
           />
         </div>
       )}
 
+      <div className="flex flex-col overflow-hidden bg-[#f5f7fa] lg:sticky lg:top-[72px] lg:z-20 lg:max-h-[calc(100dvh-8rem)]">
       <AprobacionFilterBar
         registros={registrosActuales}
         filters={filters}
@@ -157,39 +117,55 @@ export function AprobacionLista({
         }
       />
 
-      <Card className="overflow-hidden p-0">
+      <Card className="mb-0 flex min-h-0 flex-1 flex-col !overflow-hidden p-0">
         {tableLead}
-        <div className="flex border-b-2 border-[#e5e9f0] px-2">
-          <button
-            type="button"
-            onClick={() => handleTab("pend")}
-            className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all ${
-              tab === "pend"
-                ? "border-b-navy font-bold text-navy"
-                : "border-b-transparent font-medium text-muted hover:text-navy"
-            }`}
-          >
-            <Icon name="clock" size="sm" />
-            Pendientes
-            <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-              {tabCounts.pend}
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b-2 border-[#e5e9f0] bg-white px-2">
+          <div className="flex">
+            <button
+              type="button"
+              onClick={() => handleTab("pend")}
+              className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all ${
+                tab === "pend"
+                  ? "border-b-navy font-bold text-navy"
+                  : "border-b-transparent font-medium text-muted hover:text-navy"
+              }`}
+            >
+              <Icon name="clock" size="sm" />
+              Horas por aprobar
+              <span
+                className="rounded-full bg-[#fffbeb] px-2 py-0.5 text-[10px] font-semibold text-[#b45309]"
+                title="Horas por aprobar"
+              >
+                {formatHorasValor(tabCounts.pend)}h
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTab("res")}
+              className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all ${
+                tab === "res"
+                  ? "border-b-navy font-bold text-navy"
+                  : "border-b-transparent font-medium text-muted hover:text-navy"
+              }`}
+            >
+              <Icon name="checkSquare" size="sm" />
+              Horas resueltas
+              <span
+                className="rounded-full bg-green-bg px-2 py-0.5 text-[10px] font-semibold text-green"
+                title="Horas ya resueltas"
+              >
+                {formatHorasValor(tabCounts.res)}h
+              </span>
+            </button>
+          </div>
+          <div className="flex items-baseline gap-2.5 pr-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Horas registradas totales
             </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTab("res")}
-            className={`mb-[-2px] flex items-center gap-2 rounded-t-md border-b-[3px] px-[22px] py-2.5 text-[13px] transition-all ${
-              tab === "res"
-                ? "border-b-navy font-bold text-navy"
-                : "border-b-transparent font-medium text-muted hover:text-navy"
-            }`}
-          >
-            <Icon name="checkSquare" size="sm" />
-            Resueltas
-            <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-              {tabCounts.res}
+            <span className="text-[18px] font-extrabold tabular-nums text-navy">
+              {formatHorasValor(tabCounts.pend + tabCounts.res)}
             </span>
-          </button>
+          </div>
         </div>
 
         {detail ?? (
@@ -197,11 +173,12 @@ export function AprobacionLista({
             key={tab}
             registros={filtrados}
             totalBase={registrosActuales.length}
-            hasFilters={hayFiltrosActivos(filters)}
+            hasFilters={filtrosActivos}
             onOpenDetalle={onOpenDetalle}
           />
         )}
       </Card>
+      </div>
     </>
   );
 
@@ -210,11 +187,19 @@ export function AprobacionLista({
   return (
     <div className="view-wide max-md:pb-24">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-[#111]">
-          Aprobación de Hoja de Tiempo
-        </h1>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-[#111]">
+            Aprobación de Hoja de Tiempo
+          </h1>
+          <IfsConnectedChip
+            surface="approval"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+            warning={ifsWarning}
+          />
+        </div>
         <p className="mt-1 text-[13px] text-[#4b5563]">
-          Registros de tu equipo pendientes de revisión
+          Horas extras de tu equipo. Aprueba o rechaza lo que sigue pendiente.
         </p>
         <div className="mt-3">
           <IfsStatusBanner

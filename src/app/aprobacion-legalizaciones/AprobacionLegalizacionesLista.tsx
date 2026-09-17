@@ -13,50 +13,7 @@ import {
   removeFilterByColumn,
   type AproLegFilterRule,
 } from "@/src/lib/aprobacion-legalizaciones-filtros";
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  alert,
-  navy,
-  smallValue,
-}: {
-  label: string;
-  value: string | number;
-  sub: string;
-  alert?: boolean;
-  navy?: boolean;
-  smallValue?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border px-4 py-4 ${
-        alert
-          ? "border-[#fcd34d] bg-[#fffbeb]"
-          : navy
-            ? "border-[#c7d9ed] bg-[#eef3f9]"
-            : "border-border bg-white"
-      }`}
-    >
-      <div
-        className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${
-          navy ? "text-navy" : "text-muted"
-        }`}
-      >
-        {label}
-      </div>
-      <div
-        className={`font-extrabold leading-none ${smallValue ? "text-lg" : "text-[28px]"} ${alert ? "text-[#b45309]" : "text-navy"}`}
-      >
-        {value}
-      </div>
-      <div className={`mt-1.5 text-[11px] ${navy ? "text-navy/70" : "text-muted"}`}>
-        {sub}
-      </div>
-    </div>
-  );
-}
+import { KpiCard } from "@/src/components/ui/KpiCard";
 
 type AprobacionLegalizacionesListaProps = {
   onOpenDetalle: (no: string) => void;
@@ -117,7 +74,7 @@ export function AprobacionLegalizacionesLista({
           alert
         />
         <KpiCard
-          label="Aprobados"
+          label="Aprobados este mes"
           value={kpis.aprobadosMes}
           sub={kpis.montoAprobadoMesLabel}
           navy
@@ -125,7 +82,7 @@ export function AprobacionLegalizacionesLista({
         <KpiCard
           label="Rechazados"
           value={kpis.rechazadosMes}
-          sub="Resueltas"
+          sub="Este mes"
         />
         <KpiCard
           label="Monto pendiente"
@@ -166,7 +123,7 @@ export function AprobacionLegalizacionesLista({
             }`}
           >
             <Icon name="clock" size="sm" />
-            Pendientes
+            Por aprobar
             <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
               {tabCounts.pend}
             </span>

@@ -28,7 +28,7 @@ import {
   shiftFechaMes,
   type RegistroMock,
 } from "@/src/lib/mi-tiempo-mock";
-import { formatIfsError } from "@/src/lib/ifs/errors";
+import { portalActionError } from "@/src/lib/ifs/errors";
 import { fetchScheduleHoursAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { EliminarRegistroModal } from "@/src/app/hoja-tiempo/EliminarRegistroModal";
 import { TiempoRegistroMobileCard } from "@/src/app/hoja-tiempo/TiempoRegistroMobileCard";
@@ -37,8 +37,7 @@ import {
   scheduleSourceLabel as formatScheduleSource,
 } from "@/src/lib/tiempo-config";
 import {
-  isRegistroEditable,
-  isRegistroEliminable,
+  isTiempoRegistroMutable,
 } from "@/src/lib/tiempo-registro-rules";
 import {
   atNormalLimit,
@@ -50,6 +49,8 @@ import {
   type DiaCalendarioKind,
 } from "@/src/lib/tiempo-schedule";
 import { TIEMPO_UI_COPY } from "@/src/lib/copy/tiempo";
+import { DiaSinJornadaBanner } from "@/src/app/hoja-tiempo/DiaSinJornadaBanner";
+import { resolveSpecialDayLabel } from "@/src/lib/ifs/schedule-day-color";
 
 type MiTiempoDiaProps = {
   fecha: string;
@@ -59,7 +60,7 @@ type MiTiempoDiaProps = {
 };
 
 function getContadorStyle(normales: number, maxNormales: number) {
-  if (exceedsNormalLimit(normales, maxNormales)) {
+  if (maxNormales > 0 && exceedsNormalLimit(normales, maxNormales)) {
     return {
       border: "1.5px solid #fca5a5",
       background: "#fff5f5",
@@ -67,7 +68,7 @@ function getContadorStyle(normales: number, maxNormales: number) {
       normColor: "#b91c1c",
     };
   }
-  if (atNormalLimit(normales, maxNormales)) {
+  if (maxNormales > 0 && atNormalLimit(normales, maxNormales)) {
     return {
       border: "1.5px solid var(--green-border)",
       background: "var(--green-bg)",
@@ -89,8 +90,14 @@ export function MiTiempoDia({
   onVolver,
   onCambiarDia,
 }: MiTiempoDiaProps) {
-  const { registros, mesBounds, openRegistrarModal, deleteRegistro } =
-    useMiTiempo();
+  const {
+    registros,
+    mesBounds,
+    openRegistrarModal,
+    deleteRegistro,
+    specialDays,
+    companyId,
+  } = useMiTiempo();
   const { toast } = useToast();
   const [registroAEliminar, setRegistroAEliminar] = useState<RegistroMock | null>(
     null,
@@ -132,7 +139,7 @@ export function MiTiempoDia({
   const contador = getContadorStyle(normales, maxScheduleHours);
   const hayFilasEditables =
     !esHistorial &&
-    diaRegs.some((r) => isRegistroEditable(r.estado));
+    diaRegs.some((r) => isTiempoRegistroMutable(r, companyId));
   const fechaLabel = formatFechaLegible(fecha);
   const fechaCorta = formatFechaCorta(fecha);
   const fechaAnterior = shiftFechaMes(fecha, -1, mesBounds);
@@ -143,11 +150,14 @@ export function MiTiempoDia({
   const puedeDiaSiguiente = Boolean(
     !esHistorial && onCambiarDia && fechaSiguiente,
   );
-  const calendarKind = getDiaSinJornadaKind(fecha);
+  const calendarKind = getDiaSinJornadaKind(
+    fecha,
+    specialDays?.[fecha]?.dayType,
+  );
   const diaKind: DiaCalendarioKind | null =
     calendarKind === "festivo" || calendarKind === "fin_semana"
       ? calendarKind
-      : !isDiaConJornadaNormal(fecha, hoursByDate)
+      : !isDiaConJornadaNormal(fecha, hoursByDate, specialDays)
         ? "sin_jornada"
         : null;
 
@@ -219,16 +229,13 @@ export function MiTiempoDia({
           </>
         }
         titleAddon={
-          diaKind === "festivo" ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-1 text-[11px] font-semibold text-[#c2410c]">
-              <Icon name="star" size="xs" className="text-[#f59e0b]" />
-              Festivo
-            </span>
-          ) : diaKind === "fin_semana" ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#2563eb]">
-              <Icon name="moon" size="xs" />
-              Fin de semana
-            </span>
+          diaKind === "festivo" || diaKind === "fin_semana" ? (
+            <DiaSinJornadaBanner
+              fecha={fecha}
+              kind={diaKind}
+              color={specialDays?.[fecha]?.colorName}
+              label={resolveSpecialDayLabel(specialDays, fecha, diaKind)}
+            />
           ) : null
         }
         onDiaAnterior={
@@ -257,8 +264,10 @@ export function MiTiempoDia({
               </span>
               <span className="text-border">·</span>
               <span style={{ color: contador.normColor }}>
-                {formatHorasValor(normales)} normales · máx{" "}
-                {formatScheduleHoursLabel(maxScheduleHours)} ({jornadaSourceLabel})
+                {formatHorasValor(normales)} normales
+                {maxScheduleHours > 0
+                  ? ` · máx ${formatScheduleHoursLabel(maxScheduleHours)} (${jornadaSourceLabel})`
+                  : " · sin tope de jornada"}
               </span>
             </div>
             {!esHistorial && (
@@ -325,8 +334,9 @@ export function MiTiempoDia({
                 <TiempoRegistroMobileCard
                   key={r.id}
                   registro={r}
+                  companyId={companyId}
                   onOpen={
-                    isRegistroEditable(r.estado) && !esHistorial
+                    isTiempoRegistroMutable(r, companyId) && !esHistorial
                       ? () =>
                           openRegistrarModal({
                             editId: r.id,
@@ -336,7 +346,7 @@ export function MiTiempoDia({
                       : undefined
                   }
                   onDelete={
-                    isRegistroEliminable(r.estado) && !esHistorial
+                    isTiempoRegistroMutable(r, companyId) && !esHistorial
                       ? () => setRegistroAEliminar(r)
                       : undefined
                   }
@@ -366,8 +376,8 @@ export function MiTiempoDia({
             </thead>
             <tbody>
               {diaRegs.map((r: RegistroMock) => {
-                const esEditable = isRegistroEditable(r.estado);
-                const puedeEliminar = isRegistroEliminable(r.estado);
+                const esEditable = isTiempoRegistroMutable(r, companyId);
+                const puedeEliminar = isTiempoRegistroMutable(r, companyId);
                 return (
                   <tr
                     key={r.id}
@@ -452,8 +462,10 @@ export function MiTiempoDia({
             toast("Registro eliminado", "navy");
           } catch (err) {
             toast(
-              formatIfsError(err) ||
-                "No se pudo eliminar el registro. Intenta de nuevo.",
+              portalActionError(
+                err,
+                "No se pudo eliminar el registro en IFS. Recarga e intenta de nuevo.",
+              ),
               "danger",
             );
           }

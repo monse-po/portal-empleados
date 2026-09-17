@@ -11,6 +11,8 @@ export const TIEMPO_UI_COPY = {
   tipoHoraProgramaHint: "Los tipos disponibles dependen de tu programa de trabajo.",
   /** Banner corto cuando las diurnas normales del día ya están en el tope. */
   jornadaCompletaSoloExtras: "Jornada completa · solo extras",
+  /** Hint cuando eligen extras y aún falta DN. */
+  extrasAntesDeCompletarJornada: "Completa DN antes de extras",
   horasPlaceholderSinTope: "Ej. 0.5",
   /** Ayuda fija: IFS usa DayHours decimal. */
   horasAyudaDecimales: "0.25 = 15 min · 0.5 = 30 min · 1 = 1 h",
@@ -24,9 +26,17 @@ export const TIEMPO_UI_COPY = {
    */
   selectHourTypeSoloDnIfs:
     "Esta actividad solo tiene DN en IFS · no hay extras",
+  ausenciaColombiaPortal:
+    "En Colombia las ausencias (vacaciones, incapacidades y permisos) se cargan por integración, no desde el portal.",
   searchProject: "Buscar proyecto...",
   searchSubproject: "Buscar subproyecto...",
   searchActivity: "Buscar actividad...",
+  usarRecientePlaceholder: "Usar una actividad reciente…",
+  usarRecienteToast: "Listo · revisa las horas y envía",
+  usarRecienteJornadaToast: "Listo · jornada completa, elige extras y horas",
+  usarRecienteNoVigente:
+    "Esa actividad ya no está vigente en esta fecha. Elige otra.",
+  usarRecienteCatalogo: "Espera a que cargue el catálogo IFS",
   estadoRegistrado: "Registrado",
   estadoLanzado: "Registrado",
   guardar: "Guardar",
@@ -37,8 +47,8 @@ export const TIEMPO_UI_COPY = {
     "Al guardar, el registro se envía a IFS (Registrado). Puedes modificarlo hasta que el aprobador lo confirme.",
   listaAyuda: "Clic en la fecha → ver detalle del día · Clic en fila → editar",
   /** Selector de fecha en Registrar horas. */
-  fechaUnClic: "Clic = primer día. Otro clic = último día del rango.",
-  fechaHintRangoFin: "Clic en el último día, o Listo si es un solo día",
+  fechaUnDia: "Un día",
+  fechaRango: "Intervalo de fechas",
   verDia: "Ver día",
   verDetalleDia: "Ver detalle del día",
   filaEditableHint: "Clic en fila para editar",

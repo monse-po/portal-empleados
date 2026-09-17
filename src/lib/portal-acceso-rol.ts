@@ -3,9 +3,9 @@ import { getHomePathForRole } from "@/src/lib/modules";
 
 export type PortalAccesoRolValue = "EMPLEADO" | "AUTORIZADOR" | "AMBOS";
 
-/** Rol de UI del portal a partir del rol UAT. */
+/** Rol de UI del portal a partir del acceso (sesión real, no impersonación). */
 export function uiRolFromPortalAcceso(rol: PortalAccesoRolValue): UsuarioRol {
-  return rol === "AUTORIZADOR" ? "gerente" : "empleado";
+  return rol === "EMPLEADO" ? "empleado" : "gerente";
 }
 
 export function homePathFromPortalAcceso(rol: PortalAccesoRolValue): string {

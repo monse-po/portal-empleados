@@ -27,7 +27,9 @@ import type {
   ProjectInfoQuery,
   UserInfo,
   ValidActReportCodeParams,
+  ReportCostRow,
 } from "@/src/lib/ifs/types";
+import { inferDayTypeFromCalendar } from "@/src/lib/tiempo-schedule";
 
 type ODataCollection<T> = { value?: T[] };
 
@@ -578,28 +580,67 @@ function finiteHours(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+/** Día no laboral del programa IFS (HOLIDAY / WEEKEND). ColorName solo aquí. */
+export type IfsDiaEspecial = {
+  dayType: string;
+  dayTypeDesc: string;
+  colorName: string;
+};
+
 export type EmployeeHoursPrograma = {
   hoursByDate: Record<string, number>;
+  specialDays: Record<string, IfsDiaEspecial>;
+  /** ColorName WEEKDAY (hover del calendario; no pinta el día en reposo). */
+  weekdayColor: string | null;
   /** Total del periodo en GetHoursSummary (si IFS lo manda). */
   scheduleHours: number | null;
   jobHours: number | null;
   remainingJobHours: number | null;
 };
 
-/** Programa del empleado: días + totales de GetHoursSummary. */
+function isWeekdayType(dayType?: string | null): boolean {
+  return (dayType ?? "").trim().toUpperCase() === "WEEKDAY";
+}
+
+/** Programa IFS: días (calendario) y horas (tope). En HORAS-COL las horas van 0; los días siguen existiendo. */
 export async function getEmployeeHoursPrograma(
   session: CempPortalSession,
 ): Promise<EmployeeHoursPrograma> {
   const summary = await getHoursSummary(session);
   const hoursByDate: Record<string, number> = {};
+  const specialDays: Record<string, IfsDiaEspecial> = {};
+  let weekdayColor: string | null = null;
   for (const day of summary.EmployeeSchedule ?? []) {
     const iso = (day.AccountDate ?? "").slice(0, 10);
     if (!iso) continue;
     const hours = finiteHours(day.ScheduleHours);
-    if (hours != null) hoursByDate[iso] = hours;
+    hoursByDate[iso] = hours ?? 0;
+    const reportedType = day.DayType?.trim() ?? "";
+    const dayType = reportedType
+      ? reportedType.toUpperCase()
+      : inferDayTypeFromCalendar(iso);
+    const colorName = day.ColorName?.trim() ?? "";
+    if (isWeekdayType(dayType)) {
+      if (!weekdayColor && colorName && colorName.toUpperCase() !== "#000000") {
+        weekdayColor = colorName;
+      }
+      specialDays[iso] = {
+        dayType: "WEEKDAY",
+        dayTypeDesc: day.DayTypeDesc?.trim() ?? "",
+        colorName,
+      };
+      continue;
+    }
+    specialDays[iso] = {
+      dayType,
+      dayTypeDesc: day.DayTypeDesc?.trim() ?? "",
+      colorName,
+    };
   }
   return {
     hoursByDate,
+    specialDays,
+    weekdayColor,
     scheduleHours: finiteHours(summary.ScheduleHours),
     jobHours: finiteHours(summary.JobHours),
     remainingJobHours: finiteHours(summary.RemainingJobHours),
@@ -716,6 +757,27 @@ export async function getEmployeeTimesheetForEmp(
   }
 }
 
+/** Grupo/tipo IFS del código de reporte (ausencia = CReportCostGrpType ABSENCE). */
+export async function getReportCost(
+  accessToken: string,
+  company: string,
+  reportCostCode: string,
+): Promise<ReportCostRow | null> {
+  const companyKey = odataStringKey(company.trim());
+  const codeKey = odataStringKey(reportCostCode.trim());
+  if (!companyKey || !codeKey) return null;
+  try {
+    return await ifsFetch<ReportCostRow>(
+      `/Reference_ReportCost(Company='${companyKey}',ReportCostCode='${codeKey}')` +
+        "?$select=Company,ReportCostCode,ReportCostGroupId,CReportCostGrpType",
+      { accessToken },
+    );
+  } catch (err) {
+    if (err instanceof IfsApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
 /** Gerente del proyecto (aprobador) desde Reference_ProjectInfoQuery. */
 export async function getProjectInfo(
   accessToken: string,
@@ -731,6 +793,45 @@ function odataCollection<T>(raw: unknown): T[] {
   if (Array.isArray(raw)) return raw as T[];
   const value = (raw as { value?: T[] } | null)?.value;
   return Array.isArray(value) ? value : [];
+}
+
+function idsMatch(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
+ * ¿Esta persona es Manager de algún proyecto en IFS?
+ * Permiso estable (no depende de que haya pendientes hoy).
+ */
+export async function personManagesAnyProject(
+  accessToken: string,
+  companyId: string,
+  personId: string,
+): Promise<boolean> {
+  const manager = personId.trim();
+  if (!manager) return false;
+  const filter = encodeURIComponent(`Manager eq '${odataStringKey(manager)}'`);
+  const company = odataStringKey(companyId.trim());
+  const paths = [
+    companyId.trim()
+      ? `/GetProjects(Company='${company}')?$filter=${filter}&$select=ProjectId,Manager&$top=5`
+      : "",
+    `/Reference_ProjectInfoQuery?$filter=${filter}&$select=ProjectId,Manager&$top=5`,
+  ].filter(Boolean);
+
+  for (const path of paths) {
+    try {
+      const data = await ifsFetch<ODataCollection<ProjectInfoQuery>>(path, {
+        accessToken,
+      });
+      if (odataCollection<ProjectInfoQuery>(data).some((row) => idsMatch(row.Manager ?? "", manager))) {
+        return true;
+      }
+    } catch {
+      /* filtro no soportado en este entity */
+    }
+  }
+  return false;
 }
 
 /** Compañías del portal (CompanySet). */
@@ -891,7 +992,7 @@ export async function getIsoCountries(
   accessToken: string,
 ): Promise<IsoCountryRow[]> {
   const path =
-    "/Lookup_IsoCountry_EntitySet?$select=Id,Description&$orderby=Description&$top=500";
+    "/Lookup_IsoCountry_EntitySet?$top=500";
   const raw = await ifsFetch<ODataCollection<IsoCountryRow>>(path, {
     accessToken,
   });

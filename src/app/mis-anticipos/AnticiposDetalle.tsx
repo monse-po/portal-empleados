@@ -19,6 +19,7 @@ import { useAnticipos } from "@/src/app/mis-anticipos/AnticiposContext";
 import {
   formatMonto,
   getBeneficiarioDetalle,
+  getBeneficiarioSolicitante,
   puedeCancelarEmpleado,
   type Anticipo,
   type AnticipoExtra,
@@ -37,10 +38,14 @@ export function AnticiposDetalle({
   onVolver,
   onCancelar,
 }: AnticiposDetalleProps) {
-  const { empleadoId } = useAnticipos();
+  const { empleadoId, sessionIds, sessionNombre } = useAnticipos();
   const puedeCancelar =
     empleadoId != null && puedeCancelarEmpleado(anticipo, empleadoId);
-  const solicitanteNombre = anticipo.solicitante ?? "—";
+  const solicitanteChip = getBeneficiarioSolicitante(
+    anticipo,
+    sessionIds,
+    sessionNombre,
+  );
   const beneficiario = getBeneficiarioDetalle(anticipo, extra);
   const aprobadorLabel = anticipo.aprobador?.trim() || "—";
   const companiaGasto =
@@ -50,6 +55,12 @@ export function AnticiposDetalle({
     extra,
     anticipo.fechaAprob,
   );
+  const actividad = (extra?.tl ?? []).filter((t) => {
+    if (anticipo.estado !== "Cancelado" && anticipo.estado !== "Rechazado") {
+      return true;
+    }
+    return !/^Esperando aprobación/i.test(t.accion);
+  });
 
   return (
     <div className="content-standard">
@@ -73,14 +84,14 @@ export function AnticiposDetalle({
       <Card className="mb-3 overflow-visible">
         <CardBody className="py-4">
           <DetailSection icon="userCircle" title="Empleado beneficiario">
-            {anticipo.paraOtro && (
+            {solicitanteChip ? (
               <p className="mb-3 text-[12px] leading-snug text-muted">
                 Solicitado por{" "}
                 <span className="font-semibold text-[#374151]">
-                  {solicitanteNombre}
+                  {anticipo.solicitante ?? solicitanteChip}
                 </span>
               </p>
-            )}
+            ) : null}
             <DetailGrid>
               <ReadOnlyField label="Fecha de solicitud">
                 {anticipo.fecha}
@@ -138,12 +149,12 @@ export function AnticiposDetalle({
         </CardBody>
       </Card>
 
-      {extra?.tl && extra.tl.length > 0 && (
+      {actividad.length > 0 && (
         <Card className="mb-3">
           <CardBody className="py-4">
             <DetailSection icon="clock" title="Actividad">
               <div className="space-y-2">
-                {extra.tl.map((t, i) => (
+                {actividad.map((t, i) => (
                   <div key={`${t.accion}-${i}`} className="flex gap-2.5">
                     <div
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f8fafc]"

@@ -12,6 +12,9 @@ import {
   dataTd,
   dataTdCheck,
   dataTdResSecondary,
+  EmpleadoCell,
+  MontoCell,
+  ProyectoCell,
   dataTdTruncate,
   dataTh,
   dataThCheck,
@@ -24,7 +27,7 @@ import {
   APRO_LEG_COLS_PEND,
   type LegalizacionApro,
 } from "@/src/lib/aprobacion-legalizaciones-mock";
-import { formatMontoLegal } from "@/src/lib/legalizaciones-mock";
+import { legalizacionProyectoDisplay } from "@/src/lib/legalizaciones-mock";
 
 type AprobacionLegalizacionesTablaProps = {
   registros: LegalizacionApro[];
@@ -94,8 +97,14 @@ export function AprobacionLegalizacionesTabla({
         {s.no}
       </td>
       <td className={`${dataTd} text-muted ${dataTdTruncate}`}>{s.fecha}</td>
-      <td className={`${dataTd} font-medium ${dataTdTruncate}`}>
-        {s.solicitante}
+      <td className={dataTd}>
+        <EmpleadoCell nombre={s.solicitante} codigo={s.cedula} />
+      </td>
+      <td
+        className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
+        title={s.aprobador || undefined}
+      >
+        {s.aprobador?.trim() || "—"}
       </td>
       <td className={dataTd}>
         <TipoLegalizacionPill tipo={s.tipo} />
@@ -106,6 +115,12 @@ export function AprobacionLegalizacionesTabla({
       >
         {s.concepto}
       </td>
+      <td className={dataTd}>
+        <ProyectoCell
+          codigo={legalizacionProyectoDisplay(s).codigo}
+          nombre={legalizacionProyectoDisplay(s).nombre}
+        />
+      </td>
       <td
         className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
         title={s.motivo}
@@ -113,10 +128,7 @@ export function AprobacionLegalizacionesTabla({
         {s.motivo}
       </td>
       <td className={`${dataTd} text-right`}>
-        <div className="font-semibold leading-snug">
-          {formatMontoLegal(s.monto, s.div)}
-        </div>
-        <div className={dataTdResSecondary}>{s.div}</div>
+        <MontoCell monto={s.monto} divisa={s.div} />
       </td>
     </tr>
   );
@@ -132,8 +144,14 @@ export function AprobacionLegalizacionesTabla({
         {s.no}
       </td>
       <td className={`${dataTd} text-muted ${dataTdTruncate}`}>{s.fecha}</td>
-      <td className={`${dataTd} font-medium ${dataTdTruncate}`}>
-        {s.solicitante}
+      <td className={dataTd}>
+        <EmpleadoCell nombre={s.solicitante} codigo={s.cedula} />
+      </td>
+      <td
+        className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
+        title={s.aprobador || undefined}
+      >
+        {s.aprobador?.trim() || "—"}
       </td>
       <td className={dataTd}>
         <TipoLegalizacionPill tipo={s.tipo} />
@@ -144,11 +162,14 @@ export function AprobacionLegalizacionesTabla({
       >
         {s.concepto}
       </td>
+      <td className={dataTd}>
+        <ProyectoCell
+          codigo={legalizacionProyectoDisplay(s).codigo}
+          nombre={legalizacionProyectoDisplay(s).nombre}
+        />
+      </td>
       <td className={`${dataTd} text-right`}>
-        <div className="font-semibold leading-snug">
-          {formatMontoLegal(s.monto, s.div)}
-        </div>
-        <div className={dataTdResSecondary}>{s.div}</div>
+        <MontoCell monto={s.monto} divisa={s.div} />
       </td>
       <td className={dataTd}>
         <EstadoLegalizacionPill estado={s.estadoApro} />
@@ -169,8 +190,10 @@ export function AprobacionLegalizacionesTabla({
     ["Código", "text-left"],
     ["Solicitado", "text-left"],
     ["Empleado", "text-left"],
+    ["Aprobador", "text-left"],
     ["Tipo", "text-left"],
     ["Concepto", "text-left"],
+    ["Proyecto", "text-left"],
     ["Motivo", "text-left"],
     ["Monto", "text-right"],
   ];
@@ -179,8 +202,10 @@ export function AprobacionLegalizacionesTabla({
     ["Código", "text-left"],
     ["Solicitado", "text-left"],
     ["Empleado", "text-left"],
+    ["Aprobador", "text-left"],
     ["Tipo", "text-left"],
     ["Concepto", "text-left"],
+    ["Proyecto", "text-left"],
     ["Monto", "text-right"],
     ["Estado", "text-left"],
     ["Motivo", "text-left"],

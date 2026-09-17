@@ -2,7 +2,6 @@
 
 import {
   getProjectInfo,
-  getScheduleHoursForDate,
   getEmployeeHoursPrograma,
   getValidActReportCode,
   getUserInfo,
@@ -20,6 +19,7 @@ import {
   type TiempoCatalog,
   type TiempoTipoHoraOption,
 } from "@/src/lib/ifs/tiempo-catalog";
+import { filterTiposAusenciaPortal } from "@/src/lib/tiempo-ausencias";
 import type {
   LovReportCostCodeRow,
   ValidEmpPrjActRow,
@@ -201,11 +201,17 @@ export async function fetchTiposHoraAction(input: {
         const rows =
           (raw as { value?: LovReportCostCodeRow[] }).value ??
           (Array.isArray(raw) ? (raw as LovReportCostCodeRow[]) : []);
-        return { tipos: mapReportCodesToTipos(rows) };
+        const empCompanyId = ifs.user.CompanyId?.trim() || input.companyId;
+        return {
+          tipos: filterTiposAusenciaPortal(
+            mapReportCodesToTipos(rows),
+            empCompanyId,
+          ),
+        };
       } catch (err) {
         return {
           tipos: [],
-          error: err instanceof Error ? err.message : "Error al leer tipos de hora",
+          error: formatIfsError(err),
         };
       }
     });
@@ -245,8 +251,13 @@ export async function fetchScheduleHoursAction(accountDate: string): Promise<{
           liveSession.email,
           liveSession.accessToken,
         );
-        const hours = await getScheduleHoursForDate(ifs, accountDate);
-        const resolved = resolveScheduleHoursLimit({ ifsScheduleHours: hours });
+        const programa = await getEmployeeHoursPrograma(ifs);
+        const iso = accountDate.slice(0, 10);
+        const hours = programa.hoursByDate[iso];
+        const resolved = resolveScheduleHoursLimit({
+          ifsScheduleHours: hours,
+          companyId: ifs.user.CompanyId,
+        });
         return {
           scheduleHours: resolved.scheduleHours,
           source: resolved.source,
@@ -288,15 +299,30 @@ export async function fetchScheduleHoursAction(accountDate: string): Promise<{
 /** Programa del empleado (días con ScheduleHours) para filtrar rangos. */
 export async function fetchEmployeeScheduleAction(): Promise<{
   hoursByDate: Record<string, number>;
+  /** HOLIDAY / WEEKEND de GetHoursSummary (ColorName solo en estos). */
+  specialDays: Record<
+    string,
+    { dayType: string; dayTypeDesc: string; colorName: string }
+  >;
+  /** ColorName WEEKDAY IFS — solo hover. */
+  weekdayColor: string | null;
   /** Total GetHoursSummary.ScheduleHours (si IFS lo manda). */
   scheduleHours: number | null;
+  /** Compañía del empleado (CEmpPortalUser.CompanyId). */
+  companyId: string | null;
   fromIfs: boolean;
   error?: string;
   sessionExpired?: boolean;
 }> {
   const empty = {
     hoursByDate: {} as Record<string, number>,
+    specialDays: {} as Record<
+      string,
+      { dayType: string; dayTypeDesc: string; colorName: string }
+    >,
+    weekdayColor: null as string | null,
     scheduleHours: null as number | null,
+    companyId: null as string | null,
     fromIfs: false,
   };
   const session = await getServerIfsSession();
@@ -311,14 +337,24 @@ export async function fetchEmployeeScheduleAction(): Promise<{
           liveSession.email,
           liveSession.accessToken,
         );
-        const programa = await getEmployeeHoursPrograma(ifs);
-        return {
-          hoursByDate: programa.hoursByDate,
-          scheduleHours: programa.scheduleHours,
-          fromIfs:
-            Object.keys(programa.hoursByDate).length > 0 ||
-            programa.scheduleHours != null,
-        };
+        const companyId = ifs.user.CompanyId?.trim() || null;
+        try {
+          const programa = await getEmployeeHoursPrograma(ifs);
+          return {
+            hoursByDate: programa.hoursByDate,
+            specialDays: programa.specialDays,
+            weekdayColor: programa.weekdayColor,
+            scheduleHours: programa.scheduleHours,
+            companyId,
+            fromIfs: true,
+          };
+        } catch (err) {
+          return {
+            ...empty,
+            companyId,
+            error: formatIfsError(err),
+          };
+        }
       } catch (err) {
         return {
           ...empty,

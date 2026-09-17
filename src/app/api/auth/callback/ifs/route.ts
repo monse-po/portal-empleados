@@ -11,17 +11,13 @@ import {
 import { unsealOAuthBundle } from "@/src/lib/ifs/oauth-cookie-bundle";
 import {
   exchangeAuthorizationCode,
-  fetchOidcUserInfo,
   resolvePublicOrigin,
 } from "@/src/lib/ifs/oauth-user";
 import {
-  createPersistedIfsSession,
-  isSystemPortalEmail,
-  parseAccessTokenClaims,
-  parseIdTokenClaims,
-  resolveSessionEmail,
-  sessionCookieOptions,
-} from "@/src/lib/ifs/session";
+  completeUserLoginFromTokens,
+  IfsLoginFlowError,
+} from "@/src/lib/ifs/complete-user-login";
+import { sessionCookieOptions } from "@/src/lib/ifs/session";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -62,51 +58,25 @@ export async function GET(request: Request) {
       redirectUri: bundle.redirectUri,
     });
 
-    const idClaims = tokens.idToken ? parseIdTokenClaims(tokens.idToken) : {};
-    const accessClaims = parseAccessTokenClaims(tokens.accessToken);
-    const mergedClaims = { ...accessClaims, ...idClaims };
-
-    let email = bundle.email
-      ? resolveSessionEmail({
-          email: bundle.email,
-          preferred_username: bundle.email,
-          username: bundle.email,
-        })
-      : undefined;
-    if (!email) {
-      email = resolveSessionEmail(mergedClaims);
-    }
-    if (!email) {
-      const userinfo = await fetchOidcUserInfo(tokens.accessToken);
-      email = resolveSessionEmail({ ...mergedClaims, ...userinfo });
-    }
-    if (!email) {
-      return redirectToLogin("no_email_in_token");
-    }
-    if (isSystemPortalEmail(email)) {
-      return redirectToLogin("system_account_email");
-    }
-
-    const expiresIn = Math.max(tokens.expiresIn || 0, 3600);
-    const { cookieValue } = await createPersistedIfsSession({
-      email,
-      name: mergedClaims.name,
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: Date.now() + expiresIn * 1000,
+    const login = await completeUserLoginFromTokens({
+      tokens,
+      typedEmail: bundle.email,
     });
 
     const dest = bundle.next?.startsWith("/") ? bundle.next : "/";
     const response = NextResponse.redirect(new URL(dest, origin));
     response.cookies.set(
       SESSION_COOKIE,
-      cookieValue,
-      sessionCookieOptions(expiresIn),
+      login.cookieValue,
+      sessionCookieOptions(login.expiresIn),
     );
     expirePortalCookie(response, OAUTH_BUNDLE_COOKIE, secure);
     expireStalePortalCookies(response, secure);
     return response;
   } catch (err) {
+    if (err instanceof IfsLoginFlowError) {
+      return redirectToLogin(err.code);
+    }
     const message = err instanceof Error ? err.message : String(err);
     console.error("[auth/callback/ifs] fallo al completar login:", message);
     if (message.includes("PortalIfsSession") || message.includes("prisma")) {

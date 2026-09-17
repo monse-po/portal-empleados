@@ -20,27 +20,50 @@ type NavItemProps = {
   href: string;
   icon: IconName;
   count?: number;
+  /** Horas: el número real, sin tope 9+. */
+  countExact?: boolean;
   active?: boolean;
   collapsed: boolean;
 };
 
-function NavItem({ label, href, icon, count, active, collapsed }: NavItemProps) {
+function formatNavCount(
+  count: number,
+  exact?: boolean,
+  collapsed?: boolean,
+): string {
+  if (!exact && collapsed && count > 9) return "9+";
+  return String(count);
+}
+
+function NavItem({
+  label,
+  href,
+  icon,
+  count,
+  countExact,
+  active,
+  collapsed,
+}: NavItemProps) {
   return (
     <Link
       href={href}
-      title={collapsed ? `${label}${count ? ` (${count})` : ""}` : undefined}
-      className={`relative mb-0.5 flex w-full cursor-pointer items-center gap-2 rounded-sm text-left text-[12.5px] transition-colors duration-[120ms] ${
+      title={
+        collapsed
+          ? `${label}${count ? ` (${formatNavCount(count, countExact)})` : ""}`
+          : undefined
+      }
+      className={`relative mb-0.5 flex w-full cursor-pointer items-center gap-2 rounded-sm text-left text-[13px] transition-colors duration-[120ms] ${
         collapsed ? "justify-center px-0 py-2.5" : "px-3 py-[9px]"
       } ${
         active
           ? "bg-[#eef3f9] font-semibold text-navy"
-          : "text-muted hover:bg-[#f1f5f9] hover:text-navy"
+          : "font-medium text-[#374151] hover:bg-[#f1f5f9] hover:text-navy"
       }`}
     >
       <Icon
         name={icon}
         size="md"
-        className={`w-5 shrink-0 text-center ${active ? "text-navy" : "text-muted"}`}
+        className={`w-5 shrink-0 text-center ${active ? "text-navy" : "text-[#4b5563]"}`}
       />
       {!collapsed && (
         <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span>
@@ -53,7 +76,7 @@ function NavItem({ label, href, icon, count, active, collapsed }: NavItemProps) 
               : "px-[7px] py-0.5 text-[10px]"
           }`}
         >
-          {collapsed && count > 9 ? "9+" : count}
+          {formatNavCount(count, countExact, collapsed)}
         </span>
       )}
     </Link>
@@ -69,30 +92,70 @@ function NavSectionLabel({
 }) {
   if (collapsed) return null;
   return (
-    <div className="px-3.5 pb-1 pt-2.5 text-[9.5px] font-bold uppercase tracking-[0.09em] text-[#b0b7c3]">
+    <div className="px-3.5 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6b7280]">
       {children}
     </div>
   );
 }
 
-function usePendingCount(path: string): number | undefined {
+function NavAprobacionesSkeleton({
+  collapsed,
+  count,
+  showDivider,
+}: {
+  collapsed: boolean;
+  count: number;
+  showDivider: boolean;
+}) {
+  return (
+    <>
+      {showDivider && !collapsed ? (
+        <div className="my-2.5 h-px bg-[#f0f0f0]" />
+      ) : null}
+      <NavSectionLabel collapsed={collapsed}>
+        Aprobaciones pendientes
+      </NavSectionLabel>
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={i}
+          className={`mb-0.5 flex items-center gap-2 ${
+            collapsed ? "justify-center px-0 py-2.5" : "px-3 py-[9px]"
+          }`}
+          aria-hidden
+        >
+          <span className="h-5 w-5 shrink-0 animate-pulse rounded bg-[#e5e9f0]" />
+          {!collapsed && (
+            <span className="h-3 w-[7.5rem] animate-pulse rounded bg-[#e5e9f0]" />
+          )}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function usePendingBadge(
+  path: string,
+): { count: number; exact?: boolean } | undefined {
   const aprobacion = useAprobacionOptional();
   const aprobacionAnticipos = useAprobacionAnticiposOptional();
   const aprobacionLegalizaciones = useAprobacionLegalizacionesOptional();
 
-  let count = 0;
   if (
     path === "/aprobacion-tiempo-proyectos" ||
     path === "/aprobacion-tiempo"
   ) {
-    count = aprobacion?.pendientesCount ?? 0;
-  } else if (path === "/aprobacion-anticipos") {
-    count = aprobacionAnticipos?.pendientesCount ?? 0;
-  } else if (path === "/aprobacion-legalizaciones") {
-    count = aprobacionLegalizaciones?.pendientesCount ?? 0;
-  } else return undefined;
-
-  return count > 0 ? count : undefined;
+    const count = aprobacion?.pendientesCount ?? 0;
+    return count > 0 ? { count, exact: true } : undefined;
+  }
+  if (path === "/aprobacion-anticipos") {
+    const count = aprobacionAnticipos?.pendientesCount ?? 0;
+    return count > 0 ? { count } : undefined;
+  }
+  if (path === "/aprobacion-legalizaciones") {
+    const count = aprobacionLegalizaciones?.pendientesCount ?? 0;
+    return count > 0 ? { count } : undefined;
+  }
+  return undefined;
 }
 
 function NavRouteItem({
@@ -104,7 +167,7 @@ function NavRouteItem({
   collapsed: boolean;
   pathname: string;
 }) {
-  const count = usePendingCount(route.path);
+  const badge = usePendingBadge(route.path);
   if (!isPathVisible(route.path)) return null;
 
   return (
@@ -112,7 +175,8 @@ function NavRouteItem({
       label={route.navLabel}
       href={route.path}
       icon={route.icon}
-      count={count}
+      count={badge?.count}
+      countExact={badge?.exact}
       collapsed={collapsed}
       active={isNavRouteActive(pathname, route.path)}
     />
@@ -122,7 +186,7 @@ function NavRouteItem({
 export function Sidebar() {
   const pathname = usePathname();
   const { collapsed } = useShell();
-  const { isGerente } = useRole();
+  const { isGerente, roleReady } = useRole();
   const modules = getVisibleModules();
 
   const gerenteRoutes = modules.flatMap((m) =>
@@ -138,14 +202,6 @@ export function Sidebar() {
         collapsed ? "w-[52px] px-1.5" : "w-[220px] px-2.5"
       }`}
     >
-      <NavItem
-        label="Inicio"
-        href="/inicio"
-        icon="home"
-        collapsed={collapsed}
-        active={pathname === "/inicio"}
-      />
-
       {empleadoRoutes.length > 0 && (
         <>
           <NavSectionLabel collapsed={collapsed}>Mis solicitudes</NavSectionLabel>
@@ -159,6 +215,14 @@ export function Sidebar() {
           ))}
         </>
       )}
+
+      {!roleReady && !isGerente && gerenteRoutes.length > 0 ? (
+        <NavAprobacionesSkeleton
+          collapsed={collapsed}
+          count={gerenteRoutes.length}
+          showDivider={empleadoRoutes.length > 0}
+        />
+      ) : null}
 
       {isGerente && gerenteRoutes.length > 0 && (
         <>

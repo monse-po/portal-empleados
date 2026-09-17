@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 /** Ancho estándar del calendario en filtros / popovers. */
 export const DATE_PICKER_WIDTH = 252;
@@ -10,16 +10,19 @@ type DatePickerShellProps = {
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  style?: CSSProperties;
 };
 
 export function DatePickerShell({
   children,
   footer,
   wide = false,
+  style,
 }: DatePickerShellProps) {
   return (
     <div
       className={`ds-date-picker-shell${wide ? " ds-date-picker-shell--wide" : ""}`}
+      style={style}
     >
       {children}
       {footer}

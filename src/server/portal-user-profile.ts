@@ -79,6 +79,7 @@ export async function getPortalUserProfile(): Promise<PortalUserProfile | null> 
         companyName: info.CompanyName,
         empNo: info.EmpNo,
         ifsEmpId: ifs.user.EmpId,
+        personId: info.PersonId,
         empleadoDbId: resolveEmpleadoDbId({
           ifsEmpId: ifs.user.EmpId,
           empNo: info.EmpNo,

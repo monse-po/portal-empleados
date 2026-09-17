@@ -1,0 +1,28 @@
+---
+description: Chip Registrado/Solicitado por — solo si es a nombre de otra persona
+globs: src/app/**/*Tabla.tsx,src/app/**/*Detalle.tsx,src/lib/*anticipos*,src/lib/*documento-soporte*,src/lib/*legalizacion*
+alwaysApply: true
+---
+
+# Chip «a nombre de otro»
+
+En **cualquier** lista o detalle donde se pueda registrar para otro (Anticipos, DSE, Legalizaciones, aprobaciones, módulos futuros):
+
+- La columna de identidad es el **beneficiario**.
+- El chip **Registrado por** / **Solicitado por** **solo** si quien registró ≠ beneficiario.
+- Yo registré para mí → **sin chip**. No repetir el mismo nombre.
+
+## Cómo decidir (IFS)
+
+No compares EmpNo vs PersonId a pelo (`JCORREA` ≠ `12345` no es «otro»).
+
+1. Mismo nombre (trim, minúsculas, espacios).
+2. IDs equivalentes (`idsMatch`).
+3. La sesión coincide con **ambos** lados → misma persona.
+
+Helpers: `getRegistradoPorChip` (DSE), `getBeneficiarioSolicitante` (Anticipos). No uses solo `paraOtro` ni `!==` de strings.
+
+```tsx
+// ❌ Beneficiario Jaime + chip “Registrado por Jaime”
+// ✅ Chip solo si María registró a nombre de Jaime
+```

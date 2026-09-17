@@ -1,3 +1,4 @@
+/** Este portal en DEV habla con IFS DEV (hmvdev). */
 const DEFAULT_REALM = "hmvdev";
 const DEFAULT_SYSTEM = "https://hmvdev.ifs360.cloud";
 
@@ -28,6 +29,7 @@ function defaultIfsTokenUrl(): string {
 export type IfsConfig = {
   cempPortalBaseUrl: string;
   cempAdvanceBaseUrl: string;
+  cempDseBaseUrl: string;
   openIdConfigUrl: string;
   oauthClientId: string;
   oauthClientSecret: string;
@@ -73,6 +75,11 @@ export function getIfsConfig(): IfsConfig {
     cempAdvanceBaseUrl:
       envFirst("IFS_CEMP_ADVANCE_BASE_URL") ||
       `${system}/main/ifsapplications/projection/v1/CEmpAdvanceHandling.svc`,
+    cempDseBaseUrl:
+      envFirst("IFS_CEMP_DSE_BASE_URL") ||
+      (envFirst("IFS_CEMP_ADVANCE_BASE_URL") ||
+        `${system}/main/ifsapplications/projection/v1/CEmpAdvanceHandling.svc`
+      ).replace(/\/[^/]+\.svc\/?$/, "/CDseRequestHandling.svc"),
     openIdConfigUrl:
       envFirst("IFS_OPENID_CONFIG_URL") ||
       `${system}/auth/realms/${realm}/.well-known/openid-configuration`,
@@ -109,6 +116,15 @@ export function isIfsConfigured(): boolean {
 /** Login OAuth empleado (IFS_EMP_PORTAL_USER). Off por defecto. */
 export function isIfsAuthEnabled(): boolean {
   return process.env.IFS_AUTH_ENABLED === "true";
+}
+
+/**
+ * Sin sesión IFS no se muestra el portal (ni shell ni listas vacías).
+ * Encendido con `IFS_AUTH_ENABLED=true`. Demo local: apaga esa flag.
+ * `next.config.ts` debe usar el mismo criterio en `NEXT_PUBLIC_PORTAL_LOGIN_REQUIRED`.
+ */
+export function isPortalLoginRequired(): boolean {
+  return isIfsAuthEnabled();
 }
 
 export function isIfsAuthReady(): boolean {

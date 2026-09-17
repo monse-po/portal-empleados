@@ -19,11 +19,7 @@ import { getTiempoEmpleadoContext } from "@/src/server/portal-user-profile";
 import type { LanzarAnticipoInput } from "@/src/app/mis-anticipos/AnticiposContext";
 
 async function requireAnticipoEmpleado() {
-  const empleado = await getTiempoEmpleadoContext();
-  if (!empleado) {
-    throw new Error("Sesión IFS requerida para anticipos.");
-  }
-  return empleado;
+  return getTiempoEmpleadoContext();
 }
 
 export async function getAnticiposAction(): Promise<{
@@ -32,6 +28,9 @@ export async function getAnticiposAction(): Promise<{
   empleadoId: string;
 }> {
   const empleado = await requireAnticipoEmpleado();
+  if (!empleado) {
+    return { anticipos: {}, extras: {}, empleadoId: "" };
+  }
   const rows = await prisma.anticipo.findMany({
     where: {
       OR: [
@@ -50,6 +49,9 @@ export async function lanzarAnticipoAction(
   input: LanzarAnticipoInput,
 ): Promise<{ codigo: string }> {
   const empleado = await requireAnticipoEmpleado();
+  if (!empleado) {
+    return { codigo: "" };
+  }
   const codigo = await nextAnticipoCodigo(input.tipo);
   const fecha = hoyDMY();
   const sessionId = empleado.empleadoId;
@@ -99,11 +101,10 @@ export async function lanzarAnticipoAction(
 
 export async function cancelarAnticipoAction(codigo: string): Promise<void> {
   const empleado = await requireAnticipoEmpleado();
+  if (!empleado) return;
   const row = await prisma.anticipo.findUnique({ where: { codigo } });
   if (!row || row.estado !== AnticipoEstadoDb.LANZADO) return;
-  if (row.solicitanteId !== empleado.empleadoId) {
-    throw new Error("Solo quien lanzó la solicitud puede cancelarla.");
-  }
+  if (row.solicitanteId !== empleado.empleadoId) return;
 
   const tl = timelineCancelado(
     (Array.isArray(row.timelineJson) ? row.timelineJson : []) as TimelineItem[],
@@ -126,6 +127,7 @@ export async function getAnticipoByCodigoAction(codigo: string): Promise<{
   extra: AnticipoExtra;
 } | null> {
   const empleado = await requireAnticipoEmpleado();
+  if (!empleado) return null;
   const row = await prisma.anticipo.findUnique({ where: { codigo } });
   if (!row) return null;
   if (

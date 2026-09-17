@@ -143,6 +143,7 @@ export type EmpReportItemRow = {
   CRejectNote?: string;
   CApprover?: string;
   CApproverName?: string;
+  CAutoApprover?: string;
   CAutoApproverName?: string;
   ProjectId?: string;
   SubProjectId?: string;
@@ -169,6 +170,8 @@ export type CurrencyCodeRow = {
 export type IsoCountryRow = {
   Id?: string;
   Description?: string;
+  Country?: string;
+  Name?: string;
 };
 
 /** Fila de Lookup_IsoCurrency_EntitySet. */
@@ -181,6 +184,20 @@ export type LovReportCostCodeRow = {
   ReportCostName?: string;
   ReportCostType?: "Time" | "Cost" | "Material" | string;
   ReportCode?: string;
+  ReportCodeGroupId?: string;
+  ReportCostGroupId?: string;
+  ReportCodeGroupDesc?: string;
+  CReportCostGrpType?: string;
+};
+
+/** Reference_ReportCost — grupo/tipo IFS del código de reporte. */
+export type ReportCostRow = {
+  Company?: string;
+  ReportCostCode?: string;
+  Description?: string;
+  ReportCostGroupId?: string;
+  ReportCodeGroupDesc?: string;
+  CReportCostGrpType?: string;
 };
 
 /** CompanySet / GetExpenseCompany. */

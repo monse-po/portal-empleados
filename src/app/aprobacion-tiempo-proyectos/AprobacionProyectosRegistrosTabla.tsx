@@ -4,19 +4,23 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/src/components/ui/Icon";
 import { EstadoTiempoPill } from "@/src/components/ui/Pill";
 import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
+import { TableAproIconButton } from "@/src/components/ui/TableAproIconButton";
 import { TableSelectionCheckbox } from "@/src/components/ui/TableSelectionCheckbox";
 import {
   CHECKBOX_COL_WIDTH,
   DataTable,
+  RES_TAB_ACTION_COL,
   RES_TAB_SPACER_COL,
+  TableActionWrap,
   dataTd,
   dataTdCheck,
   dataTdNumeric,
-  dataTdResPrimary,
-  dataTdResSecondary,
-  dataTdTruncate,
+  dataTdResAction,
+  EmpleadoCell,
+  SubproyectoCell,
   dataTh,
   dataThCheck,
+  dataThResAction,
   dataThWithAlign,
   TABLE_PAGE_SIZE,
 } from "@/src/components/ui/DataTable";
@@ -24,31 +28,34 @@ import { TablePagination } from "@/src/components/ui/TablePagination";
 import { getSelectionState } from "@/src/lib/use-table-selection";
 import {
   horasNum,
-  splitSubproy,
   type HojaAprobacion,
 } from "@/src/lib/aprobacion-tiempo-mock";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 const COLS_PEND = [
   CHECKBOX_COL_WIDTH,
-  "92px",
-  "18%",
-  "148px",
-  "68px",
-  "16%",
-  "16%",
-  "22%",
+  "88px",
+  "200px",
+  "140px",
+  "64px",
+  "180px",
+  "200px",
+  "280px",
 ] as const;
 
 const COLS_RES = [
   RES_TAB_SPACER_COL,
-  "92px",
-  "16%",
+  "88px",
+  "180px",
+  "100px",
   "140px",
   "64px",
-  "14%",
-  "14%",
+  "160px",
+  "180px",
   "110px",
-  "20%",
+  "240px",
+  "240px",
+  RES_TAB_ACTION_COL,
 ] as const;
 
 export function hojaRegistroId(h: HojaAprobacion): string {
@@ -72,20 +79,11 @@ type AprobacionProyectosRegistrosTablaProps = {
   seleccion: Set<string>;
   onToggle: (id: string) => void;
   onToggleLote: (ids: string[]) => void;
+  onAnular?: (id: string) => void;
 };
 
 function renderSubproy(subproy: string) {
-  const sp = splitSubproy(subproy);
-  return (
-    <>
-      <div className={dataTdResPrimary}>{sp.code}</div>
-      {sp.name ? (
-        <div className={dataTdResSecondary} title={sp.name}>
-          {sp.name}
-        </div>
-      ) : null}
-    </>
-  );
+  return <SubproyectoCell codigo={subproy} fullText />;
 }
 
 export function AprobacionProyectosRegistrosTabla({
@@ -97,6 +95,7 @@ export function AprobacionProyectosRegistrosTabla({
   seleccion,
   onToggle,
   onToggleLote,
+  onAnular,
 }: AprobacionProyectosRegistrosTablaProps) {
   const [page, setPage] = useState(1);
 
@@ -160,20 +159,23 @@ export function AprobacionProyectosRegistrosTabla({
   const resHeaders: [string, string][] = [
     ["Fecha", "text-left"],
     ["Empleado", "text-left"],
+    ["Aprobador", "text-left"],
     ["Tipo hora", "text-left"],
     ["Horas", "text-center"],
     ["Subproyecto", "text-left"],
     ["Actividad", "text-left"],
     ["Estado", "text-left"],
+    ["Comentario", "text-left"],
     ["Motivo", "text-left"],
   ];
 
   return (
-    <div>
-      <div className="overflow-x-auto">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-auto">
         <DataTable
+          layout="auto"
+          stickyHeader
           colWidths={[...(tab === "pend" ? COLS_PEND : COLS_RES)]}
-          className="min-w-[1080px]"
         >
           <thead>
             <tr>
@@ -196,6 +198,9 @@ export function AprobacionProyectosRegistrosTabla({
                   </th>
                 ),
               )}
+              {tab === "res" ? (
+                <th className={dataThResAction}>Anular</th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
@@ -214,47 +219,81 @@ export function AprobacionProyectosRegistrosTabla({
                   ) : (
                     <td className={dataTd} />
                   )}
-                  <td className={`${dataTd} text-muted ${dataTdTruncate}`}>
+                  <td className={`${dataTd} whitespace-nowrap text-muted`}>
                     {s.fecha}
                   </td>
-                  <td className={dataTd}>
-                    <div className={`${dataTdResPrimary} ${dataTdTruncate}`}>
-                      {s.solicitante}
-                    </div>
-                    <div className={dataTdResSecondary}>{s.cedula}</div>
+                  <td className={`${dataTd} whitespace-nowrap`}>
+                    <EmpleadoCell
+                      nombre={s.nombre || s.solicitante}
+                      codigo={s.cedula}
+                      fullText
+                    />
                   </td>
-                  <td className={dataTd}>
+                  {tab === "res" ? (
+                    <td
+                      className={`${dataTd} whitespace-nowrap text-[#374151]`}
+                      title={s.aprobadorNombre || s.aprobador || undefined}
+                    >
+                      {s.aprobador?.trim() || "—"}
+                    </td>
+                  ) : null}
+                  <td className={`${dataTd} whitespace-nowrap`}>
                     <TipoHoraPill tipo={s.tipo} />
                   </td>
-                  <td className={dataTdNumeric}>{horasNum(s.horas)}</td>
-                  <td className={dataTd}>{renderSubproy(s.subproy)}</td>
-                  <td className={`${dataTd} text-[#374151] ${dataTdTruncate}`}>
+                  <td className={`${dataTdNumeric} whitespace-nowrap`}>
+                    {formatHorasValor(horasNum(s.horas))}
+                  </td>
+                  <td className={`${dataTd} whitespace-nowrap`}>
+                    {renderSubproy(s.subproy)}
+                  </td>
+                  <td
+                    className={`${dataTd} whitespace-nowrap text-[#374151]`}
+                    title={s.actividad}
+                  >
                     {s.actividad}
                   </td>
                   {tab === "pend" ? (
                     <td
-                      className={`${dataTd} text-muted ${dataTdTruncate}`}
+                      className={`${dataTd} whitespace-nowrap text-muted`}
                       title={s.comentarioEmpleado || undefined}
                     >
                       {s.comentarioEmpleado || "—"}
                     </td>
                   ) : (
                     <>
-                      <td className={dataTd}>
+                      <td className={`${dataTd} whitespace-nowrap`}>
                         <EstadoTiempoPill estado={s.estadoApro || ""} />
-                        <div className={`${dataTdResSecondary} text-muted`}>
-                          {s.fechaApro || "—"}
-                        </div>
                       </td>
                       <td
-                        className={`${dataTd} ${
+                        className={`${dataTd} whitespace-nowrap text-muted`}
+                        title={s.comentarioEmpleado || undefined}
+                      >
+                        {s.comentarioEmpleado || "—"}
+                      </td>
+                      <td
+                        className={`${dataTd} whitespace-nowrap ${
                           s.estadoApro === "Rechazado"
                             ? "text-[#b91c1c]"
                             : "text-muted"
-                        } ${dataTdTruncate}`}
-                        title={s.comentarioApro}
+                        }`}
+                        title={s.comentarioApro || undefined}
                       >
-                        {s.comentarioApro || "—"}
+                        {s.comentarioApro?.trim() || "—"}
+                      </td>
+                      <td
+                        className={dataTdResAction}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <TableActionWrap>
+                          <TableAproIconButton
+                            variant="undo"
+                            title="Anular decisión"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAnular?.(id);
+                            }}
+                          />
+                        </TableActionWrap>
                       </td>
                     </>
                   )}

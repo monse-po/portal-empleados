@@ -7,16 +7,17 @@ import { EstadoDocumentoSoportePill } from "@/src/components/ui/Pill";
 import {
   DataTable,
   dataTd,
-  dataTdResSecondary,
   dataTdTruncate,
   dataThWithAlign,
+  EmpleadoCell,
+  MontoCell,
+  ProyectoCell,
   TABLE_PAGE_SIZE,
 } from "@/src/components/ui/DataTable";
 import { TablePagination } from "@/src/components/ui/TablePagination";
 import {
   DS_COLS_HIST,
   DS_COLS_PEND,
-  formatMontoDs,
   getRegistradoPorChip,
   type DocumentoSoporte,
 } from "@/src/lib/documento-soporte-mock";
@@ -31,6 +32,7 @@ type DocumentoSoporteTablaProps = {
 const headerCols: [string, string][] = [
   ["Código", "text-left"],
   ["Solicitado", "text-left"],
+  ["Proyecto", "text-left"],
   ["Beneficiario", "text-left"],
   ["NIF", "text-left"],
   ["Documento", "text-left"],
@@ -45,7 +47,7 @@ export function DocumentoSoporteTabla({
   hasFilters,
   onOpenDetalle,
 }: DocumentoSoporteTablaProps) {
-  const { tab, sessionEmpleadoId } = useDocumentoSoporte();
+  const { tab, sessionIds, sessionNombre } = useDocumentoSoporte();
   const esHistorial = tab === "historial";
   const [page, setPage] = useState(1);
 
@@ -81,7 +83,7 @@ export function DocumentoSoporteTabla({
     <div>
       <div className="overflow-x-auto">
         <DataTable
-          className="min-w-[1280px]"
+          className="min-w-[1480px]"
           colWidths={[...(esHistorial ? DS_COLS_HIST : DS_COLS_PEND)]}
         >
           <thead>
@@ -97,7 +99,8 @@ export function DocumentoSoporteTabla({
             {visibles.map((row) => {
               const registradoPor = getRegistradoPorChip(
                 row,
-                sessionEmpleadoId,
+                sessionIds,
+                sessionNombre,
               );
               return (
                 <tr
@@ -114,13 +117,14 @@ export function DocumentoSoporteTabla({
                   <td className={`${dataTd} text-muted ${dataTdTruncate}`}>
                     {row.fecha}
                   </td>
+                  <td className={dataTd}>
+                    <ProyectoCell
+                      codigo={row.proyectoId}
+                      nombre={row.proyectoNombre}
+                    />
+                  </td>
                   <td className={`${dataTd} align-top`}>
-                    <div
-                      className="font-medium leading-snug text-[#374151] [overflow-wrap:anywhere]"
-                      title={row.solicitadoPorNombre}
-                    >
-                      {row.solicitadoPorNombre}
-                    </div>
+                    <EmpleadoCell nombre={row.solicitadoPorNombre} />
                     {registradoPor ? (
                       <div
                         className="mt-1 inline-flex max-w-full flex-wrap items-baseline gap-x-1 rounded-md bg-[#eef3f9] px-1.5 py-0.5 text-[11px] leading-snug [overflow-wrap:anywhere]"
@@ -154,10 +158,11 @@ export function DocumentoSoporteTabla({
                     {row.concepto}
                   </td>
                   <td className={`${dataTd} text-right`}>
-                    <div className="font-semibold leading-snug">
-                      {formatMontoDs(row.monto, row.divisa)}
-                    </div>
-                    <div className={dataTdResSecondary}>{row.divisa}</div>
+                    <MontoCell
+                      monto={row.monto}
+                      divisa={row.divisa}
+                      decimals={2}
+                    />
                   </td>
                   <td className={dataTd}>
                     <EstadoDocumentoSoportePill estado={row.estado} />

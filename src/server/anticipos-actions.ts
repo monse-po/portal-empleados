@@ -25,16 +25,22 @@ import {
   approveEmpAdvance,
   cancelEmpAdvance,
   createEmpAdvance,
+  empAdvanceToQuery,
   getAdvanceQuery,
   getRequestsForApproval,
   getYourRequests,
   listAdvanceQueries,
+  listEmpAdvances,
   rejectEmpAdvance,
   type CEmpAdvanceQuery,
 } from "@/src/lib/ifs/cemp-advance";
 import { odataStringKey } from "@/src/lib/ifs/client";
 import {
+  applyDestinoNombres,
+  ifsStateToUi,
+  queryToAnticipo,
   queryToAprobacion,
+  queryToExtra,
   recordsFromQueries,
   toCEmpAdvancesInsert,
 } from "@/src/lib/ifs/anticipos-ifs-map";
@@ -71,6 +77,26 @@ function mockSessionActor(): AnticiposActor {
 function isDbUnavailable(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return /Anticipo|does not exist|P2021|P2010|no such table/i.test(msg);
+}
+
+function demoAprobacionIfEmpty(result: {
+  solicitudes: Record<string, AnticipoAprobacion>;
+  sessionNombre: string;
+  fromIfs: boolean;
+  fromDb: boolean;
+}) {
+  if (
+    process.env.NODE_ENV === "development" &&
+    Object.keys(result.solicitudes).length === 0
+  ) {
+    return {
+      solicitudes: cloneInitialAproAnticipos(),
+      sessionNombre: result.sessionNombre,
+      fromIfs: false,
+      fromDb: false,
+    };
+  }
+  return result;
 }
 
 async function resolveActor(): Promise<AnticiposActor> {
@@ -171,6 +197,7 @@ export async function listMisAnticiposAction(): Promise<{
   sessionNombre: string;
   fromIfs: boolean;
   fromDb: boolean;
+  error?: string;
 }> {
   const actor = await resolveActor();
 
@@ -188,19 +215,63 @@ export async function listMisAnticiposAction(): Promise<{
     try {
       const keys = [...new Set([actor.personId, actor.empNo].filter(Boolean))];
       const byNo = new Map<string, CEmpAdvanceQuery>();
+      const addRows = (rows: CEmpAdvanceQuery[]) => {
+        for (const row of rows) {
+          const no = row.RequestNo?.trim();
+          if (no && !byNo.has(no)) byNo.set(no, row);
+        }
+      };
       for (const key of keys) {
         try {
-          const rows = await getYourRequests(actor.accessToken, key);
-          for (const row of rows) {
-            const no = row.RequestNo?.trim();
-            if (no && !byNo.has(no)) byNo.set(no, row);
-          }
+          addRows(await getYourRequests(actor.accessToken, key));
         } catch (err) {
           console.error("[anticipos] GetYourRequests failed", key, err);
         }
       }
+      // GetYourRequests suele ser “tus” anticipos como empleado.
+      // Para “para otro” hay que traer también lo que registraste (CreatedBy)
+      // y lo que te quedó como beneficiario (EmpNo).
+      const extraFilters = keys.flatMap((key) => {
+        const q = odataStringKey(key);
+        return [
+          `EmpNo eq '${q}'`,
+          `CreatedBy eq '${q}'`,
+          `RequestedBy eq '${q}'`,
+        ];
+      });
+      for (const filter of [...new Set(extraFilters)]) {
+        try {
+          addRows(await listAdvanceQueries(actor.accessToken, filter));
+        } catch (err) {
+          console.error("[anticipos] CEmpAdvanceQuerySet failed", filter, err);
+        }
+        try {
+          addRows(
+            (await listEmpAdvances(actor.accessToken, filter)).map(
+              empAdvanceToQuery,
+            ),
+          );
+        } catch (err) {
+          console.error("[anticipos] CEmpAdvancesSet failed", filter, err);
+        }
+      }
+      console.info("[anticipos] listMisAnticipos", {
+        keys,
+        count: byNo.size,
+        nos: [...byNo.keys()].slice(0, 20),
+      });
+      const records = recordsFromQueries([...byNo.values()]);
+      const extrasList = await applyDestinoNombres(
+        Object.values(records.extras),
+        actor.accessToken,
+      );
+      const extras: Record<string, AnticipoExtra> = {};
+      Object.keys(records.extras).forEach((no, i) => {
+        extras[no] = extrasList[i];
+      });
       return {
-        ...recordsFromQueries([...byNo.values()]),
+        anticipos: records.anticipos,
+        extras,
         sessionIds: actor.ids,
         sessionNombre: actor.nombre,
         fromIfs: true,
@@ -234,7 +305,18 @@ export async function listMisAnticiposAction(): Promise<{
       };
     }
   } catch (err) {
-    if (!isDbUnavailable(err)) throw err;
+    console.error("[anticipos] listMis db", err);
+    if (!isDbUnavailable(err)) {
+      return {
+        anticipos: {},
+        extras: {},
+        sessionIds: actor.ids,
+        sessionNombre: actor.nombre,
+        fromIfs: false,
+        fromDb: false,
+        error: formatIfsError(err) || "No se pudieron cargar los anticipos.",
+      };
+    }
   }
 
   return {
@@ -254,6 +336,7 @@ export async function listAprobacionAnticiposAction(
   sessionNombre: string;
   fromIfs: boolean;
   fromDb: boolean;
+  error?: string;
 }> {
   const actor = await resolveActor();
 
@@ -304,26 +387,26 @@ export async function listAprobacionAnticiposAction(
         const nextResolved = queryToAprobacion(row).estadoApro;
         if (!prevResolved && nextResolved) byNo.set(no, row);
       }
+      const mappedRows = [...byNo.values()].map(queryToAprobacion).filter((s) => s.no);
+      const named = await applyDestinoNombres(mappedRows, actor.accessToken);
       const solicitudes: Record<string, AnticipoAprobacion> = {};
-      for (const row of byNo.values()) {
-        const mapped = queryToAprobacion(row);
-        if (!mapped.no) continue;
+      for (const mapped of named) {
         solicitudes[mapped.no] = mapped;
       }
-      return {
+      return demoAprobacionIfEmpty({
         solicitudes,
         sessionNombre: actor.nombre,
         fromIfs: true,
         fromDb: false,
-      };
+      });
     } catch (err) {
       console.error("[anticipos] GetRequestsForApproval failed", err);
-      return {
+      return demoAprobacionIfEmpty({
         solicitudes: {},
         sessionNombre: actor.nombre,
         fromIfs: true,
         fromDb: false,
-      };
+      });
     }
   }
 
@@ -345,7 +428,16 @@ export async function listAprobacionAnticiposAction(
       };
     }
   } catch (err) {
-    if (!isDbUnavailable(err)) throw err;
+    console.error("[anticipos] listAprobacion db", err);
+    if (!isDbUnavailable(err)) {
+      return {
+        solicitudes: {},
+        sessionNombre: actor.nombre,
+        fromIfs: false,
+        fromDb: false,
+        error: formatIfsError(err) || "No se pudieron cargar las solicitudes.",
+      };
+    }
   }
 
   return {
@@ -358,7 +450,12 @@ export async function listAprobacionAnticiposAction(
 
 export async function lanzarAnticipoAction(
   input: LanzarAnticipoInput,
-): Promise<{ no: string; error?: string }> {
+): Promise<{
+  no: string;
+  error?: string;
+  anticipo?: Anticipo;
+  extra?: AnticipoExtra;
+}> {
   const actor = await resolveActor();
 
   if (isIfsAuthEnabled() && (!actor.fromIfs || !actor.accessToken)) {
@@ -403,6 +500,41 @@ export async function lanzarAnticipoAction(
           error: `Faltan datos para IFS: ${missing.join(", ")}`,
         };
       }
+      if (input.tipo === "Viaje" && !body.Destination) {
+        return {
+          no: "",
+          error:
+            "Ese destino no es válido en IFS. Elige un destino de la lista.",
+        };
+      }
+      if (input.paraOtro) {
+        try {
+          const employees = await getEmployeesByCompany(
+            actor.accessToken,
+            body.Company,
+          );
+          const needle = (body.EmpNo || "").trim();
+          const match = employees.find(
+            (e) =>
+              e.CEmpNo?.trim() === needle ||
+              e.Identity?.trim() === needle ||
+              e.PersonId?.trim() === needle,
+          );
+          const supplier = match?.Identity?.trim() || "";
+          const empNo = match?.CEmpNo?.trim() || "";
+          if (!supplier || !empNo) {
+            return {
+              no: "",
+              error:
+                "Ese empleado no está configurado como proveedor en IFS. Elige a otro o pide a Administración que lo configure.",
+            };
+          }
+          body.EmpNo = empNo;
+          body.SupplierId = supplier;
+        } catch (err) {
+          return { no: "", error: formatIfsError(err) };
+        }
+      }
       console.info("[anticipos] POST CEmpAdvancesSet", {
         Company: body.Company,
         InvCompany: body.InvCompany,
@@ -413,6 +545,7 @@ export async function lanzarAnticipoAction(
         Amount: body.Amount,
         CurrencyCode: body.CurrencyCode,
         RequestType: body.RequestType,
+        Destination: body.Destination,
       });
       const created = await createEmpAdvance(actor.accessToken, body);
       const no = created.RequestNo?.trim();
@@ -423,7 +556,26 @@ export async function lanzarAnticipoAction(
       if (!no) {
         return { no: "", error: "IFS creó el anticipo pero no devolvió RequestNo" };
       }
-      return { no };
+      let query = empAdvanceToQuery({ ...created, RequestNo: no });
+      try {
+        query = await getAdvanceQuery(actor.accessToken, no);
+      } catch {
+        /* el POST ya trae lo mínimo para pintarlo */
+      }
+      const anticipo = queryToAnticipo(query);
+      if (input.paraOtro) {
+        anticipo.paraOtro = true;
+        if (input.beneficiarioNombre) {
+          anticipo.beneficiarioNombre = input.beneficiarioNombre;
+        }
+        if (input.beneficiarioEmpNo || input.beneficiarioId) {
+          anticipo.beneficiarioId =
+            input.beneficiarioEmpNo || input.beneficiarioId;
+        }
+        anticipo.solicitante = anticipo.solicitante || actor.nombre;
+        anticipo.solicitanteId = anticipo.solicitanteId || actor.personId;
+      }
+      return { no, anticipo, extra: queryToExtra(query) };
     } catch (err) {
       console.error("[anticipos] createEmpAdvance failed", err);
       return { no: "", error: formatIfsError(err) };
@@ -437,8 +589,13 @@ export async function lanzarAnticipoAction(
     });
     existingNos = existing.map((r) => r.codigo);
   } catch (err) {
-    if (!isDbUnavailable(err)) throw err;
-    return { no: "", error: "No hay base de datos para guardar el anticipo" };
+    console.error("[anticipos] lanzar db list", err);
+    return {
+      no: "",
+      error: isDbUnavailable(err)
+        ? "No hay base de datos para guardar el anticipo"
+        : formatIfsError(err) || "No se pudo guardar el anticipo",
+    };
   }
 
   const nos: Record<string, Anticipo> = actor.fromIfs
@@ -507,7 +664,7 @@ export async function lanzarAnticipoAction(
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Error al guardar";
+    const msg = formatIfsError(err) || "Error al guardar";
     return { no: "", error: msg };
   }
 
@@ -521,6 +678,13 @@ export async function cancelarAnticipoAction(
 
   if (actor.fromIfs && actor.accessToken) {
     try {
+      const current = await getAdvanceQuery(actor.accessToken, no);
+      if (current && ifsStateToUi(current) !== "Lanzado") {
+        return {
+          ok: false,
+          error: "No se puede cancelar: la solicitud ya no está en Lanzado.",
+        };
+      }
       await cancelEmpAdvance(actor.accessToken, no);
       return { ok: true };
     } catch (err) {
@@ -537,7 +701,7 @@ export async function cancelarAnticipoAction(
         : { ok: false, missing: true };
     }
     if (row.estado !== "LANZADO") {
-      return { ok: false, error: "Solo se puede cancelar una solicitud Lanzado" };
+      return { ok: false, error: "No se puede cancelar: la solicitud ya no está en Lanzado." };
     }
     const solId = normalizeAnticipoId(row.solicitanteId);
     if (!actor.ids.includes(solId)) {
@@ -571,7 +735,7 @@ export async function cancelarAnticipoAction(
     if (isDbUnavailable(err) && !actor.fromIfs) {
       return { ok: false, missing: true };
     }
-    const msg = err instanceof Error ? err.message : "Error al cancelar";
+    const msg = formatIfsError(err) || "Error al cancelar";
     return { ok: false, error: msg };
   }
 }
@@ -674,7 +838,7 @@ export async function decidirAnticiposAction(input: {
     if (isDbUnavailable(err) && !actor.fromIfs) {
       return { ok: true, persisted: [], missing: nos };
     }
-    const msg = err instanceof Error ? err.message : "Error al decidir";
+    const msg = formatIfsError(err) || "Error al decidir";
     return { ok: false, persisted, missing, error: msg };
   }
 

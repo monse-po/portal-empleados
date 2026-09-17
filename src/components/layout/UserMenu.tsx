@@ -60,13 +60,12 @@ function applyProfile(
 }
 
 export function UserMenu() {
-  const { rol, setRol, homePath, roleReady } = useRole();
+  const { rol, setRol, homePath, canSwitchRole } = useRole();
   const { toast } = useToast();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<IfsPortalProfile | null>(null);
-  const [canManageAccesos, setCanManageAccesos] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const prevEmpNoRef = useRef<string | undefined>(undefined);
 
@@ -91,21 +90,6 @@ export function UserMenu() {
     window.addEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onChanged);
     return () => {
       window.removeEventListener(IFS_EMPLOYEE_CHANGED_EVENT, onChanged);
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/auth/impersonate")
-      .then((r) => r.json())
-      .then((data: { canManageAccesos?: boolean }) => {
-        if (!cancelled) setCanManageAccesos(Boolean(data.canManageAccesos));
-      })
-      .catch(() => {
-        if (!cancelled) setCanManageAccesos(false);
-      });
-    return () => {
-      cancelled = true;
     };
   }, []);
 
@@ -167,7 +151,7 @@ export function UserMenu() {
 
   const title = profileTitle(profile, loading);
   const subtitle = profileSubtitle(profile, loading);
-  const onNavy = roleReady && rol === "gerente";
+  const onNavy = false;
 
   return (
     <div ref={rootRef} className="relative">
@@ -221,14 +205,11 @@ export function UserMenu() {
           role="menu"
           className="absolute right-0 top-[calc(100%+8px)] z-[300] min-w-[220px] overflow-hidden rounded-[10px] border border-border bg-white py-1 shadow-[0_10px_28px_rgba(15,23,42,0.14)]"
         >
-          <div className="border-b border-[#f1f5f9] px-3.5 py-2.5">
+          <div className="px-3.5 py-2.5">
             <div className="text-[13px] font-semibold text-navy">{title}</div>
-            <div className="text-[11px] text-muted">{subtitle}</div>
-            {profile?.connected && profile.companyId ? (
-              <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-green">
-                IFS · {profile.companyId}
-              </div>
-            ) : null}
+            <div className="truncate text-[11px] text-muted" title={subtitle}>
+              {subtitle}
+            </div>
             {profile?.error ? (
               <div className="mt-1 text-[11px] text-[#b45309]">{profile.error}</div>
             ) : null}
@@ -247,83 +228,49 @@ export function UserMenu() {
               <Icon name="userCircle" size="sm" className="text-muted" />
               Entrar con IFS
             </button>
-          ) : (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                toast(
-                  !IFS_AUTH_ENABLED
-                    ? "Ambiente DEMO"
-                    : profile?.empNo
-                      ? `Empleado IFS ${profile.empNo}`
-                      : "Perfil IFS",
-                  "navy",
-                );
-              }}
-              className="flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-3.5 py-2 text-left text-[12.5px] text-[#374151] hover:bg-[#f4f7fb]"
-            >
-              <Icon name="userCircle" size="sm" className="text-muted" />
-              Mi perfil
-            </button>
-          )}
+          ) : null}
 
-          {IFS_AUTH_ENABLED && canManageAccesos ? (
+          {canSwitchRole ? (
             <>
               <div className="my-1 h-px bg-[#f1f5f9]" />
+
+              <div className="px-3.5 pb-1 pt-1.5 text-[9.5px] font-bold uppercase tracking-wide text-[#b0b7c3]">
+                Cambiar vista
+              </div>
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  router.push("/consola");
-                }}
-                className="flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-3.5 py-2 text-left text-[12.5px] font-semibold text-navy hover:bg-[#f4f7fb]"
+                onClick={() => cambiarRol("gerente")}
+                className={`flex w-full cursor-pointer items-center gap-2 border-none px-3.5 py-2 text-left text-[12.5px] hover:bg-[#f4f7fb] ${
+                  rol === "gerente"
+                    ? "font-semibold text-navy"
+                    : "text-[#374151]"
+                }`}
               >
                 <Icon name="shieldCheck" size="sm" className="text-navy" />
-                Consola UAT
+                Gerente
+                {rol === "gerente" && (
+                  <Icon name="check" size="xs" className="ml-auto text-navy" />
+                )}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => cambiarRol("empleado")}
+                className={`flex w-full cursor-pointer items-center gap-2 border-none px-3.5 py-2 text-left text-[12.5px] hover:bg-[#f4f7fb] ${
+                  rol === "empleado"
+                    ? "font-semibold text-navy"
+                    : "text-[#374151]"
+                }`}
+              >
+                <Icon name="user" size="sm" className="text-muted" />
+                Empleado
+                {rol === "empleado" && (
+                  <Icon name="check" size="xs" className="ml-auto text-navy" />
+                )}
               </button>
             </>
           ) : null}
-
-          <div className="my-1 h-px bg-[#f1f5f9]" />
-
-          <div className="px-3.5 pb-1 pt-1.5 text-[9.5px] font-bold uppercase tracking-wide text-[#b0b7c3]">
-            Cambiar vista
-          </div>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => cambiarRol("gerente")}
-            className={`flex w-full cursor-pointer items-center gap-2 border-none px-3.5 py-2 text-left text-[12.5px] hover:bg-[#f4f7fb] ${
-              rol === "gerente"
-                ? "font-semibold text-navy"
-                : "text-[#374151]"
-            }`}
-          >
-            <Icon name="shieldCheck" size="sm" className="text-navy" />
-            Gerente
-            {rol === "gerente" && (
-              <Icon name="check" size="xs" className="ml-auto text-navy" />
-            )}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => cambiarRol("empleado")}
-            className={`flex w-full cursor-pointer items-center gap-2 border-none px-3.5 py-2 text-left text-[12.5px] hover:bg-[#f4f7fb] ${
-              rol === "empleado"
-                ? "font-semibold text-navy"
-                : "text-[#374151]"
-            }`}
-          >
-            <Icon name="clock" size="sm" className="text-muted" />
-            Empleado
-            {rol === "empleado" && (
-              <Icon name="check" size="xs" className="ml-auto text-navy" />
-            )}
-          </button>
 
           <div className="my-1 h-px bg-[#f1f5f9]" />
 
@@ -333,6 +280,12 @@ export function UserMenu() {
             onClick={() => {
               setOpen(false);
               if (IFS_AUTH_ENABLED) {
+                try {
+                  window.sessionStorage.removeItem("hmv-usuario-can-approve");
+                  window.sessionStorage.removeItem("hmv-usuario-rol");
+                } catch {
+                  /* ignore */
+                }
                 window.location.href = "/api/auth/ifs-logout";
                 return;
               }

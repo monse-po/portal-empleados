@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/Card";
 import { Icon } from "@/src/components/ui/Icon";
+import { RouteLoading } from "@/src/components/layout/RouteLoading";
+import {
+  IfsConnectedChip,
+  IfsStatusBanner,
+} from "@/src/components/layout/IfsStatusBanner";
+import { LOADING_COPY } from "@/src/lib/copy/loading";
 import {
   DataTable,
   dataTd,
@@ -11,6 +17,7 @@ import {
   dataTdTruncate,
   dataThWithAlign,
   ProyectoCell,
+  SubproyectoCell,
 } from "@/src/components/ui/DataTable";
 import { HistoricoTiempoFilterBar } from "@/src/app/historico-tiempo/HistoricoTiempoFilterBar";
 import { HISTORICO_UI_COPY } from "@/src/lib/copy/historico";
@@ -27,16 +34,14 @@ import {
 } from "@/src/lib/historico-tiempo";
 import { downloadHistoricoPdf } from "@/src/lib/historico-pdf";
 import type { RegistroMock } from "@/src/lib/mi-tiempo-mock";
-import { fetchTiempoCatalogAction } from "@/src/server/mi-tiempo-catalog-actions";
+import { fetchTiempoCatalogAction, getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { getHistoricoRegistrosAction } from "@/src/server/historico-tiempo-actions";
+import { portalActionError, sanitizePortalErrorMessage } from "@/src/lib/ifs/errors";
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 
 /** Proyecto | Subproyecto | Actividad | Horas | Periodo | Estado */
 const HISTORICO_COLS = ["26%", "16%", "18%", "8%", "18%", "14%"] as const;
-
-function formatHorasTotal(horas: number): string {
-  return Number.isInteger(horas) ? String(horas) : horas.toFixed(1);
-}
 
 function HistoricoTimelineStats({
   count,
@@ -55,7 +60,7 @@ function HistoricoTimelineStats({
       <span aria-hidden className="h-4 w-px bg-[#d1d9e6]" />
       <span className="inline-flex items-baseline gap-0.5 rounded-full bg-[#eef3f9] px-3 py-1">
         <span className="text-[15px] font-bold leading-none text-navy">
-          {formatHorasTotal(horas)}
+          {formatHorasValor(horas)}
         </span>
         <span className="text-[11px] font-semibold text-muted">h</span>
       </span>
@@ -69,6 +74,9 @@ export function HistoricoTiempoView() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [empNo, setEmpNo] = useState<string | null>(null);
   const [empName, setEmpName] = useState<string | null>(null);
+  const [fromIfs, setFromIfs] = useState(false);
+  const [ifsConnected, setIfsConnected] = useState(false);
+  const [ifsEmail, setIfsEmail] = useState<string | null>(null);
   const [filters, setFilters] = useState<HistoricoFilterRule[]>([]);
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const [nombresPorProy, setNombresPorProy] = useState<Record<string, string>>(
@@ -81,6 +89,7 @@ export function HistoricoTiempoView() {
       const result = await getHistoricoRegistrosAction();
       setEmpNo(result.empNo ?? null);
       setEmpName(result.empName ?? null);
+      setFromIfs(Boolean(result.fromIfs));
       if (result.error && result.registros.length === 0) {
         setLoadError(result.error);
         setAprobados([]);
@@ -90,9 +99,7 @@ export function HistoricoTiempoView() {
       }
     } catch (error) {
       setLoadError(
-        error instanceof Error
-          ? error.message
-          : "No se pudo cargar el histórico.",
+        portalActionError(error, "No se pudo cargar el histórico."),
       );
       setAprobados([]);
     } finally {
@@ -103,6 +110,13 @@ export function HistoricoTiempoView() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    void getIfsSessionStatusAction().then((status) => {
+      setIfsConnected(status.connected);
+      setIfsEmail(status.email ?? null);
+    });
+  }, []);
 
   useEffect(() => {
     const onEmployeeChanged = () => {
@@ -144,17 +158,31 @@ export function HistoricoTiempoView() {
 
   if (!loaded) {
     return (
-      <div className="view-wide flex min-h-[240px] items-center justify-center text-[13px] text-muted">
-        Cargando datos…
-      </div>
+      <RouteLoading
+        icon={LOADING_COPY.timeRecords.icon}
+        label={LOADING_COPY.timeRecords.label}
+      />
     );
   }
 
   if (loadError && aprobados.length === 0) {
     return (
-      <div className="view-wide px-2 py-8 text-center text-[13px] text-muted">
-        <p>{loadError}</p>
-        <p className="mt-2 text-[12px]">Inicia sesión con tu correo @h-mv.com</p>
+      <div className="view-wide px-2 py-8">
+        <div className="mb-3 flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-[#111]">Mi Histórico</h1>
+          <IfsConnectedChip
+            surface="historico"
+            connected={ifsConnected}
+            fromIfs={fromIfs}
+          />
+        </div>
+        <IfsStatusBanner
+          surface="historico"
+          connected={ifsConnected}
+          fromIfs={fromIfs}
+          email={ifsEmail}
+          warning={fromIfs ? null : loadError}
+        />
       </div>
     );
   }
@@ -163,9 +191,18 @@ export function HistoricoTiempoView() {
     <div className="view-wide">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-[#111]">Mi Histórico</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-[#111]">Mi Histórico</h1>
+            <IfsConnectedChip
+              surface="historico"
+              connected={ifsConnected}
+              fromIfs={fromIfs}
+            />
+          </div>
           {loadError ? (
-            <p className="alert-warn mt-2 px-3 py-2 text-sm">{loadError}</p>
+            <p className="alert-warn mt-2 px-3 py-2 text-sm">
+              {sanitizePortalErrorMessage(loadError)}
+            </p>
           ) : null}
         </div>
         {filas.length > 0 ? (
@@ -185,18 +222,23 @@ export function HistoricoTiempoView() {
         ) : null}
       </div>
 
-      {aprobados.length > 0 && (
-        <HistoricoTiempoFilterBar
-          registros={aprobados}
-          filters={filters}
-          onChange={setFilters}
-          shown={filas.length}
-          total={getHistoricoResumenPorProyectoSub(aprobados, {
-            openKeys,
-            nombresPorProy,
-          }).length}
-        />
-      )}
+      <IfsStatusBanner
+        surface="historico"
+        connected={ifsConnected}
+        fromIfs={fromIfs}
+        email={ifsEmail}
+        warning={fromIfs ? null : loadError}
+      />
+      <HistoricoTiempoFilterBar
+        registros={aprobados}
+        filters={filters}
+        onChange={setFilters}
+        shown={filas.length}
+        total={getHistoricoResumenPorProyectoSub(aprobados, {
+          openKeys,
+          nombresPorProy,
+        }).length}
+      />
 
       <Card>
         <CardHeader
@@ -255,12 +297,12 @@ export function HistoricoTiempoView() {
                     <td className={dataTd}>
                       <ProyectoCell codigo={r.codigo} nombre={r.nombre} />
                     </td>
-                    <td className={`${dataTd} ${dataTdTruncate}`}>{r.subproy}</td>
+                    <td className={dataTd}>
+                      <SubproyectoCell codigo={r.subproy} />
+                    </td>
                     <td className={`${dataTd} ${dataTdTruncate}`}>{r.actividad}</td>
                     <td className={dataTdNumeric}>
-                      <span className="font-semibold text-navy">
-                        {formatHorasTotal(r.totalHoras)}
-                      </span>
+                      {formatHorasValor(r.totalHoras)}
                     </td>
                     <td className={`${dataTd} ${dataTdTruncate} text-muted`}>
                       {formatHistoricoRango(r.desde, r.hasta, r.abierto)}

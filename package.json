@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "FOCUS=tiempo,anticipos next dev",
+    "dev": "FOCUS=all next dev",
     "dev:all": "FOCUS=all next dev",
     "dev:tiempo": "FOCUS=tiempo next dev",
     "dev:historico": "FOCUS=historico next dev",

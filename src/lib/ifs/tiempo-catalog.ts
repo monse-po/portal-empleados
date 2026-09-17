@@ -51,6 +51,10 @@ export type TiempoTipoHoraOption = {
   /** Nombre completo IFS — solo tooltip. */
   fullLabel: string;
   cat: TipoHoraMeta["cat"];
+  /** ReportCodeGroupId / ReportCostGroupId del LOV IFS. */
+  groupId?: string;
+  /** CReportCostGrpType (p. ej. ABSENCE). */
+  groupType?: string;
 };
 
 /** Recorta ReportCostName de IFS para el modal (sin perder el code). */
@@ -171,11 +175,19 @@ export function mapReportCodesToTipos(
 
     const known = TIPO_HORA[code];
     const fullLabel = row.ReportCostName?.trim() || known?.n || code;
+    const groupId = (
+      row.ReportCodeGroupId ||
+      row.ReportCostGroupId ||
+      ""
+    ).trim();
+    const groupType = (row.CReportCostGrpType || "").trim();
     tipos.push({
       code,
       label: known?.s || shortenReportCostLabel(row.ReportCostName, code),
       fullLabel,
       cat: known?.cat ?? (code === "DN" ? "normal" : "otro"),
+      ...(groupId ? { groupId } : {}),
+      ...(groupType ? { groupType } : {}),
     });
   }
 

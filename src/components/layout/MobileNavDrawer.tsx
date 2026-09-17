@@ -16,24 +16,29 @@ import {
   type ModuleRoute,
 } from "@/src/lib/modules";
 
-function usePendingCount(path: string): number | undefined {
+function usePendingBadge(
+  path: string,
+): { count: number; exact?: boolean } | undefined {
   const aprobacion = useAprobacionOptional();
   const aprobacionAnticipos = useAprobacionAnticiposOptional();
   const aprobacionLegalizaciones = useAprobacionLegalizacionesOptional();
 
-  let count = 0;
   if (
     path === "/aprobacion-tiempo-proyectos" ||
     path === "/aprobacion-tiempo"
   ) {
-    count = aprobacion?.pendientesCount ?? 0;
-  } else if (path === "/aprobacion-anticipos") {
-    count = aprobacionAnticipos?.pendientesCount ?? 0;
-  } else if (path === "/aprobacion-legalizaciones") {
-    count = aprobacionLegalizaciones?.pendientesCount ?? 0;
-  } else return undefined;
-
-  return count > 0 ? count : undefined;
+    const count = aprobacion?.pendientesCount ?? 0;
+    return count > 0 ? { count, exact: true } : undefined;
+  }
+  if (path === "/aprobacion-anticipos") {
+    const count = aprobacionAnticipos?.pendientesCount ?? 0;
+    return count > 0 ? { count } : undefined;
+  }
+  if (path === "/aprobacion-legalizaciones") {
+    const count = aprobacionLegalizaciones?.pendientesCount ?? 0;
+    return count > 0 ? { count } : undefined;
+  }
+  return undefined;
 }
 
 function DrawerLink({
@@ -44,7 +49,7 @@ function DrawerLink({
   onNavigate: () => void;
 }) {
   const pathname = usePathname();
-  const count = usePendingCount(route.path);
+  const badge = usePendingBadge(route.path);
   const active = isNavRouteActive(pathname, route.path);
 
   if (!isPathVisible(route.path)) return null;
@@ -71,14 +76,14 @@ function DrawerLink({
       <Icon
         name={route.icon}
         size="md"
-        className={active ? "text-navy" : "text-muted"}
+        className={active ? "text-navy" : "text-[#4b5563]"}
       />
       <span className="min-w-0 flex-1 whitespace-nowrap">{route.navLabel}</span>
-      {count !== undefined && count > 0 && (
+      {badge ? (
         <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#dbeafe] px-1.5 text-[10px] font-bold tabular-nums text-[#1d4ed8]">
-          {count > 9 ? "9+" : count}
+          {badge.exact || badge.count <= 9 ? badge.count : "9+"}
         </span>
-      )}
+      ) : null}
     </Link>
   );
 }
@@ -131,57 +136,59 @@ export function MobileNavDrawer() {
         role="navigation"
         aria-label="Menú principal"
       >
-        {roleReady ? (
-          <div className="flex flex-col gap-0.5 p-3">
-            {empleadoRoutes.length > 0 && (
-              <>
-                <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#b0b7c3]">
-                  Mis solicitudes
-                </p>
-                <Link
-                  href="/inicio"
-                  onClick={closeMobileMenu}
-                  className={`flex min-h-12 touch-manipulation items-center gap-3 rounded-lg px-3 text-[14px] ${
-                    pathname === "/inicio"
-                      ? "bg-[#eef3f9] font-semibold text-navy"
-                      : "font-medium text-[#374151] active:bg-[#f5f7fa]"
-                  }`}
+        <div className="flex flex-col gap-0.5 p-3">
+          {empleadoRoutes.length > 0 && (
+            <>
+              <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6b7280]">
+                Mis solicitudes
+              </p>
+              {empleadoRoutes.map((route) => (
+                <DrawerLink
+                  key={route.path}
+                  route={route}
+                  onNavigate={closeMobileMenu}
+                />
+              ))}
+            </>
+          )}
+          {!roleReady && !isGerente && gerenteRoutes.length > 0 ? (
+            <>
+              {empleadoRoutes.length > 0 && (
+                <div className="my-2 h-px bg-[#f0f0f0]" />
+              )}
+              <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6b7280]">
+                Aprobaciones
+              </p>
+              {gerenteRoutes.map((route) => (
+                <div
+                  key={route.path}
+                  className="flex min-h-12 items-center gap-3 px-3"
+                  aria-hidden
                 >
-                  <Icon
-                    name="home"
-                    size="md"
-                    className={pathname === "/inicio" ? "text-navy" : "text-muted"}
-                  />
-                  <span className="flex-1">Inicio</span>
-                </Link>
-                {empleadoRoutes.map((route) => (
-                  <DrawerLink
-                    key={route.path}
-                    route={route}
-                    onNavigate={closeMobileMenu}
-                  />
-                ))}
-              </>
-            )}
-            {isGerente && gerenteRoutes.length > 0 && (
-              <>
-                {empleadoRoutes.length > 0 && (
-                  <div className="my-2 h-px bg-[#f0f0f0]" />
-                )}
-                <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#b0b7c3]">
-                  Aprobaciones
-                </p>
-                {gerenteRoutes.map((route) => (
-                  <DrawerLink
-                    key={route.path}
-                    route={route}
-                    onNavigate={closeMobileMenu}
-                  />
-                ))}
-              </>
-            )}
-          </div>
-        ) : null}
+                  <span className="h-5 w-5 shrink-0 animate-pulse rounded bg-[#e5e9f0]" />
+                  <span className="h-3 w-[8rem] animate-pulse rounded bg-[#e5e9f0]" />
+                </div>
+              ))}
+            </>
+          ) : null}
+          {isGerente && gerenteRoutes.length > 0 && (
+            <>
+              {empleadoRoutes.length > 0 && (
+                <div className="my-2 h-px bg-[#f0f0f0]" />
+              )}
+              <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6b7280]">
+                Aprobaciones
+              </p>
+              {gerenteRoutes.map((route) => (
+                <DrawerLink
+                  key={route.path}
+                  route={route}
+                  onNavigate={closeMobileMenu}
+                />
+              ))}
+            </>
+          )}
+        </div>
       </nav>
     </div>
   );

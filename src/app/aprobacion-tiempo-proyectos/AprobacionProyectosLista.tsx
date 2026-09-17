@@ -7,15 +7,7 @@ import { Dropdown } from "@/src/components/ui/Dropdown";
 import { DropdownChevron } from "@/src/components/ui/DropdownAffordance";
 import { Icon } from "@/src/components/ui/Icon";
 import type { HorasProyectoAprobacion } from "@/src/lib/ifs/tiempo-approval";
-
-function roundHoras(n: number): number {
-  return Math.round(n * 10) / 10;
-}
-
-function formatHoras(n: number): string {
-  const r = roundHoras(n);
-  return Number.isInteger(r) ? `${r}` : r.toFixed(1);
-}
+import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 function tieneCola(p: HorasProyectoAprobacion): boolean {
   return p.pendienteIds.length > 0;
@@ -32,6 +24,25 @@ export function sortProyectosInbox(
     }
     return a.codigo.localeCompare(b.codigo, "es");
   });
+}
+
+function HorasProyecto({
+  horas,
+  listo,
+}: {
+  horas: number;
+  listo?: boolean;
+}) {
+  return (
+    <span
+      className={`min-w-[2.5rem] text-right text-[12px] font-bold tabular-nums ${
+        listo ? "text-green" : "text-navy"
+      }`}
+      title={listo ? "Sin horas por aprobar" : "Horas del proyecto"}
+    >
+      {formatHorasValor(horas)}h
+    </span>
+  );
 }
 
 function ProyectoRow({
@@ -51,25 +62,15 @@ function ProyectoRow({
       onClick={() => onSelect(proyecto.codigo)}
       className={`flex w-full cursor-pointer items-center gap-2.5 border-b border-[#e5e9f0] px-3.5 py-2.5 text-left last:border-b-0 ${
         selected
-          ? "bg-[#eef3f9]"
-          : cola
-            ? "bg-white hover:bg-[#fafbfc]"
-            : "bg-white hover:bg-[#fafbfc]"
+          ? "bg-[#c7d9ed]"
+          : "bg-white hover:bg-[#fafbfc]"
       }`}
       aria-current={selected ? "true" : undefined}
     >
-      <span className={`min-w-0 flex-1 ${cola ? "" : "opacity-70"}`}>
+      <span className="min-w-0 flex-1">
         <ProyectoCell codigo={proyecto.codigo} nombre={proyecto.nombre} />
       </span>
-      {cola ? (
-        <span className="shrink-0 text-[12px] font-bold tabular-nums text-[#b45309]">
-          {formatHoras(proyecto.horasPendientes)}h
-        </span>
-      ) : (
-        <span title="Sin horas por aprobar" className="shrink-0 text-green">
-          <Icon name="check" size="sm" />
-        </span>
-      )}
+      <HorasProyecto horas={proyecto.horasAcumuladas} listo={!cola} />
     </button>
   );
 }
@@ -89,7 +90,6 @@ export function AprobacionProyectosLista({
 }: AprobacionProyectosListaProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const ordenados = sortProyectosInbox(proyectos);
-  const conCola = ordenados.filter(tieneCola).length;
   const seleccionado = ordenados.find((p) => p.codigo === selectedCodigo);
 
   const renderFilas = (closePicker = false) =>
@@ -133,7 +133,7 @@ export function AprobacionProyectosLista({
               onClick={() => setPickerOpen((o) => !o)}
               className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-border bg-white px-3.5 py-2.5 text-left"
             >
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted">
                   Proyecto
                 </span>
@@ -141,6 +141,12 @@ export function AprobacionProyectosLista({
                   {seleccionado ? seleccionado.codigo : "Elegir proyecto…"}
                 </span>
               </span>
+              {seleccionado ? (
+                <HorasProyecto
+                  horas={seleccionado.horasAcumuladas}
+                  listo={!tieneCola(seleccionado)}
+                />
+              ) : null}
               <DropdownChevron open={pickerOpen} />
             </button>
           }
@@ -151,15 +157,8 @@ export function AprobacionProyectosLista({
         </Dropdown>
       </div>
 
-      <Card className="mb-0 hidden overflow-hidden rounded-xl p-0 lg:block">
-        <CardHeader
-          className="px-[18px] py-3"
-          right={
-            <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-              {conCola}
-            </span>
-          }
-        >
+      <Card className="mb-0 hidden overflow-hidden p-0 lg:block">
+        <CardHeader className="px-3.5 py-3">
           <span className="flex items-center gap-2">
             <Icon name="folderOpen" size="sm" />
             Proyectos

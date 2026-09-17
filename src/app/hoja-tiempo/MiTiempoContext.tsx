@@ -39,6 +39,7 @@ import {
 } from "@/src/server/mi-tiempo-catalog-actions";
 import { IFS_EMPLOYEE_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 import { horasMesDesdePrograma } from "@/src/lib/tiempo-schedule";
+import { portalActionError } from "@/src/lib/ifs/errors";
 
 export type RegistrarModalState = {
   editId?: string;
@@ -91,12 +92,21 @@ type MiTiempoContextValue = {
   registrosFromIfs: boolean;
   ifsConnected: boolean;
   ifsEmail: string | null;
+  /** Compañía IFS del empleado (para reglas por país). */
+  companyId: string | null;
   /** Periodo IFS (YYYYMM). Null si no hay sesión o IFS no lo mandó. */
   activePeriod: string | null;
   /** Mes registrable: ActivePeriod de IFS, o mes del reloj si no hay periodo. */
   mesBounds: MesActualBounds;
   /** Programa IFS: AccountDate → ScheduleHours. */
   hoursByDate: Record<string, number> | null;
+  /** HOLIDAY / WEEKEND IFS (ColorName solo en estos). */
+  specialDays: Record<
+    string,
+    { dayType: string; dayTypeDesc: string; colorName: string }
+  > | null;
+  /** ColorName WEEKDAY IFS — hover del calendario. */
+  weekdayColor: string | null;
   /** Horas del mes según programa (GetHoursSummary). */
   horasMesPrograma: number;
   reloadRegistros: () => Promise<void>;
@@ -148,6 +158,7 @@ export function MiTiempoProvider({
   const [registrosFromIfs, setRegistrosFromIfs] = useState(false);
   const [ifsConnected, setIfsConnected] = useState(false);
   const [ifsEmail, setIfsEmail] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [activePeriod, setActivePeriod] = useState<string | null>(null);
   const [mesBounds, setMesBounds] = useState<MesActualBounds>(() =>
     getMesActualBounds(),
@@ -155,7 +166,13 @@ export function MiTiempoProvider({
   const [hoursByDate, setHoursByDate] = useState<Record<string, number> | null>(
     null,
   );
+  const [specialDays, setSpecialDays] = useState<Record<
+    string,
+    { dayType: string; dayTypeDesc: string; colorName: string }
+  > | null>(null);
+  const [weekdayColor, setWeekdayColor] = useState<string | null>(null);
   const [scheduleHoursIfs, setScheduleHoursIfs] = useState<number | null>(null);
+  const [scheduleFromIfs, setScheduleFromIfs] = useState(false);
   const [modal, setModal] = useState<RegistrarModalState>(null);
   const registroGuardadoHandler = useRef<RegistroGuardadoHandler | undefined>(
     undefined,
@@ -169,7 +186,7 @@ export function MiTiempoProvider({
         result.warning
           ? result.sessionExpired
             ? TIEMPO_UI_COPY.ifsTimesheetWarning.sessionExpired
-            : TIEMPO_UI_COPY.ifsTimesheetWarning.fetchFailed
+            : result.warning
           : null,
       );
       setRegistrosError(null);
@@ -185,23 +202,38 @@ export function MiTiempoProvider({
     setHoursByDate(
       Object.keys(result.hoursByDate).length > 0 ? result.hoursByDate : null,
     );
+    setSpecialDays(
+      Object.keys(result.specialDays).length > 0 ? result.specialDays : null,
+    );
+    setWeekdayColor(result.weekdayColor?.trim() || null);
     setScheduleHoursIfs(result.scheduleHours);
+    setScheduleFromIfs(result.fromIfs);
+    setCompanyId(result.companyId?.trim() || null);
   }, []);
 
   const horasMesPrograma = useMemo(
-    () => horasMesDesdePrograma(hoursByDate, mesBounds, scheduleHoursIfs),
-    [hoursByDate, mesBounds, scheduleHoursIfs],
+    () =>
+      horasMesDesdePrograma(
+        hoursByDate,
+        mesBounds,
+        scheduleHoursIfs,
+        scheduleFromIfs,
+      ),
+    [hoursByDate, mesBounds, scheduleHoursIfs, scheduleFromIfs],
   );
 
   const reloadRegistros = useCallback(async () => {
     setRegistrosError(null);
     try {
       applyGrouped(await getRegistrosGroupedAction());
-    } catch {
+    } catch (error) {
       setRegistrosFromIfs(false);
       setRegistrosIfsWarning(null);
       setRegistrosError(
-        "No se pudieron cargar los registros. Revisa la conexión o la base de datos.",
+        portalActionError(
+          error,
+          "No se pudieron cargar los registros. Revisa la conexión IFS o la base de datos.",
+        ),
       );
     } finally {
       setRegistrosLoaded(true);
@@ -217,12 +249,15 @@ export function MiTiempoProvider({
         const result = await getRegistrosGroupedAction();
         if (cancelled) return;
         applyGrouped(result);
-      } catch {
+      } catch (error) {
         if (cancelled) return;
         setRegistrosFromIfs(false);
         setRegistrosIfsWarning(null);
         setRegistrosError(
-          "No se pudieron cargar los registros. Revisa la conexión o la base de datos.",
+          portalActionError(
+            error,
+            "No se pudieron cargar los registros. Revisa la conexión IFS o la base de datos.",
+          ),
         );
       } finally {
         if (!cancelled) setRegistrosLoaded(true);
@@ -267,7 +302,9 @@ export function MiTiempoProvider({
 
   const upsertRegistro = useCallback(
     async (reg: RegistroMock) => {
-      const saved = await upsertRegistroAction(reg);
+      const result = await upsertRegistroAction(reg);
+      if (!result.ok) throw new Error(result.error);
+      const saved = result.registro;
       applyGrouped(await getRegistrosGroupedAction());
       if (isRegistroEnviado(saved.estado)) {
         onIngresarHojas?.([registroToHoja(saved)]);
@@ -280,7 +317,9 @@ export function MiTiempoProvider({
   const upsertRegistros = useCallback(
     async (regs: RegistroMock[]) => {
       if (!regs.length) return;
-      const saved = await upsertRegistrosAction(regs);
+      const result = await upsertRegistrosAction(regs);
+      if (!result.ok) throw new Error(result.error);
+      const saved = result.registros;
       applyGrouped(await getRegistrosGroupedAction());
       const enviados = saved.filter((row) => isRegistroEnviado(row.estado));
       if (enviados.length) {
@@ -293,7 +332,8 @@ export function MiTiempoProvider({
 
   const deleteRegistro = useCallback(
     async (id: string) => {
-      await deleteRegistroAction(id);
+      const result = await deleteRegistroAction(id);
+      if (!result.ok) throw new Error(result.error);
       if (isIfsRegistroId(id)) {
         applyGrouped(await getRegistrosGroupedAction());
       } else {
@@ -353,9 +393,12 @@ export function MiTiempoProvider({
       registrosFromIfs,
       ifsConnected,
       ifsEmail,
+      companyId,
       activePeriod,
       mesBounds,
       hoursByDate,
+      specialDays,
+      weekdayColor,
       horasMesPrograma,
       reloadRegistros,
       upsertRegistro,
@@ -375,9 +418,12 @@ export function MiTiempoProvider({
       registrosFromIfs,
       ifsConnected,
       ifsEmail,
+      companyId,
       activePeriod,
       mesBounds,
       hoursByDate,
+      specialDays,
+      weekdayColor,
       horasMesPrograma,
       reloadRegistros,
       upsertRegistro,

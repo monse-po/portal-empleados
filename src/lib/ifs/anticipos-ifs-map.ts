@@ -5,6 +5,11 @@ import type {
   CRequestType,
 } from "@/src/lib/ifs/cemp-advance";
 import type { LanzarAnticipoInput } from "@/src/lib/anticipos-db";
+import { getAdvanceCityByDestination } from "@/src/lib/ifs/cemp-advance";
+import {
+  destinoConsultaLabel,
+  looksLikeDestinationCode,
+} from "@/src/lib/anticipos-ifs-catalog";
 import type {
   Anticipo,
   AnticipoEstado,
@@ -61,18 +66,19 @@ export function toCEmpAdvancesInsert(
     20,
   );
   const empNo = clip(
-    input.beneficiarioEmpNo ||
-      (!input.paraOtro ? actor.empNo : "") ||
-      input.beneficiarioId ||
-      actor.empNo,
+    input.paraOtro
+      ? input.beneficiarioEmpNo || input.beneficiarioId || ""
+      : input.beneficiarioEmpNo || actor.empNo || input.beneficiarioId || "",
     10,
   );
   const supplierId = clip(
-    input.beneficiarioSupplierId || actor.supplierId || empNo,
+    input.paraOtro
+      ? input.beneficiarioSupplierId || ""
+      : input.beneficiarioSupplierId || actor.supplierId || empNo,
     20,
   );
   const createdBy = clip(input.createdBy || actor.personId || actor.empNo, 20);
-  const destination = input.destinoCodigo || input.destino;
+  const destination = input.destinoCodigo?.trim();
   const payload: CEmpAdvancesInsert = {
     Description: clip(input.motivo, 100),
     RequestType: requestTypeFromUi(input.tipo),
@@ -90,7 +96,11 @@ export function toCEmpAdvancesInsert(
     const regreso = dmyToIso(input.fechaRegreso);
     if (ida) payload.DepartureDate = ida;
     if (regreso) payload.ReturnDate = regreso;
-    if (destination && destination.length <= 20) {
+    if (
+      destination &&
+      destination.length <= 20 &&
+      !destination.includes(",")
+    ) {
       payload.Destination = destination;
     }
   }
@@ -119,7 +129,7 @@ export function queryToAnticipo(row: CEmpAdvanceQuery): Anticipo {
     no,
     fecha: isoToDmy(row.RequestDate) || "",
     proy: row.ProjectId || "",
-    proyN: row.ProjectId || "",
+    proyN: row.ProjectName?.trim() || "",
     tipo: row.RequestType === "Travel" || row.RequestType === "Viaje" ? "Viaje" : "Gasto",
     monto: row.Amount ?? 0,
     div: row.CurrencyCode || "",
@@ -130,15 +140,18 @@ export function queryToAnticipo(row: CEmpAdvanceQuery): Anticipo {
     fechaAprob: isoToDmy(row.ApprovedDate) || null,
     aprobador: row.ApproverId || row.ApproverName || null,
     pago: estado === "Pagado" ? "Pagado" : estado === "Lanzado" || estado === "Aprobado" ? "Pendiente" : "—",
-    solicitante: row.RequesterName || row.CreatorName || row.RequestedBy,
-    solicitanteId: row.RequestedBy || row.CreatedBy,
+    solicitante: row.RequesterName || row.CreatorName || undefined,
+    solicitanteId: row.CreatedBy || row.RequestedBy,
     beneficiarioId: row.EmpNo,
     beneficiarioNombre: row.EmployeeName,
-    paraOtro: Boolean(
-      row.RequestedBy &&
-        row.EmpNo &&
-        row.RequestedBy.replace(/\D/g, "") !== row.EmpNo.replace(/\D/g, ""),
-    ),
+    paraOtro: (() => {
+      const requester = (row.RequesterName || row.CreatorName || "").trim();
+      const employee = (row.EmployeeName || "").trim();
+      if (requester && employee) {
+        return requester.toLowerCase() !== employee.toLowerCase();
+      }
+      return false;
+    })(),
     cedula: row.EmpNo,
   };
 }
@@ -172,6 +185,7 @@ export function queryToAprobacion(row: CEmpAdvanceQuery): AnticipoAprobacion {
     proyN: a.proyN,
     tipo: a.tipo,
     solicitante: a.solicitante || "—",
+    solicitanteId: a.solicitanteId,
     cedula: a.cedula || a.beneficiarioId || "",
     nombre: a.beneficiarioNombre || "—",
     cuenta: "—",
@@ -210,4 +224,32 @@ export function recordsFromQueries(rows: CEmpAdvanceQuery[]): {
     extras[a.no] = queryToExtra(row);
   }
   return { anticipos, extras };
+}
+
+/** Cambia Destination código (CL-58-…) por país, estado, ciudad. */
+export async function applyDestinoNombres<T extends { destino?: string }>(
+  items: T[],
+  accessToken: string,
+): Promise<T[]> {
+  const codes = [
+    ...new Set(
+      items
+        .map((item) => item.destino?.trim() || "")
+        .filter((dest) => looksLikeDestinationCode(dest)),
+    ),
+  ];
+  if (!codes.length) return items;
+  const labels = new Map<string, string>();
+  await Promise.all(
+    codes.map(async (code) => {
+      const row = await getAdvanceCityByDestination(accessToken, code);
+      const label = row ? destinoConsultaLabel(row) : "";
+      if (label) labels.set(code, label);
+    }),
+  );
+  return items.map((item) => {
+    const code = item.destino?.trim() || "";
+    const label = labels.get(code);
+    return label ? { ...item, destino: label } : item;
+  });
 }

@@ -5,7 +5,7 @@ import {
   getIfsDevBypassCredentials,
   isIfsAuthEnabled,
 } from "@/src/lib/ifs/config";
-import { SESSION_COOKIE } from "@/src/lib/ifs/constants";
+import { IFS_SESSION_TTL_SEC, SESSION_COOKIE } from "@/src/lib/ifs/constants";
 import { expiredSessionCookieOptions } from "@/src/lib/ifs/session-cookie";
 
 export type IfsUserSession = {
@@ -15,7 +15,10 @@ export type IfsUserSession = {
   name?: string;
   accessToken: string;
   refreshToken?: string;
+  /** Fin de la sesión del portal (cookie / fila). */
   expiresAt: number;
+  /** Fin del access token IFS. Si falta, se infiere del JWT `exp`. */
+  tokenExpiresAt?: number;
 };
 
 /** Cookie firmada pequeña: { sid, email, expiresAt } — sin JWTs. */
@@ -124,6 +127,7 @@ async function loadSessionRow(sid: string): Promise<IfsUserSession | null> {
     accessToken: row.accessToken,
     refreshToken: row.refreshToken ?? undefined,
     expiresAt: row.expiresAt.getTime(),
+    tokenExpiresAt: accessTokenExpiresAt(row.accessToken) ?? undefined,
   };
 }
 
@@ -277,7 +281,18 @@ export type TokenIdentityClaims = {
   username?: string;
   sub?: string;
   unique_name?: string;
+  exp?: number;
 };
+
+export function nextIfsSessionExpiry(from = Date.now()): number {
+  return from + IFS_SESSION_TTL_SEC * 1000;
+}
+
+/** `exp` del JWT en ms, o null si el token no lo trae. */
+export function accessTokenExpiresAt(accessToken: string): number | null {
+  const exp = parseAccessTokenClaims(accessToken).exp;
+  return typeof exp === "number" && exp > 0 ? exp * 1000 : null;
+}
 
 function stringClaim(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -298,6 +313,12 @@ export function parseIdTokenClaims(idToken: string): TokenIdentityClaims {
 
 export function parseAccessTokenClaims(accessToken: string): TokenIdentityClaims {
   const payload = parseJwtPayload(accessToken);
+  const exp =
+    typeof payload.exp === "number"
+      ? payload.exp
+      : typeof payload.exp === "string"
+        ? Number(payload.exp)
+        : undefined;
   return {
     email: stringClaim(payload.email),
     name: stringClaim(payload.name),
@@ -306,6 +327,7 @@ export function parseAccessTokenClaims(accessToken: string): TokenIdentityClaims
     username: stringClaim(payload.username),
     sub: stringClaim(payload.sub),
     unique_name: stringClaim(payload.unique_name),
+    exp: Number.isFinite(exp) ? exp : undefined,
   };
 }
 

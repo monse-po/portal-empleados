@@ -22,6 +22,7 @@ import {
   buildFilterMultiOptions,
   type FilterDropdownOption,
 } from "@/src/components/ui/TableFilterBar";
+import { distinctEmpleadoFiltroOptions } from "@/src/lib/empleado-display";
 import {
   createEmptyRule,
   getDistinctValues,
@@ -66,6 +67,19 @@ function multiOptions(
   column: "empleado" | "tipo" | "proyecto" | "subproy" | "actividad" | "estado",
   registros: HojaAprobacion[],
 ): FilterDropdownOption[] {
+  if (column === "empleado") {
+    return distinctEmpleadoFiltroOptions(
+      registros.map((h) => ({
+        nombre: h.nombre || h.solicitante,
+        codigo: h.cedula,
+      })),
+    ).map((o) => ({
+      value: o.value,
+      label: o.label,
+      title: o.title,
+      icon: "user",
+    }));
+  }
   return buildFilterMultiOptions(
     "tiempo",
     column,

@@ -1,20 +1,48 @@
 import type { ReactNode } from "react";
 import {
+  splitEmpleadoNombreCodigo,
+} from "@/src/lib/empleado-display";
+import {
   baseProyectoCodigo,
   baseProyectoNombre,
 } from "@/src/lib/proyecto-display";
+
+export {
+  empleadoCodigoDisplay,
+  splitEmpleadoNombreCodigo,
+} from "@/src/lib/empleado-display";
 
 type DataTableProps = {
   /** Column widths as CSS values, e.g. "10%", "72px" */
   colWidths: string[];
   children: ReactNode;
   className?: string;
+  /**
+   * `auto`: el ancho sigue el contenido; el contenedor hace scroll horizontal.
+   * `fixed` (default): `table-fixed` al 100%.
+   */
+  layout?: "fixed" | "auto";
+  /** `<th>` fijos al hacer scroll en el contenedor. */
+  stickyHeader?: boolean;
 };
 
-export function DataTable({ colWidths, children, className = "" }: DataTableProps) {
+export function DataTable({
+  colWidths,
+  children,
+  className = "",
+  layout = "fixed",
+  stickyHeader = false,
+}: DataTableProps) {
+  const tableLayout =
+    layout === "auto"
+      ? "w-max min-w-full table-auto"
+      : "w-full table-fixed";
+  const stickyHead = stickyHeader
+    ? "[&_th]:sticky [&_th]:top-0 [&_th]:z-10"
+    : "";
   return (
     <table
-      className={`w-full table-fixed border-collapse text-[12px] ${className}`}
+      className={`${tableLayout} border-collapse text-[12px] ${stickyHead} ${className}`}
     >
       <colgroup>
         {colWidths.map((width, index) => (
@@ -136,23 +164,206 @@ export const dataTdResSecondary =
 export function ProyectoCell({
   codigo,
   nombre,
+  inline = false,
+  fullText = false,
 }: {
   codigo?: string | null;
   nombre?: string | null;
+  /** Una línea: código semibold + nombre muted. */
+  inline?: boolean;
+  fullText?: boolean;
 }) {
   const code = baseProyectoCodigo(codigo);
   const desc = baseProyectoNombre(codigo, nombre);
   if (!code && !desc) {
     return <span className="text-muted">—</span>;
   }
+  const title = [code, desc].filter(Boolean).join(" · ");
+  if (inline) {
+    return (
+      <span
+        className={`block min-w-0 ${fullText ? "whitespace-nowrap" : "truncate"}`}
+        title={title}
+      >
+        <span className="font-semibold">{code || "—"}</span>
+        {desc ? (
+          <>
+            {" "}
+            <span className="text-[12px] font-normal text-[#9ca3af]">{desc}</span>
+          </>
+        ) : null}
+      </span>
+    );
+  }
+  const primary = fullText
+    ? "whitespace-nowrap font-semibold leading-snug"
+    : `${dataTdResPrimary} font-semibold`;
+  const secondary = fullText
+    ? "whitespace-nowrap text-[11px] leading-snug text-[#9ca3af]"
+    : dataTdResSecondary;
   return (
-    <div className="min-w-0">
-      <div className={`${dataTdResPrimary} font-semibold`} title={code}>
+    <div className={fullText ? "" : "min-w-0"}>
+      <div className={primary} title={code}>
         {code || "—"}
       </div>
       {desc ? (
-        <div className={dataTdResSecondary} title={desc}>
+        <div className={secondary} title={desc}>
           {desc}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Código + nombre (subproyecto), misma geometría que ProyectoCell. */
+export function SubproyectoCell({
+  codigo,
+  nombre,
+  inline = false,
+  fullText = false,
+}: {
+  codigo?: string | null;
+  nombre?: string | null;
+  inline?: boolean;
+  fullText?: boolean;
+}) {
+  const raw = (codigo || "").trim();
+  const parts = raw.split("·").map((x) => x.trim());
+  const code = parts[0] || "";
+  const desc = (nombre || parts[1] || "").trim();
+  if (!code && !desc) {
+    return <span className="text-muted">—</span>;
+  }
+  const title = [code, desc !== code ? desc : ""].filter(Boolean).join(" · ");
+  if (inline) {
+    return (
+      <span
+        className={`block min-w-0 ${fullText ? "whitespace-nowrap" : "truncate"}`}
+        title={title}
+      >
+        <span className="font-semibold">{code || "—"}</span>
+        {desc && desc !== code ? (
+          <>
+            {" "}
+            <span className="text-[12px] font-normal text-[#9ca3af]">{desc}</span>
+          </>
+        ) : null}
+      </span>
+    );
+  }
+  const primary = fullText
+    ? "whitespace-nowrap font-medium leading-snug"
+    : dataTdResPrimary;
+  const secondary = fullText
+    ? "whitespace-nowrap text-[11px] leading-snug text-[#9ca3af]"
+    : dataTdResSecondary;
+  return (
+    <div className={fullText ? "" : "min-w-0"}>
+      <div className={primary} title={code || desc}>
+        {code || "—"}
+      </div>
+      {desc && desc !== code ? (
+        <div className={secondary} title={desc}>
+          {desc}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Monto + divisa. Misma pila en anticipos, legalizaciones y DSE. */
+export function MontoCell({
+  monto,
+  divisa,
+  decimals,
+}: {
+  monto: number;
+  divisa?: string | null;
+  decimals?: number;
+}) {
+  const div = (divisa || "COP").trim() || "COP";
+  const prefix: Record<string, string> = {
+    COP: "$",
+    USD: "US$",
+    MXN: "$",
+    PEN: "S/",
+  };
+  const pre = prefix[div] || "$";
+  const abs = Math.abs(monto).toLocaleString(
+    "es-CO",
+    decimals != null
+      ? {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        }
+      : undefined,
+  );
+  const sign = monto < 0 ? "-" : "";
+  return (
+    <div className="min-w-0 text-right">
+      <div className="font-semibold leading-snug tabular-nums">
+        {sign}
+        {pre} {abs}
+      </div>
+      <div className={dataTdResSecondary}>{div}</div>
+    </div>
+  );
+}
+
+/** Nombre + código (EmpNo). El nombre es la línea principal. */
+export function EmpleadoCell({
+  nombre,
+  codigo,
+  inline = false,
+  fullText = false,
+}: {
+  nombre?: string | null;
+  codigo?: string | null;
+  inline?: boolean;
+  /** Sin truncate: el texto cabe entero (tablas con scroll horizontal). */
+  fullText?: boolean;
+}) {
+  const { nombre: name, codigo: code } = splitEmpleadoNombreCodigo(
+    nombre,
+    codigo,
+  );
+  if (!name && !code) {
+    return <span className="text-muted">—</span>;
+  }
+  if (inline) {
+    return (
+      <span
+        className={`block min-w-0 ${fullText ? "whitespace-nowrap" : "truncate"}`}
+        title={[name, code].filter(Boolean).join(" · ")}
+      >
+        {name ? <span className="font-semibold">{name}</span> : null}
+        {code ? (
+          <>
+            {" "}
+            <span className="text-[12px] font-normal tabular-nums text-[#9ca3af]">
+              {code}
+            </span>
+          </>
+        ) : null}
+      </span>
+    );
+  }
+  const primary = fullText
+    ? "whitespace-nowrap font-medium leading-snug"
+    : dataTdResPrimary;
+  const secondary = fullText
+    ? "whitespace-nowrap text-[11px] leading-snug text-[#9ca3af]"
+    : dataTdResSecondary;
+  return (
+    <div className={fullText ? "" : "min-w-0"}>
+      {name ? (
+        <div className={`${primary} font-semibold`} title={name}>
+          {name}
+        </div>
+      ) : null}
+      {code ? (
+        <div className={`${secondary} tabular-nums`} title={code}>
+          {code}
         </div>
       ) : null}
     </div>
@@ -185,17 +396,17 @@ export const MI_TIEMPO_LISTA_COLS = [
 /** Mi Tiempo — vista día con columna de acciones */
 export const MI_TIEMPO_DIA_COLS = [...MI_TIEMPO_COLS, "5%"] as const;
 
-/** Aprobación — pendientes (checkbox + datos; acciones van en BulkSelectionBar) */
+/** Aprobación tiempo — pendientes (sin Aprobador; esa columna solo vive en resueltas) */
 export const APRO_PEND_COLS = [
   CHECKBOX_COL_WIDTH,
-  "7%",
-  "10%",
-  "9%",
-  "5%",
-  "12%",
-  "11%",
-  "12%",
-  "26%",
+  "8%",   // Fecha
+  "14%",  // Empleado
+  "10%",  // Tipo hora
+  "6%",   // Horas
+  "14%",  // Proyecto
+  "12%",  // Subproyecto
+  "14%",  // Actividad
+  "22%",  // Comentario
 ] as const;
 
 export const TABLE_PAGE_SIZE = 50;
@@ -214,40 +425,44 @@ export const RES_TAB_PCT_BUDGET = {
 /** Anticipos resueltas — proporciones alineadas a pendientes (+estado; motivo 26%) */
 export const APRO_ANT_COLS_RES = [
   RES_TAB_SPACER_COL,
-  "9%",   // Código (igual pendientes)
-  "8%",   // Solicitado
-  "12%",  // Empleado
-  "7%",   // Tipo pill
-  "13%",  // Proyecto (2 líneas, igual pendientes)
-  "10%",  // Monto + divisa (2 líneas)
-  "8%",   // Estado pill + fecha (2 líneas)
-  "30%",  // Motivo decisión
-] as const;
-
-/** Legalizaciones resueltas — sin proyecto; concepto + motivo decisión */
-export const APRO_LEG_COLS_RES = [
-  RES_TAB_SPACER_COL,
   "9%",   // Código
   "8%",   // Solicitado
   "12%",  // Empleado
-  "9%",   // Tipo pill
-  "16%",  // Concepto
+  "7%",   // Tipo pill
+  "13%",  // Proyecto
   "10%",  // Monto + divisa
   "8%",   // Estado pill + fecha
-  "28%",  // Motivo decisión
+  "30%",  // Motivo decisión
 ] as const;
 
-/** Tiempo resueltas — mismas proporciones que pendientes (comentario→motivo, +estado) */
+/** Legalizaciones resueltas — proyecto apilado (código + nombre) */
+export const APRO_LEG_COLS_RES = [
+  RES_TAB_SPACER_COL,
+  "8%",   // Código
+  "7%",   // Solicitado
+  "11%",  // Empleado
+  "10%",  // Aprobador
+  "8%",   // Tipo pill
+  "12%",  // Concepto
+  "12%",  // Proyecto
+  "8%",   // Monto + divisa
+  "8%",   // Estado pill + fecha
+  "13%",  // Motivo decisión
+] as const;
+
+/** Tiempo resueltas — +estado, comentario empleado y motivo de decisión */
 export const APRO_RES_COLS = [
   RES_TAB_SPACER_COL,
   "7%",   // Fecha
-  "10%",  // Empleado
-  "8%",   // Tipo hora pill
+  "11%",  // Empleado
+  "8%",   // Aprobador
+  "8%",   // Tipo hora
   "5%",   // Horas
-  "12%",  // Proyecto
-  "11%",  // Subproyecto
-  "11%",  // Actividad
-  "8%",   // Estado pill
-  "21%",  // Motivo decisión
+  "10%",  // Proyecto
+  "9%",   // Subproyecto
+  "9%",   // Actividad
+  "8%",   // Estado
+  "9%",   // Comentario
+  "9%",   // Motivo
   RES_TAB_ACTION_COL,
 ] as const;

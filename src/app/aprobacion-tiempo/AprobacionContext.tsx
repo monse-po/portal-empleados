@@ -12,7 +12,9 @@ import {
 import {
   filterHojasByTab,
   getAprobacionKpis,
+  horasNum,
   hoyDMY,
+  sumHorasHojas,
   type HojaAprobacion,
 } from "@/src/lib/aprobacion-tiempo-mock";
 import type { SyncRegistroAccion, SyncRegistroHandler } from "@/src/lib/tiempo-bridge";
@@ -29,6 +31,7 @@ function toHojaNotifInput(hoja: HojaAprobacion): HojaNotificacionInput {
     cedula: hoja.cedula,
     nombre: hoja.nombre,
     proy: hoja.proy,
+    horas: horasNum(hoja.horas) || undefined,
   };
 }
 
@@ -42,6 +45,7 @@ export type AprobacionDecisionResult = {
 type AprobacionContextValue = {
   hojas: Record<string, HojaAprobacion>;
   kpis: ReturnType<typeof getAprobacionKpis>;
+  /** Horas por aprobar (badge del menú). Cero = sin cola. */
   pendientesCount: number;
   tab: "pend" | "res";
   setTab: (tab: "pend" | "res") => void;
@@ -62,8 +66,9 @@ type AprobacionContextValue = {
     nos: string[],
     comentario: string,
   ) => Promise<AprobacionDecisionResult>;
-  anular: (nos: string[]) => void;
+  anular: (nos: string[]) => Promise<AprobacionDecisionResult>;
   getHoja: (no: string) => HojaAprobacion | undefined;
+  /** Horas (no registros) de cada pestaña. */
   tabCounts: { pend: number; res: number };
 };
 
@@ -254,19 +259,38 @@ export function AprobacionProvider({
   );
 
   const anular = useCallback(
-    (nos: string[]) => {
-      const toSync: string[] = [];
+    async (nos: string[]): Promise<AprobacionDecisionResult> => {
       const hojasAnuladas = nos
         .map((no) => hojasRef.current[no])
         .filter((h): h is HojaAprobacion => !!h);
+      const registroIds = hojasAnuladas
+        .map((h) => h.registroId)
+        .filter((id): id is string => !!id);
 
+      if (!registroIds.length) {
+        return { ok: false, error: "No hay registros válidos para anular." };
+      }
+
+      const result = await resolverAprobacionTiempoAction({
+        registroIds,
+        decision: "anulado",
+      });
+      if (!result.ok) {
+        return {
+          ok: false,
+          error: result.error,
+          sentToIfs: result.sentToIfs,
+          stale: result.stale,
+        };
+      }
+
+      const toSync: string[] = [];
       setHojas((prev) => {
         const next = { ...prev };
         nos.forEach((no) => {
           if (!next[no]) return;
           const registroId = next[no].registroId;
           if (registroId) toSync.push(registroId);
-          // Sale de la cola; el empleado vuelve a Registrado vía sync.
           delete next[no];
         });
         return next;
@@ -283,6 +307,8 @@ export function AprobacionProvider({
       }).catch((error) => {
         console.error("[notificaciones] no se pudo notificar anulación", error);
       });
+
+      return { ok: true, sentToIfs: result.sentToIfs };
     },
     [syncRegistro, clearSeleccion],
   );
@@ -295,8 +321,8 @@ export function AprobacionProvider({
 
   const tabCounts = useMemo(
     () => ({
-      pend: filterHojasByTab(hojas, "pend").length,
-      res: filterHojasByTab(hojas, "res").length,
+      pend: sumHorasHojas(filterHojasByTab(hojas, "pend")),
+      res: sumHorasHojas(filterHojasByTab(hojas, "res")),
     }),
     [hojas],
   );
@@ -305,7 +331,7 @@ export function AprobacionProvider({
     () => ({
       hojas,
       kpis,
-      pendientesCount: kpis.pendientes,
+      pendientesCount: kpis.horasPendientes,
       tab,
       setTab,
       seleccion,

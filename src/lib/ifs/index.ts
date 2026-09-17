@@ -9,6 +9,7 @@ export {
   isIfsAuthEnabled,
   isIfsAuthReady,
   isIfsConfigured,
+  isPortalLoginRequired,
   type IfsConfig,
 } from "@/src/lib/ifs/config";
 export {
@@ -27,6 +28,7 @@ export {
   getScheduleHoursForDate,
   getEmployeeScheduleHoursByDate,
   getEmployeeHoursPrograma,
+  type IfsDiaEspecial,
   getUserInfo,
   getValidActReportCode,
   getValidEmpPrjAct,

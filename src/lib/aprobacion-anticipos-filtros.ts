@@ -2,6 +2,7 @@ import { format, parse } from "date-fns";
 import type { IconName } from "@/src/components/ui/Icon";
 import { dmyToSortKey } from "@/src/lib/tiempo-bridge";
 import type { AnticipoAprobacion } from "@/src/lib/aprobacion-anticipos-registro";
+import { empleadoFiltroNombre } from "@/src/lib/empleado-display";
 
 export type AproAntFilterColumn =
   | "codigo"
@@ -93,7 +94,7 @@ function getFieldValue(
     case "fecha":
       return s.fecha;
     case "empleado":
-      return s.solicitante || s.nombre || "";
+      return empleadoFiltroNombre(s.nombre, s.cedula);
     case "tipo":
       return s.tipo;
     case "proyecto":

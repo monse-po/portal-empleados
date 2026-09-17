@@ -6,8 +6,11 @@ const variants = {
     "bg-navy text-white hover:bg-navy-mid active:bg-navy-mid border-none",
   success:
     "bg-green text-white hover:bg-green-dark active:bg-green-dark border-none",
+  /** Aprobar en listas — mint del portal, sin verde sólido. */
+  successSoft:
+    "bg-green-bg text-green border border-green-border hover:bg-green-soft active:bg-green-soft",
   danger:
-    "bg-[#fde8e8] text-[#9b1c1c] hover:bg-[#fbd5d5] active:bg-[#fbd5d5] border-none",
+    "bg-pill-rechazado-bg text-pill-rechazado-fg hover:bg-[#fecaca] active:bg-[#fecaca] border-none",
   secondary:
     "bg-[#eef3f9] text-navy border border-[#c7d9ed] hover:bg-[#dbeafe] hover:border-[#bfdbfe] active:bg-[#dbeafe]",
   tertiary:
