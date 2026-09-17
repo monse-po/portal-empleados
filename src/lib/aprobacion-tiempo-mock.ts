@@ -15,7 +15,10 @@ export type HojaAprobacion = {
   actividad: string;
   horas: string;
   comentarioEmpleado: string;
+  /** Código IFS del aprobador (PersonId / EmpNo), como en Anticipos. */
   aprobador: string;
+  /** Nombre, solo para tooltip. */
+  aprobadorNombre?: string;
   registroId?: string;
   estadoApro?: EstadoAprobacion;
   comentarioApro?: string;
@@ -383,6 +386,10 @@ export function horasNum(horas: string): number {
   return parseFloat(horas) || 0;
 }
 
+export function sumHorasHojas(hojas: HojaAprobacion[]): number {
+  return hojas.reduce((sum, hoja) => sum + horasNum(hoja.horas), 0);
+}
+
 export function hoyDMY(): string {
   return new Date().toLocaleDateString("es-CO", {
     day: "2-digit",
@@ -481,6 +488,7 @@ export type AprobacionKpis = {
   rechazadas: number;
   horasPendientes: number;
   horasAprobadas: number;
+  horasRechazadas: number;
 };
 
 export function getAprobacionKpis(
@@ -488,20 +496,15 @@ export function getAprobacionKpis(
 ): AprobacionKpis {
   const all = Object.values(hojas);
   const round = (x: number) => Math.round(x * 10) / 10;
+  const sumHoras = (pred: (s: HojaAprobacion) => boolean) =>
+    round(all.filter(pred).reduce((a, s) => a + horasNum(s.horas), 0));
   return {
     pendientes: all.filter((s) => !s.estadoApro).length,
     aprobadas: all.filter((s) => s.estadoApro === "Aprobado").length,
     rechazadas: all.filter((s) => s.estadoApro === "Rechazado").length,
-    horasPendientes: round(
-      all
-        .filter((s) => !s.estadoApro)
-        .reduce((a, s) => a + horasNum(s.horas), 0),
-    ),
-    horasAprobadas: round(
-      all
-        .filter((s) => s.estadoApro === "Aprobado")
-        .reduce((a, s) => a + horasNum(s.horas), 0),
-    ),
+    horasPendientes: sumHoras((s) => !s.estadoApro),
+    horasAprobadas: sumHoras((s) => s.estadoApro === "Aprobado"),
+    horasRechazadas: sumHoras((s) => s.estadoApro === "Rechazado"),
   };
 }
 

@@ -143,6 +143,7 @@ export type EmpReportItemRow = {
   CRejectNote?: string;
   CApprover?: string;
   CApproverName?: string;
+  CAutoApprover?: string;
   CAutoApproverName?: string;
   ProjectId?: string;
   SubProjectId?: string;

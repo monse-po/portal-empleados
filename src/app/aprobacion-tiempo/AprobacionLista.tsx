@@ -17,7 +17,6 @@ import {
   removeFilterByColumn,
   type AproFilterRule,
 } from "@/src/lib/aprobacion-filtros";
-import { horasNum } from "@/src/lib/aprobacion-tiempo-mock";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 import { KpiCard } from "@/src/components/ui/KpiCard";
 
@@ -67,10 +66,6 @@ export function AprobacionLista({
     [registrosActuales, filters],
   );
   const filtrosActivos = hayFiltrosActivos(filters);
-  const horasEnPantalla = useMemo(
-    () => filtrados.reduce((sum, hoja) => sum + horasNum(hoja.horas), 0),
-    [filtrados],
-  );
 
   const handleTab = (next: "pend" | "res") => {
     setTab(next);
@@ -83,32 +78,28 @@ export function AprobacionLista({
   const body = (
     <>
       {embedded ? null : (
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard
-            label="Pendientes"
-            value={kpis.pendientes}
-            sub="Requieren acción"
-            alert
-          />
-          <KpiCard
-            label="Aprobadas este mes"
-            value={kpis.aprobadas}
-            sub={`${formatHorasValor(kpis.horasAprobadas)} h aprobadas`}
-            navy
-          />
-          <KpiCard
-            label="Rechazadas"
-            value={kpis.rechazadas}
-            sub="Este mes"
-          />
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
           <KpiCard
             label="Horas por aprobar"
             value={formatHorasValor(kpis.horasPendientes)}
-            sub="En registros pendientes"
+            sub="Pendientes de tu decisión"
+            alert={kpis.horasPendientes > 0}
+          />
+          <KpiCard
+            label="Horas aprobadas"
+            value={formatHorasValor(kpis.horasAprobadas)}
+            sub="Ya aprobadas este mes"
+            navy
+          />
+          <KpiCard
+            label="Horas rechazadas"
+            value={formatHorasValor(kpis.horasRechazadas)}
+            sub="Rechazadas este mes"
           />
         </div>
       )}
 
+      <div className="flex flex-col overflow-hidden bg-[#f5f7fa] lg:sticky lg:top-[72px] lg:z-20 lg:max-h-[calc(100dvh-8rem)]">
       <AprobacionFilterBar
         registros={registrosActuales}
         filters={filters}
@@ -126,9 +117,9 @@ export function AprobacionLista({
         }
       />
 
-      <Card className="overflow-hidden p-0">
+      <Card className="mb-0 flex min-h-0 flex-1 flex-col !overflow-hidden p-0">
         {tableLead}
-        <div className="flex items-center justify-between gap-3 border-b-2 border-[#e5e9f0] px-2">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b-2 border-[#e5e9f0] bg-white px-2">
           <div className="flex">
             <button
               type="button"
@@ -140,9 +131,12 @@ export function AprobacionLista({
               }`}
             >
               <Icon name="clock" size="sm" />
-              Por aprobar
-              <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-                {tabCounts.pend}
+              Horas por aprobar
+              <span
+                className="rounded-full bg-[#fffbeb] px-2 py-0.5 text-[10px] font-semibold text-[#b45309]"
+                title="Horas por aprobar"
+              >
+                {formatHorasValor(tabCounts.pend)}h
               </span>
             </button>
             <button
@@ -155,23 +149,21 @@ export function AprobacionLista({
               }`}
             >
               <Icon name="checkSquare" size="sm" />
-              Resueltas
-              <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-                {tabCounts.res}
+              Horas resueltas
+              <span
+                className="rounded-full bg-green-bg px-2 py-0.5 text-[10px] font-semibold text-green"
+                title="Horas ya resueltas"
+              >
+                {formatHorasValor(tabCounts.res)}h
               </span>
             </button>
           </div>
           <div className="flex items-baseline gap-2.5 pr-3">
-            {filtrosActivos ? (
-              <span className="text-[12px] tabular-nums text-muted">
-                {filtrados.length} de {registrosActuales.length}
-              </span>
-            ) : null}
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-              Horas
+              Horas registradas totales
             </span>
             <span className="text-[18px] font-extrabold tabular-nums text-navy">
-              {formatHorasValor(horasEnPantalla)}
+              {formatHorasValor(tabCounts.pend + tabCounts.res)}
             </span>
           </div>
         </div>
@@ -186,6 +178,7 @@ export function AprobacionLista({
           />
         )}
       </Card>
+      </div>
     </>
   );
 
@@ -206,7 +199,7 @@ export function AprobacionLista({
           />
         </div>
         <p className="mt-1 text-[13px] text-[#4b5563]">
-          Registros de tu equipo pendientes de revisión
+          Horas extras de tu equipo. Aprueba o rechaza lo que sigue pendiente.
         </p>
         <div className="mt-3">
           <IfsStatusBanner

@@ -17,12 +17,32 @@ type DataTableProps = {
   colWidths: string[];
   children: ReactNode;
   className?: string;
+  /**
+   * `auto`: el ancho sigue el contenido; el contenedor hace scroll horizontal.
+   * `fixed` (default): `table-fixed` al 100%.
+   */
+  layout?: "fixed" | "auto";
+  /** `<th>` fijos al hacer scroll en el contenedor. */
+  stickyHeader?: boolean;
 };
 
-export function DataTable({ colWidths, children, className = "" }: DataTableProps) {
+export function DataTable({
+  colWidths,
+  children,
+  className = "",
+  layout = "fixed",
+  stickyHeader = false,
+}: DataTableProps) {
+  const tableLayout =
+    layout === "auto"
+      ? "w-max min-w-full table-auto"
+      : "w-full table-fixed";
+  const stickyHead = stickyHeader
+    ? "[&_th]:sticky [&_th]:top-0 [&_th]:z-10"
+    : "";
   return (
     <table
-      className={`w-full table-fixed border-collapse text-[12px] ${className}`}
+      className={`${tableLayout} border-collapse text-[12px] ${stickyHead} ${className}`}
     >
       <colgroup>
         {colWidths.map((width, index) => (
@@ -145,11 +165,13 @@ export function ProyectoCell({
   codigo,
   nombre,
   inline = false,
+  fullText = false,
 }: {
   codigo?: string | null;
   nombre?: string | null;
   /** Una línea: código semibold + nombre muted. */
   inline?: boolean;
+  fullText?: boolean;
 }) {
   const code = baseProyectoCodigo(codigo);
   const desc = baseProyectoNombre(codigo, nombre);
@@ -159,7 +181,10 @@ export function ProyectoCell({
   const title = [code, desc].filter(Boolean).join(" · ");
   if (inline) {
     return (
-      <span className="block min-w-0 truncate" title={title}>
+      <span
+        className={`block min-w-0 ${fullText ? "whitespace-nowrap" : "truncate"}`}
+        title={title}
+      >
         <span className="font-semibold">{code || "—"}</span>
         {desc ? (
           <>
@@ -170,13 +195,19 @@ export function ProyectoCell({
       </span>
     );
   }
+  const primary = fullText
+    ? "whitespace-nowrap font-semibold leading-snug"
+    : `${dataTdResPrimary} font-semibold`;
+  const secondary = fullText
+    ? "whitespace-nowrap text-[11px] leading-snug text-[#9ca3af]"
+    : dataTdResSecondary;
   return (
-    <div className="min-w-0">
-      <div className={`${dataTdResPrimary} font-semibold`} title={code}>
+    <div className={fullText ? "" : "min-w-0"}>
+      <div className={primary} title={code}>
         {code || "—"}
       </div>
       {desc ? (
-        <div className={dataTdResSecondary} title={desc}>
+        <div className={secondary} title={desc}>
           {desc}
         </div>
       ) : null}
@@ -189,10 +220,12 @@ export function SubproyectoCell({
   codigo,
   nombre,
   inline = false,
+  fullText = false,
 }: {
   codigo?: string | null;
   nombre?: string | null;
   inline?: boolean;
+  fullText?: boolean;
 }) {
   const raw = (codigo || "").trim();
   const parts = raw.split("·").map((x) => x.trim());
@@ -204,7 +237,10 @@ export function SubproyectoCell({
   const title = [code, desc !== code ? desc : ""].filter(Boolean).join(" · ");
   if (inline) {
     return (
-      <span className="block min-w-0 truncate" title={title}>
+      <span
+        className={`block min-w-0 ${fullText ? "whitespace-nowrap" : "truncate"}`}
+        title={title}
+      >
         <span className="font-semibold">{code || "—"}</span>
         {desc && desc !== code ? (
           <>
@@ -215,13 +251,19 @@ export function SubproyectoCell({
       </span>
     );
   }
+  const primary = fullText
+    ? "whitespace-nowrap font-medium leading-snug"
+    : dataTdResPrimary;
+  const secondary = fullText
+    ? "whitespace-nowrap text-[11px] leading-snug text-[#9ca3af]"
+    : dataTdResSecondary;
   return (
-    <div className="min-w-0">
-      <div className={dataTdResPrimary} title={code || desc}>
+    <div className={fullText ? "" : "min-w-0"}>
+      <div className={primary} title={code || desc}>
         {code || "—"}
       </div>
       {desc && desc !== code ? (
-        <div className={dataTdResSecondary} title={desc}>
+        <div className={secondary} title={desc}>
           {desc}
         </div>
       ) : null}
@@ -273,10 +315,13 @@ export function EmpleadoCell({
   nombre,
   codigo,
   inline = false,
+  fullText = false,
 }: {
   nombre?: string | null;
   codigo?: string | null;
   inline?: boolean;
+  /** Sin truncate: el texto cabe entero (tablas con scroll horizontal). */
+  fullText?: boolean;
 }) {
   const { nombre: name, codigo: code } = splitEmpleadoNombreCodigo(
     nombre,
@@ -288,7 +333,7 @@ export function EmpleadoCell({
   if (inline) {
     return (
       <span
-        className="block min-w-0 truncate"
+        className={`block min-w-0 ${fullText ? "whitespace-nowrap" : "truncate"}`}
         title={[name, code].filter(Boolean).join(" · ")}
       >
         {name ? <span className="font-semibold">{name}</span> : null}
@@ -303,15 +348,21 @@ export function EmpleadoCell({
       </span>
     );
   }
+  const primary = fullText
+    ? "whitespace-nowrap font-medium leading-snug"
+    : dataTdResPrimary;
+  const secondary = fullText
+    ? "whitespace-nowrap text-[11px] leading-snug text-[#9ca3af]"
+    : dataTdResSecondary;
   return (
-    <div className="min-w-0">
+    <div className={fullText ? "" : "min-w-0"}>
       {name ? (
-        <div className={dataTdResPrimary} title={name}>
+        <div className={`${primary} font-semibold`} title={name}>
           {name}
         </div>
       ) : null}
       {code ? (
-        <div className={`${dataTdResSecondary} tabular-nums`} title={code}>
+        <div className={`${secondary} tabular-nums`} title={code}>
           {code}
         </div>
       ) : null}
@@ -345,18 +396,17 @@ export const MI_TIEMPO_LISTA_COLS = [
 /** Mi Tiempo — vista día con columna de acciones */
 export const MI_TIEMPO_DIA_COLS = [...MI_TIEMPO_COLS, "5%"] as const;
 
-/** Aprobación — pendientes (checkbox + datos; acciones van en BulkSelectionBar) */
+/** Aprobación tiempo — pendientes (sin Aprobador; esa columna solo vive en resueltas) */
 export const APRO_PEND_COLS = [
   CHECKBOX_COL_WIDTH,
-  "7%",
-  "10%",
-  "10%",
-  "8%",
-  "5%",
-  "11%",
-  "10%",
-  "11%",
-  "18%",
+  "8%",   // Fecha
+  "14%",  // Empleado
+  "10%",  // Tipo hora
+  "6%",   // Horas
+  "14%",  // Proyecto
+  "12%",  // Subproyecto
+  "14%",  // Actividad
+  "22%",  // Comentario
 ] as const;
 
 export const TABLE_PAGE_SIZE = 50;
@@ -400,18 +450,19 @@ export const APRO_LEG_COLS_RES = [
   "13%",  // Motivo decisión
 ] as const;
 
-/** Tiempo resueltas — mismas proporciones que pendientes (comentario→motivo, +estado) */
+/** Tiempo resueltas — +estado, comentario empleado y motivo de decisión */
 export const APRO_RES_COLS = [
   RES_TAB_SPACER_COL,
   "7%",   // Fecha
-  "10%",  // Empleado
-  "10%",  // Aprobador
-  "7%",   // Tipo hora pill
+  "11%",  // Empleado
+  "8%",   // Aprobador
+  "8%",   // Tipo hora
   "5%",   // Horas
-  "11%",  // Proyecto
-  "10%",  // Subproyecto
-  "10%",  // Actividad
-  "8%",   // Estado pill
-  "15%",  // Motivo decisión
+  "10%",  // Proyecto
+  "9%",   // Subproyecto
+  "9%",   // Actividad
+  "8%",   // Estado
+  "9%",   // Comentario
+  "9%",   // Motivo
   RES_TAB_ACTION_COL,
 ] as const;

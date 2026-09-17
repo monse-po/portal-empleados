@@ -205,14 +205,11 @@ export function UserMenu() {
           role="menu"
           className="absolute right-0 top-[calc(100%+8px)] z-[300] min-w-[220px] overflow-hidden rounded-[10px] border border-border bg-white py-1 shadow-[0_10px_28px_rgba(15,23,42,0.14)]"
         >
-          <div className="border-b border-[#f1f5f9] px-3.5 py-2.5">
+          <div className="px-3.5 py-2.5">
             <div className="text-[13px] font-semibold text-navy">{title}</div>
-            <div className="text-[11px] text-muted">{subtitle}</div>
-            {profile?.connected && profile.companyId ? (
-              <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-green">
-                IFS · {profile.companyId}
-              </div>
-            ) : null}
+            <div className="truncate text-[11px] text-muted" title={subtitle}>
+              {subtitle}
+            </div>
             {profile?.error ? (
               <div className="mt-1 text-[11px] text-[#b45309]">{profile.error}</div>
             ) : null}

@@ -20,15 +20,38 @@ type NavItemProps = {
   href: string;
   icon: IconName;
   count?: number;
+  /** Horas: el número real, sin tope 9+. */
+  countExact?: boolean;
   active?: boolean;
   collapsed: boolean;
 };
 
-function NavItem({ label, href, icon, count, active, collapsed }: NavItemProps) {
+function formatNavCount(
+  count: number,
+  exact?: boolean,
+  collapsed?: boolean,
+): string {
+  if (!exact && collapsed && count > 9) return "9+";
+  return String(count);
+}
+
+function NavItem({
+  label,
+  href,
+  icon,
+  count,
+  countExact,
+  active,
+  collapsed,
+}: NavItemProps) {
   return (
     <Link
       href={href}
-      title={collapsed ? `${label}${count ? ` (${count})` : ""}` : undefined}
+      title={
+        collapsed
+          ? `${label}${count ? ` (${formatNavCount(count, countExact)})` : ""}`
+          : undefined
+      }
       className={`relative mb-0.5 flex w-full cursor-pointer items-center gap-2 rounded-sm text-left text-[13px] transition-colors duration-[120ms] ${
         collapsed ? "justify-center px-0 py-2.5" : "px-3 py-[9px]"
       } ${
@@ -53,7 +76,7 @@ function NavItem({ label, href, icon, count, active, collapsed }: NavItemProps) 
               : "px-[7px] py-0.5 text-[10px]"
           }`}
         >
-          {collapsed && count > 9 ? "9+" : count}
+          {formatNavCount(count, countExact, collapsed)}
         </span>
       )}
     </Link>
@@ -110,24 +133,29 @@ function NavAprobacionesSkeleton({
   );
 }
 
-function usePendingCount(path: string): number | undefined {
+function usePendingBadge(
+  path: string,
+): { count: number; exact?: boolean } | undefined {
   const aprobacion = useAprobacionOptional();
   const aprobacionAnticipos = useAprobacionAnticiposOptional();
   const aprobacionLegalizaciones = useAprobacionLegalizacionesOptional();
 
-  let count = 0;
   if (
     path === "/aprobacion-tiempo-proyectos" ||
     path === "/aprobacion-tiempo"
   ) {
-    count = aprobacion?.pendientesCount ?? 0;
-  } else if (path === "/aprobacion-anticipos") {
-    count = aprobacionAnticipos?.pendientesCount ?? 0;
-  } else if (path === "/aprobacion-legalizaciones") {
-    count = aprobacionLegalizaciones?.pendientesCount ?? 0;
-  } else return undefined;
-
-  return count > 0 ? count : undefined;
+    const count = aprobacion?.pendientesCount ?? 0;
+    return count > 0 ? { count, exact: true } : undefined;
+  }
+  if (path === "/aprobacion-anticipos") {
+    const count = aprobacionAnticipos?.pendientesCount ?? 0;
+    return count > 0 ? { count } : undefined;
+  }
+  if (path === "/aprobacion-legalizaciones") {
+    const count = aprobacionLegalizaciones?.pendientesCount ?? 0;
+    return count > 0 ? { count } : undefined;
+  }
+  return undefined;
 }
 
 function NavRouteItem({
@@ -139,7 +167,7 @@ function NavRouteItem({
   collapsed: boolean;
   pathname: string;
 }) {
-  const count = usePendingCount(route.path);
+  const badge = usePendingBadge(route.path);
   if (!isPathVisible(route.path)) return null;
 
   return (
@@ -147,7 +175,8 @@ function NavRouteItem({
       label={route.navLabel}
       href={route.path}
       icon={route.icon}
-      count={count}
+      count={badge?.count}
+      countExact={badge?.exact}
       collapsed={collapsed}
       active={isNavRouteActive(pathname, route.path)}
     />

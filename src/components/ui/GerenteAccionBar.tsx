@@ -62,7 +62,7 @@ export function GerenteAccionBar({
             Rechazar
           </Button>
           <Button
-            variant="success"
+            variant="successSoft"
             className="shrink-0"
             onClick={() => void onAprobar()}
             loading={loadingAprobar}

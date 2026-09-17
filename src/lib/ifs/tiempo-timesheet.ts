@@ -188,6 +188,7 @@ export function flattenReportItemRow(item: ReportItemExpanded): EmpReportItemRow
     CRejectNote: pt?.CRejectNote ?? item.CRejectNote,
     CApprover: pt?.CApprover ?? item.CApprover,
     CApproverName: pt?.CApproverName ?? item.CApproverName,
+    CAutoApprover: pt?.CAutoApprover ?? item.CAutoApprover,
     CAutoApproverName: pt?.CAutoApproverName ?? item.CAutoApproverName,
     ProjectId: pt?.ProjectId ?? act?.ProjectId ?? item.ProjectId,
     ProjectName: pt?.ProjectName ?? item.ProjectName,

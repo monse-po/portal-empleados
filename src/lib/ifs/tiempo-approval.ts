@@ -113,9 +113,15 @@ export function mapApprovalRowToHoja(
     horas: String(horas),
     comentarioEmpleado: row.InternalComments?.trim() || "",
     aprobador:
+      row.CApprover?.trim() ||
+      row.CAutoApprover?.trim() ||
       row.CApproverName?.trim() ||
       row.CAutoApproverName?.trim() ||
       "",
+    aprobadorNombre:
+      row.CApproverName?.trim() ||
+      row.CAutoApproverName?.trim() ||
+      undefined,
     registroId,
     estadoApro: pendiente
       ? ""

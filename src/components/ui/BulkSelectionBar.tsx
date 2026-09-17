@@ -23,7 +23,7 @@ export function BulkActionButtons({
   return (
     <FloatingActions>
       <Button
-        variant="secondary"
+        variant="successSoft"
         title="Aprobar seleccionados"
         onClick={() => void onAprobar()}
         loading={loadingAprobar}
@@ -34,13 +34,12 @@ export function BulkActionButtons({
         Aprobar
       </Button>
       <Button
-        variant="tertiary"
+        variant="danger"
         title="Rechazar seleccionados"
         onClick={() => void onRechazar()}
         loading={loadingRechazar}
         loadingLabel="Rechazando…"
         disabled={busy}
-        className="text-[#9b1c1c] hover:border-[#fbd5d5] hover:bg-[#fde8e8] hover:text-[#9b1c1c]"
       >
         <Icon name="x" size="xs" />
         Rechazar
