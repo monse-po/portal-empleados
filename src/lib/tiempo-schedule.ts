@@ -86,19 +86,63 @@ export type ScheduleHoursResolved = {
   source: TiempoJornadaSource;
 };
 
-/** Resuelve tope diario: IFS gana si trae valor; si no, configuración de sistema. */
+export type IfsDiaTipoRef = { dayType?: string | null };
+
+export type CalendarioDayType = "WEEKDAY" | "WEEKEND" | "HOLIDAY";
+
+/**
+ * Calendario de días (regla 1). No usa horas.
+ * GetHoursSummary a veces omite DayType si ScheduleHours va en 0 (HORAS-COL).
+ * No sustituye WEEKDAY/WEEKEND/HOLIDAY si IFS sí los trajo.
+ */
+export function inferDayTypeFromCalendar(iso: string): CalendarioDayType {
+  if (FESTIVOS_2026.includes(iso)) return "HOLIDAY";
+  const date = isoToDate(iso);
+  if (date) {
+    const dow = date.getDay();
+    if (dow === 0 || dow === 6) return "WEEKEND";
+  }
+  return "WEEKDAY";
+}
+
+function isIfsDiaNoLaborable(
+  iso: string,
+  specialDays?: Record<string, IfsDiaTipoRef> | null,
+): boolean {
+  const type = (specialDays?.[iso]?.dayType ?? "").trim().toUpperCase();
+  if (type === "WEEKDAY") return false;
+  if (type === "HOLIDAY" || type === "WEEKEND") return true;
+  return inferDayTypeFromCalendar(iso) !== "WEEKDAY";
+}
+
+/** CREPSCHEXT002: fin/festivo vs hábil con tope 0 (HORAS-COL). */
+export function mensajeRegistroDiaNoLaborable(fechas: string[]): string {
+  const isos = fechas.map((fecha) => fecha.slice(0, 10)).filter(Boolean);
+  const todosHabiles =
+    isos.length > 0 &&
+    isos.every((iso) => inferDayTypeFromCalendar(iso) === "WEEKDAY");
+  if (todosHabiles) {
+    return "IFS rechazó un día hábil. El calendario de días sí aplica; las horas van en 0 a propósito (sin tope mensual). Eso hay que corregirlo en IFS, no programando horas.";
+  }
+  return "Ese día no es laborable en tu programa. Elige un día hábil.";
+}
+
+/** Resuelve tope diario: IFS gana si trae valor (0 = sin tope, p. ej. HORAS-COL). */
 export function resolveScheduleHoursLimit(input: {
   ifsScheduleHours?: number;
   companyId?: string;
 }): ScheduleHoursResolved {
   if (
-    input.ifsScheduleHours !== undefined &&
-    input.ifsScheduleHours > 0
+    typeof input.ifsScheduleHours === "number" &&
+    Number.isFinite(input.ifsScheduleHours)
   ) {
-    return {
-      scheduleHours: input.ifsScheduleHours,
-      source: "ifs",
-    };
+    if (input.ifsScheduleHours > 0) {
+      return {
+        scheduleHours: input.ifsScheduleHours,
+        source: "ifs",
+      };
+    }
+    return { scheduleHours: 0, source: "ifs" };
   }
 
   const sistema = getJornadaLimiteFromSistema(input.companyId);
@@ -109,27 +153,16 @@ export function resolveScheduleHoursLimit(input: {
 }
 
 /**
- * Día con jornada normal según programa IFS (ScheduleHours > 0).
- * Festivos de calendario → nunca jornada normal (solo extras), aunque IFS traiga horas.
- * Sin mapa IFS: lun–vie y no festivo (fallback).
+ * Día hábil (regla 1: calendario). No mira ScheduleHours.
+ * 0 h programadas no significa “no laborable” (HORAS-COL).
+ * `hoursByDate` se ignora a propósito: el tope es otra regla.
  */
 export function isDiaConJornadaNormal(
   iso: string,
-  hoursByDate: Record<string, number> | null | undefined,
+  _hoursByDate?: Record<string, number> | null,
+  specialDays?: Record<string, IfsDiaTipoRef> | null,
 ): boolean {
-  // Festivo HQ: no DN aunque ScheduleHours venga > 0
-  if (FESTIVOS_2026.includes(iso)) return false;
-
-  if (hoursByDate && Object.keys(hoursByDate).length > 0) {
-    const hours = hoursByDate[iso];
-    if (typeof hours === "number") return hours > 0;
-    // Día ausente del summary → sin jornada programada
-    return false;
-  }
-  const date = isoToDate(iso);
-  if (!date) return false;
-  const day = date.getDay();
-  return day !== 0 && day !== 6;
+  return !isIfsDiaNoLaborable(iso, specialDays);
 }
 
 /** @deprecated Usar isDiaConJornadaNormal */
@@ -157,15 +190,15 @@ export function sumScheduleHoursInRange(
 }
 
 /**
- * Horas del mes según programa del usuario.
- * 1) Suma ScheduleHours del periodo visible
- * 2) Total GetHoursSummary.ScheduleHours
- * 3) Días con jornada × tope de sistema
+ * Tope mensual (regla 2: horas). Independiente de si el día es hábil.
+ * 0 de IFS es válido (HORAS-COL): no inventar 8.5 × hábiles / 161.
+ * Si se inventara tope, el job de fin de mes los trataría como planta.
  */
 export function horasMesDesdePrograma(
   hoursByDate: Record<string, number> | null | undefined,
   bounds: { min: string; max: string },
   fallbackScheduleHours?: number | null,
+  fromIfs = false,
 ): number {
   if (hoursByDate && Object.keys(hoursByDate).length > 0) {
     const hasDaysInRange = Object.keys(hoursByDate).some(
@@ -180,11 +213,12 @@ export function horasMesDesdePrograma(
 
   if (
     typeof fallbackScheduleHours === "number" &&
-    Number.isFinite(fallbackScheduleHours) &&
-    fallbackScheduleHours > 0
+    Number.isFinite(fallbackScheduleHours)
   ) {
-    return roundHoras(fallbackScheduleHours);
+    return roundHoras(Math.max(0, fallbackScheduleHours));
   }
+
+  if (fromIfs) return 0;
 
   const sistema = getJornadaLimiteFromSistema().maxNormalHours;
   let total = 0;
@@ -194,12 +228,15 @@ export function horasMesDesdePrograma(
   return roundHoras(total);
 }
 
-/** Filtra a días con jornada normal (ScheduleHours > 0). */
+/** Filtra a días hábiles del programa (WEEKDAY, con o sin tope). */
 export function filterFechasConJornadaNormal(
   fechas: string[],
   hoursByDate: Record<string, number> | null | undefined,
+  specialDays?: Record<string, IfsDiaTipoRef> | null,
 ): string[] {
-  return fechas.filter((fecha) => isDiaConJornadaNormal(fecha, hoursByDate));
+  return fechas.filter((fecha) =>
+    isDiaConJornadaNormal(fecha, hoursByDate, specialDays),
+  );
 }
 
 /** @deprecated Usar filterFechasConJornadaNormal */
@@ -208,16 +245,16 @@ export const filterFechasLaborables = filterFechasConJornadaNormal;
 export type TipoHoraCat = "normal" | "extra" | "otro";
 
 /**
- * Tope de diurnas normales del día:
- * - Con programa IFS → ScheduleHours de ese día
- * - Sin mapa IFS → fallback de compañía (ej. 8.5) en días con jornada
+ * Tope diario (regla 2: horas). No decide si el día es hábil.
+ * ScheduleHours > 0 → ese tope. 0 en un hábil (HORAS-COL) → sin tope.
  */
 export function topeNormalesDelDia(
   iso: string,
   hoursByDate: Record<string, number> | null | undefined,
   fallbackMax: number,
+  specialDays?: Record<string, IfsDiaTipoRef> | null,
 ): number {
-  if (!isDiaConJornadaNormal(iso, hoursByDate)) return 0;
+  if (!isDiaConJornadaNormal(iso, hoursByDate, specialDays)) return 0;
   if (hoursByDate && Object.keys(hoursByDate).length > 0) {
     const hours = hoursByDate[iso];
     if (typeof hours === "number" && hours > 0) return hours;
@@ -227,41 +264,42 @@ export function topeNormalesDelDia(
 }
 
 /**
- * True cuando todos los días con jornada del programa ya tienen
- * diurnas normales en el tope (ej. 8.5 h). En ese caso solo caben extras.
- * Días sin jornada no cuentan aquí (ya fuerzan extras por programa).
+ * True cuando todos los días con tope de jornada ya tienen
+ * diurnas normales en el tope. Días hábiles sin tope (HORAS-COL) no cuentan.
  */
 export function isJornadaNormalCompleta(
   fechas: string[],
   hoursByDate: Record<string, number> | null | undefined,
   maxHours: number,
   horasNormalesPorFecha: (fecha: string) => number,
+  specialDays?: Record<string, IfsDiaTipoRef> | null,
 ): boolean {
   if (!fechas.length) return false;
-  const diasConJornada = fechas.filter(
-    (fecha) => topeNormalesDelDia(fecha, hoursByDate, maxHours) > 0,
+  const diasConTope = fechas.filter(
+    (fecha) => topeNormalesDelDia(fecha, hoursByDate, maxHours, specialDays) > 0,
   );
-  if (!diasConJornada.length) return false;
-  return diasConJornada.every((fecha) => {
-    const tope = topeNormalesDelDia(fecha, hoursByDate, maxHours);
+  if (!diasConTope.length) return false;
+  return diasConTope.every((fecha) => {
+    const tope = topeNormalesDelDia(fecha, hoursByDate, maxHours, specialDays);
     return atNormalLimit(horasNormalesPorFecha(fecha), tope);
   });
 }
 
-/** Horas normales que aún caben (mínimo entre los días con jornada del rango). */
+/** Horas normales que aún caben (mínimo entre los días con tope del rango). */
 export function restantesNormalesMin(
   fechas: string[],
   hoursByDate: Record<string, number> | null | undefined,
   maxHours: number,
   horasNormalesPorFecha: (fecha: string) => number,
+  specialDays?: Record<string, IfsDiaTipoRef> | null,
 ): number {
-  const diasConJornada = fechas.filter(
-    (fecha) => topeNormalesDelDia(fecha, hoursByDate, maxHours) > 0,
+  const diasConTope = fechas.filter(
+    (fecha) => topeNormalesDelDia(fecha, hoursByDate, maxHours, specialDays) > 0,
   );
-  if (!diasConJornada.length) return 0;
+  if (!diasConTope.length) return 0;
   const min = Math.min(
-    ...diasConJornada.map((fecha) => {
-      const tope = topeNormalesDelDia(fecha, hoursByDate, maxHours);
+    ...diasConTope.map((fecha) => {
+      const tope = topeNormalesDelDia(fecha, hoursByDate, maxHours, specialDays);
       return Math.max(0, tope - horasNormalesPorFecha(fecha));
     }),
   );
@@ -280,7 +318,10 @@ export function filterTiposPorPrograma<
   tipos: T[],
   fechas: string[],
   hoursByDate: Record<string, number> | null | undefined,
-  opts?: { soloExtras?: boolean },
+  opts?: {
+    soloExtras?: boolean;
+    specialDays?: Record<string, IfsDiaTipoRef> | null;
+  },
 ): T[] {
   if (!fechas.length) return tipos;
   if (opts?.soloExtras) {
@@ -291,7 +332,7 @@ export function filterTiposPorPrograma<
     );
   }
   const todosSinJornada = fechas.every(
-    (fecha) => !isDiaConJornadaNormal(fecha, hoursByDate),
+    (fecha) => !isDiaConJornadaNormal(fecha, hoursByDate, opts?.specialDays),
   );
   if (todosSinJornada) {
     return tipos.filter(
@@ -314,13 +355,18 @@ export function fechasRegistroSegunTipo(
   hoursByDate: Record<string, number> | null | undefined,
   tipoCode?: string,
   groupId?: string,
+  specialDays?: Record<string, IfsDiaTipoRef> | null,
 ): string[] {
   if (!fechasCalendario.length) return [];
   if (cat === "extra" || isAusenciaExcepcionNoLaborable(tipoCode, groupId)) {
     return fechasCalendario;
   }
   if (cat === "normal" || cat === "otro") {
-    return filterFechasConJornadaNormal(fechasCalendario, hoursByDate);
+    return filterFechasConJornadaNormal(
+      fechasCalendario,
+      hoursByDate,
+      specialDays,
+    );
   }
   return fechasCalendario;
 }

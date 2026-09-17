@@ -60,7 +60,7 @@ type MiTiempoDiaProps = {
 };
 
 function getContadorStyle(normales: number, maxNormales: number) {
-  if (exceedsNormalLimit(normales, maxNormales)) {
+  if (maxNormales > 0 && exceedsNormalLimit(normales, maxNormales)) {
     return {
       border: "1.5px solid #fca5a5",
       background: "#fff5f5",
@@ -68,7 +68,7 @@ function getContadorStyle(normales: number, maxNormales: number) {
       normColor: "#b91c1c",
     };
   }
-  if (atNormalLimit(normales, maxNormales)) {
+  if (maxNormales > 0 && atNormalLimit(normales, maxNormales)) {
     return {
       border: "1.5px solid var(--green-border)",
       background: "var(--green-bg)",
@@ -157,7 +157,7 @@ export function MiTiempoDia({
   const diaKind: DiaCalendarioKind | null =
     calendarKind === "festivo" || calendarKind === "fin_semana"
       ? calendarKind
-      : !isDiaConJornadaNormal(fecha, hoursByDate)
+      : !isDiaConJornadaNormal(fecha, hoursByDate, specialDays)
         ? "sin_jornada"
         : null;
 
@@ -264,8 +264,10 @@ export function MiTiempoDia({
               </span>
               <span className="text-border">·</span>
               <span style={{ color: contador.normColor }}>
-                {formatHorasValor(normales)} normales · máx{" "}
-                {formatScheduleHoursLabel(maxScheduleHours)} ({jornadaSourceLabel})
+                {formatHorasValor(normales)} normales
+                {maxScheduleHours > 0
+                  ? ` · máx ${formatScheduleHoursLabel(maxScheduleHours)} (${jornadaSourceLabel})`
+                  : " · sin tope de jornada"}
               </span>
             </div>
             {!esHistorial && (

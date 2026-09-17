@@ -243,6 +243,7 @@ function fechasDelForm(
   hoursByDate: Record<string, number> | null | undefined,
   tipos: TiempoTipoHoraOption[],
   useIfsCatalog: boolean,
+  specialDays?: Record<string, { dayType?: string | null }> | null,
 ): string[] {
   const calendario = fechasCalendarioDelForm(form, editId);
   if (editId) return calendario;
@@ -254,6 +255,7 @@ function fechasDelForm(
     hoursByDate,
     form.tipo,
     groupId,
+    specialDays,
   );
 }
 
@@ -268,6 +270,7 @@ function validateForm(
   scheduleReady: boolean,
   dayTypeDesc?: string | null,
   companyId?: string | null,
+  specialDays?: Record<string, { dayType?: string | null }> | null,
 ): Partial<Record<FieldKey, string>> {
   const errors: Partial<Record<FieldKey, string>> = {};
 
@@ -299,6 +302,7 @@ function validateForm(
     hoursByDate,
     tipos,
     useIfsCatalog,
+    specialDays,
   );
 
   if (
@@ -312,7 +316,7 @@ function validateForm(
     )
   ) {
     const sinJornada = calendario.filter(
-      (fecha) => !isDiaConJornadaNormal(fecha, hoursByDate),
+      (fecha) => !isDiaConJornadaNormal(fecha, hoursByDate, specialDays),
     );
     if (sinJornada.length === calendario.length) {
       errors.tipo = mensajeSoloExtrasSinJornada(calendario[0], dayTypeDesc);
@@ -344,11 +348,20 @@ function validateForm(
   } else if (form.tipo && fechas.length && cat === "normal") {
     for (const fecha of fechas) {
       const horasExistentes = getHorasNormales(registros, fecha, editId);
-      const topeDia = topeNormalesDelDia(fecha, hoursByDate, maxScheduleHours);
-      if (topeDia <= 0 || horasExistentes + horasNum > topeDia) {
-        if (topeDia <= 0) {
-          errors.horas = mensajeSoloExtrasSinJornada(fecha, dayTypeDesc);
-        } else if (atNormalLimit(horasExistentes, topeDia)) {
+      const laborable = isDiaConJornadaNormal(fecha, hoursByDate, specialDays);
+      const topeDia = topeNormalesDelDia(
+        fecha,
+        hoursByDate,
+        maxScheduleHours,
+        specialDays,
+      );
+      if (!laborable) {
+        errors.horas = mensajeSoloExtrasSinJornada(fecha, dayTypeDesc);
+        break;
+      }
+      if (topeDia <= 0) continue;
+      if (horasExistentes + horasNum > topeDia) {
+        if (atNormalLimit(horasExistentes, topeDia)) {
           errors.horas = `${mensajeSoloExtrasJornadaCompleta(topeDia)} · ${formatFechaLegible(fecha, false)}`;
         } else {
           errors.horas = `${normalLimitErrorMessage(topeDia, horasExistentes)} · ${formatFechaLegible(fecha, false)}`;
@@ -358,7 +371,12 @@ function validateForm(
     }
   } else if (form.tipo && fechas.length && cat === "extra") {
     for (const fecha of fechas) {
-      const topeDia = topeNormalesDelDia(fecha, hoursByDate, maxScheduleHours);
+      const topeDia = topeNormalesDelDia(
+        fecha,
+        hoursByDate,
+        maxScheduleHours,
+        specialDays,
+      );
       if (topeDia <= 0) continue;
       const horasExistentes = getHorasNormales(registros, fecha, editId);
       if (!atNormalLimit(horasExistentes, topeDia)) {
@@ -387,11 +405,11 @@ function RegistroHorasForm({
   onReadyChange,
   saving = false,
 }: RegistroHorasFormProps) {
-  const { mesBounds: bounds, specialDays, weekdayColor, companyId } =
+  const { mesBounds: bounds, specialDays: contextSpecialDays, weekdayColor, companyId } =
     useMiTiempo();
   const scheduleColors = useMemo(
-    () => pickScheduleColors(specialDays),
-    [specialDays],
+    () => pickScheduleColors(contextSpecialDays),
+    [contextSpecialDays],
   );
   const isEdit = Boolean(editId);
   const [catalog, setCatalog] = useState<TiempoCatalog | null>(null);
@@ -408,6 +426,11 @@ function RegistroHorasForm({
   const [hoursByDate, setHoursByDate] = useState<Record<string, number> | null>(
     null,
   );
+  const [ifsSpecialDays, setIfsSpecialDays] = useState(contextSpecialDays);
+  const specialDays =
+    ifsSpecialDays && Object.keys(ifsSpecialDays).length > 0
+      ? ifsSpecialDays
+      : contextSpecialDays;
   const [scheduleReady, setScheduleReady] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(() => {
@@ -507,6 +530,9 @@ function RegistroHorasForm({
       setHoursByDate(
         Object.keys(result.hoursByDate).length > 0 ? result.hoursByDate : null,
       );
+      if (Object.keys(result.specialDays).length > 0) {
+        setIfsSpecialDays(result.specialDays);
+      }
       setScheduleReady(true);
       if (result.sessionExpired) {
         setScheduleError(
@@ -659,6 +685,7 @@ function RegistroHorasForm({
     hoursByDate,
     tipos,
     useIfsCatalogLive,
+    specialDays,
   );
 
   /** No espera scheduleReady: con registros + tope ya se puede ocultar DN. */
@@ -669,6 +696,7 @@ function RegistroHorasForm({
       hoursByDate,
       maxScheduleHours,
       (fecha) => getHorasNormales(registros, fecha, editId),
+      specialDays,
     );
   }, [
     calendarioFechas,
@@ -676,12 +704,13 @@ function RegistroHorasForm({
     maxScheduleHours,
     registros,
     editId,
+    specialDays,
   ]);
 
   const diaSoloExtras =
     calendarioFechas.length > 0 &&
     calendarioFechas.every(
-      (fecha) => !isDiaConJornadaNormal(fecha, hoursByDate),
+      (fecha) => !isDiaConJornadaNormal(fecha, hoursByDate, specialDays),
     );
 
   /** Festivo / fin de semana / sin jornada / jornada DN llena → solo extras del LOV. */
@@ -697,6 +726,7 @@ function RegistroHorasForm({
       tipos,
       calendarioFechas,
       hoursByDate,
+      { specialDays },
     );
     if (soloExtras) {
       return filtered.filter((tipo) => tipo.cat !== "normal");
@@ -708,6 +738,7 @@ function RegistroHorasForm({
     calendarioFechas,
     hoursByDate,
     soloExtras,
+    specialDays,
   ]);
 
   /** Solo tipo de día (calendario); no explica qué horas se pueden registrar. */
@@ -733,6 +764,7 @@ function RegistroHorasForm({
         hoursByDate,
         maxScheduleHours,
         (fecha) => getHorasNormales(registros, fecha, editId),
+        specialDays,
       ),
     [
       calendarioFechas,
@@ -741,6 +773,7 @@ function RegistroHorasForm({
       maxScheduleHours,
       registros,
       editId,
+      specialDays,
     ],
   );
   const extrasAntesDeJornada =
@@ -756,11 +789,13 @@ function RegistroHorasForm({
       hoursByDate,
       maxScheduleHours,
       (fecha) => getHorasNormales(registros, fecha, editId),
+      specialDays,
     );
     const tope =
       restantes > 0 && restantes < maxScheduleHours
         ? restantes
         : maxScheduleHours;
+    if (tope <= 0) return TIEMPO_UI_COPY.horasPlaceholderSinTope;
     return `Máx. ${formatScheduleHoursLabel(tope)} h`;
   }, [
     soloExtras,
@@ -770,6 +805,7 @@ function RegistroHorasForm({
     maxScheduleHours,
     registros,
     editId,
+    specialDays,
   ]);
 
   useEffect(() => {
@@ -855,6 +891,7 @@ function RegistroHorasForm({
         etiquetaTipoDia === "festivo" ? "festivo" : "fin_semana",
       ),
       companyId,
+      specialDays,
     );
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -889,6 +926,7 @@ function RegistroHorasForm({
       hoursByDate,
       tipos,
       useIfsCatalogLive,
+      specialDays,
     );
     const baseId = Date.now();
 
@@ -938,6 +976,7 @@ function RegistroHorasForm({
         hoursByDate,
         maxScheduleHours,
         (fecha) => getHorasNormales(registros, fecha, editId),
+        specialDays,
       );
       const cabe =
         !tipoNormal || combo.lastHoras <= restantes + 1e-6;

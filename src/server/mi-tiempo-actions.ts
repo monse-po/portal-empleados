@@ -14,6 +14,7 @@ import {
 } from "@/src/lib/ifs/cemp-portal";
 import { openPortalActor } from "@/src/server/portal-actor";
 import { formatIfsBusinessErrors, formatIfsError } from "@/src/lib/ifs/errors";
+import { mensajeRegistroDiaNoLaborable } from "@/src/lib/tiempo-schedule";
 import {
   IfsSessionExpiredError,
   withValidIfsSession,
@@ -105,6 +106,18 @@ function ifsUserMessage(err: unknown, fallback: string): string {
     return "Sesión IFS expirada. Vuelve a iniciar sesión e intenta de nuevo.";
   }
   return formatIfsError(err) || fallback;
+}
+
+function isIfsDiaNoLaborableError(err: unknown): boolean {
+  const text = [
+    err instanceof Error ? err.message : "",
+    typeof err === "object" && err && "body" in err
+      ? String((err as { body?: unknown }).body ?? "")
+      : "",
+  ].join(" ");
+  return /CREPSCHEXT002|no se permite el registro de horas en d[ií]as no laborables|no es laborable en tu programa|no reconoce ese día como laborable/i.test(
+    text,
+  );
 }
 
 async function withIfsPortalSession<T>(
@@ -301,19 +314,34 @@ async function registrarNuevosEnIfs(
   }
 
   const toSend = regs.map((reg) => ({ ...reg, estado: "Registrado" as const }));
+  const payload = mapRegistrosToEmpTimeReg(toSend);
+  console.info(
+    "[mi-tiempo] EmpPortalTimeRegList",
+    payload.map((entry) => ({
+      AccountDate: entry.AccountDate,
+      ReportCostCode: entry.ReportCostCode,
+      ShortName: entry.ShortName,
+      DayHours: entry.DayHours,
+    })),
+  );
 
   try {
     const raw = await withIfsPortalSession(async (ifs) => {
       for (const reg of toSend) {
         await assertPuedeMutarTipoEnIfs(ifs, reg.tipo);
       }
-      return registerTimeEntries(ifs, mapRegistrosToEmpTimeReg(toSend));
+      return registerTimeEntries(ifs, payload);
     });
     const errors = extractEmpTimeRegErrors(raw);
     if (errors.length) {
       throw new Error(formatIfsBusinessErrors(errors));
     }
   } catch (err) {
+    if (isIfsDiaNoLaborableError(err)) {
+      throw new Error(
+        mensajeRegistroDiaNoLaborable(toSend.map((reg) => reg.fecha)),
+      );
+    }
     throw new Error(
       ifsUserMessage(err, "No se pudo registrar el tiempo en IFS."),
     );

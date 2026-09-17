@@ -89,8 +89,11 @@ function EtiquetaCalendario({
 function CalendarioLineaTipo({ tipo }: { tipo: string }) {
   const m = getTipoHoraMeta(tipo);
   return (
-    <span className="inline-flex min-w-0 items-center gap-1 text-[10px] font-medium text-[#9ca3af]">
-      <Icon name={m.icon} size="xs" className="shrink-0 opacity-70" />
+    <span
+      className="inline-flex min-w-0 items-center gap-1 text-[10px] font-semibold leading-none"
+      style={{ color: m.c }}
+    >
+      <Icon name={m.icon} size="xs" className="shrink-0" />
       <span className="truncate">{m.s || tipo}</span>
     </span>
   );
@@ -279,6 +282,9 @@ function CalendarioTab({
                       ? "font-semibold text-[#60a5fa]"
                       : "font-semibold text-[#374151]";
               const numeroStyle = dayInk ? { color: dayInk } : undefined;
+              const estadoEnSegundaLinea = Boolean(
+                celda.resumen && (celda.etiqueta || celda.esHoy),
+              );
 
               return (
                 <button
@@ -368,7 +374,7 @@ function CalendarioTab({
                             Hoy
                           </span>
                         )}
-                        {celda.resumen && (
+                        {celda.resumen && !estadoEnSegundaLinea && (
                           <CalendarioEstadoDia
                             estado={celda.resumen.estadoDia}
                           />
@@ -386,11 +392,17 @@ function CalendarioTab({
                         </span>
                       )}
                     </div>
-
+                    {estadoEnSegundaLinea && celda.resumen ? (
+                      <div className="mt-1">
+                        <CalendarioEstadoDia
+                          estado={celda.resumen.estadoDia}
+                        />
+                      </div>
+                    ) : null}
                   </div>
 
                   {celda.resumen && celda.resumen.lineas.length > 0 && (
-                    <div className="mt-2 hidden min-h-0 w-full flex-1 overflow-y-auto overscroll-contain md:block">
+                    <div className={`${estadoEnSegundaLinea ? "mt-1" : "mt-2"} hidden min-h-0 w-full flex-1 overflow-y-auto overscroll-contain md:block`}>
                       <div className="flex flex-col gap-0.5">
                         {celda.resumen.lineas.map((l) => (
                           <div
@@ -398,7 +410,7 @@ function CalendarioTab({
                             className="flex items-center justify-between gap-1 text-[10px] leading-tight"
                           >
                             <CalendarioLineaTipo tipo={l.tipo} />
-                            <span className="shrink-0 font-semibold text-[#9ca3af]">
+                            <span className="shrink-0 font-semibold tabular-nums text-[#374151]">
                               {formatHorasValor(l.horas)}
                             </span>
                           </div>

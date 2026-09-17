@@ -2,7 +2,6 @@
 
 import {
   getProjectInfo,
-  getScheduleHoursForDate,
   getEmployeeHoursPrograma,
   getValidActReportCode,
   getUserInfo,
@@ -252,8 +251,13 @@ export async function fetchScheduleHoursAction(accountDate: string): Promise<{
           liveSession.email,
           liveSession.accessToken,
         );
-        const hours = await getScheduleHoursForDate(ifs, accountDate);
-        const resolved = resolveScheduleHoursLimit({ ifsScheduleHours: hours });
+        const programa = await getEmployeeHoursPrograma(ifs);
+        const iso = accountDate.slice(0, 10);
+        const hours = programa.hoursByDate[iso];
+        const resolved = resolveScheduleHoursLimit({
+          ifsScheduleHours: hours,
+          companyId: ifs.user.CompanyId,
+        });
         return {
           scheduleHours: resolved.scheduleHours,
           source: resolved.source,
@@ -342,9 +346,7 @@ export async function fetchEmployeeScheduleAction(): Promise<{
             weekdayColor: programa.weekdayColor,
             scheduleHours: programa.scheduleHours,
             companyId,
-            fromIfs:
-              Object.keys(programa.hoursByDate).length > 0 ||
-              programa.scheduleHours != null,
+            fromIfs: true,
           };
         } catch (err) {
           return {
