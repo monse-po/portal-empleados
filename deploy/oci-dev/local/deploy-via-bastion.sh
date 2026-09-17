@@ -258,4 +258,15 @@ echo "DEPLOY OK"
 REMOTE
 
 info "Listo → https://hmv-empleados-dev.nubeportal.com/login"
+
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+NOTIFY_SHA="$(git -C "${REPO_ROOT}" rev-parse --short HEAD 2>/dev/null || true)"
+NOTIFY_SUBJECT="$(git -C "${REPO_ROOT}" log -1 --pretty=format:%s 2>/dev/null || true)"
+NOTIFY_LOG="$(git -C "${REPO_ROOT}" log -8 --pretty=format:%h\ %s 2>/dev/null || true)"
+export NOTIFY_SHA NOTIFY_SUBJECT NOTIFY_LOG
+if [[ -f "${SCRIPT_DIR}/notify-qa.sh" ]]; then
+  info "Avisando al grupo (Google Chat)…"
+  bash "${SCRIPT_DIR}/notify-qa.sh" || true
+fi
+
 info "La sesión Bastion se cierra sola al terminar."
