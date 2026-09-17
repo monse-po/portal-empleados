@@ -13,6 +13,7 @@ import {
   filterHojasByTab,
   getAprobacionKpis,
   hoyDMY,
+  sumHorasHojas,
   type HojaAprobacion,
 } from "@/src/lib/aprobacion-tiempo-mock";
 import type { SyncRegistroAccion, SyncRegistroHandler } from "@/src/lib/tiempo-bridge";
@@ -42,6 +43,7 @@ export type AprobacionDecisionResult = {
 type AprobacionContextValue = {
   hojas: Record<string, HojaAprobacion>;
   kpis: ReturnType<typeof getAprobacionKpis>;
+  /** Horas por aprobar (badge del menú). Cero = sin cola. */
   pendientesCount: number;
   tab: "pend" | "res";
   setTab: (tab: "pend" | "res") => void;
@@ -64,6 +66,7 @@ type AprobacionContextValue = {
   ) => Promise<AprobacionDecisionResult>;
   anular: (nos: string[]) => Promise<AprobacionDecisionResult>;
   getHoja: (no: string) => HojaAprobacion | undefined;
+  /** Horas (no registros) de cada pestaña. */
   tabCounts: { pend: number; res: number };
 };
 
@@ -316,8 +319,8 @@ export function AprobacionProvider({
 
   const tabCounts = useMemo(
     () => ({
-      pend: filterHojasByTab(hojas, "pend").length,
-      res: filterHojasByTab(hojas, "res").length,
+      pend: sumHorasHojas(filterHojasByTab(hojas, "pend")),
+      res: sumHorasHojas(filterHojasByTab(hojas, "res")),
     }),
     [hojas],
   );
@@ -326,7 +329,7 @@ export function AprobacionProvider({
     () => ({
       hojas,
       kpis,
-      pendientesCount: kpis.pendientes,
+      pendientesCount: kpis.horasPendientes,
       tab,
       setTab,
       seleccion,

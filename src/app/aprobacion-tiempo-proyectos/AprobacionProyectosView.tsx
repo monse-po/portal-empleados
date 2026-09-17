@@ -38,6 +38,7 @@ import {
 import {
   getAprobacionKpisFromList,
   horasNum,
+  sumHorasHojas,
   type HojaAprobacion,
 } from "@/src/lib/aprobacion-tiempo-mock";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
@@ -52,6 +53,7 @@ import { createNotificacionesTiempoDecisionAction } from "@/src/server/notificac
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { useTableSelection } from "@/src/lib/use-table-selection";
 import { portalActionError } from "@/src/lib/ifs/errors";
+import { useAprobacionOptional } from "@/src/app/aprobacion-tiempo/AprobacionContext";
 
 type Tab = "pend" | "res";
 type DecisionScope = "registros" | "proyecto";
@@ -72,6 +74,7 @@ function toHojaNotifInput(hoja: HojaAprobacion): HojaNotificacionInput {
 
 export function AprobacionProyectosView() {
   const { toast } = useToast();
+  const syncPendientesDesdeDb = useAprobacionOptional()?.syncPendientesDesdeDb;
   const [proyectos, setProyectos] = useState<HorasProyectoAprobacion[]>([]);
   const [raw, setRaw] = useState<unknown>({ value: [] });
   const [loaded, setLoaded] = useState(false);
@@ -138,6 +141,13 @@ export function AprobacionProyectosView() {
   }, [cargar, toast]);
 
   useEffect(() => {
+    if (!syncPendientesDesdeDb) return;
+    syncPendientesDesdeDb(
+      mapApprovalTimesheetToHojas(raw, { includeResolved: false }),
+    );
+  }, [raw, syncPendientesDesdeDb]);
+
+  useEffect(() => {
     if (!loaded) return;
     const stillThere =
       proyectoSeleccionado &&
@@ -167,10 +177,13 @@ export function AprobacionProyectosView() {
     [hojasTabBase, filters],
   );
 
-  const tabCounts = {
-    pend: hojasPend.length,
-    res: hojasRes.length,
-  };
+  const tabHoras = useMemo(
+    () => ({
+      pend: roundHoras(sumHorasHojas(hojasPend)),
+      res: roundHoras(sumHorasHojas(hojasRes)),
+    }),
+    [hojasPend, hojasRes],
+  );
 
   const kpis = useMemo(
     () =>
@@ -417,7 +430,7 @@ export function AprobacionProyectosView() {
           />
         </div>
         <p className="mt-1 text-[13px] text-[#4b5563]">
-          Elige un proyecto y resuelve sus horas.
+          Horas extras de tu equipo. Elige un proyecto para aprobar o rechazar.
         </p>
         <div className="mt-3">
           <IfsStatusBanner
@@ -431,28 +444,23 @@ export function AprobacionProyectosView() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          label="Pendientes"
-          value={kpis.pendientes}
-          sub="Requieren acción"
-          alert
-        />
-        <KpiCard
-          label="Aprobadas este mes"
-          value={kpis.aprobadas}
-          sub={`${formatHorasValor(kpis.horasAprobadas)} h aprobadas`}
-          navy
-        />
-        <KpiCard
-          label="Rechazadas"
-          value={kpis.rechazadas}
-          sub="Este mes"
-        />
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <KpiCard
           label="Horas por aprobar"
           value={formatHorasValor(kpis.horasPendientes)}
-          sub="En registros pendientes"
+          sub="Pendientes de tu decisión"
+          alert={kpis.horasPendientes > 0}
+        />
+        <KpiCard
+          label="Horas aprobadas"
+          value={formatHorasValor(kpis.horasAprobadas)}
+          sub="Ya aprobadas este mes"
+          navy
+        />
+        <KpiCard
+          label="Horas rechazadas"
+          value={formatHorasValor(kpis.horasRechazadas)}
+          sub="Rechazadas este mes"
         />
       </div>
 
@@ -467,8 +475,8 @@ export function AprobacionProyectosView() {
         </aside>
 
         <section className="min-w-0 flex-1">
+          <div className="flex flex-col overflow-hidden bg-[#f5f7fa] lg:sticky lg:top-[72px] lg:z-20 lg:max-h-[calc(100dvh-8rem)]">
           {proyectoActual ? (
-            <div className="bg-[#f5f7fa] lg:sticky lg:top-[72px] lg:z-20">
               <AprobacionFilterBar
                 key={`${proyectoSeleccionado}-${tab}`}
                 hideColumns={["proyecto"]}
@@ -485,12 +493,11 @@ export function AprobacionProyectosView() {
                   ) : undefined
                 }
               />
-            </div>
           ) : null}
 
-          <Card className="mb-0 overflow-hidden p-0">
+          <Card className="mb-0 flex min-h-0 flex-1 flex-col !overflow-hidden p-0">
             {proyectoActual ? (
-              <div className="flex items-center justify-between gap-3 border-b-2 border-[#e5e9f0] px-2">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b-2 border-[#e5e9f0] bg-white px-2">
                 <div className="flex">
                   <button
                     type="button"
@@ -502,9 +509,12 @@ export function AprobacionProyectosView() {
                     }`}
                   >
                     <Icon name="clock" size="sm" />
-                    Por aprobar
-                    <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-                      {tabCounts.pend}
+                    Horas por aprobar
+                    <span
+                      className="rounded-full bg-[#fffbeb] px-2 py-0.5 text-[10px] font-semibold text-[#b45309]"
+                      title="Horas por aprobar"
+                    >
+                      {formatHorasValor(tabHoras.pend)}h
                     </span>
                   </button>
                   <button
@@ -517,25 +527,21 @@ export function AprobacionProyectosView() {
                     }`}
                   >
                     <Icon name="checkSquare" size="sm" />
-                    Resueltas
-                    <span className="rounded-full bg-[#eef3f9] px-2 py-0.5 text-[10px] font-semibold text-navy">
-                      {tabCounts.res}
+                    Horas resueltas
+                    <span
+                      className="rounded-full bg-green-bg px-2 py-0.5 text-[10px] font-semibold text-green"
+                      title="Horas ya resueltas"
+                    >
+                      {formatHorasValor(tabHoras.res)}h
                     </span>
                   </button>
                 </div>
                 <div className="flex items-baseline gap-2.5 pr-3">
-                  {filtrosActivos ? (
-                    <span className="text-[12px] tabular-nums text-muted">
-                      {hojasTab.length} de {hojasTabBase.length}
-                    </span>
-                  ) : null}
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                    Horas
+                    Horas registradas totales
                   </span>
                   <span className="text-[18px] font-extrabold tabular-nums text-navy">
-                    {formatHorasValor(
-                      hojasTab.reduce((s, h) => s + horasNum(h.horas), 0),
-                    )}
+                    {formatHorasValor(tabHoras.pend + tabHoras.res)}
                   </span>
                 </div>
               </div>
@@ -564,6 +570,7 @@ export function AprobacionProyectosView() {
               />
             )}
           </Card>
+          </div>
         </section>
       </div>
 

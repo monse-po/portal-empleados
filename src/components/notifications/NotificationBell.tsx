@@ -29,7 +29,7 @@ function MobileBellLink({ unreadCount }: { unreadCount: number }) {
     >
       <Icon name="bell" size="md" />
       {unreadCount > 0 && (
-        <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#dbeafe] px-0.5 text-[9px] font-bold leading-none text-[#1d4ed8]">
+        <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red px-0.5 text-[9px] font-bold leading-none text-white">
           {unreadCount > 9 ? "9+" : unreadCount}
         </span>
       )}
@@ -84,7 +84,7 @@ export function NotificationBell() {
         >
           <Icon name="bell" size="md" />
           {unreadCount > 0 && (
-            <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#dbeafe] px-1 text-[10px] font-bold text-[#1d4ed8]">
+            <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red px-1 text-[10px] font-bold text-white">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}

@@ -8,19 +8,17 @@ import { TipoHoraPill } from "@/src/components/ui/TipoHoraPill";
 import { TableAproIconButton } from "@/src/components/ui/TableAproIconButton";
 import { TableSelectionCheckbox } from "@/src/components/ui/TableSelectionCheckbox";
 import {
-  APRO_PEND_COLS,
-  APRO_RES_COLS,
+  CHECKBOX_COL_WIDTH,
   DataTable,
   dataTd,
   dataTdCheck,
-  dataTdClamp,
   dataTdNumeric,
   dataTdResAction,
-  dataTdResSecondary,
   EmpleadoCell,
   ProyectoCell,
+  RES_TAB_ACTION_COL,
+  RES_TAB_SPACER_COL,
   SubproyectoCell,
-  dataTdTruncate,
   dataTh,
   dataThCheck,
   dataThResAction,
@@ -39,6 +37,34 @@ import {
 } from "@/src/lib/aprobacion-tiempo-mock";
 import { toastAnulados } from "@/src/lib/tiempo-bridge";
 import { formatHorasValor } from "@/src/lib/tiempo-schedule";
+
+const COLS_PEND = [
+  CHECKBOX_COL_WIDTH,
+  "88px",
+  "200px",
+  "140px",
+  "64px",
+  "180px",
+  "160px",
+  "200px",
+  "280px",
+] as const;
+
+const COLS_RES = [
+  RES_TAB_SPACER_COL,
+  "88px",
+  "180px",
+  "100px",
+  "140px",
+  "64px",
+  "180px",
+  "160px",
+  "180px",
+  "110px",
+  "240px",
+  "240px",
+  RES_TAB_ACTION_COL,
+] as const;
 
 type AprobacionTablaProps = {
   registros: HojaAprobacion[];
@@ -94,11 +120,15 @@ export function AprobacionTabla({
   const { allSelected, someSelected } = getSelectionState(seleccion, idsFiltrados);
 
   const renderProy = (proy: string) => (
-    <ProyectoCell codigo={proyKey(proy) || proy} nombre={proyNombre(proy)} />
+    <ProyectoCell
+      codigo={proyKey(proy) || proy}
+      nombre={proyNombre(proy)}
+      fullText
+    />
   );
 
   const renderSubproy = (subproy: string) => (
-    <SubproyectoCell codigo={subproy} />
+    <SubproyectoCell codigo={subproy} fullText />
   );
 
   const renderRowPend = (s: HojaAprobacion) => (
@@ -114,27 +144,29 @@ export function AprobacionTabla({
           aria-label={`Seleccionar ${s.no}`}
         />
       </td>
-      <td className={`${dataTd} text-muted ${dataTdTruncate}`}>{s.fecha}</td>
-      <td className={dataTd}>
-        <EmpleadoCell nombre={s.nombre} codigo={s.cedula} />
+      <td className={`${dataTd} whitespace-nowrap text-muted`}>{s.fecha}</td>
+      <td className={`${dataTd} whitespace-nowrap`}>
+        <EmpleadoCell nombre={s.nombre} codigo={s.cedula} fullText />
       </td>
-      <td
-        className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
-        title={s.aprobador || undefined}
-      >
-        {s.aprobador?.trim() || "—"}
-      </td>
-      <td className={dataTd}>
+      <td className={`${dataTd} whitespace-nowrap`}>
         <TipoHoraPill tipo={s.tipo} />
       </td>
-      <td className={dataTdNumeric}>{formatHorasValor(horasNum(s.horas))}</td>
-      <td className={dataTd}>{renderProy(s.proy)}</td>
-      <td className={dataTd}>{renderSubproy(s.subproy)}</td>
-      <td className={`${dataTd} text-[#374151] ${dataTdTruncate}`}>
+      <td className={`${dataTdNumeric} whitespace-nowrap`}>
+        {formatHorasValor(horasNum(s.horas))}
+      </td>
+      <td className={`${dataTd} whitespace-nowrap`}>{renderProy(s.proy)}</td>
+      <td className={`${dataTd} whitespace-nowrap`}>{renderSubproy(s.subproy)}</td>
+      <td
+        className={`${dataTd} whitespace-nowrap text-[#374151]`}
+        title={s.actividad}
+      >
         {s.actividad}
       </td>
-      <td className={`${dataTd} text-muted`}>
-        <div className={dataTdClamp}>{s.comentarioEmpleado || "—"}</div>
+      <td
+        className={`${dataTd} whitespace-nowrap text-muted`}
+        title={s.comentarioEmpleado || undefined}
+      >
+        {s.comentarioEmpleado || "—"}
       </td>
     </tr>
   );
@@ -146,36 +178,44 @@ export function AprobacionTabla({
       className="cursor-pointer transition-colors hover:bg-[#fafbfc]"
     >
       <td className={dataTd} />
-      <td className={`${dataTd} text-muted ${dataTdTruncate}`}>{s.fecha}</td>
-      <td className={dataTd}>
-        <EmpleadoCell nombre={s.nombre} codigo={s.cedula} />
+      <td className={`${dataTd} whitespace-nowrap text-muted`}>{s.fecha}</td>
+      <td className={`${dataTd} whitespace-nowrap`}>
+        <EmpleadoCell nombre={s.nombre} codigo={s.cedula} fullText />
       </td>
       <td
-        className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
-        title={s.aprobador || undefined}
+        className={`${dataTd} whitespace-nowrap text-[#374151]`}
+        title={s.aprobadorNombre || s.aprobador || undefined}
       >
         {s.aprobador?.trim() || "—"}
       </td>
-      <td className={dataTd}>
+      <td className={`${dataTd} whitespace-nowrap`}>
         <TipoHoraPill tipo={s.tipo} />
       </td>
-      <td className={dataTdNumeric}>{formatHorasValor(horasNum(s.horas))}</td>
-      <td className={dataTd}>{renderProy(s.proy)}</td>
-      <td className={dataTd}>{renderSubproy(s.subproy)}</td>
-      <td className={`${dataTd} text-[#374151] ${dataTdTruncate}`}>
+      <td className={`${dataTdNumeric} whitespace-nowrap`}>
+        {formatHorasValor(horasNum(s.horas))}
+      </td>
+      <td className={`${dataTd} whitespace-nowrap`}>{renderProy(s.proy)}</td>
+      <td className={`${dataTd} whitespace-nowrap`}>{renderSubproy(s.subproy)}</td>
+      <td
+        className={`${dataTd} whitespace-nowrap text-[#374151]`}
+        title={s.actividad}
+      >
         {s.actividad}
       </td>
-      <td className={dataTd}>
+      <td className={`${dataTd} whitespace-nowrap`}>
         <EstadoTiempoPill estado={s.estadoApro || ""} />
-        <div className={`${dataTdResSecondary} text-muted`}>
-          {s.fechaApro || "—"}
-        </div>
       </td>
       <td
-        className={`${dataTd} ${s.estadoApro === "Rechazado" ? "text-[#b91c1c]" : "text-muted"} ${dataTdTruncate}`}
-        title={s.comentarioApro}
+        className={`${dataTd} whitespace-nowrap text-muted`}
+        title={s.comentarioEmpleado || undefined}
       >
-        {s.comentarioApro || "—"}
+        {s.comentarioEmpleado || "—"}
+      </td>
+      <td
+        className={`${dataTd} whitespace-nowrap ${s.estadoApro === "Rechazado" ? "text-[#b91c1c]" : "text-muted"}`}
+        title={s.comentarioApro || undefined}
+      >
+        {s.comentarioApro?.trim() || "—"}
       </td>
       <td className={dataTdResAction} onClick={(e) => e.stopPropagation()}>
         <TableActionWrap>
@@ -200,7 +240,6 @@ export function AprobacionTabla({
   const pendHeaderCols: [string, string][] = [
     ["Fecha", "text-left"],
     ["Empleado", "text-left"],
-    ["Aprobador", "text-left"],
     ["Tipo hora", "text-left"],
     ["Horas", "text-center"],
     ["Proyecto", "text-left"],
@@ -219,12 +258,18 @@ export function AprobacionTabla({
     ["Subproyecto", "text-left"],
     ["Actividad", "text-left"],
     ["Estado", "text-left"],
+    ["Comentario", "text-left"],
     ["Motivo", "text-left"],
   ];
 
   return (
-    <div>
-      <DataTable colWidths={[...(tab === "pend" ? APRO_PEND_COLS : APRO_RES_COLS)]}>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-auto">
+      <DataTable
+        layout="auto"
+        stickyHeader
+        colWidths={[...(tab === "pend" ? COLS_PEND : COLS_RES)]}
+      >
         <thead>
           <tr>
             {tab === "pend" ? (
@@ -262,6 +307,7 @@ export function AprobacionTabla({
           )}
         </tbody>
       </DataTable>
+      </div>
 
       <TablePagination
         page={safePage}

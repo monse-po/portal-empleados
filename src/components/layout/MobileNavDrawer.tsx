@@ -16,24 +16,29 @@ import {
   type ModuleRoute,
 } from "@/src/lib/modules";
 
-function usePendingCount(path: string): number | undefined {
+function usePendingBadge(
+  path: string,
+): { count: number; exact?: boolean } | undefined {
   const aprobacion = useAprobacionOptional();
   const aprobacionAnticipos = useAprobacionAnticiposOptional();
   const aprobacionLegalizaciones = useAprobacionLegalizacionesOptional();
 
-  let count = 0;
   if (
     path === "/aprobacion-tiempo-proyectos" ||
     path === "/aprobacion-tiempo"
   ) {
-    count = aprobacion?.pendientesCount ?? 0;
-  } else if (path === "/aprobacion-anticipos") {
-    count = aprobacionAnticipos?.pendientesCount ?? 0;
-  } else if (path === "/aprobacion-legalizaciones") {
-    count = aprobacionLegalizaciones?.pendientesCount ?? 0;
-  } else return undefined;
-
-  return count > 0 ? count : undefined;
+    const count = aprobacion?.pendientesCount ?? 0;
+    return count > 0 ? { count, exact: true } : undefined;
+  }
+  if (path === "/aprobacion-anticipos") {
+    const count = aprobacionAnticipos?.pendientesCount ?? 0;
+    return count > 0 ? { count } : undefined;
+  }
+  if (path === "/aprobacion-legalizaciones") {
+    const count = aprobacionLegalizaciones?.pendientesCount ?? 0;
+    return count > 0 ? { count } : undefined;
+  }
+  return undefined;
 }
 
 function DrawerLink({
@@ -44,7 +49,7 @@ function DrawerLink({
   onNavigate: () => void;
 }) {
   const pathname = usePathname();
-  const count = usePendingCount(route.path);
+  const badge = usePendingBadge(route.path);
   const active = isNavRouteActive(pathname, route.path);
 
   if (!isPathVisible(route.path)) return null;
@@ -74,11 +79,11 @@ function DrawerLink({
         className={active ? "text-navy" : "text-[#4b5563]"}
       />
       <span className="min-w-0 flex-1 whitespace-nowrap">{route.navLabel}</span>
-      {count !== undefined && count > 0 && (
+      {badge ? (
         <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#dbeafe] px-1.5 text-[10px] font-bold tabular-nums text-[#1d4ed8]">
-          {count > 9 ? "9+" : count}
+          {badge.exact || badge.count <= 9 ? badge.count : "9+"}
         </span>
-      )}
+      ) : null}
     </Link>
   );
 }

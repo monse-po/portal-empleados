@@ -16,10 +16,8 @@ import {
   dataTdCheck,
   dataTdNumeric,
   dataTdResAction,
-  dataTdResSecondary,
   EmpleadoCell,
   SubproyectoCell,
-  dataTdTruncate,
   dataTh,
   dataThCheck,
   dataThResAction,
@@ -36,27 +34,27 @@ import { formatHorasValor } from "@/src/lib/tiempo-schedule";
 
 const COLS_PEND = [
   CHECKBOX_COL_WIDTH,
-  "92px",
-  "16%",
-  "14%",
+  "88px",
+  "200px",
   "140px",
   "64px",
-  "14%",
-  "14%",
-  "18%",
+  "180px",
+  "200px",
+  "280px",
 ] as const;
 
 const COLS_RES = [
   RES_TAB_SPACER_COL,
   "88px",
-  "14%",
-  "13%",
-  "128px",
-  "60px",
-  "12%",
-  "12%",
+  "180px",
   "100px",
-  "16%",
+  "140px",
+  "64px",
+  "160px",
+  "180px",
+  "110px",
+  "240px",
+  "240px",
   RES_TAB_ACTION_COL,
 ] as const;
 
@@ -85,7 +83,7 @@ type AprobacionProyectosRegistrosTablaProps = {
 };
 
 function renderSubproy(subproy: string) {
-  return <SubproyectoCell codigo={subproy} />;
+  return <SubproyectoCell codigo={subproy} fullText />;
 }
 
 export function AprobacionProyectosRegistrosTabla({
@@ -151,7 +149,6 @@ export function AprobacionProyectosRegistrosTabla({
   const pendHeaders: [string, string][] = [
     ["Fecha", "text-left"],
     ["Empleado", "text-left"],
-    ["Aprobador", "text-left"],
     ["Tipo hora", "text-left"],
     ["Horas", "text-center"],
     ["Subproyecto", "text-left"],
@@ -168,15 +165,17 @@ export function AprobacionProyectosRegistrosTabla({
     ["Subproyecto", "text-left"],
     ["Actividad", "text-left"],
     ["Estado", "text-left"],
+    ["Comentario", "text-left"],
     ["Motivo", "text-left"],
   ];
 
   return (
-    <div>
-      <div className="overflow-x-auto">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-auto">
         <DataTable
+          layout="auto"
+          stickyHeader
           colWidths={[...(tab === "pend" ? COLS_PEND : COLS_RES)]}
-          className="min-w-[1080px]"
         >
           <thead>
             <tr>
@@ -220,55 +219,66 @@ export function AprobacionProyectosRegistrosTabla({
                   ) : (
                     <td className={dataTd} />
                   )}
-                  <td className={`${dataTd} text-muted ${dataTdTruncate}`}>
+                  <td className={`${dataTd} whitespace-nowrap text-muted`}>
                     {s.fecha}
                   </td>
-                  <td className={dataTd}>
+                  <td className={`${dataTd} whitespace-nowrap`}>
                     <EmpleadoCell
                       nombre={s.nombre || s.solicitante}
                       codigo={s.cedula}
+                      fullText
                     />
                   </td>
-                  <td
-                    className={`${dataTd} text-[#374151] ${dataTdTruncate}`}
-                    title={s.aprobador || undefined}
-                  >
-                    {s.aprobador?.trim() || "—"}
-                  </td>
-                  <td className={dataTd}>
+                  {tab === "res" ? (
+                    <td
+                      className={`${dataTd} whitespace-nowrap text-[#374151]`}
+                      title={s.aprobadorNombre || s.aprobador || undefined}
+                    >
+                      {s.aprobador?.trim() || "—"}
+                    </td>
+                  ) : null}
+                  <td className={`${dataTd} whitespace-nowrap`}>
                     <TipoHoraPill tipo={s.tipo} />
                   </td>
-                  <td className={dataTdNumeric}>
+                  <td className={`${dataTdNumeric} whitespace-nowrap`}>
                     {formatHorasValor(horasNum(s.horas))}
                   </td>
-                  <td className={dataTd}>{renderSubproy(s.subproy)}</td>
-                  <td className={`${dataTd} text-[#374151] ${dataTdTruncate}`}>
+                  <td className={`${dataTd} whitespace-nowrap`}>
+                    {renderSubproy(s.subproy)}
+                  </td>
+                  <td
+                    className={`${dataTd} whitespace-nowrap text-[#374151]`}
+                    title={s.actividad}
+                  >
                     {s.actividad}
                   </td>
                   {tab === "pend" ? (
                     <td
-                      className={`${dataTd} text-muted ${dataTdTruncate}`}
+                      className={`${dataTd} whitespace-nowrap text-muted`}
                       title={s.comentarioEmpleado || undefined}
                     >
                       {s.comentarioEmpleado || "—"}
                     </td>
                   ) : (
                     <>
-                      <td className={dataTd}>
+                      <td className={`${dataTd} whitespace-nowrap`}>
                         <EstadoTiempoPill estado={s.estadoApro || ""} />
-                        <div className={`${dataTdResSecondary} text-muted`}>
-                          {s.fechaApro || "—"}
-                        </div>
                       </td>
                       <td
-                        className={`${dataTd} ${
+                        className={`${dataTd} whitespace-nowrap text-muted`}
+                        title={s.comentarioEmpleado || undefined}
+                      >
+                        {s.comentarioEmpleado || "—"}
+                      </td>
+                      <td
+                        className={`${dataTd} whitespace-nowrap ${
                           s.estadoApro === "Rechazado"
                             ? "text-[#b91c1c]"
                             : "text-muted"
-                        } ${dataTdTruncate}`}
-                        title={s.comentarioApro}
+                        }`}
+                        title={s.comentarioApro || undefined}
                       >
-                        {s.comentarioApro || "—"}
+                        {s.comentarioApro?.trim() || "—"}
                       </td>
                       <td
                         className={dataTdResAction}
