@@ -53,7 +53,7 @@ function loteChipLabel(count: number, href?: string): string {
 }
 
 function splitMotivo(text: string): { cuerpo: string; motivo?: string } {
-  const match = text.match(/^(.*?)\s*·\s*Motivo:\s*(.+)$/s);
+  const match = text.match(/^([\s\S]*?)\s*·\s*Motivo:\s*([\s\S]+)$/);
   if (!match) return { cuerpo: text };
   return { cuerpo: match[1].trim(), motivo: match[2].trim() };
 }
