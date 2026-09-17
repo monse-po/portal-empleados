@@ -14,7 +14,7 @@ import {
   AnticiposProvider,
   useAnticipos,
 } from "@/src/app/mis-anticipos/AnticiposContext";
-import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+import { RouteLoading } from "@/src/components/layout/RouteLoading";
 import { LOADING_COPY } from "@/src/lib/copy/loading";
 
 type Vista = "lista" | "detalle" | "form";
@@ -61,13 +61,7 @@ function AnticiposViewInner() {
 
   if (!loaded) {
     return (
-      <div className="view-wide flex min-h-[320px] items-center justify-center">
-        <LoadingNotice
-          variant="inline"
-          icon="wallet"
-          label={LOADING_COPY.generic.label}
-        />
-      </div>
+      <RouteLoading icon="wallet" label={LOADING_COPY.generic.label} />
     );
   }
 

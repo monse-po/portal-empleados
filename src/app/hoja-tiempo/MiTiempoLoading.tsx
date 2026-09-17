@@ -1,34 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+import { RouteLoading } from "@/src/components/layout/RouteLoading";
 import { useMiTiempo } from "@/src/app/hoja-tiempo/MiTiempoContext";
 import { LOADING_COPY } from "@/src/lib/copy/loading";
-import { registrosLoadingHint } from "@/src/lib/ifs/tiempo-timesheet";
-import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 
 export function MiTiempoLoading() {
   const { ifsConnected } = useMiTiempo();
-  const [hintFromIfs, setHintFromIfs] = useState(ifsConnected);
-
-  useEffect(() => {
-    if (ifsConnected) {
-      setHintFromIfs(true);
-      return;
-    }
-    void getIfsSessionStatusAction().then((status) => {
-      setHintFromIfs(status.connected);
-    });
-  }, [ifsConnected]);
 
   return (
-    <div className="view-wide flex min-h-[320px] items-center justify-center">
-      <LoadingNotice
-        variant="inline"
-        icon={LOADING_COPY.timeRecords.icon}
-        label={LOADING_COPY.timeRecords.label}
-        hint={registrosLoadingHint(hintFromIfs)}
-      />
-    </div>
+    <RouteLoading
+      icon={LOADING_COPY.timeRecords.icon}
+      label={
+        ifsConnected
+          ? LOADING_COPY.timeRecordsIfs.label
+          : LOADING_COPY.timeRecords.label
+      }
+    />
   );
 }

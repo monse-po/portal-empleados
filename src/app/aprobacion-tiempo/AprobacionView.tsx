@@ -15,7 +15,7 @@ import {
 import { toastAprobados, toastAnulados, toastRechazados } from "@/src/lib/tiempo-bridge";
 import { getHojasPendientesAprobacionAction } from "@/src/server/mi-tiempo-actions";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
-import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+import { RouteLoading } from "@/src/components/layout/RouteLoading";
 import { LOADING_COPY } from "@/src/lib/copy/loading";
 
 type Vista = "lista" | "detalle";
@@ -223,13 +223,7 @@ export function AprobacionView() {
 
   if (!pendientesLoaded) {
     return (
-      <div className="view-wide flex min-h-[320px] items-center justify-center">
-        <LoadingNotice
-          variant="inline"
-          icon="checkSquare"
-          label={LOADING_COPY.generic.label}
-        />
-      </div>
+      <RouteLoading icon="checkSquare" label={LOADING_COPY.generic.label} />
     );
   }
 

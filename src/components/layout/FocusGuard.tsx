@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { RouteLoading } from "@/src/components/layout/RouteLoading";
 import { useRole } from "@/src/components/layout/RoleContext";
 import {
   getFocusModules,
@@ -30,7 +31,7 @@ export function FocusGuard({ children }: { children: React.ReactNode }) {
     if (oculto) router.replace(homePath);
   }, [oculto, homePath, roleReady, router]);
 
-  if (oculto) return null;
+  if (oculto) return <RouteLoading />;
 
   return children;
 }

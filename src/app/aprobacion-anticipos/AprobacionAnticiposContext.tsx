@@ -4,11 +4,11 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import {
   countAproAnticiposTabs,
   filterAproAnticiposByTab,
@@ -22,6 +22,7 @@ import {
 } from "@/src/server/anticipos-actions";
 import { createNotificacionesAnticipoDecisionAction } from "@/src/server/notificacion-actions";
 import { portalActionError } from "@/src/lib/ifs/errors";
+import { useIdleOrEagerEffect } from "@/src/lib/use-idle-or-eager-effect";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import { ANTICIPOS_CHANGED_EVENT } from "@/src/lib/ifs/portal-events";
 import { useTableSelection } from "@/src/lib/use-table-selection";
@@ -57,6 +58,7 @@ export function AprobacionAnticiposProvider({
 }: {
   children: ReactNode;
 }) {
+  const pathname = usePathname();
   const [solicitudes, setSolicitudes] = useState<
     Record<string, AnticipoAprobacion>
   >({});
@@ -91,16 +93,13 @@ export function AprobacionAnticiposProvider({
     }
   }, []);
 
-  useEffect(() => {
+  useIdleOrEagerEffect(() => {
     void reload();
-  }, [reload]);
-
-  useEffect(() => {
     void getIfsSessionStatusAction().then((status) => {
       setIfsConnected(status.connected);
       setIfsEmail(status.email ?? null);
     });
-  }, []);
+  }, pathname.startsWith("/aprobacion-anticipos"));
 
   const setTab = useCallback(
     (next: AnticipoAprobacionTab) => {

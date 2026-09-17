@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AppProviders } from "@/src/components/layout/AppProviders";
 import { RoleProvider } from "@/src/components/layout/RoleContext";
@@ -11,6 +11,7 @@ import { MobileNavDrawer } from "@/src/components/layout/MobileNavDrawer";
 import { ShellContext } from "@/src/components/layout/ShellContext";
 import { Sidebar } from "@/src/components/layout/Sidebar";
 import { Topbar } from "@/src/components/layout/Topbar";
+import { RouteLoading } from "@/src/components/layout/RouteLoading";
 import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
 
 /** Sin sesión IFS no se pinta el shell. Alineado con isPortalLoginRequired(). */
@@ -101,7 +102,9 @@ export function PortalShell({ children }: PortalShellProps) {
                 <Sidebar />
                 <main className="flex min-h-0 flex-1 flex-col items-center overflow-x-hidden overflow-y-auto px-2 max-md:px-1.5 md:px-3">
                   <div className="w-full py-[18px] max-md:py-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] md:py-4 [&>*]:w-full">
-                    <FocusGuard>{children}</FocusGuard>
+                    <FocusGuard>
+                      <Suspense fallback={<RouteLoading />}>{children}</Suspense>
+                    </FocusGuard>
                   </div>
                 </main>
               </div>

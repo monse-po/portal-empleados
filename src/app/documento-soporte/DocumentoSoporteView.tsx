@@ -5,7 +5,7 @@ import { DocumentoSoporteDetalle } from "@/src/app/documento-soporte/DocumentoSo
 import { DocumentoSoporteFormulario } from "@/src/app/documento-soporte/DocumentoSoporteFormulario";
 import { DocumentoSoporteLista } from "@/src/app/documento-soporte/DocumentoSoporteLista";
 import { useDocumentoSoporte } from "@/src/app/documento-soporte/DocumentoSoporteContext";
-import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+import { RouteLoading } from "@/src/components/layout/RouteLoading";
 import { LOADING_COPY } from "@/src/lib/copy/loading";
 import { sanitizePortalErrorMessage } from "@/src/lib/ifs/errors";
 
@@ -25,13 +25,7 @@ export function DocumentoSoporteView() {
 
   if (!loaded) {
     return (
-      <div className="view-wide flex min-h-[320px] items-center justify-center">
-        <LoadingNotice
-          variant="inline"
-          icon="folderOpen"
-          label={LOADING_COPY.generic.label}
-        />
-      </div>
+      <RouteLoading icon="folderOpen" label={LOADING_COPY.generic.label} />
     );
   }
 

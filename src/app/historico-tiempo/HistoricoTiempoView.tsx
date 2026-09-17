@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/Card";
 import { Icon } from "@/src/components/ui/Icon";
-import { LoadingNotice } from "@/src/components/ui/LoadingNotice";
+import { RouteLoading } from "@/src/components/layout/RouteLoading";
 import {
   IfsConnectedChip,
   IfsStatusBanner,
@@ -158,13 +158,10 @@ export function HistoricoTiempoView() {
 
   if (!loaded) {
     return (
-      <div className="view-wide flex min-h-[320px] items-center justify-center">
-        <LoadingNotice
-          variant="inline"
-          icon={LOADING_COPY.timeRecords.icon}
-          label={LOADING_COPY.timeRecords.label}
-        />
-      </div>
+      <RouteLoading
+        icon={LOADING_COPY.timeRecords.icon}
+        label={LOADING_COPY.timeRecords.label}
+      />
     );
   }
 

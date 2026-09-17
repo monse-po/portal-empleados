@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import {
   countDocumentosTab,
   getDocumentosTab,
@@ -19,6 +20,7 @@ import {
   type GuardarDocumentoSoporteInput,
 } from "@/src/lib/documento-soporte-mock";
 import { portalActionError } from "@/src/lib/ifs/errors";
+import { useIdleOrEagerEffect } from "@/src/lib/use-idle-or-eager-effect";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import {
   guardarDocumentoSoporteAction,
@@ -59,6 +61,7 @@ export function DocumentoSoporteProvider({
 }: {
   children: ReactNode;
 }) {
+  const pathname = usePathname();
   const [documentos, setDocumentos] = useState<Record<string, DocumentoSoporte>>(
     {},
   );
@@ -104,16 +107,13 @@ export function DocumentoSoporteProvider({
     }
   }, []);
 
-  useEffect(() => {
+  useIdleOrEagerEffect(() => {
     void reload();
-  }, [reload]);
-
-  useEffect(() => {
     void getIfsSessionStatusAction().then((status) => {
       setIfsConnected(status.connected);
       setIfsEmail(status.email ?? null);
     });
-  }, []);
+  }, pathname.startsWith("/documento-soporte"));
 
   useEffect(() => {
     const onChanged = () => {

@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import { getAnticiposRegistrosTab } from "@/src/lib/anticipos-filtros";
 import {
   countAnticiposTab,
@@ -23,6 +24,7 @@ import {
   listMisAnticiposAction,
 } from "@/src/server/anticipos-actions";
 import { portalActionError } from "@/src/lib/ifs/errors";
+import { useIdleOrEagerEffect } from "@/src/lib/use-idle-or-eager-effect";
 import { getIfsSessionStatusAction } from "@/src/server/mi-tiempo-catalog-actions";
 import {
   ANTICIPOS_CHANGED_EVENT,
@@ -83,6 +85,7 @@ type AnticiposContextValue = {
 const AnticiposContext = createContext<AnticiposContextValue | null>(null);
 
 export function AnticiposProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [anticipos, setAnticipos] = useState<Record<string, Anticipo>>({});
   const [extras, setExtras] = useState<Record<string, AnticipoExtra>>({});
   const [empleadoId, setEmpleadoId] = useState<string | null>(null);
@@ -126,16 +129,13 @@ export function AnticiposProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
+  useIdleOrEagerEffect(() => {
     void reload();
-  }, [reload]);
-
-  useEffect(() => {
     void getIfsSessionStatusAction().then((status) => {
       setIfsConnected(status.connected);
       setIfsEmail(status.email ?? null);
     });
-  }, []);
+  }, pathname.startsWith("/mis-anticipos"));
 
   useEffect(() => {
     const onChanged = () => {
